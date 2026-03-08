@@ -1,0 +1,31 @@
+{
+  "slug": "way",
+  "title": "The Way",
+  "photos": [
+    {
+      "id": "2024-the-way-1",
+      "fileName": "2024-The-Way-1.jpg",
+      "width": 3072,
+      "height": 4096,
+      "orientation": "portrait",
+      "date": "2024-04-25",
+      "description": "Starting the journey in Saint-Jean-Pied-de-Port.",
+      "src": {
+        "grid": "grid/2024-The-Way-1.webp",
+        "full": "full/2024-The-Way-1.webp"
+      }
+    },
+    {
+      "id": "2024-the-way-2",
+      "fileName": "2024-The-Way-2.jpg",
+      "width": 5712,
+      "height": 4284,
+      "orientation": "landscape",
+      "date": "2024-04-27",
+      "src": {
+        "grid": "grid/2024-The-Way-2.webp",
+        "full": "full/2024-The-Way-2.webp"
+      }
+    }
+  ]
+}

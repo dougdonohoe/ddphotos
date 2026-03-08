@@ -1,0 +1,62 @@
+name: DD Photos CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev pkg-config
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'web/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+
+      - name: Install Go dependencies
+        run: go mod download
+
+      - name: Install npm dependencies
+        run: cd web && npm ci
+
+      - name: Go build, test, vet
+        run: make build test vet
+
+      - name: Set albums symlink to sample
+        run: make use-sample
+
+      - name: Run photogen on sample data
+        run: make sample-photogen
+
+      - name: Build Docker image
+        run: make web-docker-build
+
+      - name: Build sample site
+        run: make sample-build
+
+      - name: Install Playwright Chromium
+        run: make web-playwright-install
+
+      - name: Install Playwright system dependencies
+        run: cd web && npx playwright install-deps chromium
+
+      - name: Run Apache routing tests
+        run: make sample-test-apache
+
+      - name: Run Playwright e2e tests
+        run: make web-playwright-test-apache

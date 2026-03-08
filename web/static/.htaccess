@@ -1,0 +1,30 @@
+##
+## Configure apache to serve up albums like https://photos.example.com/albums/europe,
+## which uses europe.html.  A trailing slash is redirected to remove it.
+##
+
+ErrorDocument 404 /404.html
+
+DirectorySlash Off
+RewriteEngine On
+
+# Redirect trailing slashes to non-trailing slash version
+RewriteCond %{REQUEST_URI} !^/$
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+# Handle the specific case where a directory exists but we want the .html file
+RewriteCond %{REQUEST_URI} !\.html$
+RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI}.html -f
+RewriteRule ^(.+)$ $1.html [L,QSA]
+
+# Serve album page for photo permalink URLs: /albums/slug/N -> /albums/slug.html
+# SvelteKit only prebuilds albums/slug.html; the JS reads the path and opens the lightbox.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^albums/([^/]+)/(\d+)$ /albums/$1.html [L]
+
+# Fallback to index.html for client-side routing (root level only)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} ^/[^/]*$
+RewriteRule ^(.*)$ /index.html [L]

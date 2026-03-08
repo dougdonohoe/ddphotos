@@ -1,0 +1,21 @@
+# Go
+*.exe
+*.test
+*.out
+
+# Config (personal — copy from config/site.example.env etc.)
+config/site.env
+config/albums.yaml
+config/albums-laptop.yaml
+config/descriptions.txt
+
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude
+
+# photogen output (generated; use 'make use-sample' or 'make use-prod' to symlink)
+web/static/albums
+web/albums/

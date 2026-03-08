@@ -1,0 +1,75 @@
+# =============================================================================
+# photogen album configuration — example
+# =============================================================================
+# Copy this file to albums.yaml (or albums-laptop.yaml, etc.) and edit it.
+# Run: photogen -config-dir /path/to/this/dir
+#
+# CLI flags override YAML settings when provided:
+#   -site-url   overrides settings.site_url
+#   -out        overrides settings.output_dir
+#   -album      filters to specific slugs (comma-separated)
+#   -workers    sets concurrent resize workers
+# =============================================================================
+
+settings:
+  # Site identifier — used to name the output directory: web/albums/{id}
+  # Lowercase letters, digits, and hyphens only (e.g. "prod", "my-site").
+  # Symlink web/static/albums -> albums-{id} to make the site live.
+  id: my-site
+
+  # Base URL used when generating sitemap.xml
+  site_url: https://photos.example.com
+
+  # Where to write generated images and JSON. Relative paths are resolved from
+  # the working directory when photogen is run. Output lands in {output_dir}/albums/{id}/
+  # so set this to web/ (not web/static/) to keep generated dirs outside the static tree.
+  output_dir: web
+
+  # Descriptions file (relative to this config dir). Each line:
+  #   slug<whitespace>description
+  # Blank lines and lines starting with # are ignored.
+  descriptions: descriptions.txt
+
+# Named source base paths. Albums reference these by name via the 'base' key.
+# Defining bases here lets you swap root paths between configs (e.g., prod vs.
+# laptop) without touching individual album entries.
+bases:
+  # Example: photos on an external drive
+  drive: /Volumes/MyDrive/Photos
+  # Example: photos in a cloud-synced folder
+  cloud: /Users/me/Dropbox/Photos
+
+albums:
+  # ------------------------------------------------------------------
+  # Full example — all fields shown
+  # ------------------------------------------------------------------
+  - slug: patagonia               # URL slug and output directory name (no spaces)
+    name: Patagonia               # Human-readable album title
+    base: drive                   # References bases.drive above
+    source: 2026-Patagonia        # Joined to base path
+    cover: Patagonia-042.jpg      # Optional: filename of cover photo (defaults to first)
+    manual_sort_order: true       # If true, order follows photogen.txt in the source directory
+
+  # ------------------------------------------------------------------
+  # Minimal example — only required fields
+  # ------------------------------------------------------------------
+  - slug: hiking
+    name: Summer Hiking
+    base: drive
+    source: 2025-Summer-Hiking
+
+  # ------------------------------------------------------------------
+  # No base — source is an absolute path
+  # ------------------------------------------------------------------
+  - slug: local-test
+    name: Local Test
+    source: /tmp/test-photos
+
+  # ------------------------------------------------------------------
+  # Source with spaces — quote the value
+  # ------------------------------------------------------------------
+  - slug: old-trip
+    name: Old Trip
+    base: cloud
+    source: "Vacations/2005-07 Old Trip/Favorites"
+    manual_sort_order: true

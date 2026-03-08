@@ -1,0 +1,31 @@
+# Test fixture for LoadAlbumsFile.
+# Source paths intentionally point to non-existent directories —
+# path resolution and existence checking are tested separately in
+# TestToAlbumConfigs using t.TempDir().
+
+settings:
+  site_url: https://photos.example.com
+  output_dir: web/static
+  descriptions: descriptions.txt
+
+bases:
+  t7: /Volumes/T7/Photos
+  dropbox: /Users/example/Dropbox/Photos
+
+albums:
+  - slug: antarctica
+    name: Antarctica
+    base: t7
+    source: 2004-Antarctica
+    cover: IMG_001.jpg
+    manual_sort_order: true
+
+  - slug: nepal
+    name: Nepal 2018
+    base: t7
+    source: 2018-Nepal
+
+  # Album with no base — source used as-is
+  - slug: localtest
+    name: Local Test
+    source: /tmp/local-test

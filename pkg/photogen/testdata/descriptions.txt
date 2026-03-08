@@ -1,0 +1,6 @@
+# Album descriptions test fixture.
+# Format: slug<whitespace>description
+# Blank lines and lines starting with # are ignored.
+
+antarctica    A cruise through Antarctica and the Falkland Islands.
+nepal         Trekking to Everest Base Camp.

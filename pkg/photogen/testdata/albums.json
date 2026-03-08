@@ -1,0 +1,17 @@
+[
+  {
+    "slug": "way",
+    "title": "The Way",
+    "count": 2,
+    "cover": "way/grid/2024-The-Way-1.webp",
+    "dateSpan": "Apr 2024",
+    "description": "530 miles along El Camino de Santiago."
+  },
+  {
+    "slug": "como",
+    "title": "Lake Como",
+    "count": 1,
+    "cover": "como/grid/2024-Lake-Como-1.webp",
+    "dateSpan": "Jun 2024"
+  }
+]

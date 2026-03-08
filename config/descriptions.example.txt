@@ -1,0 +1,8 @@
+# Album descriptions
+# Format: slug<whitespace>description
+# Blank lines and lines starting with # are ignored.
+# The slug must match the slug field in albums.yaml.
+
+mountains    A week hiking through alpine meadows and rocky peaks.
+coastline    Exploring tide pools, sea stacks, and dramatic cliffs along the shore.
+cities       Street photography and architecture from a cross-country road trip.

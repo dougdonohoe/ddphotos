@@ -1,0 +1,7 @@
+# Album descriptions
+# Format: slug<whitespace>description
+# Blank lines and lines starting with # are ignored.
+
+the-way      A life-changing 530 miles and 37 days to walk El Camino del Norte, the rugged coastal route of El Camino de Santiago.
+uganda       Tracking mountain gorillas deep in the jungle and spotting tree-climbing lions, elephants, and hippos on safari on our first visit to Africa.
+antarctica   Surviving the Drake Passage to reach the bottom of the world: a cruise through Antarctica and the Falkland Islands with epic encounters with penguins, icebergs, albatross, and whales.
