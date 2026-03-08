@@ -394,7 +394,7 @@ origin on EC2.
 flowchart LR
     User -->|HTTPS| WAF["WAFv2 Web ACL"]
     WAF --> CF["CloudFront CDN"]
-    CF -->|HTTP| Apache["Apache \n photos.donohoe.info"]
+    CF -->|HTTP| Apache["EC2 / Apache"]
 ```
 
 The WAF (Web Application Firewall) inspects every incoming request and blocks 

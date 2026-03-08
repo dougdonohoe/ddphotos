@@ -192,7 +192,7 @@ cp config/site.example.env config/site.env
 ```
 
 **TIP**: If you use `prod` as your `settings.id` value in `albums.yaml`,
-you can use some provided make targets, like `use-prod`
+you can use some provided make targets, like `use-prod`.
 
 ## Commands
 
