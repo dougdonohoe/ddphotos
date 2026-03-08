@@ -43,3 +43,9 @@ make web-playwright-test-apache  # Playwright e2e tests (Docker)
 ```
 
 System dependency required: `brew install vips pkg-config`
+
+## Testing Practices
+
+- **Reproducing frontend bugs**: write a failing Playwright test that demonstrates the bug before fixing it
+- **New UI features**: add a Playwright test covering the new behavior — tests live in `web/tests/`
+- Playwright tests run against Docker/Apache (`make web-playwright-test-apache`) or the dev server (`make web-playwright-test-dev`)
