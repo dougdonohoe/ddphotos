@@ -481,5 +481,6 @@ For full end-to-end CI validation from a clean slate, push to GitHub. A draft PR
 without signaling the code is ready to merge:
 
 ```bash
-gh pr create --draft --title "wip: testing CI" --body ""
+git commit --allow-empty -m "ci: test GitHub Actions workflow"
+gh pr create --draft --title "wip: testing CI" --body "Testing CI"
 ```
