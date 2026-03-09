@@ -22,7 +22,7 @@ you see a grid of all photos.  Click/touch a photo to see the full size version 
 a caption, if it has one. You can easily swipe between photos (or use
 arrow keys on a laptop).  It works great on mobile, tablet, and desktop.
 
-Here's what it looks like on a big display (see [SCREENSHOTS.md](SCREENSHOTS.md) for larger versions):
+Here's what it looks like on a big display (see [SCREENSHOTS.md](docs/SCREENSHOTS.md) for larger versions):
 
 ![screenshots.png](images/screenshots.png)
 
