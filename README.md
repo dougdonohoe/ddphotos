@@ -283,7 +283,7 @@ SvelteKit site, deployment and other technical details.
 
 ## Project History
 
-Much of this project was built with Claude Code. See `docs/HISTORY.md`
+Much of this project was built with Claude Code. See [HISTORY.md](docs/HISTORY.md)
 for a detailed session log covering WebP conversion, concurrent image resizing,
 static site setup, Apache URL routing and Docker test environment, photo
 descriptions and captions, photo permalinks, Open Graph and social sharing tags,
