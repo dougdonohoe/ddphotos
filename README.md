@@ -66,6 +66,8 @@ Website features:
   mouse-hover caption (desktop), always-visible caption (mobile), and lightbox caption.
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Dark/light theme toggle.
+- OpenGraph tags for rich link previews when sharing album or photo URLs on social media
+  or messaging apps, using a JPEG version of the album cover photo as the preview image.
 
 Backend features:
 
