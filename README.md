@@ -96,7 +96,7 @@ options in the future if there is interest.
 That said, I happen to already run an Apache server on an AWS EC2 instance that is fronted 
 by CloudFront.  Deployment for me is an `rsync` to this server, and I've included the 
 script which does this.  My actual AWS setup is maintained in Terraform files in a
-private repo, but I'll provide some details in the [README-DEV](README-DEV.md)
+private repo, but I provide some details in the [README-DEV](README-DEV.md)
 for those that are curious.  Part of what makes my photos site fast is the use of the CDN
 and the fact that the site is entirely static.
 
