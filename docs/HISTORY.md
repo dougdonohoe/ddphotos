@@ -2,9 +2,47 @@
 
 For current project documentation, see [`README.md`](../README.md).
 
-This file is a historical log of work done with Claude Code.
+This file is a historical log of work done with ChatGPT and Claude Code.
 
-## What Was Accomplished
+## Original Prompt
+
+This project started with ChatGPT and this prompt:
+
+_I want to build a web-based app for browsing photos, similar to Apple Photos
+shared albums, but faster (it takes 15-20 seconds to load albums with 100+ photos).
+I have photos in folders, so am thinking I'd have a Go-based program that takes as
+input one or more folders and outputs static HTML + JavaScript.   Each folder
+corresponds to a trip.  E.g., Galapagos or "Camino de Santiago"._
+
+_The script should generate a menu page which lists each album and a preview picture
+from each album (something that eventually should be configurable).  When clicking
+into an album, you first see all the photos in a nice grid like Apple Photos
+does - mixing horizontal vs vertical orientation._
+
+_When clicking on a photo, it opens up a full screen view.  Arrowing left/right or
+up/down on a keyboard moves through the photos in the album. On mobile, swipe
+left/right works to move as well as tapping on left/right side of photo.  Photos
+use up as much room as possible and respect orientation of a mobile device._
+
+_Those are the basic requirements (I'll add more details later).  My first question
+is which javascript framework should I use?  I think this is a single-page-app
+(but with URL munging to allow bookmarking).  I don't think I need a server API - just
+pre-generating smaller versions of images for the all-photos view.  Loading of
+images should probably be done on-demand (e.g., when I scroll down, it fetches
+the next images that will be in view ... this should improve perceived performance)._
+
+_I don't want code generation from you yet, let's talk about architecture first.
+I'm an expert in Go, am familiar with CSS and HTML and basic JavaScript, but don't
+know the must current web frameworks, especially those that are mobile friendly._
+
+## ChatGPT Spec
+
+The [ChatGPT chat](https://chatgpt.com/share/69aedbec-375c-8010-b1da-2b39d78f6e6b)
+resulted in the [PHOTOS.md](PHOTOS.md) spec.  An intial attempt at generating
+code using OpenAI Codex was abandoned and the rest of the work, documented below,
+was done with Claude Code.
+
+## Claude Code Sessions
 
 ### 1. WebP Image Format
 - Changed from JPEG to WebP output for smaller file sizes
