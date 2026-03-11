@@ -513,3 +513,23 @@ Replaced `web/static/robots.txt` (static, always disallow) with a SvelteKit pre-
 
 Added `VITE_ALLOW_CRAWLING` to `app.d.ts`, `config/site.example.env`, and the README-DEV.md env table.
 The static `web/static/robots.txt` was deleted.
+
+### 40. Back-to-Top Button on Album List Page + Shared Component Refactor
+
+Added a back-to-top arrow button to the album list (home) page on mobile, where 21 albums make the page long enough to warrant it. Took the opportunity to extract the existing button from the album grid page into a shared `BackToTop.svelte` component.
+
+**`web/src/lib/components/BackToTop.svelte`** — new component encapsulating scroll listener, state, and styles. Accepts a `mobileOnly` prop (default `false`); when true, CSS hides the button at `min-width: 769px` via `@media`.
+
+**`web/src/routes/+page.svelte`** (home) — removed inline scroll logic; uses `<BackToTop mobileOnly={true} />`.
+
+**`web/src/routes/albums/[slug]/[[index]]/+page.svelte`** (album grid) — removed `showBackToTop` state, `scrollToTop()` function, scroll listener from `onMount`, inline button, and `.back-to-top` CSS block; uses `<BackToTop />` (visible on all screen sizes).
+
+**`web/tests/back-to-top.spec.ts`** — 4 new Playwright tests:
+- Album page: button appears after scrolling on desktop and mobile
+- Home page: button appears after scrolling on mobile; button is hidden on desktop
+
+Key testing challenges:
+- `window.scrollTo` queues the scroll event asynchronously; paired with `window.dispatchEvent(new Event('scroll'))` in the same `evaluate` call to fire it immediately
+- Body `min-height` injected inline (via `document.body.style.minHeight`) with a synchronous `getBoundingClientRect()` reflow before scrolling — ensures the page is scrollable even with sparse sample data
+- Album page tests wait for `.gallery.layout-ready` before scrolling (set by the album page's `onMount`, which runs after `BackToTop`'s `onMount` in Svelte's bottom-up mount order — reliable hydration signal)
+- Home page tests use `toPass` with retries to handle the dev-server parallel execution race where the scroll listener may not yet be registered
