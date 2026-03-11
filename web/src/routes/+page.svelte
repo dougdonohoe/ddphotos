@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BackToTop from '$lib/components/BackToTop.svelte';
+
 	let { data } = $props();
 
 	const siteName = import.meta.env.VITE_SITE_NAME;
@@ -34,6 +36,8 @@
 			</a>
 		{/each}
 	</div>
+
+	<BackToTop mobileOnly={true} />
 </main>
 
 <style>
@@ -115,4 +119,5 @@
 		color: var(--text-color-2nd);
 		opacity: 0.8;
 	}
+
 </style>

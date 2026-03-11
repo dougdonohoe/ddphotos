@@ -5,11 +5,11 @@
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
+	import BackToTop from '$lib/components/BackToTop.svelte';
 
 	let { data } = $props();
 	let containerWidth = $state(1200);
 	let container: HTMLDivElement;
-	let showBackToTop = $state(false);
 	let lightboxOpen = $state(false);
 	let lightboxClosedAt = $state(0);
 	let pswpInstance: PhotoSwipe | null = null; // reference to the open PhotoSwipe instance
@@ -228,10 +228,6 @@
 		}
 	}
 
-	function scrollToTop() {
-		window.scrollTo({ top: 0, behavior: 'smooth' });
-	}
-
 	// Re-initialize image state whenever the album changes (covers both initial mount
 	// and client-side navigation between albums, where onMount doesn't re-run).
 	// Clears stale src/loaded arrays first so old album photos never bleed through,
@@ -278,9 +274,6 @@
 				containerWidth = container.clientWidth;
 			}
 		};
-		const updateScroll = () => {
-			showBackToTop = window.scrollY > 600;
-		};
 		const handleKeydown = (e: KeyboardEvent) => {
 			// Ignore ESC if lightbox is open or was just closed (same ESC keypress)
 			if (e.key === 'Escape' && !lightboxOpen && Date.now() - lightboxClosedAt > 300) {
@@ -298,11 +291,9 @@
 		}
 
 		window.addEventListener('resize', updateWidth);
-		window.addEventListener('scroll', updateScroll, { passive: true });
 		window.addEventListener('keydown', handleKeydown);
 		return () => {
 			window.removeEventListener('resize', updateWidth);
-			window.removeEventListener('scroll', updateScroll);
 			window.removeEventListener('keydown', handleKeydown);
 			// If the user navigates away via a link while the lightbox is open, the close
 			// event never fires (navigation unmounts the component first).  Clean up the
@@ -381,11 +372,7 @@
 		{/each}
 	</div>
 
-	{#if showBackToTop}
-		<button class="back-to-top" onclick={scrollToTop} aria-label="Back to top">
-			↑
-		</button>
-	{/if}
+	<BackToTop />
 </main>
 
 <style>
@@ -524,39 +511,6 @@
 			opacity: 1;
 			transform: translateY(0);
 		}
-	}
-
-	.back-to-top {
-		position: fixed;
-		bottom: 1.2rem;
-		right: calc(1.5rem);
-		z-index: 50;
-		background: var(--bg-secondary);
-		border: 1px solid var(--border-color);
-		border-radius: 50%;
-		width: 44px;
-		height: 44px;
-		font-size: 1.4rem;
-		color: var(--text-color);
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding-bottom: 2px;
-		box-shadow: 0 2px 8px var(--shadow-color);
-		opacity: 0.7;
-		transition: opacity 0.2s, transform 0.2s;
-	}
-
-	@media (min-width: 769px) {
-		.back-to-top {
-			padding-bottom: 5px;
-		}
-	}
-
-	.back-to-top:hover {
-		opacity: 1;
-		transform: scale(1.1);
 	}
 
 	/* PhotoSwipe customizations for dark theme */
