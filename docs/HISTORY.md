@@ -6,7 +6,7 @@ This file is a historical log of work done with ChatGPT and Claude Code.
 
 ## Original Prompt
 
-This project started with ChatGPT and this prompt:
+This project started with ChatGPT and this prompt (reproduced as written, typos and all):
 
 _I want to build a web-based app for browsing photos, similar to Apple Photos
 shared albums, but faster (it takes 15-20 seconds to load albums with 100+ photos).
