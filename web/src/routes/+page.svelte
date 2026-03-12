@@ -20,8 +20,11 @@
 	<link rel="canonical" href={siteUrl} />
 </svelte:head>
 
-<main>
+<header>
 	<h1>{siteName}</h1>
+</header>
+
+<main>
 	<div class="albums">
 		{#each data.albums as album}
 			<a href="/albums/{album.slug}" class="album-card">
@@ -41,20 +44,26 @@
 </main>
 
 <style>
-	main {
+	header {
 		max-width: 1200px;
 		margin: 0 auto;
-		padding: 2rem;
+		padding: 1rem 2rem 0;
 	}
 
 	h1 {
-		margin-bottom: 2rem;
+		margin: 0;
 	}
 
 	@media (max-width: 480px) {
 		h1 {
-			font-size: 1.8rem;
+			font-size: 1.7rem;
 		}
+	}
+
+	main {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 1.5rem 2rem 2rem;
 	}
 
 	.albums {
