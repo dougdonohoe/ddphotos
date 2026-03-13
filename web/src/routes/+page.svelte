@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BackToTop from '$lib/components/BackToTop.svelte';
+	import OpenGraph from '$lib/components/OpenGraph.svelte';
 
 	let { data } = $props();
 
@@ -8,17 +9,12 @@
 	const siteDesc = import.meta.env.VITE_SITE_DESCRIPTION;
 </script>
 
-<svelte:head>
-	<title>{siteName}</title>
-	<meta property="og:title" content={siteName} />
-	<meta property="og:description" content={siteDesc} />
-	<meta property="og:type" content="website" />
-	<meta property="og:url" content={siteUrl} />
-	<meta property="og:image" content="{siteUrl}/albums/{data.albums[0].coverJpeg}" />
-	<meta property="og:site_name" content={siteName} />
-	<meta name="twitter:card" content="summary_large_image" />
-	<link rel="canonical" href={siteUrl} />
-</svelte:head>
+<OpenGraph
+	title={siteName}
+	description={siteDesc}
+	url={siteUrl}
+	image="{siteUrl}/albums/{data.albums[0].coverJpeg}"
+/>
 
 <header>
 	<h1>{siteName}</h1>

@@ -6,6 +6,7 @@
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
 	import BackToTop from '$lib/components/BackToTop.svelte';
+	import OpenGraph from '$lib/components/OpenGraph.svelte';
 
 	let { data } = $props();
 	let containerWidth = $state(1200);
@@ -309,17 +310,12 @@
 	});
 </script>
 
-<svelte:head>
-	<title>{data.album.title}</title>
-	<meta property="og:title" content={data.album.title} />
-	<meta property="og:description" content={data.description || `${data.album.photos.length} photos from the '${data.album.title}' album`} />
-	<meta property="og:type" content="website" />
-	<meta property="og:url" content="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}" />
-	<meta property="og:image" content="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}/cover.jpg" />
-	<meta property="og:site_name" content={import.meta.env.VITE_SITE_NAME} />
-	<meta name="twitter:card" content="summary_large_image" />
-	<link rel="canonical" href="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}" />
-</svelte:head>
+<OpenGraph
+	title={data.album.title}
+	description={data.description || `${data.album.photos.length} photos from the '${data.album.title}' album`}
+	url="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}"
+	image="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}/cover.jpg"
+/>
 
 <main>
 	<header>
