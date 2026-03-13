@@ -1,7 +1,6 @@
 package photogen
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path"
@@ -197,21 +196,7 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 	}
 
 	txtPath := filepath.Join(albumPath, "photogen.txt")
-	f, err := os.Open(txtPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return pd, nil
-		}
-		return pd, fmt.Errorf("read photogen.txt: %w", err)
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
+	err := scanLines(txtPath, func(line string) {
 		parts := strings.SplitN(line, " ", 2)
 		id := strings.ToLower(parts[0])
 		desc := ""
@@ -220,9 +205,12 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 		}
 		pd.descriptions[id] = desc
 		pd.order = append(pd.order, id)
-	}
-	if err := scanner.Err(); err != nil {
-		return pd, fmt.Errorf("scan photogen.txt: %w", err)
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return pd, nil
+		}
+		return pd, fmt.Errorf("read photogen.txt: %w", err)
 	}
 
 	fmt.Printf("  Loaded photogen.txt: %d entries\n", len(pd.order))
@@ -268,26 +256,31 @@ func (ap *AlbumProcessor) reorderByDescriptionFile(photos []*Photo, order []stri
 	return result
 }
 
-// WriteCoverJPEG generates a JPEG version of the album cover for use as an Open Graph image.
-// Output: outputRoot/albums/{slug}/cover.jpg
-func (ap *AlbumProcessor) WriteCoverJPEG() error {
+// coverPhoto returns the configured cover photo, or the first photo if no cover is configured.
+// Returns nil if the album has no photos.
+func (ap *AlbumProcessor) coverPhoto() *Photo {
 	if len(ap.Photos) == 0 {
 		return nil
 	}
-
-	// Use configured cover photo or default to first photo (mirrors GetAlbumSummary logic)
-	coverPhoto := ap.Photos[0]
 	if ap.AlbumConfig.Cover != "" {
 		for _, p := range ap.Photos {
 			if p.FileName == ap.AlbumConfig.Cover {
-				coverPhoto = p
-				break
+				return p
 			}
 		}
 	}
+	return ap.Photos[0]
+}
 
+// WriteCoverJPEG generates a JPEG version of the album cover for use as an Open Graph image.
+// Output: outputRoot/albums/{slug}/cover.jpg
+func (ap *AlbumProcessor) WriteCoverJPEG() error {
+	cover := ap.coverPhoto()
+	if cover == nil {
+		return nil
+	}
 	outputPath := ap.OutputPath("cover.jpg")
-	result, err := ResizeCoverJPEG(coverPhoto.AbsolutePath, outputPath, ap.Config.Force, ap.Config.DryRun)
+	result, err := ResizeCoverJPEG(cover.AbsolutePath, outputPath, ap.Config.Force, ap.Config.DryRun)
 	if err != nil {
 		return fmt.Errorf("write cover jpeg: %w", err)
 	}

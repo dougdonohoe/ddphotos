@@ -9,26 +9,14 @@ import (
 
 // LoadAlbumSummaries reads an albums.json file and returns the list of album summaries.
 func LoadAlbumSummaries(path string) ([]AlbumSummary, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var albums []AlbumSummary
-	if err := json.Unmarshal(data, &albums); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	return albums, nil
+	return loadJSON[[]AlbumSummary](path)
 }
 
 // LoadAlbumIndex reads an index.json file and returns the album index.
 func LoadAlbumIndex(path string) (*AlbumIndex, error) {
-	data, err := os.ReadFile(path)
+	idx, err := loadJSON[AlbumIndex](path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var idx AlbumIndex
-	if err := json.Unmarshal(data, &idx); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, err
 	}
 	return &idx, nil
 }
@@ -132,13 +120,8 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		Count: len(ap.Photos),
 	}
 
-	if len(ap.Photos) > 0 {
-		// Use configured cover photo, or default to first photo
-		coverFileName := ap.Photos[0].FileName
-		if ap.AlbumConfig.Cover != "" {
-			coverFileName = ap.AlbumConfig.Cover
-		}
-		summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), WebPFileName(coverFileName))
+	if cover := ap.coverPhoto(); cover != nil {
+		summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), WebPFileName(cover.FileName))
 		summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, "cover.jpg")
 		summary.DateSpan = ap.computeDateSpan()
 	}

@@ -532,4 +532,37 @@ Key testing challenges:
 - `window.scrollTo` queues the scroll event asynchronously; paired with `window.dispatchEvent(new Event('scroll'))` in the same `evaluate` call to fire it immediately
 - Body `min-height` injected inline (via `document.body.style.minHeight`) with a synchronous `getBoundingClientRect()` reflow before scrolling — ensures the page is scrollable even with sparse sample data
 - Album page tests wait for `.gallery.layout-ready` before scrolling (set by the album page's `onMount`, which runs after `BackToTop`'s `onMount` in Svelte's bottom-up mount order — reliable hydration signal)
+
+### 41. UI Tweaks and Frontend Refactoring
+
+#### Album List Page Layout
+
+Reworked the home page (`+page.svelte`) header to better balance the title and theme toggle:
+
+- Moved `<h1>` out of `<main>` into its own `<header>` element (sibling of `<main>`), giving independent control over title vs. content area padding
+- Removed `max-width`/`margin: auto` centering from the header so the title sits left-aligned with the page edge at any viewport width, matching the visual feel of the toggle button
+- Bumped h1 font size to `2.4rem` (desktop) and `1.7rem` (mobile)
+- Adjusted `main` top padding so the album grid sits comfortably below the title
+
+#### Theme Toggle Refactor
+
+Extracted the theme toggle button from `+layout.svelte` into a shared `ThemeToggle.svelte` component (`web/src/lib/components/ThemeToggle.svelte`). The layout now renders it via `<div class="theme-toggle-wrap">` with `position: absolute; top: 0.7rem; right: 1rem`, preserving the original behavior where the button stays in the same viewport position across page navigations.
+
+Note: An alternative approach was tried where the button was moved into each page's header (in-flow), which gave better alignment with content edges but caused visible positional jumps during navigation. Reverted to absolute positioning for the smoother UX. `position: fixed` was also considered and rejected (tried early in the project).
+
+#### OpenGraph Component
+
+Extracted the near-identical `<svelte:head>` OpenGraph/Twitter meta tag blocks from both pages into a shared `OpenGraph.svelte` component (`web/src/lib/components/OpenGraph.svelte`). Takes four props: `title`, `description`, `url`, `image`. The constant tags (`og:type`, `og:site_name`, `twitter:card`) are hardcoded in the component.
+
+#### Go Code Refactoring
+
+Three duplication fixes in `pkg/photogen/`:
+
+**`util.go`** (new file) — two shared helpers:
+- `loadJSON[T any](path string)` — generic JSON file reader; eliminates identical read+unmarshal boilerplate in `LoadAlbumSummaries` and `LoadAlbumIndex`
+- `scanLines(path string, fn func(line string))` — opens a file, skips blank lines and `#` comments, calls `fn` for each remaining line; eliminates duplicated scanner boilerplate in `loadPhotoDescriptions` and `LoadAlbumDescriptions`
+
+**`album.go`** — added `coverPhoto() *Photo` method: returns the configured cover photo (searching by filename) or the first photo as fallback. Used by both `WriteCoverJPEG` and `GetAlbumSummary`, replacing duplicated cover-selection logic (the old code even had a comment noting the duplication). Removed `bufio` import.
+
+**`albums_config.go`** — `LoadAlbumDescriptions` now uses `scanLines`. Removed `bufio` import.
 - Home page tests use `toPass` with retries to handle the dev-server parallel execution race where the scroll listener may not yet be registered

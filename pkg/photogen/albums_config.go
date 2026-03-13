@@ -1,7 +1,6 @@
 package photogen
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -135,30 +134,19 @@ func (af *AlbumsFile) resolvePath(configDir string, a AlbumEntry) (string, error
 // Each line has the format "slug<whitespace>description". Blank lines and lines
 // starting with # are ignored. A slug with no following text gets an empty description.
 func LoadAlbumDescriptions(path string) (map[string]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	defer f.Close()
-
 	descriptions := map[string]string{}
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
+	err := scanLines(path, func(line string) {
 		idx := strings.IndexAny(line, " \t")
 		if idx < 0 {
 			descriptions[line] = ""
-			continue
+			return
 		}
 		slug := line[:idx]
 		desc := strings.TrimSpace(line[idx:])
 		descriptions[slug] = desc
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan %s: %w", path, err)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	return descriptions, nil
 }
