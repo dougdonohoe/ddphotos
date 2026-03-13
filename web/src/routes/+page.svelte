@@ -45,13 +45,12 @@
 
 <style>
 	header {
-		max-width: 1200px;
-		margin: 0 auto;
 		padding: 1rem 2rem 0;
 	}
 
 	h1 {
 		margin: 0;
+		font-size: 2.4rem;
 	}
 
 	@media (max-width: 480px) {

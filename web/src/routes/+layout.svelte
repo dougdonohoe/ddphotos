@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { theme, toggleTheme } from '$lib/theme';
+	import { theme } from '$lib/theme';
 	import { onMount } from 'svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 
 	let { children } = $props();
 
@@ -32,13 +33,9 @@
 </svelte:head>
 
 <div class="app">
-	<button class="theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
-		{#if $theme === 'dark'}
-			☀️
-		{:else}
-			🌙
-		{/if}
-	</button>
+	<div class="theme-toggle-wrap">
+		<ThemeToggle />
+	</div>
 	{@render children()}
 	<footer>
 		<div>Copyright © {import.meta.env.VITE_COPYRIGHT_YEAR}-{new Date().getFullYear()}. {import.meta.env.VITE_COPYRIGHT_OWNER}.</div>
@@ -89,26 +86,11 @@
 		min-height: 100vh;
 	}
 
-	.theme-toggle {
+	.theme-toggle-wrap {
 		position: absolute;
 		top: 0.7rem;
 		right: 1rem;
 		z-index: 10;
-		background: var(--bg-secondary);
-		border: 1px solid var(--border-color);
-		border-radius: 50%;
-		width: 30px;
-		height: 30px;
-		font-size: 1.2rem;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		transition: transform 0.2s;
-	}
-
-	.theme-toggle:hover {
-		transform: scale(1.1);
 	}
 
 	footer {
