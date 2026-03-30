@@ -1,6 +1,6 @@
 module github.com/dougdonohoe/ddphotos
 
-go 1.24
+go 1.25.0
 
 require (
 	github.com/davidbyttow/govips/v2 v2.14.0
@@ -13,7 +13,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/image v0.18.0 // indirect
+	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
 )
