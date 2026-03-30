@@ -20,10 +20,13 @@
 						if (k && k.startsWith('ddp_cover_')) {
 							var url = localStorage.getItem(k);
 							if (url) {
+								var slug = k.slice(10);
 								document.documentElement.style.setProperty(
-									'--ddp-cover-' + k.slice(10),
+									'--ddp-cover-' + slug,
 									'url("' + url.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")'
 								);
+								// Hide the lock icon for this album on first paint — the cover shows instead.
+								document.documentElement.style.setProperty('--ddp-icon-vis-' + slug, 'hidden');
 							}
 						}
 					}

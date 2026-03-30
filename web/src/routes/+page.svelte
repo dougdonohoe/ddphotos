@@ -159,15 +159,19 @@
 						     Using background-image (not <img>) avoids any DOM swap flash. -->
 						<div
 							class="album-cover-placeholder"
-							class:loaded={coversLoaded && !albumCovers[album.slug]}
 							style:background-image={albumCovers[album.slug]
 								? `url('${albumCovers[album.slug]}')`
 								: `var(--ddp-cover-${album.slug}, none)`}
 							style:background-size="cover"
 							style:background-position="center"
+							style:--lock-vis={albumCovers[album.slug]
+								? 'hidden'
+								: `var(--ddp-icon-vis-${album.slug}, visible)`}
 						>
-							{#if coversLoaded && !albumCovers[album.slug] && album.encrypted}
+							{#if album.encrypted}
+								<!-- Always in SSR HTML; --lock-vis hides it when a cached cover shows instead -->
 								<svg
+									class="ddp-lock-icon"
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 24 24"
 									fill="none"
@@ -182,7 +186,7 @@
 									<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 									<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 								</svg>
-							{:else if coversLoaded && !albumCovers[album.slug]}
+							{:else if coversLoaded}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 24 24"
@@ -288,16 +292,18 @@
 	.album-cover-placeholder {
 		width: 100%;
 		aspect-ratio: 3 / 2;
+		background: var(--img-placeholder);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: var(--text-muted);
 	}
 
-	/* Background only appears once we've checked localStorage — prevents a dark flash on reload
-	   when a cached cover is about to replace the placeholder. */
-	.album-cover-placeholder.loaded {
-		background: var(--img-placeholder);
+	/* Lock icon visibility is controlled by --lock-vis, set on the parent div.
+	   The inline <head> script sets --ddp-icon-vis-SLUG: hidden when a cover is cached,
+	   so the icon is hidden from the very first paint when a cover will be shown instead. */
+	.ddp-lock-icon {
+		visibility: var(--lock-vis, visible);
 	}
 
 	.album-info {
