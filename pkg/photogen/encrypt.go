@@ -62,6 +62,15 @@ func LoadEncryptConfig(path string) (*EncryptConfig, error) {
 
 const minPasswordLen = 5
 
+// checkPasswordLen returns an error if p is shorter than minPasswordLen.
+// name is used in the error message (e.g. "_all_" or `album "uganda"`).
+func checkPasswordLen(name, p string) error {
+	if len(p) < minPasswordLen {
+		return fmt.Errorf("passwords file: %s password must be at least %d characters", name, minPasswordLen)
+	}
+	return nil
+}
+
 // Validate checks that the EncryptConfig is consistent:
 //   - _key_ is required whenever any album is encrypted (UUID filenames depend on it)
 //   - passwords must be at least minPasswordLen characters
@@ -70,12 +79,14 @@ func (ec *EncryptConfig) Validate() error {
 	if ec.HMACKey == "" && (ec.IsSiteEncrypted() || len(ec.AlbumPasswords) > 0) {
 		return fmt.Errorf("passwords file: _key_ is required when any album is encrypted")
 	}
-	if ec.SitePassword != "" && len(ec.SitePassword) < minPasswordLen {
-		return fmt.Errorf("passwords file: _all_ password must be at least %d characters", minPasswordLen)
+	if ec.SitePassword != "" {
+		if err := checkPasswordLen("_all_", ec.SitePassword); err != nil {
+			return err
+		}
 	}
 	for slug, p := range ec.AlbumPasswords {
-		if len(p) < minPasswordLen {
-			return fmt.Errorf("passwords file: password for album %q must be at least %d characters", slug, minPasswordLen)
+		if err := checkPasswordLen(fmt.Sprintf("album %q", slug), p); err != nil {
+			return err
 		}
 	}
 	return nil
