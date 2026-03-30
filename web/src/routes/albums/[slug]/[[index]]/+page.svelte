@@ -20,6 +20,7 @@
 		storePassword,
 		tryDecrypt
 	} from '$lib/crypto';
+	import { footerReady } from '$lib/stores';
 
 	let { data } = $props();
 
@@ -41,6 +42,12 @@
 	$effect.pre(() => {
 		if (data.encryptedBlob && (getStoredPassword(albumKey(data.slug)) || getStoredPassword(SITE_KEY))) {
 			unlocking = true;
+		}
+	});
+	// Hide footer until album is ready on encrypted pages, preventing a layout jump.
+	$effect.pre(() => {
+		if (data.encryptedBlob) {
+			footerReady.set(album !== null);
 		}
 	});
 	let shakeCount = $state(0);
@@ -483,25 +490,25 @@
 
 		<BackToTop />
 	</main>
-{:else if browser && unlocking}
+{:else}
 	<main class="loading-page">
-		<header>
-			<a href="/">← Albums</a>
-			<h1>{albumTitle}</h1>
-		</header>
+		{#if !data.encryptedBlob}
+			<header>
+				<a href="/">← Albums</a>
+				<h1>{albumTitle}</h1>
+			</header>
+		{/if}
 	</main>
-{:else if browser}
-	<main class="prompt-page">
-		<header>
-			<a href="/">← Albums</a>
-			<h1>{albumTitle}</h1>
-		</header>
+{/if}
+
+{#if browser && data.encryptedBlob && !album && !unlocking}
+	<div class="fullscreen-overlay">
 		<PasswordPrompt
-			title="This album is private"
+			title="{albumTitle} requires a password."
 			{shakeCount}
 			onunlock={handleUnlock}
 		/>
-	</main>
+	</div>
 {/if}
 
 <style>
@@ -512,12 +519,18 @@
 	}
 
 	.loading-page {
-		max-width: 1200px;
 		min-height: 80vh;
 	}
 
-	.prompt-page {
-		max-width: 1200px;
+	/* Full-screen overlay covering header/footer when album is locked */
+	.fullscreen-overlay {
+		position: fixed;
+		inset: 0;
+		background: var(--bg-color);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 100;
 	}
 
 	header {

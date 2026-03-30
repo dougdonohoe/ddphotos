@@ -29,7 +29,7 @@
 </svelte:head>
 
 <div class="app">
-	<div class="theme-toggle-wrap">
+	<div class="theme-toggle-wrap" class:ready={!$page.data.encryptedBlob || $footerReady}>
 		<ThemeToggle />
 	</div>
 	{@render children()}
@@ -87,6 +87,12 @@
 		top: 0.7rem;
 		right: 1rem;
 		z-index: 10;
+		opacity: 0;
+		transition: opacity 400ms ease-out;
+	}
+
+	.theme-toggle-wrap.ready {
+		opacity: 1;
 	}
 
 	footer {
