@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import BackToTop from '$lib/components/BackToTop.svelte';
 	import OpenGraph from '$lib/components/OpenGraph.svelte';
@@ -8,6 +8,7 @@
 	import {
 		SITE_KEY,
 		getStoredPassword,
+		getAlbumCover,
 		storePassword,
 		tryDecrypt,
 		tryStoredAlbumPasswords
@@ -42,6 +43,40 @@
 		}
 	});
 	let shakeCount = $state(0);
+
+	// Cover URLs for per-album encrypted albums, loaded from localStorage.
+	//
+	// We initialize synchronously from localStorage when data.albums is already available
+	// (per-album encrypted, non-site-encrypted pages). This means albumCovers is populated
+	// before the first render on the client, so the img element is in the DOM from the start
+	// and the browser can display it without an intermediate placeholder flash.
+	//
+	// coversLoaded stays false during SSR (effects don't run server-side), preventing the
+	// lock icon SVG from being baked into the static HTML. On the client it's true immediately
+	// (when data.albums is available) or set by $effect.pre after decryption (site-encrypted).
+	function readStoredCovers(albumList: AlbumSummary[]): Record<string, string> {
+		const covers: Record<string, string> = {};
+		for (const a of albumList) {
+			if (a.encrypted && !a.cover) {
+				const url = getAlbumCover(a.slug);
+				if (url) covers[a.slug] = url;
+			}
+		}
+		return covers;
+	}
+	// Capture once — data.albums is static (set at load time, never changes at runtime).
+	// untrack tells Svelte we intentionally want the initial value, not a reactive binding.
+	const initialAlbums = untrack(() => data.albums);
+	let albumCovers = $state<Record<string, string>>(
+		browser && initialAlbums ? readStoredCovers(initialAlbums) : {}
+	);
+	let coversLoaded = $state(browser && initialAlbums !== null);
+	// For site-encrypted pages, albums arrive later (after decryption). Re-read covers then.
+	$effect.pre(() => {
+		if (!albums || initialAlbums !== null) return;
+		albumCovers = readStoredCovers(albums);
+		coversLoaded = true;
+	});
 
 	let ogCover = $derived(albums?.find((a) => !a.encrypted && a.coverJpeg));
 	let ogImage = $derived(ogCover ? `${siteUrl}/albums/${ogCover.coverJpeg}` : undefined);
@@ -116,9 +151,11 @@
 				<a href="/albums/{album.slug}" class="album-card">
 					{#if album.cover}
 						<img src="/albums/{album.cover}" alt={album.title} />
+					{:else if albumCovers[album.slug]}
+						<img src={albumCovers[album.slug]} alt={album.title} />
 					{:else}
-						<div class="album-cover-placeholder">
-							{#if album.encrypted}
+						<div class="album-cover-placeholder" class:loaded={coversLoaded}>
+							{#if coversLoaded && album.encrypted}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 24 24"
@@ -134,7 +171,7 @@
 									<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 									<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 								</svg>
-							{:else}
+							{:else if coversLoaded}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 24 24"
@@ -240,11 +277,16 @@
 	.album-cover-placeholder {
 		width: 100%;
 		aspect-ratio: 3 / 2;
-		background: var(--img-placeholder);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: var(--text-muted);
+	}
+
+	/* Background only appears once we've checked localStorage — prevents a dark flash on reload
+	   when a cached cover is about to replace the placeholder. */
+	.album-cover-placeholder.loaded {
+		background: var(--img-placeholder);
 	}
 
 	.album-info {

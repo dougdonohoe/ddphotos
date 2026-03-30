@@ -86,6 +86,28 @@ export function storePassword(key: string, password: string): void {
 	}
 }
 
+// localStorage key for a per-album cover URL (stored after decryption so the home page
+// can show the cover image without re-decrypting the album index).
+function coverKey(slug: string): string {
+	return `ddp_cover_${slug}`;
+}
+
+export function storeAlbumCover(slug: string, url: string): void {
+	try {
+		localStorage.setItem(coverKey(slug), url);
+	} catch {
+		// Ignore
+	}
+}
+
+export function getAlbumCover(slug: string): string | null {
+	try {
+		return localStorage.getItem(coverKey(slug));
+	} catch {
+		return null;
+	}
+}
+
 // Try all stored ddp_album_* passwords against encryptedBlob.
 // Returns { result, password } on the first match, or null.
 // Used by the home page to silently unlock albums.enc.json when the user has

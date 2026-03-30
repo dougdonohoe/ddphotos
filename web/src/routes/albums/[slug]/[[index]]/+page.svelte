@@ -18,6 +18,7 @@
 		albumKey,
 		getStoredPassword,
 		storePassword,
+		storeAlbumCover,
 		tryDecrypt
 	} from '$lib/crypto';
 	import { footerReady } from '$lib/stores';
@@ -116,6 +117,8 @@
 				if (result) {
 					decryptedAlbum = result as AlbumIndex;
 					storePassword(albumKey(data.slug), pw);
+					const cover = decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid;
+					if (cover) storeAlbumCover(data.slug, `/albums/${data.slug}/${cover}`);
 					unlocking = false;
 					// Wait for Svelte to recompute photoswipeItems from the decrypted album,
 					// then auto-open the lightbox if this is a permalink URL.
@@ -137,6 +140,8 @@
 		if (result) {
 			decryptedAlbum = result as AlbumIndex;
 			storePassword(albumKey(data.slug), password);
+			const cover = decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid;
+			if (cover) storeAlbumCover(data.slug, `/albums/${data.slug}/${cover}`);
 		} else {
 			shakeCount++;
 		}

@@ -22,6 +22,7 @@ export interface AlbumIndex {
 	title: string;
 	description?: string;
 	dateSpan?: string;
+	cover?: string; // grid path of cover photo (e.g. "grid/foo.webp")
 	photos: Photo[];
 }
 

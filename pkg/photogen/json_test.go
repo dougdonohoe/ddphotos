@@ -52,6 +52,7 @@ func TestLoadAlbumIndex(t *testing.T) {
 		assert.Equal(t, "The Way", idx.Title)
 		assert.Equal(t, "530 miles along El Camino de Santiago.", idx.Description)
 		assert.Equal(t, "Apr 2024", idx.DateSpan)
+		assert.Equal(t, "grid/2024-The-Way-1.webp", idx.Cover)
 		require.Len(t, idx.Photos, 2)
 
 		p := idx.Photos[0]
@@ -150,6 +151,7 @@ func TestWriteAlbumIndex(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "myalbum", idx.Slug)
 		assert.Equal(t, "A test album.", idx.Description)
+		assert.NotEmpty(t, idx.Cover, "cover should be set from first photo")
 		require.Len(t, idx.Photos, 1)
 	})
 

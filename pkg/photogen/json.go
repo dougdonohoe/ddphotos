@@ -42,6 +42,7 @@ type AlbumIndex struct {
 	Title       string       `json:"title"`
 	Description string       `json:"description,omitempty"`
 	DateSpan    string       `json:"dateSpan,omitempty"`
+	Cover       string       `json:"cover,omitempty"` // grid path of cover photo (e.g. "grid/foo.webp")
 	Photos      []PhotoIndex `json:"photos"`
 }
 
@@ -77,11 +78,16 @@ type AlbumSummary struct {
 
 // WriteAlbumIndex writes the index.json (or index.enc.json if encrypted) for this album.
 func (ap *AlbumProcessor) WriteAlbumIndex() error {
+	cover := ""
+	if cp := ap.coverPhoto(); cp != nil {
+		cover = ap.relativeSrcPath(SizeGrid, cp.FileName)
+	}
 	index := AlbumIndex{
 		Slug:        ap.AlbumConfig.Slug,
 		Title:       ap.AlbumConfig.Name,
 		Description: ap.AlbumConfig.Description,
 		DateSpan:    ap.computeDateSpan(),
+		Cover:       cover,
 		Photos:      make([]PhotoIndex, 0, len(ap.Photos)),
 	}
 
