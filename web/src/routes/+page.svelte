@@ -151,11 +151,22 @@
 				<a href="/albums/{album.slug}" class="album-card">
 					{#if album.cover}
 						<img src="/albums/{album.cover}" alt={album.title} />
-					{:else if albumCovers[album.slug]}
-						<img src={albumCovers[album.slug]} alt={album.title} />
 					{:else}
-						<div class="album-cover-placeholder" class:loaded={coversLoaded}>
-							{#if coversLoaded && album.encrypted}
+						<!-- For per-album encrypted albums the cover URL lives in localStorage.
+						     The inline <head> script sets --ddp-cover-SLUG on <html> before first
+						     paint, so this div already shows the cover on SSR. After hydration,
+						     albumCovers[slug] is set and the explicit url() replaces the var().
+						     Using background-image (not <img>) avoids any DOM swap flash. -->
+						<div
+							class="album-cover-placeholder"
+							class:loaded={coversLoaded && !albumCovers[album.slug]}
+							style:background-image={albumCovers[album.slug]
+								? `url('${albumCovers[album.slug]}')`
+								: `var(--ddp-cover-${album.slug}, none)`}
+							style:background-size="cover"
+							style:background-position="center"
+						>
+							{#if coversLoaded && !albumCovers[album.slug] && album.encrypted}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 24 24"
@@ -171,7 +182,7 @@
 									<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 									<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 								</svg>
-							{:else if coversLoaded}
+							{:else if coversLoaded && !albumCovers[album.slug]}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 24 24"
