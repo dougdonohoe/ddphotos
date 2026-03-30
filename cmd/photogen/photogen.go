@@ -138,24 +138,16 @@ func main() {
 		summaries = append(summaries, album.GetAlbumSummary())
 	}
 
-	// Write albums.json and sitemap.xml if index generation is enabled
+	// Write albums.json, config.json, and sitemap.xml if index generation is enabled
 	if cfg.Index {
-		if err := photogen.WriteAlbumsIndex(cfg.SiteOutputPath(), summaries, cfg.Encrypt, cfg.DryRun); err != nil {
-			fmt.Printf("Error writing albums.json: %s\n", err)
-		} else if cfg.Encrypt != nil && cfg.Encrypt.IsSiteEncrypted() {
-			cfg.TrackFile(cfg.SiteOutputPath("albums.enc.json"))
-		} else {
-			cfg.TrackFile(cfg.SiteOutputPath("albums.json"))
+		if err := cfg.WriteAlbumsIndex(summaries); err != nil {
+			fmt.Printf("Error writing albums index: %s\n", err)
 		}
-		if err := photogen.WriteConfigJSON(cfg.SiteOutputPath(), cfg.Encrypt, cfg.DryRun); err != nil {
+		if err := cfg.WriteConfigJSON(); err != nil {
 			fmt.Printf("Error writing config.json: %s\n", err)
-		} else {
-			cfg.TrackFile(cfg.SiteOutputPath("config.json"))
 		}
-		if err := photogen.WriteSitemap(cfg.SiteOutputPath(), cfg.SiteURL, summaries, cfg.DryRun); err != nil {
+		if err := cfg.WriteSitemap(summaries); err != nil {
 			fmt.Printf("Error writing sitemap.xml: %s\n", err)
-		} else {
-			cfg.TrackFile(cfg.SiteOutputPath("sitemap.xml"))
 		}
 	}
 

@@ -207,9 +207,10 @@ func (ap *AlbumProcessor) computeDateSpan() string {
 	return fmt.Sprintf("%s - %s", first.Format("Jan 2006"), last.Format("Jan 2006"))
 }
 
-// WriteAlbumsIndex writes albums.json (or albums.enc.json if encrypted) into siteDir.
-func WriteAlbumsIndex(siteDir string, summaries []AlbumSummary, encrypt *EncryptConfig, dryRun bool) error {
-	encrypted := encrypt != nil && encrypt.IsSiteEncrypted()
+// WriteAlbumsIndex writes albums.json (or albums.enc.json if encrypted) into the site output dir.
+func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
+	siteDir := c.SiteOutputPath()
+	encrypted := c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
 	outputName := "albums.json"
 	counterpart := "albums.enc.json"
 	if encrypted {
@@ -218,7 +219,7 @@ func WriteAlbumsIndex(siteDir string, summaries []AlbumSummary, encrypt *Encrypt
 	}
 	outputPath := filepath.Join(siteDir, outputName)
 
-	if dryRun {
+	if c.DryRun {
 		action := "write"
 		if encrypted {
 			action = "encrypt+write"
@@ -234,7 +235,7 @@ func WriteAlbumsIndex(siteDir string, summaries []AlbumSummary, encrypt *Encrypt
 	b = append(b, '\n')
 
 	if encrypted {
-		b, err = EncryptJSON(b, encrypt.SitePassword)
+		b, err = EncryptJSON(b, c.Encrypt.SitePassword)
 		if err != nil {
 			return fmt.Errorf("encrypt albums: %w", err)
 		}
@@ -244,6 +245,7 @@ func WriteAlbumsIndex(siteDir string, summaries []AlbumSummary, encrypt *Encrypt
 		return err
 	}
 	removeIfExists(filepath.Join(siteDir, counterpart))
+	c.TrackFile(outputPath)
 	return nil
 }
 
@@ -253,24 +255,28 @@ type SiteConfig struct {
 }
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
-func WriteConfigJSON(siteDir string, encrypt *EncryptConfig, dryRun bool) error {
+func (c *Config) WriteConfigJSON() error {
 	albumsFile := "albums.json"
-	if encrypt != nil && encrypt.IsSiteEncrypted() {
+	if c.Encrypt != nil && c.Encrypt.IsSiteEncrypted() {
 		albumsFile = "albums.enc.json"
 	}
-	outputPath := filepath.Join(siteDir, "config.json")
-	if dryRun {
+	outputPath := c.SiteOutputPath("config.json")
+	if c.DryRun {
 		fmt.Printf("DRYRUN: would write %s\n", outputPath)
 		return nil
 	}
-	return writeJSON(outputPath, SiteConfig{AlbumsFile: albumsFile})
+	if err := writeJSON(outputPath, SiteConfig{AlbumsFile: albumsFile}); err != nil {
+		return err
+	}
+	c.TrackFile(outputPath)
+	return nil
 }
 
-// WriteSitemap generates sitemap.xml into siteDir (cfg.SiteOutputPath()).
-func WriteSitemap(siteDir, siteURL string, summaries []AlbumSummary, dryRun bool) error {
-	outputPath := filepath.Join(siteDir, "sitemap.xml")
+// WriteSitemap generates sitemap.xml into the site output dir.
+func (c *Config) WriteSitemap(summaries []AlbumSummary) error {
+	outputPath := c.SiteOutputPath("sitemap.xml")
 
-	if dryRun {
+	if c.DryRun {
 		fmt.Printf("DRYRUN: would write %s (%d URLs)\n", outputPath, len(summaries)+1)
 		return nil
 	}
@@ -287,14 +293,14 @@ func WriteSitemap(siteDir, siteURL string, summaries []AlbumSummary, dryRun bool
 	w.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>` + siteURL + `/</loc>
+    <loc>` + c.SiteURL + `/</loc>
   </url>
 `)
 
 	// Write each album URL
 	for _, album := range summaries {
 		w.WriteString(`  <url>
-    <loc>` + siteURL + `/albums/` + album.Slug + `</loc>
+    <loc>` + c.SiteURL + `/albums/` + album.Slug + `</loc>
   </url>
 `)
 	}
@@ -307,6 +313,7 @@ func WriteSitemap(siteDir, siteURL string, summaries []AlbumSummary, dryRun bool
 	}
 
 	fmt.Printf("  wrote: %s\n", outputPath)
+	c.TrackFile(outputPath)
 	return nil
 }
 

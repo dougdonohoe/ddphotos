@@ -181,6 +181,10 @@ func TestWriteAlbumIndex(t *testing.T) {
 	})
 }
 
+func makeSiteCfg(dir string, encrypt *EncryptConfig) *Config {
+	return &Config{OutputRoot: dir, SiteID: "testsite", Encrypt: encrypt, Warn: &WarnCollector{}}
+}
+
 func TestWriteAlbumsIndex(t *testing.T) {
 	t.Parallel()
 
@@ -192,11 +196,11 @@ func TestWriteAlbumsIndex(t *testing.T) {
 	t.Run("unencrypted writes albums.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		require.NoError(t, WriteAlbumsIndex(dir, summaries, nil, false))
+		require.NoError(t, makeSiteCfg(dir, nil).WriteAlbumsIndex(summaries))
 
-		outPath := filepath.Join(dir, "albums.json")
+		outPath := filepath.Join(dir, "albums", "testsite", "albums.json")
 		assert.FileExists(t, outPath)
-		assert.NoFileExists(t, filepath.Join(dir, "albums.enc.json"))
+		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "albums.enc.json"))
 
 		loaded, err := LoadAlbumSummaries(outPath)
 		require.NoError(t, err)
@@ -208,11 +212,11 @@ func TestWriteAlbumsIndex(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 		encrypt := &EncryptConfig{SitePassword: "site-pass"}
-		require.NoError(t, WriteAlbumsIndex(dir, summaries, encrypt, false))
+		require.NoError(t, makeSiteCfg(dir, encrypt).WriteAlbumsIndex(summaries))
 
-		encPath := filepath.Join(dir, "albums.enc.json")
+		encPath := filepath.Join(dir, "albums", "testsite", "albums.enc.json")
 		assert.FileExists(t, encPath)
-		assert.NoFileExists(t, filepath.Join(dir, "albums.json"))
+		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "albums.json"))
 
 		data, err := os.ReadFile(encPath)
 		require.NoError(t, err)
@@ -222,13 +226,15 @@ func TestWriteAlbumsIndex(t *testing.T) {
 	t.Run("switching to unencrypted removes stale albums.enc.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
+		siteDir := filepath.Join(dir, "albums", "testsite")
+		require.NoError(t, os.MkdirAll(siteDir, 0o755))
 
-		staleEnc := filepath.Join(dir, "albums.enc.json")
+		staleEnc := filepath.Join(siteDir, "albums.enc.json")
 		require.NoError(t, os.WriteFile(staleEnc, []byte("stale"), 0o644))
 
-		require.NoError(t, WriteAlbumsIndex(dir, summaries, nil, false))
+		require.NoError(t, makeSiteCfg(dir, nil).WriteAlbumsIndex(summaries))
 
-		assert.FileExists(t, filepath.Join(dir, "albums.json"))
+		assert.FileExists(t, filepath.Join(siteDir, "albums.json"))
 		assert.NoFileExists(t, staleEnc)
 	})
 }
@@ -239,9 +245,9 @@ func TestWriteConfigJSON(t *testing.T) {
 	t.Run("unencrypted references albums.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		require.NoError(t, WriteConfigJSON(dir, nil, false))
+		require.NoError(t, makeSiteCfg(dir, nil).WriteConfigJSON())
 
-		data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+		data, err := os.ReadFile(filepath.Join(dir, "albums", "testsite", "config.json"))
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
 	})
@@ -249,10 +255,10 @@ func TestWriteConfigJSON(t *testing.T) {
 	t.Run("encrypted references albums.enc.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		encrypt := &EncryptConfig{SitePassword: "pass"}
-		require.NoError(t, WriteConfigJSON(dir, encrypt, false))
+		encrypt := &EncryptConfig{SitePassword: "passw0rd"}
+		require.NoError(t, makeSiteCfg(dir, encrypt).WriteConfigJSON())
 
-		data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+		data, err := os.ReadFile(filepath.Join(dir, "albums", "testsite", "config.json"))
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"albumsFile": "albums.enc.json"`)
 	})
