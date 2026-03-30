@@ -20,6 +20,8 @@ export interface Photo {
 export interface AlbumIndex {
 	slug: string;
 	title: string;
+	description?: string;
+	dateSpan?: string;
 	photos: Photo[];
 }
 
@@ -32,4 +34,9 @@ export interface AlbumSummary {
 	dateSpan: string;
 	description?: string;
 	encrypted?: boolean;
+}
+
+// Mirrors Go's SiteConfig in pkg/photogen/json.go.
+export interface SiteConfig {
+	albumsFile: string;
 }

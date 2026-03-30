@@ -38,9 +38,11 @@ func SaveAlbumSummaries(path string, summaries []AlbumSummary) error {
 
 // AlbumIndex is the structure for each album's index.json
 type AlbumIndex struct {
-	Slug   string       `json:"slug"`
-	Title  string       `json:"title"`
-	Photos []PhotoIndex `json:"photos"`
+	Slug        string       `json:"slug"`
+	Title       string       `json:"title"`
+	Description string       `json:"description,omitempty"`
+	DateSpan    string       `json:"dateSpan,omitempty"`
+	Photos      []PhotoIndex `json:"photos"`
 }
 
 // PhotoIndex represents a photo in the JSON output.
@@ -76,9 +78,11 @@ type AlbumSummary struct {
 // WriteAlbumIndex writes the index.json (or index.enc.json if encrypted) for this album.
 func (ap *AlbumProcessor) WriteAlbumIndex() error {
 	index := AlbumIndex{
-		Slug:   ap.AlbumConfig.Slug,
-		Title:  ap.AlbumConfig.Name,
-		Photos: make([]PhotoIndex, 0, len(ap.Photos)),
+		Slug:        ap.AlbumConfig.Slug,
+		Title:       ap.AlbumConfig.Name,
+		Description: ap.AlbumConfig.Description,
+		DateSpan:    ap.computeDateSpan(),
+		Photos:      make([]PhotoIndex, 0, len(ap.Photos)),
 	}
 
 	for _, photo := range ap.Photos {
@@ -162,8 +166,18 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 	summary.Encrypted = encrypted
 
 	if cover := ap.coverPhoto(); cover != nil {
-		if !encrypted {
+		// Include the WebP cover URL whenever it will be visible only to authenticated users:
+		// either the album is unencrypted (always visible) or the site itself is encrypted
+		// (albums.enc.json is protected, so the URL is only revealed after the site password
+		// is entered). Omit it when the album is individually encrypted but the album list
+		// is plain (albums.json), because the URL would expose the cover without a password.
+		siteEncrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsSiteEncrypted()
+		if !encrypted || siteEncrypted {
 			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
+		}
+		// CoverJpeg is used for OG/crawler meta tags — only set for unencrypted albums so
+		// search engines cannot index content that requires a password.
+		if !encrypted {
 			summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, "cover.jpg")
 		}
 		summary.DateSpan = ap.computeDateSpan()
@@ -256,8 +270,9 @@ type SiteConfig struct {
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
 func (c *Config) WriteConfigJSON() error {
+	siteEncrypted := c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
 	albumsFile := "albums.json"
-	if c.Encrypt != nil && c.Encrypt.IsSiteEncrypted() {
+	if siteEncrypted {
 		albumsFile = "albums.enc.json"
 	}
 	outputPath := c.SiteOutputPath("config.json")
@@ -265,7 +280,8 @@ func (c *Config) WriteConfigJSON() error {
 		fmt.Printf("DRYRUN: would write %s\n", outputPath)
 		return nil
 	}
-	if err := writeJSON(outputPath, SiteConfig{AlbumsFile: albumsFile}); err != nil {
+	cfg := SiteConfig{AlbumsFile: albumsFile}
+	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}
 	c.TrackFile(outputPath)

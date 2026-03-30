@@ -50,6 +50,8 @@ func TestLoadAlbumIndex(t *testing.T) {
 
 		assert.Equal(t, "way", idx.Slug)
 		assert.Equal(t, "The Way", idx.Title)
+		assert.Equal(t, "530 miles along El Camino de Santiago.", idx.Description)
+		assert.Equal(t, "Apr 2024", idx.DateSpan)
 		require.Len(t, idx.Photos, 2)
 
 		p := idx.Photos[0]
@@ -128,7 +130,7 @@ func TestWriteAlbumIndex(t *testing.T) {
 				Encrypt:    encrypt,
 				Warn:       &WarnCollector{},
 			},
-			AlbumConfig: &AlbumConfig{Slug: "myalbum", Name: "My Album"},
+			AlbumConfig: &AlbumConfig{Slug: "myalbum", Name: "My Album", Description: "A test album."},
 			Photos: []*Photo{
 				{ID: "photo1", FileName: "photo1.jpg", PhotoMetadata: &PhotoMetadata{Width: 100, Height: 200}},
 			},
@@ -147,6 +149,7 @@ func TestWriteAlbumIndex(t *testing.T) {
 		idx, err := LoadAlbumIndex(outPath)
 		require.NoError(t, err)
 		assert.Equal(t, "myalbum", idx.Slug)
+		assert.Equal(t, "A test album.", idx.Description)
 		require.Len(t, idx.Photos, 1)
 	})
 
@@ -163,6 +166,7 @@ func TestWriteAlbumIndex(t *testing.T) {
 		data, err := os.ReadFile(encPath)
 		require.NoError(t, err)
 		assert.NotContains(t, string(data), "myalbum", "encrypted file must not contain plaintext slug")
+		assert.NotContains(t, string(data), "A test album.", "encrypted file must not contain plaintext description")
 	})
 
 	t.Run("switching to unencrypted removes stale index.enc.json", func(t *testing.T) {
@@ -294,17 +298,22 @@ func TestGetAlbumSummary(t *testing.T) {
 		assert.NotEmpty(t, s.CoverJpeg)
 	})
 
-	t.Run("site-encrypted album omits cover and coverJpeg", func(t *testing.T) {
+	t.Run("site-encrypted album has cover but no coverJpeg", func(t *testing.T) {
 		t.Parallel()
+		// albums.enc.json is protected, so the Cover URL is safe to include — it is only
+		// revealed after the site password is entered. CoverJpeg is omitted because it is
+		// used for OG/crawler meta tags and should not index password-protected content.
 		encrypt := &EncryptConfig{SitePassword: "pass"}
 		s := makeAP("myalbum", encrypt).GetAlbumSummary()
 		assert.True(t, s.Encrypted)
-		assert.Empty(t, s.Cover)
+		assert.NotEmpty(t, s.Cover)
 		assert.Empty(t, s.CoverJpeg)
 	})
 
 	t.Run("per-album encryption: encrypted album omits cover, public sibling keeps it", func(t *testing.T) {
 		t.Parallel()
+		// albums.json is plain (no site password), so the Cover URL for the encrypted album
+		// must be omitted — it would expose the cover image without requiring a password.
 		encrypt := &EncryptConfig{
 			HMACKey:        "test-key",
 			AlbumPasswords: map[string]string{"secret": "pass"},
@@ -317,5 +326,26 @@ func TestGetAlbumSummary(t *testing.T) {
 		sPublic := makeAP("public", encrypt).GetAlbumSummary()
 		assert.False(t, sPublic.Encrypted)
 		assert.NotEmpty(t, sPublic.Cover)
+	})
+
+	t.Run("mixed: site+per-album encryption includes cover for all albums", func(t *testing.T) {
+		t.Parallel()
+		// albums.enc.json is protected by the site password, so all Cover URLs are safe.
+		// The per-album password album also gets a Cover (visible after site unlock).
+		encrypt := &EncryptConfig{
+			HMACKey:        "test-key",
+			SitePassword:   "site-pass",
+			AlbumPasswords: map[string]string{"secret": "secret-pass"},
+		}
+
+		sSecret := makeAP("secret", encrypt).GetAlbumSummary()
+		assert.True(t, sSecret.Encrypted)
+		assert.NotEmpty(t, sSecret.Cover)
+		assert.Empty(t, sSecret.CoverJpeg)
+
+		sOther := makeAP("other", encrypt).GetAlbumSummary()
+		assert.True(t, sOther.Encrypted)
+		assert.NotEmpty(t, sOther.Cover)
+		assert.Empty(t, sOther.CoverJpeg)
 	})
 }

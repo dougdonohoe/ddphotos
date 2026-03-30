@@ -3,7 +3,7 @@
      (PhotoSwipe). IntelliJ's static CSS analyzer can't see runtime-injected classes. -->
 <!--suppress CssUnusedSymbol -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto, replaceState, pushState } from '$app/navigation';
 	import justifiedLayout from 'justified-layout';
@@ -11,10 +11,47 @@
 	import 'photoswipe/style.css';
 	import BackToTop from '$lib/components/BackToTop.svelte';
 	import OpenGraph from '$lib/components/OpenGraph.svelte';
+	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
+	import type { AlbumIndex } from '$lib/types';
+	import {
+		SITE_KEY,
+		albumKey,
+		getStoredPassword,
+		storePassword,
+		tryDecrypt
+	} from '$lib/crypto';
 
 	let { data } = $props();
+
+	// Client-decrypted album (null until the user's stored password or manual entry works).
+	let decryptedAlbum = $state<AlbumIndex | null>(null);
+	// Effective album: server-provided (unencrypted) takes precedence, else client-decrypted.
+	let album = $derived(data.album ?? decryptedAlbum);
+	// Metadata: prefer server-loaded values; fall back to fields embedded in the decrypted index
+	// (needed for site-encrypted sites where albums.enc.json is not fetched server-side).
+	let albumTitle = $derived(album?.title ?? data.albumTitle);
+	let description = $derived(data.description || album?.description || '');
+	let dateSpan = $derived(data.dateSpan || album?.dateSpan || '');
+	// True while we're silently trying stored passwords so we don't flash the prompt.
+	// $effect.pre runs synchronously before Svelte's first DOM commit in the browser,
+	// so if a stored password exists we set unlocking=true before the prompt ever renders.
+	// (On SSR, effects don't run; unlocking stays false and the prompt renders in the
+	// static HTML — this is fine since JS will correct it immediately on hydration.)
+	let unlocking = $state(false);
+	$effect.pre(() => {
+		if (data.encryptedBlob && (getStoredPassword(albumKey(data.slug)) || getStoredPassword(SITE_KEY))) {
+			unlocking = true;
+		}
+	});
+	let shakeCount = $state(0);
+
 	let containerWidth = $state(1200);
-	let container: HTMLDivElement;
+	let container = $state<HTMLDivElement | undefined>(undefined);
+	// Re-measure when container is bound — handles the encrypted case where the gallery div
+	// isn't in the DOM at onMount time (album is null), so onMount's updateWidth() is a no-op.
+	$effect(() => {
+		if (container) containerWidth = container.clientWidth;
+	});
 	let lightboxOpen = $state(false);
 	let lightboxClosedAt = $state(0);
 	let pswpInstance: PhotoSwipe | null = null; // reference to the open PhotoSwipe instance
@@ -22,22 +59,24 @@
 	// lightbox is open (component unmounts before the close event fires).
 	let activePopstateHandler: (() => void) | null = null;
 	// Image fade-in state. Populated by the $effect below, which re-runs on album change.
-	let imageSrcs = $state<string[]>([]);   // src per image; empty string = not yet assigned
+	let imageSrcs = $state<string[]>([]); // src per image; empty string = not yet assigned
 	let imageLoaded = $state<boolean[]>([]); // true once the browser fires the load event
 	let slowMode = $state(browser && new URLSearchParams(window.location.search).has('slow')); // true when ?slow is in the URL
-	let layoutReady = $state(false);         // true after onMount measures the real container width
-	let lastEffectSlug = '';                 // non-reactive: tracks which slug $effect last reset imageLoaded for
+	let layoutReady = $state(false); // true after onMount measures the real container width
+	let lastEffectSlug = '';          // non-reactive: tracks which slug $effect last reset imageLoaded for
+	let lastEffectPhotosLen = 0;     // non-reactive: tracks last known photo count to detect album load
 	// 1-based photo number for display when the route index is out of range; null otherwise.
-	// Derived (not state) so it updates reactively when data changes on client-side navigation.
 	let invalidPhotoIndex = $derived(
-		data.photoIndex !== null && (data.photoIndex < 0 || data.photoIndex >= data.album.photos.length)
+		album !== null &&
+			data.photoIndex !== null &&
+			(data.photoIndex < 0 || data.photoIndex >= album.photos.length)
 			? data.photoIndex + 1
 			: null
 	);
 
 	// Compute layout based on photo aspect ratios
 	let layout = $derived(() => {
-		const aspectRatios = data.album.photos.map((p) => p.width / p.height);
+		const aspectRatios = (album?.photos ?? []).map((p) => p.width / p.height);
 		return justifiedLayout(aspectRatios, {
 			containerWidth,
 			targetRowHeight: 300,
@@ -48,7 +87,7 @@
 
 	// Build PhotoSwipe data source
 	let photoswipeItems = $derived(
-		data.album.photos.map((photo) => ({
+		(album?.photos ?? []).map((photo) => ({
 			src: `/albums/${data.slug}/${photo.src.full}`,
 			w: photo.width,
 			h: photo.height,
@@ -57,6 +96,44 @@
 			caption: photo.description || ''
 		}))
 	);
+
+	async function tryDecryptAlbum() {
+		if (!data.encryptedBlob) return;
+		unlocking = true;
+
+		// Try per-album stored password first, then site-wide.
+		for (const key of [albumKey(data.slug), SITE_KEY]) {
+			const pw = getStoredPassword(key);
+			if (pw) {
+				const result = await tryDecrypt(data.encryptedBlob, pw);
+				if (result) {
+					decryptedAlbum = result as AlbumIndex;
+					storePassword(albumKey(data.slug), pw);
+					unlocking = false;
+					// Wait for Svelte to recompute photoswipeItems from the decrypted album,
+					// then auto-open the lightbox if this is a permalink URL.
+					await tick();
+					if (data.photoIndex !== null && invalidPhotoIndex === null) {
+						openLightbox(data.photoIndex, false);
+					}
+					return;
+				}
+			}
+		}
+
+		unlocking = false;
+	}
+
+	async function handleUnlock(password: string) {
+		if (!data.encryptedBlob) return;
+		const result = await tryDecrypt(data.encryptedBlob, password);
+		if (result) {
+			decryptedAlbum = result as AlbumIndex;
+			storePassword(albumKey(data.slug), password);
+		} else {
+			shakeCount++;
+		}
+	}
 
 	function openLightbox(index: number, animate = true) {
 		const pswp = new PhotoSwipe({
@@ -84,7 +161,7 @@
 		const handlePopstate = () => {
 			closedByBackNav = true;
 			pswpInstance = null; // null before close() so onMount cleanup skips destroy()
-			pswp.close();        // plays close animation; close handler cleans up the rest
+			pswp.close(); // plays close animation; close handler cleans up the rest
 		};
 		window.addEventListener('popstate', handlePopstate);
 		activePopstateHandler = handlePopstate;
@@ -105,7 +182,9 @@
 			}
 		});
 
-		pswp.on('openingAnimationStart', () => { lightboxOpen = true; });
+		pswp.on('openingAnimationStart', () => {
+			lightboxOpen = true;
+		});
 		pswp.on('close', () => {
 			window.removeEventListener('popstate', handlePopstate);
 			activePopstateHandler = null;
@@ -166,16 +245,19 @@
 			copyBtn.innerHTML = linkSVG;
 
 			copyBtn.onclick = () => {
-				navigator.clipboard.writeText(window.location.href).then(() => {
-					copyBtn.innerHTML = checkSVG;
-					copyBtn.classList.add('copied');
-					setTimeout(() => {
-						copyBtn.innerHTML = linkSVG;
-						copyBtn.classList.remove('copied');
-					}, 1500);
-				}).catch(() => {
-					// Clipboard not available (old browser or denied permission) — silently ignore
-				});
+				navigator.clipboard
+					.writeText(window.location.href)
+					.then(() => {
+						copyBtn.innerHTML = checkSVG;
+						copyBtn.classList.add('copied');
+						setTimeout(() => {
+							copyBtn.innerHTML = linkSVG;
+							copyBtn.classList.remove('copied');
+						}, 1500);
+					})
+					.catch(() => {
+						// Clipboard not available (old browser or denied permission) — silently ignore
+					});
 			};
 
 			// Insert just before the close button (last child of top bar)
@@ -238,14 +320,18 @@
 	// Clears stale src/loaded arrays first so old album photos never bleed through,
 	// and cancels any pending slow-mode timeouts from the previous album.
 	$effect(() => {
-		// Only reset imageLoaded when navigating to a different album.  If the same
-		// album's data is re-fetched (e.g. SvelteKit fallback navigation after reload +
-		// back), the slug is unchanged — skipping the reset preserves the loaded state
-		// so images don't get stuck at opacity:0 (Svelte diffs src attrs as equal,
-		// onload never re-fires, but imageLoaded[i]=true still applies the loaded class).
-		if (data.slug !== lastEffectSlug) {
+		const photos = album?.photos ?? [];
+
+		// Reset imageLoaded when navigating to a different album, or when album just
+		// became available after decryption (photo count was 0 while encrypted).
+		// Uses non-reactive lastEffectPhotosLen (like lastEffectSlug) to avoid creating
+		// a reactive dependency on imageLoaded, which would cause an infinite effect loop.
+		const slugChanged = data.slug !== lastEffectSlug;
+		const albumJustLoaded = album !== null && photos.length !== lastEffectPhotosLen;
+		if (slugChanged || albumJustLoaded) {
 			lastEffectSlug = data.slug;
-			imageLoaded = data.album.photos.map(() => false);
+			lastEffectPhotosLen = photos.length;
+			imageLoaded = photos.map(() => false);
 		}
 
 		if (slowMode) {
@@ -256,19 +342,23 @@
 			// after the timeout — this triggers a real load cycle, not just
 			// a visual delay. loading="lazy" is also disabled in slow mode
 			// to avoid unpredictable interaction with programmatic src assignment.
-			imageSrcs = data.album.photos.map(() => '');
-			const timeouts = data.album.photos.map((photo: any, i: number) => {
+			imageSrcs = photos.map(() => '');
+			const timeouts = photos.map((photo: any, i: number) => {
 				const src = `/albums/${data.slug}/${photo.src.grid}`;
 				const delay = 500 + Math.random() * 2000;
-				return setTimeout(() => { imageSrcs[i] = src; }, delay);
+				return setTimeout(() => {
+					imageSrcs[i] = src;
+				}, delay);
 			});
-			return () => { timeouts.forEach(clearTimeout); };
+			return () => {
+				timeouts.forEach(clearTimeout);
+			};
 		} else {
 			// Build the full array in one assignment — avoids reading imageSrcs
 			// inside the effect (which would create a dependency and cause an
 			// infinite update loop when the assignment then triggers a re-run).
-			imageSrcs = data.album.photos.map((photo: any) =>
-				`/albums/${data.slug}/${photo.src.grid}`
+			imageSrcs = photos.map(
+				(photo: any) => `/albums/${data.slug}/${photo.src.grid}`
 			);
 		}
 	});
@@ -288,11 +378,17 @@
 		updateWidth();
 		layoutReady = true;
 
-		// Open lightbox at the photo specified in the route (e.g. /albums/antarctica/15).
-		// Skip the opening animation so it appears instantly rather than fading/zooming in.
-		// invalidPhotoIndex (derived) handles the out-of-range case in the template.
-		if (data.photoIndex !== null && invalidPhotoIndex === null) {
-			openLightbox(data.photoIndex, false);
+		if (data.encryptedBlob) {
+			// Silently try stored passwords (fire and forget — resolves async).
+			// On success, tryDecryptAlbum also handles auto-opening a permalink.
+			tryDecryptAlbum();
+		} else {
+			// Open lightbox at the photo specified in the route (e.g. /albums/antarctica/15).
+			// Skip the opening animation so it appears instantly rather than fading/zooming in.
+			// invalidPhotoIndex (derived) handles the out-of-range case in the template.
+			if (data.photoIndex !== null && invalidPhotoIndex === null) {
+				openLightbox(data.photoIndex, false);
+			}
 		}
 
 		window.addEventListener('resize', updateWidth);
@@ -315,71 +411,113 @@
 </script>
 
 <OpenGraph
-	title={data.album.title}
-	description={data.description || `${data.album.photos.length} photos from the '${data.album.title}' album`}
+	title={albumTitle}
+	description={description ||
+		(album
+			? `${album.photos.length} photos from the '${albumTitle}' album`
+			: albumTitle)}
 	url="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}"
-	image="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}/cover.jpg"
+	image={album ? `${import.meta.env.VITE_SITE_URL}/albums/${data.slug}/cover.jpg` : undefined}
 />
 
-<main>
-	<header>
-		<a href="/">← Albums</a>
-		<h1>{data.album.title}</h1>
-		{#if data.description}
-			<p class="description">{data.description}</p>
+{#if album}
+	<main>
+		<header>
+			<a href="/">← Albums</a>
+			<h1>{albumTitle}</h1>
+			{#if description}
+				<p class="description">{description}</p>
+			{/if}
+			<p class="meta">
+				{album.photos.length} photos{dateSpan ? ` · ${dateSpan}` : ''}
+			</p>
+		</header>
+
+		{#if invalidPhotoIndex !== null}
+			<div class="not-found">
+				<p>No photo #{invalidPhotoIndex} in '{album.title}'.</p>
+				<a href="/albums/{data.slug}">Back to the album</a>
+			</div>
 		{/if}
-		<p class="meta">{data.album.photos.length} photos{data.dateSpan ? ` · ${data.dateSpan}` : ''}</p>
-	</header>
 
-	{#if invalidPhotoIndex !== null}
-		<div class="not-found">
-			<p>No photo #{invalidPhotoIndex} in '{data.album.title}'.</p>
-			<a href="/albums/{data.slug}">Back to the album</a>
+		<div
+			class="gallery"
+			bind:this={container}
+			style="height: {layout().containerHeight}px;"
+			class:layout-ready={layoutReady}
+		>
+			{#each album.photos as photo, i}
+				{@const box = layout().boxes[i]}
+				<button
+					class="photo"
+					style="
+						position: absolute;
+						left: {box.left}px;
+						top: {box.top}px;
+						width: {box.width}px;
+						height: {box.height}px;
+					"
+					onclick={() => openLightbox(i)}
+				>
+					<!-- src starts empty; set in onMount (immediately or after delay in ?slow mode).
+					     loading="lazy" is dropped in slow mode to avoid browser deferring
+					     images that are in-viewport when the delayed src is finally assigned.
+					     The `loaded` class drives the fade-in transition in CSS. -->
+					<img
+						src={imageSrcs[i]}
+						alt={photo.description || photo.fileName}
+						width={box.width}
+						height={box.height}
+						loading={slowMode ? undefined : 'lazy'}
+						class:loaded={imageLoaded[i]}
+						onload={() => {
+							imageLoaded[i] = true;
+						}}
+					/>
+					{#if photo.description}
+						<div class="photo-caption">{photo.description}</div>
+					{/if}
+				</button>
+			{/each}
 		</div>
-	{/if}
 
-	<div class="gallery" bind:this={container} style="height: {layout().containerHeight}px;" class:layout-ready={layoutReady}>
-		{#each data.album.photos as photo, i}
-			{@const box = layout().boxes[i]}
-			<button
-				class="photo"
-				style="
-					position: absolute;
-					left: {box.left}px;
-					top: {box.top}px;
-					width: {box.width}px;
-					height: {box.height}px;
-				"
-				onclick={() => openLightbox(i)}
-			>
-				<!-- src starts empty; set in onMount (immediately or after delay in ?slow mode).
-				     loading="lazy" is dropped in slow mode to avoid browser deferring
-				     images that are in-viewport when the delayed src is finally assigned.
-				     The `loaded` class drives the fade-in transition in CSS. -->
-				<img
-					src={imageSrcs[i]}
-					alt={photo.description || photo.fileName}
-					width={box.width}
-					height={box.height}
-					loading={slowMode ? undefined : 'lazy'}
-					class:loaded={imageLoaded[i]}
-					onload={() => { imageLoaded[i] = true; }}
-				/>
-				{#if photo.description}
-					<div class="photo-caption">{photo.description}</div>
-				{/if}
-			</button>
-		{/each}
-	</div>
-
-	<BackToTop />
-</main>
+		<BackToTop />
+	</main>
+{:else if browser && unlocking}
+	<main class="loading-page">
+		<header>
+			<a href="/">← Albums</a>
+			<h1>{albumTitle}</h1>
+		</header>
+	</main>
+{:else if browser}
+	<main class="prompt-page">
+		<header>
+			<a href="/">← Albums</a>
+			<h1>{albumTitle}</h1>
+		</header>
+		<PasswordPrompt
+			title="This album is private"
+			{shakeCount}
+			onunlock={handleUnlock}
+		/>
+	</main>
+{/if}
 
 <style>
 	main {
 		max-width: 2000px;
 		margin: 0 auto;
 		padding: 1rem;
+	}
+
+	.loading-page {
+		max-width: 1200px;
+		min-height: 80vh;
+	}
+
+	.prompt-page {
+		max-width: 1200px;
 	}
 
 	header {
@@ -418,7 +556,6 @@
 		font-style: italic;
 		font-size: 0.85rem;
 	}
-
 
 	.not-found {
 		padding: 3rem 1rem;

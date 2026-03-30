@@ -1,11 +1,23 @@
 import { error } from '@sveltejs/kit';
-import type { AlbumSummary } from '$lib/types';
+import type { AlbumSummary, SiteConfig } from '$lib/types';
 
 export async function load({ fetch }) {
-	const response = await fetch('/albums/albums.json');
-	if (!response.ok) {
-		error(response.status, 'Failed to load albums');
+	const configRes = await fetch('/albums/config.json');
+	if (!configRes.ok) {
+		error(configRes.status, 'Failed to load site config');
 	}
-	const albums: AlbumSummary[] = await response.json();
-	return { albums };
+	const siteConfig: SiteConfig = await configRes.json();
+
+	const albumsRes = await fetch(`/albums/${siteConfig.albumsFile}`);
+	if (!albumsRes.ok) {
+		error(albumsRes.status, 'Failed to load albums');
+	}
+
+	if (siteConfig.albumsFile.endsWith('.enc.json')) {
+		const encryptedBlob = await albumsRes.text();
+		return { albums: null as AlbumSummary[] | null, encryptedBlob };
+	}
+
+	const albums: AlbumSummary[] = await albumsRes.json();
+	return { albums, encryptedBlob: null as string | null };
 }
