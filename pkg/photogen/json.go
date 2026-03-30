@@ -172,13 +172,14 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 	summary.Encrypted = encrypted
 
 	if cover := ap.coverPhoto(); cover != nil {
-		// Include the WebP cover URL whenever it will be visible only to authenticated users:
-		// either the album is unencrypted (always visible) or the site itself is encrypted
-		// (albums.enc.json is protected, so the URL is only revealed after the site password
-		// is entered). Omit it when the album is individually encrypted but the album list
-		// is plain (albums.json), because the URL would expose the cover without a password.
+		// Include the WebP cover URL only when it is accessible without an album-specific
+		// password: either the album is unencrypted (always visible) or the site is encrypted
+		// and the album has no per-album password (cover is safe behind the site password).
+		// If the album has its own per-album password, omit the cover even when the site is
+		// encrypted — the per-album password provides stronger protection than the site password.
 		siteEncrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsSiteEncrypted()
-		if !encrypted || siteEncrypted {
+		hasPerAlbumPw := ap.Config.Encrypt != nil && ap.Config.Encrypt.HasPerAlbumPassword(ap.AlbumConfig.Slug)
+		if !encrypted || (siteEncrypted && !hasPerAlbumPw) {
 			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
 		}
 		// CoverJpeg is used for OG/crawler meta tags — only set for unencrypted albums so

@@ -56,7 +56,7 @@ export async function load({ params, fetch }) {
 		album,
 		encryptedBlob,
 		slug: params.slug,
-		albumTitle: albumMeta?.title ?? params.slug,
+		albumTitle: albumMeta?.title ?? params.slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
 		dateSpan: albumMeta?.dateSpan ?? '',
 		description: albumMeta?.description ?? '',
 		photoIndex

@@ -330,10 +330,11 @@ func TestGetAlbumSummary(t *testing.T) {
 		assert.NotEmpty(t, sPublic.Cover)
 	})
 
-	t.Run("mixed: site+per-album encryption includes cover for all albums", func(t *testing.T) {
+	t.Run("mixed: site+per-album encryption omits cover for per-album album, includes for others", func(t *testing.T) {
 		t.Parallel()
-		// albums.enc.json is protected by the site password, so all Cover URLs are safe.
-		// The per-album password album also gets a Cover (visible after site unlock).
+		// Per-album password takes precedence: the "secret" album has its own password so its
+		// cover is omitted even though albums.enc.json is site-protected. "other" has no
+		// per-album password so it is covered only by the site password and gets a cover.
 		encrypt := &EncryptConfig{
 			HMACKey:        "test-key",
 			SitePassword:   "site-pass",
@@ -342,12 +343,12 @@ func TestGetAlbumSummary(t *testing.T) {
 
 		sSecret := makeAP("secret", encrypt).GetAlbumSummary()
 		assert.True(t, sSecret.Encrypted)
-		assert.NotEmpty(t, sSecret.Cover)
+		assert.Empty(t, sSecret.Cover, "per-album password album must not expose cover")
 		assert.Empty(t, sSecret.CoverJpeg)
 
 		sOther := makeAP("other", encrypt).GetAlbumSummary()
 		assert.True(t, sOther.Encrypted)
-		assert.NotEmpty(t, sOther.Cover)
+		assert.NotEmpty(t, sOther.Cover, "site-only encrypted album should include cover")
 		assert.Empty(t, sOther.CoverJpeg)
 	})
 }

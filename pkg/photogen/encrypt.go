@@ -111,6 +111,13 @@ func (ec *EncryptConfig) IsAlbumEncrypted(slug string) bool {
 	return ec.AlbumPassword(slug) != ""
 }
 
+// HasPerAlbumPassword reports whether the album has its own dedicated password
+// (as opposed to only being encrypted via the site-wide password).
+func (ec *EncryptConfig) HasPerAlbumPassword(slug string) bool {
+	_, ok := ec.AlbumPasswords[slug]
+	return ok
+}
+
 // IsSiteEncrypted reports whether albums.json is encrypted (i.e., _all_ is set).
 func (ec *EncryptConfig) IsSiteEncrypted() bool {
 	return ec.SitePassword != ""
