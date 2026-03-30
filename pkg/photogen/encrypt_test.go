@@ -167,7 +167,7 @@ func TestEncryptJSON_RoundTrip(t *testing.T) {
 	original := []byte(`{"slug":"test","title":"Test Album"}`)
 	password := "test-password"
 
-	encrypted, err := EncryptJSON(original, password)
+	encrypted, err := EncryptJSON(original, password, "")
 	require.NoError(t, err)
 
 	// Verify it's valid JSON with expected fields
@@ -181,13 +181,72 @@ func TestEncryptJSON_RoundTrip(t *testing.T) {
 	assert.NotContains(t, string(encrypted), "Test Album")
 }
 
+func TestDecryptJSON(t *testing.T) {
+	t.Parallel()
+
+	original := []byte(`{"slug":"test","title":"Test Album"}`)
+
+	t.Run("round-trip produces original plaintext", func(t *testing.T) {
+		t.Parallel()
+		encrypted, err := EncryptJSON(original, "correct-password", "")
+		require.NoError(t, err)
+
+		plaintext, err := DecryptJSON(encrypted, "correct-password")
+		require.NoError(t, err)
+		assert.Equal(t, original, plaintext)
+	})
+
+	t.Run("wrong password returns error", func(t *testing.T) {
+		t.Parallel()
+		encrypted, err := EncryptJSON(original, "correct-password", "")
+		require.NoError(t, err)
+
+		_, err = DecryptJSON(encrypted, "wrong-password")
+		assert.Error(t, err)
+	})
+}
+
+func TestReadPwFile(t *testing.T) {
+	t.Parallel()
+
+	original := []byte(`{"slug":"test"}`)
+
+	t.Run("returns stored pwFile path", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		path := filepath.Join(dir, "test.enc.json")
+
+		encrypted, err := EncryptJSON(original, "passw0rd", "sample/config/passwords.txt")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, encrypted, 0o644))
+
+		got, err := ReadPwFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, "sample/config/passwords.txt", got)
+	})
+
+	t.Run("returns empty string when no pwFile stored", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		path := filepath.Join(dir, "test.enc.json")
+
+		encrypted, err := EncryptJSON(original, "passw0rd", "")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, encrypted, 0o644))
+
+		got, err := ReadPwFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, "", got)
+	})
+}
+
 func TestEncryptJSON_NonDeterministic(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"test":true}`)
-	enc1, err := EncryptJSON(data, "password")
+	enc1, err := EncryptJSON(data, "password", "")
 	require.NoError(t, err)
-	enc2, err := EncryptJSON(data, "password")
+	enc2, err := EncryptJSON(data, "password", "")
 	require.NoError(t, err)
 	// Each encryption uses a random salt+nonce, so outputs differ
 	assert.NotEqual(t, string(enc1), string(enc2))

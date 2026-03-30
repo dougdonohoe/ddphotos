@@ -231,17 +231,51 @@ _all_:site-wide-password
 album-slug:per-album-password
 ```
 
-| Entry           | Description                                                                                         |
-|-----------------|-----------------------------------------------------------------------------------------------------|
-| `_key_:value`   | HMAC-SHA256 secret used to derive UUID-format WebP filenames for encrypted albums, preventing filename guessing (e.g. `IMG_3961.webp` becomes `3f8a1c2d-...webp`) |
-| `_all_:value`   | Encrypts `albums.json` and all per-album `index.json` files site-wide                              |
-| `slug:value`    | Per-album password override; encrypts only that album's `index.json`. Falls back to `_all_` if not set |
+| Entry         | Description                                                                                                                                                       |
+|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `_key_:value` | HMAC-SHA256 secret used to derive UUID-format WebP filenames for encrypted albums, preventing filename guessing (e.g. `IMG_3961.webp` becomes `3f8a1c2d-...webp`) |
+| `_all_:value` | Encrypts `albums.json` and all per-album `index.json` files site-wide                                                                                             |
+| `slug:value`  | Per-album password override; encrypts only that album's `index.json`. Falls back to `_all_` if not set                                                            |
 
 Sample passwords files are in `sample/config/` — `passwords-all.txt` (full site) and
 `passwords-uganda.txt` (single album). Both contain demo-only passwords and a prominent WARNING header.
 
 **Do not commit real passwords.** Store production passwords outside the repo or in a
 git-ignored directory (e.g. `.secrets/`).
+
+## Decoding Encrypted Files (`decode`)
+
+The `decode` tool decrypts `.enc.json` files produced by `photogen` and prints the
+plaintext JSON. Useful for inspecting what photogen wrote without running the full
+frontend.
+
+```bash
+go run cmd/decode/decode.go <path.enc.json>
+go run cmd/decode/decode.go -passwords <pw-file> <path.enc.json>
+```
+
+`photogen` embeds the passwords file path in every `.enc.json` it writes, so in most
+cases no flags are needed:
+
+```bash
+go run cmd/decode/decode.go web/albums/sample-pw-uganda/uganda/index.enc.json
+go run cmd/decode/decode.go web/albums/sample-pw-all/albums.enc.json
+```
+
+If the passwords file has moved, or the file was generated without an embedded path,
+pass `-passwords` explicitly:
+
+```bash
+go run cmd/decode/decode.go -passwords sample/config/passwords-uganda.txt \
+  web/albums/sample-pw-uganda/uganda/index.enc.json
+```
+
+The correct password is selected automatically from the filename:
+
+| File              | Password used                                    |
+|-------------------|--------------------------------------------------|
+| `albums.enc.json` | Site-wide password (`_all_`)                     |
+| `index.enc.json`  | Per-album password for the parent directory slug |
 
 ## Testing
 

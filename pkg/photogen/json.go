@@ -132,7 +132,7 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 	b = append(b, '\n')
 
 	if password != "" {
-		b, err = EncryptJSON(b, password)
+		b, err = EncryptJSON(b, password, ap.Config.Encrypt.PwFile)
 		if err != nil {
 			return fmt.Errorf("encrypt album index: %w", err)
 		}
@@ -235,7 +235,7 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 	b = append(b, '\n')
 
 	if encrypted {
-		b, err = EncryptJSON(b, c.Encrypt.SitePassword)
+		b, err = EncryptJSON(b, c.Encrypt.SitePassword, c.Encrypt.PwFile)
 		if err != nil {
 			return fmt.Errorf("encrypt albums: %w", err)
 		}

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -27,6 +28,9 @@ type EncryptConfig struct {
 	// AlbumPasswords holds per-album passwords keyed by slug.
 	// An album with no entry here falls back to SitePassword.
 	AlbumPasswords map[string]string
+	// PwFile is the path to the passwords file this config was loaded from.
+	// It is embedded in encrypted files so the decode tool can find it automatically.
+	PwFile string
 }
 
 // LoadEncryptConfig reads a passwords file and returns an EncryptConfig.
@@ -37,7 +41,7 @@ type EncryptConfig struct {
 //	_all_:site-password
 //	album-slug:album-password
 func LoadEncryptConfig(path string) (*EncryptConfig, error) {
-	ec := &EncryptConfig{AlbumPasswords: map[string]string{}}
+	ec := &EncryptConfig{AlbumPasswords: map[string]string{}, PwFile: path}
 	err := scanLines(path, func(line string) {
 		idx := strings.IndexByte(line, ':')
 		if idx < 0 {
@@ -129,9 +133,10 @@ func (ec *EncryptConfig) PhotoWebPName(filename string) string {
 
 // encryptedPayload is the on-disk JSON format for encrypted files.
 type encryptedPayload struct {
-	Salt string `json:"salt"`
-	IV   string `json:"iv"`
-	Data string `json:"data"`
+	Salt   string `json:"salt"`
+	IV     string `json:"iv"`
+	Data   string `json:"data"`
+	PwFile string `json:"pwFile,omitempty"` // path to passwords file; used by cmd/decode
 }
 
 const pbkdf2Iterations = 100_000
@@ -139,9 +144,10 @@ const aesKeyLen = 32 // AES-256
 
 // EncryptJSON encrypts plaintext JSON data with the given password using
 // PBKDF2 (SHA-256, 100k iterations) for key derivation and AES-256-GCM for
-// encryption. Returns a JSON blob containing the salt, IV, and ciphertext,
-// all base64-encoded. The format is compatible with the Web Crypto API.
-func EncryptJSON(data []byte, password string) ([]byte, error) {
+// encryption. Returns a JSON blob containing the salt, IV, ciphertext (all
+// base64-encoded), and optionally the path to the passwords file. The format
+// is compatible with the Web Crypto API.
+func EncryptJSON(data []byte, password, pwFile string) ([]byte, error) {
 	salt := make([]byte, 16)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return nil, fmt.Errorf("generate salt: %w", err)
@@ -166,13 +172,66 @@ func EncryptJSON(data []byte, password string) ([]byte, error) {
 	ciphertext := gcm.Seal(nil, nonce, data, nil)
 
 	payload := encryptedPayload{
-		Salt: base64.StdEncoding.EncodeToString(salt),
-		IV:   base64.StdEncoding.EncodeToString(nonce),
-		Data: base64.StdEncoding.EncodeToString(ciphertext),
+		Salt:   base64.StdEncoding.EncodeToString(salt),
+		IV:     base64.StdEncoding.EncodeToString(nonce),
+		Data:   base64.StdEncoding.EncodeToString(ciphertext),
+		PwFile: pwFile,
 	}
 	out, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshal encrypted payload: %w", err)
 	}
 	return out, nil
+}
+
+// DecryptJSON decrypts an encrypted payload produced by EncryptJSON.
+// Returns the original plaintext or an error if the password is wrong.
+func DecryptJSON(encrypted []byte, password string) ([]byte, error) {
+	var payload encryptedPayload
+	if err := json.Unmarshal(encrypted, &payload); err != nil {
+		return nil, fmt.Errorf("unmarshal encrypted payload: %w", err)
+	}
+	salt, err := base64.StdEncoding.DecodeString(payload.Salt)
+	if err != nil {
+		return nil, fmt.Errorf("decode salt: %w", err)
+	}
+	nonce, err := base64.StdEncoding.DecodeString(payload.IV)
+	if err != nil {
+		return nil, fmt.Errorf("decode IV: %w", err)
+	}
+	ciphertext, err := base64.StdEncoding.DecodeString(payload.Data)
+	if err != nil {
+		return nil, fmt.Errorf("decode ciphertext: %w", err)
+	}
+
+	key := pbkdf2.Key([]byte(password), salt, pbkdf2Iterations, aesKeyLen, sha256.New)
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("create cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("create GCM: %w", err)
+	}
+
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt (wrong password?): %w", err)
+	}
+	return plaintext, nil
+}
+
+// ReadPwFile reads an encrypted file and returns the pwFile path embedded in it,
+// or "" if none was stored.
+func ReadPwFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	var payload encryptedPayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return "", fmt.Errorf("unmarshal %s: %w", path, err)
+	}
+	return payload.PwFile, nil
 }
