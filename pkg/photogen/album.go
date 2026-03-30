@@ -88,9 +88,14 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 			fmt.Printf("Error resizing photos: %v\n", err)
 			return err
 		}
-		if err := ap.WriteCoverJPEG(); err != nil {
-			fmt.Printf("Error writing cover JPEG: %v\n", err)
-			return err
+		// Cover JPEG is only used for OG images; skip for encrypted albums since
+		// CoverJpeg is omitted from the summary and the file would be guessable.
+		encrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsAlbumEncrypted(ap.AlbumConfig.Slug)
+		if !encrypted {
+			if err := ap.WriteCoverJPEG(); err != nil {
+				fmt.Printf("Error writing cover JPEG: %v\n", err)
+				return err
+			}
 		}
 	}
 
@@ -280,6 +285,7 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 		return nil
 	}
 	outputPath := ap.OutputPath("cover.jpg")
+	ap.Config.TrackFile(outputPath)
 	result, err := ResizeCoverJPEG(cover.AbsolutePath, outputPath, ap.Config.Force, ap.Config.DryRun)
 	if err != nil {
 		return fmt.Errorf("write cover jpeg: %w", err)

@@ -120,6 +120,16 @@ web-screenshots:
 use-sample:
 	ln -sfn ../albums/sample web/static/albums
 
+.PHONY: use-sample-pw-all
+## use-sample-pw-all: symlink web/static/albums -> ../albums/sample-pw-all
+use-sample-pw-all:
+	ln -sfn ../albums/sample-pw-all web/static/albums
+
+.PHONY: use-sample-pw-uganda
+## use-sample-pw-uganda: symlink web/static/albums -> ../albums/sample-pw-uganda
+use-sample-pw-uganda:
+	ln -sfn ../albums/sample-pw-uganda web/static/albums
+
 .PHONY: use-prod
 ## use-prod: symlink web/static/albums -> ../albums/prod (web/albums/prod/)
 use-prod:
@@ -128,7 +138,17 @@ use-prod:
 .PHONY: sample-photogen
 ## sample-photogen: run photogen using sample images
 sample-photogen:
-	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -doit
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -doit
+
+.PHONY: sample-photogen-pw-all
+## sample-photogen-pw-all: run photogen using sample images, all albums password-protected
+sample-photogen-pw-all:
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -encrypt sample/config/passwords-all.txt -site-id sample-pw-all -doit
+
+.PHONY: sample-photogen-pw-uganda
+## sample-photogen-pw-uganda: run photogen using sample images, uganda album password-protected
+sample-photogen-pw-uganda:
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -encrypt sample/config/passwords-uganda.txt -site-id sample-pw-uganda -doit
 
 .PHONY: sample-build
 ## sample-build: build web app using sample config

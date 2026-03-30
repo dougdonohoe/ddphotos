@@ -66,13 +66,14 @@ type AlbumSummary struct {
 	Slug        string `json:"slug"`
 	Title       string `json:"title"`
 	Count       int    `json:"count"`
-	Cover       string `json:"cover"`                 // path to cover image (first photo's thumb, WebP)
-	CoverJpeg   string `json:"coverJpeg"`             // path to cover JPEG for OG images (broad crawler support)
+	Cover       string `json:"cover,omitempty"`       // path to cover image (first photo's thumb, WebP)
+	CoverJpeg   string `json:"coverJpeg,omitempty"`   // path to cover JPEG for OG images (broad crawler support)
 	DateSpan    string `json:"dateSpan"`              // e.g., "Apr 2024" or "Apr - May 2024"
 	Description string `json:"description,omitempty"` // optional blurb shown on album page
+	Encrypted   bool   `json:"encrypted,omitempty"`   // true if album index is encrypted
 }
 
-// WriteAlbumIndex writes the index.json for this album.
+// WriteAlbumIndex writes the index.json (or index.enc.json if encrypted) for this album.
 func (ap *AlbumProcessor) WriteAlbumIndex() error {
 	index := AlbumIndex{
 		Slug:   ap.AlbumConfig.Slug,
@@ -85,7 +86,6 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 		if !photo.DateTaken.IsZero() {
 			dateStr = photo.DateTaken.Format("2006-01-02")
 		}
-
 		pi := PhotoIndex{
 			ID:          photo.ID,
 			FileName:    photo.FileName,
@@ -102,19 +102,52 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 		index.Photos = append(index.Photos, pi)
 	}
 
-	outputPath := ap.OutputPath("index.json")
+	password := ""
+	if ap.Config.Encrypt != nil {
+		password = ap.Config.Encrypt.AlbumPassword(ap.AlbumConfig.Slug)
+	}
+
+	outputName := "index.json"
+	counterpart := "index.enc.json"
+	if password != "" {
+		outputName = "index.enc.json"
+		counterpart = "index.json"
+	}
+	outputPath := ap.OutputPath(outputName)
+	ap.Config.TrackFile(outputPath)
 
 	if ap.Config.DryRun {
-		fmt.Printf("  DRYRUN: would write %s (%d photos)\n", outputPath, len(index.Photos))
+		action := "write"
+		if password != "" {
+			action = "encrypt+write"
+		}
+		fmt.Printf("  DRYRUN: would %s %s (%d photos)\n", action, outputPath, len(index.Photos))
 		return nil
 	}
 
-	return index.Save(outputPath)
+	b, err := json.MarshalIndent(index, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal album index: %w", err)
+	}
+	b = append(b, '\n')
+
+	if password != "" {
+		b, err = EncryptJSON(b, password)
+		if err != nil {
+			return fmt.Errorf("encrypt album index: %w", err)
+		}
+	}
+
+	if err := writeBytes(outputPath, b); err != nil {
+		return err
+	}
+	removeIfExists(ap.OutputPath(counterpart))
+	return nil
 }
 
 // relativeSrcPath returns the relative path for a photo variant (relative to album dir).
 func (ap *AlbumProcessor) relativeSrcPath(size ImageSize, fileName string) string {
-	return filepath.Join(string(size), WebPFileName(fileName))
+	return filepath.Join(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, fileName))
 }
 
 // GetAlbumSummary returns summary info for albums.json
@@ -125,14 +158,18 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		Count: len(ap.Photos),
 	}
 
+	encrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsAlbumEncrypted(ap.AlbumConfig.Slug)
+	summary.Encrypted = encrypted
+
 	if cover := ap.coverPhoto(); cover != nil {
-		summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), WebPFileName(cover.FileName))
-		summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, "cover.jpg")
+		if !encrypted {
+			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
+			summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, "cover.jpg")
+		}
 		summary.DateSpan = ap.computeDateSpan()
 	}
 
 	summary.Description = ap.AlbumConfig.Description
-
 	return summary
 }
 
@@ -170,16 +207,63 @@ func (ap *AlbumProcessor) computeDateSpan() string {
 	return fmt.Sprintf("%s - %s", first.Format("Jan 2006"), last.Format("Jan 2006"))
 }
 
-// WriteAlbumsIndex writes albums.json into siteDir (cfg.SiteOutputPath()).
-func WriteAlbumsIndex(siteDir string, summaries []AlbumSummary, dryRun bool) error {
-	outputPath := filepath.Join(siteDir, "albums.json")
+// WriteAlbumsIndex writes albums.json (or albums.enc.json if encrypted) into siteDir.
+func WriteAlbumsIndex(siteDir string, summaries []AlbumSummary, encrypt *EncryptConfig, dryRun bool) error {
+	encrypted := encrypt != nil && encrypt.IsSiteEncrypted()
+	outputName := "albums.json"
+	counterpart := "albums.enc.json"
+	if encrypted {
+		outputName = "albums.enc.json"
+		counterpart = "albums.json"
+	}
+	outputPath := filepath.Join(siteDir, outputName)
 
 	if dryRun {
-		fmt.Printf("DRYRUN: would write %s (%d albums)\n", outputPath, len(summaries))
+		action := "write"
+		if encrypted {
+			action = "encrypt+write"
+		}
+		fmt.Printf("DRYRUN: would %s %s (%d albums)\n", action, outputPath, len(summaries))
 		return nil
 	}
 
-	return SaveAlbumSummaries(outputPath, summaries)
+	b, err := json.MarshalIndent(summaries, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal albums: %w", err)
+	}
+	b = append(b, '\n')
+
+	if encrypted {
+		b, err = EncryptJSON(b, encrypt.SitePassword)
+		if err != nil {
+			return fmt.Errorf("encrypt albums: %w", err)
+		}
+	}
+
+	if err := writeBytes(outputPath, b); err != nil {
+		return err
+	}
+	removeIfExists(filepath.Join(siteDir, counterpart))
+	return nil
+}
+
+// SiteConfig is the structure for config.json (always unencrypted).
+type SiteConfig struct {
+	AlbumsFile string `json:"albumsFile"`
+}
+
+// WriteConfigJSON writes config.json indicating which albums file to load.
+func WriteConfigJSON(siteDir string, encrypt *EncryptConfig, dryRun bool) error {
+	albumsFile := "albums.json"
+	if encrypt != nil && encrypt.IsSiteEncrypted() {
+		albumsFile = "albums.enc.json"
+	}
+	outputPath := filepath.Join(siteDir, "config.json")
+	if dryRun {
+		fmt.Printf("DRYRUN: would write %s\n", outputPath)
+		return nil
+	}
+	return writeJSON(outputPath, SiteConfig{AlbumsFile: albumsFile})
 }
 
 // WriteSitemap generates sitemap.xml into siteDir (cfg.SiteOutputPath()).
@@ -226,26 +310,30 @@ func WriteSitemap(siteDir, siteURL string, summaries []AlbumSummary, dryRun bool
 	return nil
 }
 
-// writeJSON writes data as formatted JSON to the given path.
-func writeJSON(path string, data any) error {
-	// Ensure directory exists
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("create directory %s: %w", dir, err)
+// writeBytes writes data to path, creating directories as needed.
+func writeBytes(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("create directory %s: %w", filepath.Dir(path), err)
 	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("create file %s: %w", path, err)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
 	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(data); err != nil {
-		return fmt.Errorf("encode JSON: %w", err)
-	}
-
 	fmt.Printf("  wrote: %s\n", path)
 	return nil
+}
+
+// writeJSON writes data as formatted JSON to path.
+func writeJSON(path string, data any) error {
+	b, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode JSON: %w", err)
+	}
+	return writeBytes(path, append(b, '\n'))
+}
+
+// removeIfExists deletes path if it exists, silently ignoring not-found errors.
+func removeIfExists(path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("  WARN: failed to remove %s: %v\n", path, err)
+	}
 }

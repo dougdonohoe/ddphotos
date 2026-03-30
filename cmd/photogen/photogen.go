@@ -22,6 +22,9 @@ var (
 	siteURL    = flag.String("site-url", "", "base URL for sitemap generation (overrides YAML site_url)")
 	numWorkers = flag.Int("workers", 0, "number of concurrent resize workers (0 = auto: NumCPU/2, min 2)")
 	albumFlag  = flag.String("album", "", "comma-separated list of album slugs to process (empty = all)")
+	siteID     = flag.String("site-id", "", "override settings.id from albums YAML")
+	encrypt    = flag.String("encrypt", "", "path to passwords file; enables encryption of JSON index files")
+	clean      = flag.Bool("clean", false, "remove stale output files not generated in this run")
 )
 
 func main() {
@@ -35,6 +38,10 @@ func main() {
 	}
 
 	// CLI flags override YAML settings when provided
+	resolvedSiteID := settings.ID
+	if *siteID != "" {
+		resolvedSiteID = *siteID
+	}
 	resolvedSiteURL := settings.SiteURL
 	if *siteURL != "" {
 		resolvedSiteURL = *siteURL
@@ -47,7 +54,7 @@ func main() {
 	warn := &photogen.WarnCollector{}
 	cfg := &photogen.Config{
 		OutputRoot:  filepath.Clean(resolvedOutputDir),
-		SiteID:      settings.ID,
+		SiteID:      resolvedSiteID,
 		DryRun:      !(*doit),
 		SkipVariant: true,
 		Limit:       *limit,
@@ -57,6 +64,20 @@ func main() {
 		SiteURL:     resolvedSiteURL,
 		NumWorkers:  *numWorkers,
 		Warn:        warn,
+	}
+
+	if *encrypt != "" {
+		ec, err := photogen.LoadEncryptConfig(*encrypt)
+		if err != nil {
+			fmt.Printf("Error loading encrypt config: %s\n", err)
+			exit.ExitWithStatus(err)
+		}
+		cfg.Encrypt = ec
+	}
+
+	cfg.Clean = *clean
+	if *clean {
+		cfg.InitClean()
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -90,16 +111,16 @@ func main() {
 		albums = filtered
 	}
 
-	// Print settings
+	// Print settings info
 	mode := "DRYRUN"
 	if *doit {
 		mode = "DOIT"
 	}
-	settings2 := fmt.Sprintf("[%s] %d albums", mode, len(albums))
+	info := fmt.Sprintf("[%s] %d albums", mode, len(albums))
 	if *limit > 0 {
-		settings2 += fmt.Sprintf(", limit %d photos/album", *limit)
+		info += fmt.Sprintf(", limit %d photos/album", *limit)
 	}
-	fmt.Println(settings2 + fmt.Sprintf(" (id = %s)", settings.ID))
+	fmt.Println(info + fmt.Sprintf(" (id = %s)", cfg.SiteID))
 
 	var summaries []photogen.AlbumSummary
 
@@ -119,14 +140,36 @@ func main() {
 
 	// Write albums.json and sitemap.xml if index generation is enabled
 	if cfg.Index {
-		if err := photogen.WriteAlbumsIndex(cfg.SiteOutputPath(), summaries, cfg.DryRun); err != nil {
+		if err := photogen.WriteAlbumsIndex(cfg.SiteOutputPath(), summaries, cfg.Encrypt, cfg.DryRun); err != nil {
 			fmt.Printf("Error writing albums.json: %s\n", err)
+		} else if cfg.Encrypt != nil && cfg.Encrypt.IsSiteEncrypted() {
+			cfg.TrackFile(cfg.SiteOutputPath("albums.enc.json"))
+		} else {
+			cfg.TrackFile(cfg.SiteOutputPath("albums.json"))
+		}
+		if err := photogen.WriteConfigJSON(cfg.SiteOutputPath(), cfg.Encrypt, cfg.DryRun); err != nil {
+			fmt.Printf("Error writing config.json: %s\n", err)
+		} else {
+			cfg.TrackFile(cfg.SiteOutputPath("config.json"))
 		}
 		if err := photogen.WriteSitemap(cfg.SiteOutputPath(), cfg.SiteURL, summaries, cfg.DryRun); err != nil {
 			fmt.Printf("Error writing sitemap.xml: %s\n", err)
+		} else {
+			cfg.TrackFile(cfg.SiteOutputPath("sitemap.xml"))
 		}
 	}
 
 	warn.PrintSummary()
+
+	if cfg.Clean {
+		var slugs []string
+		for _, a := range albums {
+			slugs = append(slugs, a.Slug)
+		}
+		if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, cfg.ExpectedFiles(), cfg.DryRun); err != nil {
+			fmt.Printf("Error cleaning output dir: %s\n", err)
+		}
+	}
+
 	exit.ExitWithStatus(nil)
 }

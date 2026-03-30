@@ -130,8 +130,12 @@ Common tasks are available via `make` from the repo root:
 | `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker on port 8081, runs, stops) |
 | `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                 |
 | `use-sample`                 | Symlink `web/static/albums` → `../albums/sample`                   |
+| `use-sample-pw-all`          | Symlink `web/static/albums` → `../albums/sample-pw-all`            |
+| `use-sample-pw-uganda`       | Symlink `web/static/albums` → `../albums/sample-pw-uganda`         |
 | `use-prod`                   | Symlink `web/static/albums` → `../albums/prod`                     |
 | `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                     |
+| `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected    |
+| `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected  |
 | `sample-build`               | Build the static site using sample config                          |
 | `sample-npm-run-dev`         | Run the Vite dev server using sample config                        |
 | `sample-test-apache`         | Run Apache routing tests against Docker on port 8082               |
@@ -159,22 +163,27 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 
 ### CLI Flags
 
-| Flag          | Default       | Description                                                 |
-|---------------|---------------|-------------------------------------------------------------|
-| `-config-dir` | `config`      | Directory containing the albums YAML and descriptions files |
-| `-albums`     | `albums.yaml` | Albums YAML filename within `-config-dir`                   |
-| `-doit`       | `false`       | Write files; without this, runs in dry-run mode             |
-| `-resize`     | `false`       | Generate resized WebP image variants                        |
-| `-index`      | `false`       | Generate JSON index files and sitemap.xml                   |
-| `-out`        | *(from YAML)* | Output directory override (overrides `settings.output_dir`) |
-| `-limit N`    | `0` (all)     | Limit photos per album (useful during development)          |
-| `-force`      | `false`       | Regenerate files even if they already exist                 |
-| `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)          |
-| `-album`      | `""` (all)    | Comma-separated album slugs to process                      |
-| `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)   |
+| Flag          | Default       | Description                                                                             |
+|---------------|---------------|-----------------------------------------------------------------------------------------|
+| `-config-dir` | `config`      | Directory containing the albums YAML and descriptions files                             |
+| `-albums`     | `albums.yaml` | Albums YAML filename within `-config-dir`                                               |
+| `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                         |
+| `-resize`     | `false`       | Generate resized WebP image variants                                                    |
+| `-index`      | `false`       | Generate JSON index files and sitemap.xml                                               |
+| `-out`        | *(from YAML)* | Output directory override (overrides `settings.output_dir`)                             |
+| `-limit N`    | `0` (all)     | Limit photos per album (useful during development)                                      |
+| `-force`      | `false`       | Regenerate files even if they already exist                                             |
+| `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                      |
+| `-album`      | `""` (all)    | Comma-separated album slugs to process                                                  |
+| `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                               |
+| `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config     |
+| `-encrypt`    | `""` (none)   | Path to passwords file; enables JSON encryption (see [Passwords File](#passwords-file)) |
+| `-clean`      | `false`       | Remove stale files from processed album directories after a run                         |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
 produces `web/albums/prod`). It must contain only lowercase letters, digits, and hyphens.
+The `-site-id` flag overrides this, which is useful when generating an encrypted variant
+alongside the standard output from the same config.
 
 Output goes to `{output_dir}/albums/{id}` (configured via `settings.output_dir` and
 `settings.id` in the YAML; git-ignored). Set `output_dir: web` - the code appends
@@ -210,6 +219,29 @@ Descriptions are stored in `index.json` and used as:
 To also use the file for **sort order** (instead of EXIF date), set
 `manual_sort_order: true` on the album entry in `albums.yaml`. Photos not
 listed in `photogen.txt` are sorted by date and appended at the end.
+
+### Passwords File
+
+The `-encrypt` flag points to a passwords file. Blank lines and lines starting
+with `#` are ignored. Three entry types are supported:
+
+```
+_key_:hmac-secret
+_all_:site-wide-password
+album-slug:per-album-password
+```
+
+| Entry           | Description                                                                                         |
+|-----------------|-----------------------------------------------------------------------------------------------------|
+| `_key_:value`   | HMAC-SHA256 secret used to derive UUID-format WebP filenames for encrypted albums, preventing filename guessing (e.g. `IMG_3961.webp` becomes `3f8a1c2d-...webp`) |
+| `_all_:value`   | Encrypts `albums.json` and all per-album `index.json` files site-wide                              |
+| `slug:value`    | Per-album password override; encrypts only that album's `index.json`. Falls back to `_all_` if not set |
+
+Sample passwords files are in `sample/config/` — `passwords-all.txt` (full site) and
+`passwords-uganda.txt` (single album). Both contain demo-only passwords and a prominent WARNING header.
+
+**Do not commit real passwords.** Store production passwords outside the repo or in a
+git-ignored directory (e.g. `.secrets/`).
 
 ## Testing
 

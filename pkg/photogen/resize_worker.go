@@ -25,13 +25,15 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 	items := make([]resizeWork, 0, len(ap.Photos)*len(sizes))
 	for i, photo := range ap.Photos {
 		for _, size := range sizes {
+			outPath := ap.OutputPath(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, photo.FileName))
 			items = append(items, resizeWork{
 				photo:      photo,
 				size:       size,
-				outputPath: ap.OutputPath(string(size), WebPFileName(photo.FileName)),
+				outputPath: outPath,
 				photoIndex: i + 1,
 				totalCount: len(ap.Photos),
 			})
+			ap.Config.TrackFile(outPath)
 		}
 	}
 

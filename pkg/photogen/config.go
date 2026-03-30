@@ -33,6 +33,12 @@ type Config struct {
 	NumWorkers int
 	// Warn collects warnings for re-display at the end of the run.
 	Warn *WarnCollector
+	// Encrypt holds encryption configuration. nil means no encryption.
+	Encrypt *EncryptConfig
+	// Clean removes stale output files after processing.
+	Clean bool
+	// expectedFiles tracks files generated in this run (for --clean).
+	expectedFiles map[string]bool
 }
 
 // AlbumConfig describes an album source folder and metadata overrides.
@@ -63,6 +69,11 @@ func (c *Config) Validate() error {
 	if !validSiteID.MatchString(c.SiteID) {
 		return fmt.Errorf("settings.id %q must contain only lowercase letters, digits, and hyphens", c.SiteID)
 	}
+	if c.Encrypt != nil {
+		if err := c.Encrypt.Validate(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -71,6 +82,35 @@ func (c *Config) Validate() error {
 func (c *Config) SiteOutputPath(parts ...string) string {
 	base := []string{c.OutputRoot, "albums", c.SiteID}
 	return filepath.Join(append(base, parts...)...)
+}
+
+// PhotoWebPName returns the WebP output filename for a photo in the given album.
+// UUID-format names are only used when the album has an effective password;
+// public albums always use the original WebP filename.
+func (c *Config) PhotoWebPName(slug, filename string) string {
+	if c.Encrypt != nil && c.Encrypt.IsAlbumEncrypted(slug) {
+		return c.Encrypt.PhotoWebPName(filename)
+	}
+	return WebPFileName(filename)
+}
+
+// TrackFile registers path as a file generated in this run (for --clean).
+// No-op if InitClean has not been called.
+func (c *Config) TrackFile(path string) {
+	if c.expectedFiles != nil {
+		c.expectedFiles[path] = true
+	}
+}
+
+// InitClean enables expected-file tracking for --clean.
+// Must be called before processing begins.
+func (c *Config) InitClean() {
+	c.expectedFiles = map[string]bool{}
+}
+
+// ExpectedFiles returns the set of files tracked via TrackFile.
+func (c *Config) ExpectedFiles() map[string]bool {
+	return c.expectedFiles
 }
 
 // Workers returns the number of concurrent resize workers to use. If NumWorkers

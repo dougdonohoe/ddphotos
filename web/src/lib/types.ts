@@ -27,8 +27,9 @@ export interface AlbumSummary {
 	slug: string;
 	title: string;
 	count: number;
-	cover: string;
-	coverJpeg: string;
+	cover?: string;
+	coverJpeg?: string;
 	dateSpan: string;
 	description?: string;
+	encrypted?: boolean;
 }

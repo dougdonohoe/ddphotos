@@ -116,3 +116,200 @@ func TestSaveAlbumSummaries(t *testing.T) {
 		assert.Equal(t, a, roundtrip[i])
 	}
 }
+
+func TestWriteAlbumIndex(t *testing.T) {
+	t.Parallel()
+
+	makeAP := func(dir string, encrypt *EncryptConfig) *AlbumProcessor {
+		return &AlbumProcessor{
+			Config: &Config{
+				OutputRoot: dir,
+				SiteID:     "testsite",
+				Encrypt:    encrypt,
+				Warn:       &WarnCollector{},
+			},
+			AlbumConfig: &AlbumConfig{Slug: "myalbum", Name: "My Album"},
+			Photos: []*Photo{
+				{ID: "photo1", FileName: "photo1.jpg", PhotoMetadata: &PhotoMetadata{Width: 100, Height: 200}},
+			},
+		}
+	}
+
+	t.Run("unencrypted writes index.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeAP(dir, nil).WriteAlbumIndex())
+
+		outPath := filepath.Join(dir, "albums", "testsite", "myalbum", "index.json")
+		assert.FileExists(t, outPath)
+		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "myalbum", "index.enc.json"))
+
+		idx, err := LoadAlbumIndex(outPath)
+		require.NoError(t, err)
+		assert.Equal(t, "myalbum", idx.Slug)
+		require.Len(t, idx.Photos, 1)
+	})
+
+	t.Run("encrypted writes index.enc.json with unreadable content", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{SitePassword: "test-pass"}
+		require.NoError(t, makeAP(dir, encrypt).WriteAlbumIndex())
+
+		encPath := filepath.Join(dir, "albums", "testsite", "myalbum", "index.enc.json")
+		assert.FileExists(t, encPath)
+		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "myalbum", "index.json"))
+
+		data, err := os.ReadFile(encPath)
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), "myalbum", "encrypted file must not contain plaintext slug")
+	})
+
+	t.Run("switching to unencrypted removes stale index.enc.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		albumDir := filepath.Join(dir, "albums", "testsite", "myalbum")
+		require.NoError(t, os.MkdirAll(albumDir, 0o755))
+
+		staleEnc := filepath.Join(albumDir, "index.enc.json")
+		require.NoError(t, os.WriteFile(staleEnc, []byte("stale"), 0o644))
+
+		require.NoError(t, makeAP(dir, nil).WriteAlbumIndex())
+
+		assert.FileExists(t, filepath.Join(albumDir, "index.json"))
+		assert.NoFileExists(t, staleEnc)
+	})
+}
+
+func TestWriteAlbumsIndex(t *testing.T) {
+	t.Parallel()
+
+	summaries := []AlbumSummary{
+		{Slug: "album1", Title: "Album 1", Count: 5},
+		{Slug: "album2", Title: "Album 2", Count: 3},
+	}
+
+	t.Run("unencrypted writes albums.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, WriteAlbumsIndex(dir, summaries, nil, false))
+
+		outPath := filepath.Join(dir, "albums.json")
+		assert.FileExists(t, outPath)
+		assert.NoFileExists(t, filepath.Join(dir, "albums.enc.json"))
+
+		loaded, err := LoadAlbumSummaries(outPath)
+		require.NoError(t, err)
+		require.Len(t, loaded, 2)
+		assert.Equal(t, "album1", loaded[0].Slug)
+	})
+
+	t.Run("encrypted writes albums.enc.json with unreadable content", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{SitePassword: "site-pass"}
+		require.NoError(t, WriteAlbumsIndex(dir, summaries, encrypt, false))
+
+		encPath := filepath.Join(dir, "albums.enc.json")
+		assert.FileExists(t, encPath)
+		assert.NoFileExists(t, filepath.Join(dir, "albums.json"))
+
+		data, err := os.ReadFile(encPath)
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), "album1", "encrypted file must not contain plaintext slug")
+	})
+
+	t.Run("switching to unencrypted removes stale albums.enc.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		staleEnc := filepath.Join(dir, "albums.enc.json")
+		require.NoError(t, os.WriteFile(staleEnc, []byte("stale"), 0o644))
+
+		require.NoError(t, WriteAlbumsIndex(dir, summaries, nil, false))
+
+		assert.FileExists(t, filepath.Join(dir, "albums.json"))
+		assert.NoFileExists(t, staleEnc)
+	})
+}
+
+func TestWriteConfigJSON(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unencrypted references albums.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, WriteConfigJSON(dir, nil, false))
+
+		data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
+	})
+
+	t.Run("encrypted references albums.enc.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{SitePassword: "pass"}
+		require.NoError(t, WriteConfigJSON(dir, encrypt, false))
+
+		data, err := os.ReadFile(filepath.Join(dir, "config.json"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"albumsFile": "albums.enc.json"`)
+	})
+}
+
+func TestGetAlbumSummary(t *testing.T) {
+	t.Parallel()
+
+	photo := &Photo{
+		ID:            "photo1",
+		FileName:      "photo1.jpg",
+		PhotoMetadata: &PhotoMetadata{Width: 100, Height: 200},
+	}
+
+	makeAP := func(slug string, encrypt *EncryptConfig) *AlbumProcessor {
+		return &AlbumProcessor{
+			Config: &Config{
+				OutputRoot: "/tmp",
+				SiteID:     "sample",
+				Encrypt:    encrypt,
+				Warn:       &WarnCollector{},
+			},
+			AlbumConfig: &AlbumConfig{Slug: slug, Name: "Test Album"},
+			Photos:      []*Photo{photo},
+		}
+	}
+
+	t.Run("unencrypted album has cover and coverJpeg", func(t *testing.T) {
+		t.Parallel()
+		s := makeAP("myalbum", nil).GetAlbumSummary()
+		assert.False(t, s.Encrypted)
+		assert.NotEmpty(t, s.Cover)
+		assert.NotEmpty(t, s.CoverJpeg)
+	})
+
+	t.Run("site-encrypted album omits cover and coverJpeg", func(t *testing.T) {
+		t.Parallel()
+		encrypt := &EncryptConfig{SitePassword: "pass"}
+		s := makeAP("myalbum", encrypt).GetAlbumSummary()
+		assert.True(t, s.Encrypted)
+		assert.Empty(t, s.Cover)
+		assert.Empty(t, s.CoverJpeg)
+	})
+
+	t.Run("per-album encryption: encrypted album omits cover, public sibling keeps it", func(t *testing.T) {
+		t.Parallel()
+		encrypt := &EncryptConfig{
+			HMACKey:        "test-key",
+			AlbumPasswords: map[string]string{"secret": "pass"},
+		}
+
+		sEncrypted := makeAP("secret", encrypt).GetAlbumSummary()
+		assert.True(t, sEncrypted.Encrypted)
+		assert.Empty(t, sEncrypted.Cover)
+
+		sPublic := makeAP("public", encrypt).GetAlbumSummary()
+		assert.False(t, sPublic.Encrypted)
+		assert.NotEmpty(t, sPublic.Cover)
+	})
+}
