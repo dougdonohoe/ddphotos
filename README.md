@@ -80,6 +80,8 @@ Backend features:
 - Concurrent image resizing via goroutines (buffered channel, WaitGroup).
 - Dry-run mode by default (use `-doit` to write files).
 - Optionally use `photogen.txt` to override sort order (default is by capture date).
+- Recursive album support: set `recurse: true` to collect photos from subdirectories, 
+  with automatic filename prefixing to avoid collisions.
 
 ## Tech Details
 

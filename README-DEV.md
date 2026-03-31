@@ -220,6 +220,43 @@ To also use the file for **sort order** (instead of EXIF date), set
 `manual_sort_order: true` on the album entry in `albums.yaml`. Photos not
 listed in `photogen.txt` are sorted by date and appended at the end.
 
+### Recursive Albums (`recurse: true`)
+
+Set `recurse: true` on an album entry to collect photos from all subdirectories.
+The output is flattened: each photo's ID and filename get a sanitized prefix
+derived from its subdirectory path, preventing name collisions.
+
+```
+Craig's/img001.jpg      → ID: craigs_img001,       file: craigs_img001.jpg
+Ski 2007/Alan's/a.jpg   → ID: ski2007_alans_a,     file: ski2007_alans_a.jpg
+```
+
+**Default sort order** (no `photogen.txt`): photos at the root sorted by date, then
+subdirectories processed alphabetically, each date-sorted. No configuration needed.
+
+**Per-subfolder `photogen.txt`**: place a `photogen.txt` in any subfolder for captions
+and (with `manual_sort_order: true`) local sort order within that folder. Entries use
+the bare filename without prefix — photogen applies the prefix automatically.
+
+**Controlling inter-folder order**: with `manual_sort_order: true`, a `photogen.txt`
+at any level can reference subfolder names as placeholders. Subfolder entries expand
+inline, so you can freely interleave root photos and subfolder groups:
+
+```
+# photogen.txt at album root
+photo_a.jpg
+Craig's
+photo_b.jpg
+Halstead
+```
+
+Subfolders not listed in `photogen.txt` are appended alphabetically at the end with
+a warning. Photos not listed are date-sorted and appended at the end of their group
+with a warning.
+
+**Cover photo**: when `cover` is set on a recursive album, use the prefixed filename
+(e.g. `cover: craigs_img001.jpg`). If omitted, the first collected photo is used.
+
 ### Passwords File
 
 The `-encrypt` flag points to a YAML passwords file. Comments (lines starting with `#`) are ignored.

@@ -33,6 +33,7 @@ func TestLoadAlbumsFile(t *testing.T) {
 		assert.Equal(t, "2004-Antarctica", a.Source)
 		assert.Equal(t, "IMG_001.jpg", a.Cover)
 		assert.True(t, a.ManualSortOrder)
+		assert.False(t, a.Recurse)
 
 		a = af.Albums[1]
 		assert.Equal(t, "nepal", a.Slug)
@@ -41,6 +42,7 @@ func TestLoadAlbumsFile(t *testing.T) {
 		assert.Equal(t, "2018-Nepal", a.Source)
 		assert.Equal(t, "", a.Cover)
 		assert.False(t, a.ManualSortOrder)
+		assert.True(t, a.Recurse)
 
 		a = af.Albums[2]
 		assert.Equal(t, "localtest", a.Slug)
@@ -168,6 +170,7 @@ albums:
 		assert.Equal(t, antarcticaDir, c.Path)
 		assert.Equal(t, "IMG_001.jpg", c.Cover)
 		assert.True(t, c.ManualSortOrder)
+		assert.False(t, c.Recurse)
 		assert.Equal(t, "Penguins and icebergs.", c.Description)
 	})
 

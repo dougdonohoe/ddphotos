@@ -24,6 +24,7 @@ albums:
     name: Nepal 2018
     base: t7
     source: 2018-Nepal
+    recurse: true
 
   # Album with no base — source used as-is
   - slug: localtest

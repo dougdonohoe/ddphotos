@@ -54,6 +54,9 @@ type AlbumConfig struct {
 	// ManualSortOrder, if true, uses the order from photogen.txt (if present)
 	// instead of sorting photos by EXIF date.
 	ManualSortOrder bool
+	// Recurse, if true, collects photos from subdirectories recursively.
+	// Subdirectory photos get a prefixed ID to avoid name collisions.
+	Recurse bool
 	// Description is an optional blurb shown on the album page.
 	Description string
 }

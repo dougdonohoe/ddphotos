@@ -111,6 +111,10 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 }
 
 func (ap *AlbumProcessor) LoadPhotos() error {
+	if ap.AlbumConfig.Recurse {
+		return ap.loadPhotosRecursive()
+	}
+
 	files, err := os.ReadDir(ap.AlbumConfig.Path)
 	if err != nil {
 		ap.warnf("WARN: Error reading %s: %s\n", ap.AlbumConfig.Path, err)
@@ -186,6 +190,203 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 	return nil
 }
 
+// loadPhotosRecursive is the entry point for recursive album loading.
+// It collects all photos from the album directory and its subdirectories,
+// applies the limit, logs the results, and sets ap.Photos.
+func (ap *AlbumProcessor) loadPhotosRecursive() error {
+	fmt.Printf("  Loading photos recursively from %s...\n", ap.AlbumConfig.Path)
+	photos, err := ap.collectPhotosRecursive(ap.AlbumConfig.Path, "")
+	if err != nil {
+		return err
+	}
+
+	// Apply limit (truncate after full collection)
+	if ap.Config != nil && ap.Config.Limit > 0 && len(photos) > ap.Config.Limit {
+		photos = photos[:ap.Config.Limit]
+	}
+
+	ap.Photos = photos
+
+	// Log photos and count those without dates
+	noDates := 0
+	for _, photo := range ap.Photos {
+		fmt.Printf("  %s\n", photo.String())
+		if photo.DateTaken.IsZero() {
+			noDates++
+		}
+	}
+	if noDates > 0 {
+		ap.warnf("  WARN: %d/%d photos have no EXIF date\n", noDates, len(ap.Photos))
+	}
+
+	return nil
+}
+
+// collectPhotosRecursive recursively collects photos from dir and its subdirectories,
+// returning them as a flat list. relDir is the path of dir relative to the album root
+// (empty string for the root itself). Photos in subdirectories get a prefixed ID and
+// FileName derived from the relative path to avoid name collisions.
+//
+// Sort order:
+//   - If ManualSortOrder and a photogen.txt is present: use photogen.txt order, with
+//     subfolder names in photogen.txt expanded inline by recursing into that subfolder.
+//   - Otherwise: local photos date-sorted, then subdirectories alphabetically.
+func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string) ([]*Photo, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read dir %s: %w", dir, err)
+	}
+
+	prefix := sanitizePrefix(relDir)
+
+	// Separate directory entries into local photos and subdirectories.
+	var localPhotos []*Photo
+	var subdirs []string
+	subdirActual := map[string]string{} // lowercase name → actual directory name
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() {
+			subdirs = append(subdirs, name)
+			subdirActual[strings.ToLower(name)] = name
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(name))
+		if _, ok := allowedPhotoExtentions[ext]; !ok {
+			continue
+		}
+
+		baseID := strings.ToLower(strings.TrimSuffix(name, filepath.Ext(name)))
+		photoID := baseID
+		outputName := name
+		if prefix != "" {
+			photoID = prefix + "_" + baseID
+			outputName = prefix + "_" + name
+		}
+
+		fullPath := filepath.Join(dir, name)
+		photo := &Photo{
+			ID:           photoID,
+			FileName:     outputName,
+			AbsolutePath: fullPath,
+		}
+		meta, err := ReadPhotoMetadata(fullPath)
+		if err != nil {
+			return nil, fmt.Errorf("read metadata for %s: %w", fullPath, err)
+		}
+		photo.PhotoMetadata = meta
+		localPhotos = append(localPhotos, photo)
+	}
+
+	// Subdirectories default to alphabetical order.
+	sort.Strings(subdirs)
+
+	// Load photogen.txt for captions and (optionally) sort order.
+	pd, err := loadPhotoDescriptions(dir)
+	if err != nil {
+		ap.warnf("  WARN: %v\n", err)
+	}
+
+	// Apply captions: look up by original base ID (before prefix), derived from AbsolutePath.
+	photosByBaseID := make(map[string]*Photo, len(localPhotos))
+	for _, p := range localPhotos {
+		origExt := strings.ToLower(filepath.Ext(p.AbsolutePath))
+		origBase := strings.ToLower(strings.TrimSuffix(filepath.Base(p.AbsolutePath), origExt))
+		photosByBaseID[origBase] = p
+	}
+	for id, desc := range pd.descriptions {
+		if p, ok := photosByBaseID[id]; ok {
+			p.Description = desc
+		}
+	}
+
+	if ap.AlbumConfig.ManualSortOrder && len(pd.order) > 0 {
+		return ap.expandManualOrder(dir, relDir, localPhotos, subdirs, subdirActual, pd, photosByBaseID)
+	}
+
+	// Default: date-sort local photos, then recurse subdirectories alphabetically.
+	sort.Slice(localPhotos, func(i, j int) bool {
+		return localPhotos[i].DateTaken.Before(localPhotos[j].DateTaken)
+	})
+
+	result := append([]*Photo(nil), localPhotos...)
+	for _, sd := range subdirs {
+		subPhotos, err := ap.collectPhotosRecursive(filepath.Join(dir, sd), filepath.Join(relDir, sd))
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, subPhotos...)
+	}
+	return result, nil
+}
+
+// expandManualOrder processes photogen.txt entries in order, expanding subfolder references
+// by recursing into them. Unlisted photos are date-sorted and appended at the end;
+// unlisted subdirectories are alphabetically appended at the end. Both produce warnings.
+func (ap *AlbumProcessor) expandManualOrder(
+	dir, relDir string,
+	localPhotos []*Photo,
+	subdirs []string,
+	subdirActual map[string]string,
+	pd *photoDescriptions,
+	photosByBaseID map[string]*Photo,
+) ([]*Photo, error) {
+	seenPhotos := map[string]bool{}
+	seenSubdirs := map[string]bool{}
+	result := make([]*Photo, 0, len(localPhotos))
+
+	for _, entry := range pd.order {
+		if p, ok := photosByBaseID[entry]; ok {
+			result = append(result, p)
+			seenPhotos[entry] = true
+			continue
+		}
+		actualName, ok := subdirActual[entry]
+		if !ok {
+			ap.warnf("  WARN: photogen.txt in %s references unknown entry: %s\n", dir, entry)
+			continue
+		}
+		seenSubdirs[strings.ToLower(actualName)] = true
+		subPhotos, err := ap.collectPhotosRecursive(filepath.Join(dir, actualName), filepath.Join(relDir, actualName))
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, subPhotos...)
+	}
+
+	// Append unlisted local photos (date-sorted) with a warning.
+	var extraPhotos []*Photo
+	for _, p := range localPhotos {
+		origExt := strings.ToLower(filepath.Ext(p.AbsolutePath))
+		origBase := strings.ToLower(strings.TrimSuffix(filepath.Base(p.AbsolutePath), origExt))
+		if !seenPhotos[origBase] {
+			extraPhotos = append(extraPhotos, p)
+		}
+	}
+	if len(extraPhotos) > 0 {
+		ap.warnf("  WARN: %d photo(s) in %s not in photogen.txt (sorted by date, appended at end)\n", len(extraPhotos), dir)
+		sort.Slice(extraPhotos, func(i, j int) bool {
+			return extraPhotos[i].DateTaken.Before(extraPhotos[j].DateTaken)
+		})
+		result = append(result, extraPhotos...)
+	}
+
+	// Append unlisted subdirectories (alphabetically) with a warning.
+	for _, sd := range subdirs {
+		if seenSubdirs[strings.ToLower(sd)] {
+			continue
+		}
+		ap.warnf("  WARN: subdirectory %q in %s not in photogen.txt (appended at end)\n", sd, dir)
+		subPhotos, err := ap.collectPhotosRecursive(filepath.Join(dir, sd), filepath.Join(relDir, sd))
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, subPhotos...)
+	}
+
+	return result, nil
+}
+
 // photoDescriptions holds the parsed contents of a photogen.txt file.
 type photoDescriptions struct {
 	descriptions map[string]string // photo ID (filename without ext) -> description
@@ -193,7 +394,9 @@ type photoDescriptions struct {
 }
 
 // loadPhotoDescriptions reads photogen.txt from albumPath.
-// Format: one line per photo: "filename_without_extension Description"
+// Format: one line per entry: "name_or_filename [Description]"
+// Photo entries may include or omit the image extension (e.g. "img_001.jpg" or "img_001").
+// Subfolder entries are written as the bare folder name with no extension.
 // Returns an empty result (no error) if the file does not exist.
 func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 	pd := &photoDescriptions{
@@ -204,6 +407,12 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 	err := scanLines(txtPath, func(line string) {
 		parts := strings.SplitN(line, " ", 2)
 		id := strings.ToLower(parts[0])
+		// Strip image extension if present so "img_001.jpg" and "img_001" both work.
+		if ext := strings.ToLower(filepath.Ext(id)); ext != "" {
+			if _, ok := allowedPhotoExtentions[ext]; ok {
+				id = strings.TrimSuffix(id, ext)
+			}
+		}
 		desc := ""
 		if len(parts) > 1 {
 			desc = parts[1]
@@ -220,6 +429,36 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 
 	fmt.Printf("  Loaded photogen.txt: %d entries\n", len(pd.order))
 	return pd, nil
+}
+
+// sanitizePathSegment converts a directory name segment to a safe ID prefix component:
+// lowercase letters and digits only. E.g. "Craig's" → "craigs", "Ski 2007" → "ski2007".
+func sanitizePathSegment(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// sanitizePrefix converts a relative directory path to a photo ID prefix.
+// Each path segment is sanitized and the results are joined with "_".
+// Returns "" for the root (empty or ".").
+// E.g. "Craig's" → "craigs", "Ski 2007/Alan's" → "ski2007_alans".
+func sanitizePrefix(relDir string) string {
+	if relDir == "" || relDir == "." {
+		return ""
+	}
+	parts := strings.Split(filepath.ToSlash(relDir), "/")
+	var segs []string
+	for _, p := range parts {
+		if s := sanitizePathSegment(p); s != "" {
+			segs = append(segs, s)
+		}
+	}
+	return strings.Join(segs, "_")
 }
 
 // reorderByDescriptionFile rebuilds the photo list using the order from photogen.txt.

@@ -32,6 +32,7 @@ type AlbumEntry struct {
 	Source          string `yaml:"source"` // path joined to base, or absolute/configDir-relative
 	Cover           string `yaml:"cover"`  // optional cover photo filename override
 	ManualSortOrder bool   `yaml:"manual_sort_order"`
+	Recurse         bool   `yaml:"recurse"` // if true, collect photos from subdirectories recursively
 }
 
 // LoadAlbumsFile reads and parses an albums YAML file. It validates required fields
@@ -98,6 +99,7 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 			Path:            path,
 			Cover:           a.Cover,
 			ManualSortOrder: a.ManualSortOrder,
+			Recurse:         a.Recurse,
 			Description:     descriptions[a.Slug],
 		})
 	}

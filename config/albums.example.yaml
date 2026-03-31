@@ -49,6 +49,7 @@ albums:
     source: 2026-Patagonia        # Joined to base path
     cover: Patagonia-042.jpg      # Optional: filename of cover photo (defaults to first)
     manual_sort_order: true       # If true, order follows photogen.txt in the source directory
+    recurse: false                # If true, collect photos from subdirectories recursively (default: false)
 
   # ------------------------------------------------------------------
   # Minimal example — only required fields
@@ -57,6 +58,21 @@ albums:
     name: Summer Hiking
     base: drive
     source: 2025-Summer-Hiking
+
+  # ------------------------------------------------------------------
+  # Recursive — photos gathered from subdirectories
+  # Subdirectory names are sanitized into a prefix to avoid filename
+  # collisions (e.g. "Craig's/img001.jpg" → ID "craigs_img001").
+  # Photos sort by date; subfolders sort alphabetically within each level.
+  # Add a photogen.txt to any folder for captions. With manual_sort_order:
+  # true, photogen.txt can list subfolder names as placeholders to control
+  # inter-folder order (they expand inline when that folder is processed).
+  # ------------------------------------------------------------------
+  - slug: ski-trip
+    name: Ski Trip 2009
+    base: cloud
+    source: "2009 - Whistler"
+    recurse: true
 
   # ------------------------------------------------------------------
   # No base — source is an absolute path
