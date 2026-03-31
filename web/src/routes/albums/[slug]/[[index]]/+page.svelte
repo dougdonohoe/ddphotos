@@ -512,7 +512,8 @@
 {#if browser && data.encryptedBlob && !album && !unlocking}
 	<div class="fullscreen-overlay">
 		<PasswordPrompt
-			title="{albumTitle} requires a password."
+			prefix="Album"
+			name={albumTitle}
 			{shakeCount}
 			onunlock={handleUnlock}
 		/>

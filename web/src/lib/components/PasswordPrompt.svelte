@@ -1,11 +1,12 @@
 <script lang="ts">
 	interface Props {
-		title: string;
+		prefix?: string;
+		name: string;
 		onunlock: (password: string) => void;
 		shakeCount?: number;
 	}
 
-	let { title, onunlock, shakeCount = 0 }: Props = $props();
+	let { prefix, name, onunlock, shakeCount = 0 }: Props = $props();
 	let password = $state('');
 	let shaking = $state(false);
 	let prevShakeCount = $state(0);
@@ -48,7 +49,7 @@
 				<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 			</svg>
 		</div>
-		<h2>{title}</h2>
+		<h2>{prefix ? prefix + ' ' : ''}<span class="name">{name}</span><br>requires a password.</h2>
 		<form onsubmit={handleSubmit}>
 			<!-- svelte-ignore a11y_autofocus — intentional: this is an explicit password dialog -->
 			<input
@@ -78,6 +79,7 @@
 		box-shadow: 0 4px 24px var(--shadow-color);
 		padding: 2.5rem 2rem;
 		width: 100%;
+		min-width: 360px;
 		max-width: 360px;
 		text-align: center;
 	}
@@ -91,6 +93,11 @@
 		margin: 0 0 1.5rem;
 		font-size: 1.2rem;
 		color: var(--text-color);
+	}
+
+	h2 .name {
+		color: var(--text-color-2nd);
+		font-weight: bold;
 	}
 
 	form {

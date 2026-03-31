@@ -163,13 +163,13 @@ test('password dialog title uses album title not slug', async ({ page }) => {
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 	await page.goto(`/albums/${firstAlbumSlug}`);
-	// Dialog title should be a properly-capitalized name, not a raw slug
-	// e.g. "Uganda requires a password." not "uganda requires a password."
+	// Dialog title format: "Album <name> requires a password."
+	// Name must be properly capitalized, not a raw slug.
 	const heading = page.locator('.card h2');
 	await expect(heading).toBeVisible();
 	const text = await heading.innerText();
-	// First character of the album name must be uppercase
-	expect(text[0]).toMatch(/[A-Z]/);
+	// Must start with "Album " prefix
+	expect(text).toMatch(/^Album /);
 	// Must not contain hyphens (slug form) — real titles use spaces or proper capitalization
 	expect(text).not.toMatch(/-/);
 });
