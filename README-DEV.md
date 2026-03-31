@@ -256,6 +256,20 @@ with a warning.
 
 **Cover photo**: when `cover` is set on a recursive album, use the prefixed filename
 (e.g. `cover: craigs_img001.jpg`). If omitted, the first collected photo is used.
+The prefixed filename is in the `fileName` field of `index.json`. To find it from an
+original filename, use `sourcePath` (see below) or grep the decoded index.
+
+**`sourcePath` field**: subfolder photos include a `sourcePath` field in `index.json`
+with their original relative path from the album root (e.g. `"Craig's/img001.jpg"`).
+This makes it easy to find the prefixed `fileName` for a given original file:
+
+```bash
+# plain album
+grep -B2 "IMG_0436" web/albums/my-site/my-album/index.json
+
+# encrypted album
+go run cmd/decode/decode.go web/albums/my-site/my-album/index.enc.json | grep -B2 "IMG_0436"
+```
 
 ### Passwords File
 

@@ -67,6 +67,8 @@ albums:
   # Add a photogen.txt to any folder for captions. With manual_sort_order:
   # true, photogen.txt can list subfolder names as placeholders to control
   # inter-folder order (they expand inline when that folder is processed).
+  # Subfolder photos include a "sourcePath" field in index.json (original
+  # relative path) so you can find the prefixed fileName for use as cover.
   # ------------------------------------------------------------------
   - slug: ski-trip
     name: Ski Trip 2009

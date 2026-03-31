@@ -50,6 +50,7 @@ type AlbumIndex struct {
 type PhotoIndex struct {
 	ID          string        `json:"id"`
 	FileName    string        `json:"fileName"`
+	SourcePath  string        `json:"sourcePath,omitempty"` // original relative path from album root (recursive subfolder photos only)
 	Width       int           `json:"width"`
 	Height      int           `json:"height"`
 	Orientation string        `json:"orientation"`
@@ -99,6 +100,7 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 		pi := PhotoIndex{
 			ID:          photo.ID,
 			FileName:    photo.FileName,
+			SourcePath:  photo.SourcePath,
 			Width:       photo.Width,
 			Height:      photo.Height,
 			Orientation: photo.Orientation,

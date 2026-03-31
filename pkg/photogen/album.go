@@ -25,6 +25,7 @@ type Photo struct {
 	ID           string `json:"id"`
 	FileName     string `json:"fileName"`
 	AbsolutePath string `json:"-"`
+	SourcePath   string `json:"sourcePath,omitempty"` // relative path from album root (recursive albums only, subfolder photos only)
 	Description  string `json:"description,omitempty"`
 	*PhotoMetadata
 }
@@ -80,6 +81,20 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 	if err != nil {
 		fmt.Printf("Error loading photos: %v\n", err)
 		return err
+	}
+
+	// warn once if configured cover is not found
+	if ap.AlbumConfig.Cover != "" {
+		found := false
+		for _, p := range ap.Photos {
+			if p.FileName == ap.AlbumConfig.Cover {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ap.warnf("  WARN: cover %q not found in album, using first photo\n", ap.AlbumConfig.Cover)
+		}
 	}
 
 	// resize photos if enabled
@@ -269,6 +284,9 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string) ([]*Photo, 
 			ID:           photoID,
 			FileName:     outputName,
 			AbsolutePath: fullPath,
+		}
+		if relDir != "" {
+			photo.SourcePath = filepath.ToSlash(filepath.Join(relDir, name))
 		}
 		meta, err := ReadPhotoMetadata(fullPath)
 		if err != nil {

@@ -163,6 +163,9 @@ func TestCollectPhotosRecursive(t *testing.T) {
 		assert.Equal(t, "craigs_inner", subPhoto.ID)
 		assert.Equal(t, "craigs_inner.jpg", subPhoto.FileName)
 		assert.Equal(t, filepath.Join(sub, "inner.jpg"), subPhoto.AbsolutePath)
+		assert.Equal(t, "Craig's/inner.jpg", subPhoto.SourcePath)
+		// root photo has no sourcePath
+		assert.Equal(t, "", rootPhoto.SourcePath)
 	})
 
 	t.Run("nested subfolders accumulate prefix", func(t *testing.T) {
