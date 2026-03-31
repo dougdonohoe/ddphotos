@@ -90,11 +90,11 @@
 		right: 1rem;
 		z-index: 10;
 		opacity: 0;
-		transition: opacity 400ms ease-out;
 	}
 
 	.theme-toggle-wrap.ready {
 		opacity: 1;
+		transition: opacity 400ms ease-out;
 	}
 
 	footer {
@@ -103,11 +103,11 @@
 		color: var(--text-muted);
 		font-size: 0.85rem;
 		opacity: 0;
-		transition: opacity 400ms ease-out;
 	}
 
 	footer.ready {
 		opacity: 1;
+		transition: opacity 400ms ease-out;
 	}
 
 	.built-with {
