@@ -747,3 +747,38 @@ Hints flow from the passwords YAML → `config.json` (plaintext, always unencryp
 **`web/tests/password.spec.ts`** — two new tests: `site password dialog shows hint` (skips if no site hint configured) and `album password dialog shows hint` (skips if no hint for `firstAlbumSlug`). Both check `.card .hint` visibility and content.
 
 **`web/tests/back-nav.spec.ts`** — fixed `back button after closing lightbox navigates to previous page`: added `unlockAlbumIfNeeded` after clicking the album card. In the pw-all variant, Antarctica is also site-encrypted; `waitForHydration` doesn't wait for auto-decryption to complete (gallery not in DOM yet), so the `.photo` click timed out.
+
+### 48. Recursive Album Support (`recurse: true`)
+
+Added `recurse: true` to album entries in `albums.yaml` to collect photos from subdirectories. 
+
+#### Design
+
+Output is flattened: photos from subfolders get a sanitized prefix derived from their relative path to avoid filename collisions. The prefix strips everything except lowercase letters and digits, joining path segments with `_`:
+
+```
+Craig's/img001.jpg           → ID craigs_img001,        file craigs_img001.jpg
+Ski 2007/Alan's/photo.jpg    → ID ski2007_alans_photo,   file ski2007_alans_photo.jpg
+```
+
+**Sort order (no `photogen.txt`):** photos at each level date-sorted, subdirectories alphabetical. This is the expected common case.
+
+**Per-subfolder `photogen.txt`:** each subfolder can have its own `photogen.txt` for captions and local sort order. Entries use bare filenames (no prefix); photogen prefixes them during merge. With `manual_sort_order: true`, a `photogen.txt` at any level can reference subfolder names as placeholders that expand inline — enabling arbitrary interleaving of photos and subfolder groups across the whole album.
+
+#### Implementation
+
+**`pkg/photogen/albums_config.go`** — `AlbumEntry` gains `Recurse bool` (`yaml:"recurse"`). `AlbumConfig` gains the same field; passed through in `ToAlbumConfigs`.
+
+**`pkg/photogen/album.go`**:
+- `loadPhotoDescriptions` updated to strip image extensions from entries, so both `img001.jpg` and `img001` work in `photogen.txt`. Subfolder entries (no image extension) pass through unchanged.
+- `sanitizePathSegment(s string) string` — strips non-alphanumeric characters, lowercases.
+- `sanitizePrefix(relDir string) string` — splits relative path by `/`, sanitizes each segment, joins with `_`. Returns `""` for root.
+- `LoadPhotos` branches on `AlbumConfig.Recurse` to call `loadPhotosRecursive`.
+- `collectPhotosRecursive(dir, relDir string)` — core recursive function. Reads a directory, assigns prefixed `ID` and `FileName` to subfolder photos, applies captions from per-folder `photogen.txt`, then either expands `photogen.txt` order (when `ManualSortOrder`) or date-sorts local photos and recurses subdirs alphabetically.
+- `expandManualOrder(...)` — processes `photogen.txt` entries: photo entries resolved by base ID, subfolder entries recursed inline. Unlisted photos and subfolders appended at end with warnings.
+
+**`config/albums.example.yaml`** — added `recurse: false` to the full example and a new "Recursive" example section documenting the feature and subfolder `photogen.txt` behavior.
+
+**`README.md`** — added backend features bullet for recursive album support.
+
+**`README-DEV.md`** — added "Recursive Albums" subsection under Photo Descriptions covering default sort, per-subfolder `photogen.txt`, inter-folder ordering via placeholder entries, and the cover photo prefix requirement.
