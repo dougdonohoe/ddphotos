@@ -215,6 +215,13 @@ func (ap *AlbumProcessor) loadPhotosRecursive() error {
 		return err
 	}
 
+	// Global date sort across all subdirectories (unless manual sort order is in use).
+	if !ap.AlbumConfig.ManualSortOrder {
+		sort.Slice(photos, func(i, j int) bool {
+			return photos[i].DateTaken.Before(photos[j].DateTaken)
+		})
+	}
+
 	// Apply limit (truncate after full collection)
 	if ap.Config != nil && ap.Config.Limit > 0 && len(photos) > ap.Config.Limit {
 		photos = photos[:ap.Config.Limit]
@@ -245,7 +252,8 @@ func (ap *AlbumProcessor) loadPhotosRecursive() error {
 // Sort order:
 //   - If ManualSortOrder and a photogen.txt is present: use photogen.txt order, with
 //     subfolder names in photogen.txt expanded inline by recursing into that subfolder.
-//   - Otherwise: local photos date-sorted, then subdirectories alphabetically.
+//   - Otherwise: photos are collected with subdirectories in alphabetical order; the
+//     caller (loadPhotosRecursive) then applies a global date sort across everything.
 func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string) ([]*Photo, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
