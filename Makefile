@@ -95,20 +95,19 @@ web-docker-test:
 	bin/test-photos-apache.sh --local 8080
 
 .PHONY: web-playwright-test-apache
-## web-playwright-test-apache: run Playwright e2e tests against local Docker container on port 8081 (starts/stops Docker automatically)
+## web-playwright-test-apache: run Playwright e2e tests (no passwords) against Docker/Apache only
 web-playwright-test-apache:
-	@test -d web/build || { echo "Error: web/build not found. Run 'make web-npm-build' first."; exit 1; }
-	docker run -d --rm --name photos-apache-playwright -p 8081:80 \
-		-v $(PWD)/web:/usr/local/apache2/htdocs:ro photos-apache
-	@echo "Waiting for Apache to be ready..."; \
-	until curl -s -o /dev/null http://localhost:8081; do sleep 1; done
-	$(NODE_INIT) cd web && PLAYWRIGHT_BASE_URL=http://localhost:8081 npx playwright test; \
-	EXIT=$$?; docker stop photos-apache-playwright 2>/dev/null || true; exit $$EXIT
+	bin/run-tests.sh --mode apache
 
 .PHONY: web-playwright-test-dev
-## web-playwright-test-dev: run Playwright e2e tests against local dev server
+## web-playwright-test-dev: run Playwright e2e tests (no passwords) against Vite dev server only
 web-playwright-test-dev:
-	$(NODE_INIT) cd web && PLAYWRIGHT_BASE_URL=http://localhost:5173 npx playwright test
+	bin/run-tests.sh --mode dev
+
+.PHONY: web-playwright-test-all
+## web-playwright-test-all: run Playwright e2e tests against all password variants (dev + apache)
+web-playwright-test-all:
+	bin/test-all.sh
 
 .PHONY: web-screenshots
 ## web-screenshots: capture screenshots (home dark/light, album dark/light, lightbox) — requires a running server on port 8080

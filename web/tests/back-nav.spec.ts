@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration } from './helpers';
+import { waitForHydration, loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded } from './helpers';
+
+const pw = loadPasswords();
 
 // Browser back/forward navigation tests for the lightbox.
 //
@@ -9,6 +11,7 @@ import { waitForHydration } from './helpers';
 
 test('back button after opening photo closes lightbox and returns to album URL', async ({ page }) => {
 	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
 
 	await page.locator('.photo').nth(1).click(); // open photo 2
@@ -23,6 +26,7 @@ test('back button after opening photo closes lightbox and returns to album URL',
 
 test('back button after navigating photos in lightbox closes lightbox', async ({ page }) => {
 	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
 
 	await page.locator('.photo').nth(0).click(); // open photo 1
@@ -40,6 +44,7 @@ test('back button after navigating photos in lightbox closes lightbox', async ({
 
 test('back button after closing lightbox navigates to previous page', async ({ page }) => {
 	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: 'Antarctica' }).click();
 	await waitForHydration(page);
 
@@ -59,6 +64,7 @@ test('back button after closing lightbox navigates to previous page', async ({ p
 
 test('after reload and back, album photos render correctly', async ({ page }) => {
 	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
 
 	// Wait for images to start loading (confirms imageSrcs are populated)
@@ -70,7 +76,9 @@ test('after reload and back, album photos render correctly', async ({ page }) =>
 	await expect(page).toHaveURL('/albums/antarctica/2');
 
 	// Reload at the permalink URL — lightbox should reopen
+	// (password is already in localStorage from the initial unlock above)
 	await page.reload();
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await expect(page.locator('.pswp')).toBeVisible();
 
 	// Press back
@@ -87,6 +95,7 @@ test('after reload and back, album photos render correctly', async ({ page }) =>
 
 test('URL never shows /albums/undefined', async ({ page }) => {
 	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
 
 	await page.locator('.photo').nth(1).click();

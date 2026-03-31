@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration } from './helpers';
+import { waitForHydration, loadPasswords, unlockAlbumIfNeeded } from './helpers';
+
+const pw = loadPasswords();
 
 // Caption tests verify the rendering mechanism works (rAF fix, animate=false fix),
 // not specific caption text — so they work against any site (sample or prod).
@@ -15,6 +17,7 @@ async function expectCaptionVisible(page: import('@playwright/test').Page) {
 
 test('caption shows when clicking a photo from the grid (animate=true path)', async ({ page }) => {
 	await page.goto(`/albums/${ALBUM}`);
+	await unlockAlbumIfNeeded(page, ALBUM, pw);
 	await waitForHydration(page);
 
 	await page.locator('.photo').nth(PHOTO_N - 1).click();
@@ -29,6 +32,14 @@ test('caption shows when clicking a photo from the grid (animate=true path)', as
 test('caption shows when loading a photo permalink directly (animate=false path)', async ({ page }) => {
 	// Direct URL open: onMount calls openLightbox(..., false) before the router
 	// is fully initialised — exercises the `if (animate) replaceState(...)` fix.
+	//
+	// If the album is encrypted, unlock at the base URL first so the password is
+	// stored in localStorage. Then the permalink load triggers tryDecryptAlbum in
+	// onMount, which auto-decrypts and calls openLightbox. (handleUnlock does not.)
+	if (pw.all || pw.albums[ALBUM]) {
+		await page.goto(`/albums/${ALBUM}`);
+		await unlockAlbumIfNeeded(page, ALBUM, pw);
+	}
 	await page.goto(`/albums/${ALBUM}/${PHOTO_N}`);
 
 	// Lightbox should auto-open without a click.
@@ -41,6 +52,7 @@ test('caption shows when loading a photo permalink directly (animate=false path)
 
 test('caption updates when navigating to prev/next photo', async ({ page }) => {
 	await page.goto(`/albums/${ALBUM}`);
+	await unlockAlbumIfNeeded(page, ALBUM, pw);
 	await waitForHydration(page);
 	await page.locator('.photo').nth(PHOTO_N - 1).click();
 	await expect(page.locator('.pswp')).toBeVisible();

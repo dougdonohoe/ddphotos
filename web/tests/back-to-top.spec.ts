@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded } from './helpers';
+
+const pw = loadPasswords();
 
 const MOBILE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 800 };
@@ -19,6 +22,7 @@ async function simulateScroll(page: any, y = 700) {
 test('album page: back-to-top appears after scrolling on desktop', async ({ page }) => {
 	await page.setViewportSize(DESKTOP);
 	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	// .layout-ready is set in the album page's onMount — guarantees hydration is complete
 	await page.locator('.gallery.layout-ready').waitFor({ state: 'attached' });
 	await simulateScroll(page);
@@ -28,6 +32,7 @@ test('album page: back-to-top appears after scrolling on desktop', async ({ page
 test('album page: back-to-top appears after scrolling on mobile', async ({ page }) => {
 	await page.setViewportSize(MOBILE);
 	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await page.locator('.gallery.layout-ready').waitFor({ state: 'attached' });
 	await simulateScroll(page);
 	await expect(page.locator('.back-to-top')).toBeVisible();
@@ -39,6 +44,7 @@ test('album page: back-to-top appears after scrolling on mobile', async ({ page 
 test('home page: back-to-top appears after scrolling on mobile', async ({ page }) => {
 	await page.setViewportSize(MOBILE);
 	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
 	await expect(async () => {
 		await simulateScroll(page);
 		await expect(page.locator('.back-to-top')).toBeVisible({ timeout: 1000 });
@@ -48,6 +54,7 @@ test('home page: back-to-top appears after scrolling on mobile', async ({ page }
 test('home page: back-to-top is hidden on desktop', async ({ page }) => {
 	await page.setViewportSize(DESKTOP);
 	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
 	await expect(async () => {
 		await simulateScroll(page);
 		await expect(page.locator('.back-to-top')).toBeHidden({ timeout: 1000 });

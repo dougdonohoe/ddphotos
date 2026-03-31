@@ -1,4 +1,113 @@
-import { type Page } from '@playwright/test';
+import * as fs from 'fs';
+import { type Page, type Locator } from '@playwright/test';
+
+export interface Passwords {
+	all: string | null;
+	albums: Record<string, string>;
+}
+
+/**
+ * Parse a ddphotos passwords file (sample/config/passwords-*.txt).
+ * Returns { all, albums } from PLAYWRIGHT_PASSWORDS_FILE env var.
+ * Returns nulls/empty if the env var is not set (no-password variant).
+ */
+export function loadPasswords(): Passwords {
+	const file = process.env.PLAYWRIGHT_PASSWORDS_FILE;
+	if (!file) return { all: null, albums: {} };
+	const content = fs.readFileSync(file, 'utf-8');
+	let all: string | null = null;
+	const albums: Record<string, string> = {};
+	for (const line of content.split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith('#')) continue;
+		const colon = trimmed.indexOf(':');
+		if (colon === -1) continue;
+		const key = trimmed.slice(0, colon).trim();
+		const value = trimmed.slice(colon + 1).trim();
+		if (key === '_all_') {
+			all = value;
+		} else if (key !== '_key_') {
+			albums[key] = value;
+		}
+	}
+	return { all, albums };
+}
+
+/**
+ * Fill the password prompt and submit. Waits for the albums list to appear.
+ * Use for the site-wide password prompt on the home page.
+ */
+export async function unlockSite(page: Page, password: string): Promise<void> {
+	await page.locator('input[type="password"]').fill(password);
+	await page.locator('button[type="submit"]').click();
+	await page.locator('.albums').waitFor({ timeout: 10_000 });
+}
+
+/**
+ * Fill the password prompt and submit. Waits for the gallery to be ready.
+ * Use for a per-album password prompt on an album page.
+ *
+ * Waits for .gallery.layout-ready rather than just .gallery: layoutReady is set
+ * in onMount (before tryDecryptAlbum), so the class is present as soon as the
+ * gallery element appears in the DOM after decryption.
+ */
+export async function unlockAlbum(page: Page, password: string): Promise<void> {
+	await page.locator('input[type="password"]').fill(password);
+	await page.locator('button[type="submit"]').click();
+	await page.locator('.gallery.layout-ready').waitFor({ timeout: 10_000 });
+}
+
+/**
+ * Unlock the site if a site-wide password is configured and the prompt is visible.
+ * Safe to call unconditionally — no-ops when no password is configured or the page
+ * is already unlocked (e.g. password cached in localStorage from a prior unlock).
+ *
+ * The PasswordPrompt is gated on the Svelte `browser` rune, so it is NOT present in
+ * the SSR/static HTML — it only renders after JS hydration. We therefore cannot use
+ * isVisible() immediately after goto(); instead we race between the album list
+ * appearing (already decrypted) and the overlay appearing (needs unlock).
+ */
+export async function unlockSiteIfNeeded(page: Page, passwords: Passwords): Promise<void> {
+	if (!passwords.all) return;
+	const result = await Promise.race([
+		page.locator('.albums').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'unlocked'),
+		page.locator('.fullscreen-overlay').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'locked'),
+	]).catch(() => 'timeout');
+	if (result !== 'locked') return;
+	await unlockSite(page, passwords.all);
+}
+
+/**
+ * Unlock an album if the prompt is visible and a password is known for the slug.
+ * Uses the per-album password if available, otherwise falls back to the site-wide
+ * password (which encrypts all albums in the pw-all variant).
+ * Safe to call unconditionally — no-ops when no password applies or the album is
+ * already decrypted (cached password in localStorage).
+ *
+ * Same reasoning as unlockSiteIfNeeded: races between content and overlay.
+ */
+export async function unlockAlbumIfNeeded(
+	page: Page,
+	slug: string,
+	passwords: Passwords
+): Promise<void> {
+	const pw = passwords.albums[slug] ?? passwords.all;
+	if (!pw) return;
+	const result = await Promise.race([
+		page.locator('.gallery').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'unlocked'),
+		page.locator('.fullscreen-overlay').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'locked'),
+	]).catch(() => 'timeout');
+	if (result !== 'locked') return;
+	await unlockAlbum(page, pw);
+}
+
+/**
+ * Extract the album slug from a card locator's href attribute.
+ */
+export async function slugFromCard(card: Locator): Promise<string> {
+	const href = (await card.getAttribute('href')) ?? '';
+	return href.replace('/albums/', '');
+}
 
 /**
  * Wait for Svelte 5 to finish hydrating the page.
@@ -24,9 +133,10 @@ export async function waitForHydration(page: Page): Promise<void> {
 	});
 
 	// If this page has a photo gallery, wait for the album page component's
-	// onMount to signal readiness via the layout-ready class. The .gallery
-	// element is present in the prerendered HTML so count() is always reliable.
-	if (await page.locator('.gallery').count() > 0) {
+	// onMount to signal readiness via the layout-ready class. .gallery is only
+	// in the DOM when the album is decrypted (it lives inside {#if album}), so
+	// count() correctly skips this wait on locked album pages.
+	if ((await page.locator('.gallery').count()) > 0) {
 		await page.locator('.gallery.layout-ready').waitFor();
 	}
 }
