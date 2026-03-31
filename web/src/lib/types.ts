@@ -41,4 +41,6 @@ export interface AlbumSummary {
 export interface SiteConfig {
 	siteId: string;
 	albumsFile: string;
+	siteHint?: string;
+	albumHints?: Record<string, string>;
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run Playwright tests against all sample site variants:
 #   1. No passwords (plain site)
-#   2. passwords-all.txt (entire site encrypted + Uganda per-album)
-#   3. passwords-uganda.txt (Uganda album only)
+#   2. passwords-all.yaml (entire site encrypted + Uganda per-album)
+#   3. passwords-uganda.yaml (Uganda album only)
 #
 # Usage:
 #   bin/test-all.sh [--mode dev|apache|both]
@@ -18,8 +18,8 @@ usage() {
     echo ""
     echo "Runs Playwright tests against all password variants of the sample site:"
     echo "  1. No passwords (plain site)"
-    echo "  2. passwords-all.txt (entire site + Uganda album encrypted)"
-    echo "  3. passwords-uganda.txt (Uganda album only)"
+    echo "  2. passwords-all.yaml (entire site + Uganda album encrypted)"
+    echo "  3. passwords-uganda.yaml (Uganda album only)"
     echo ""
     echo "Options:"
     echo "  --mode <mode>  Server to test against: dev, apache, or both (default: both)."
@@ -55,8 +55,8 @@ run_variant() {
 }
 
 run_variant "no passwords"
-run_variant "passwords-all.txt"    --passwords sample/config/passwords-all.txt
-run_variant "passwords-uganda.txt" --passwords sample/config/passwords-uganda.txt
+run_variant "passwords-all.yaml"    --passwords sample/config/passwords-all.yaml
+run_variant "passwords-uganda.yaml" --passwords sample/config/passwords-uganda.yaml
 
 if [ "$OVERALL_EXIT" -eq 0 ]; then
     echo ""

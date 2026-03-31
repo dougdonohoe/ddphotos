@@ -14,12 +14,13 @@ export async function load({ fetch }) {
 	}
 
 	const siteId = siteConfig.siteId;
+	const siteHint = siteConfig.siteHint;
 
 	if (siteConfig.albumsFile.endsWith('.enc.json')) {
 		const encryptedBlob = await albumsRes.text();
-		return { albums: null as AlbumSummary[] | null, encryptedBlob, siteId };
+		return { albums: null as AlbumSummary[] | null, encryptedBlob, siteId, siteHint };
 	}
 
 	const albums: AlbumSummary[] = await albumsRes.json();
-	return { albums, encryptedBlob: null as string | null, siteId };
+	return { albums, encryptedBlob: null as string | null, siteId, siteHint };
 }

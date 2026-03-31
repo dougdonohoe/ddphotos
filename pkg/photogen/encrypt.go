@@ -14,52 +14,81 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
+	"gopkg.in/yaml.v3"
 )
 
 // EncryptConfig holds the keys and passwords loaded from a passwords file.
 // See LoadEncryptConfig for the file format.
 type EncryptConfig struct {
-	// HMACKey is used to derive deterministic UUID filenames for images (_key_: entry).
+	// HMACKey is used to derive deterministic UUID filenames for images (key: entry).
 	// If empty, original WebP filenames are used unchanged.
 	HMACKey string
-	// SitePassword encrypts albums.json for the whole site (_all_: entry).
+	// SitePassword encrypts albums.json for the whole site (site.password entry).
 	// If empty, albums.json is written unencrypted.
 	SitePassword string
+	// SiteHint is an optional hint shown in the site-wide password dialog.
+	SiteHint string
 	// AlbumPasswords holds per-album passwords keyed by slug.
 	// An album with no entry here falls back to SitePassword.
 	AlbumPasswords map[string]string
+	// AlbumHints holds optional hints for per-album password dialogs, keyed by slug.
+	AlbumHints map[string]string
 	// PwFile is the path to the passwords file this config was loaded from.
 	// It is embedded in encrypted files so the decode tool can find it automatically.
 	PwFile string
 }
 
-// LoadEncryptConfig reads a passwords file and returns an EncryptConfig.
+// passwordEntry is one entry in the YAML passwords file (site or per-album).
+type passwordEntry struct {
+	Password string `yaml:"password"`
+	Hint     string `yaml:"hint"`
+}
+
+// passwordsFile is the top-level structure of a YAML passwords file.
+type passwordsFile struct {
+	Key    string                    `yaml:"key"`
+	Site   *passwordEntry            `yaml:"site"`
+	Albums map[string]*passwordEntry `yaml:"albums"`
+}
+
+// LoadEncryptConfig reads a YAML passwords file and returns an EncryptConfig.
 //
-// Format (blank lines and lines starting with # are ignored):
+// Format:
 //
-//	_key_:hmac-secret
-//	_all_:site-password
-//	album-slug:album-password
+//	key: hmac-secret
+//	site:
+//	  password: site-wide-password
+//	  hint: optional hint shown in the password dialog
+//	albums:
+//	  album-slug:
+//	    password: per-album-password
+//	    hint: optional hint
 func LoadEncryptConfig(path string) (*EncryptConfig, error) {
-	ec := &EncryptConfig{AlbumPasswords: map[string]string{}, PwFile: path}
-	err := scanLines(path, func(line string) {
-		idx := strings.IndexByte(line, ':')
-		if idx < 0 {
-			return
-		}
-		key := strings.TrimSpace(line[:idx])
-		val := strings.TrimSpace(line[idx+1:])
-		switch key {
-		case "_key_":
-			ec.HMACKey = val
-		case "_all_":
-			ec.SitePassword = val
-		default:
-			ec.AlbumPasswords[key] = val
-		}
-	})
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("load encrypt config %s: %w", path, err)
+	}
+	var pf passwordsFile
+	if err := yaml.Unmarshal(data, &pf); err != nil {
+		return nil, fmt.Errorf("load encrypt config %s: %w", path, err)
+	}
+	ec := &EncryptConfig{
+		AlbumPasswords: map[string]string{},
+		AlbumHints:     map[string]string{},
+		PwFile:         path,
+		HMACKey:        pf.Key,
+	}
+	if pf.Site != nil {
+		ec.SitePassword = pf.Site.Password
+		ec.SiteHint = pf.Site.Hint
+	}
+	for slug, entry := range pf.Albums {
+		if entry != nil {
+			ec.AlbumPasswords[slug] = entry.Password
+			if entry.Hint != "" {
+				ec.AlbumHints[slug] = entry.Hint
+			}
+		}
 	}
 	return ec, nil
 }
@@ -67,7 +96,7 @@ func LoadEncryptConfig(path string) (*EncryptConfig, error) {
 const minPasswordLen = 5
 
 // checkPasswordLen returns an error if p is shorter than minPasswordLen.
-// name is used in the error message (e.g. "_all_" or `album "uganda"`).
+// name is used in the error message (e.g. "site" or `album "uganda"`).
 func checkPasswordLen(name, p string) error {
 	if len(p) < minPasswordLen {
 		return fmt.Errorf("passwords file: %s password must be at least %d characters", name, minPasswordLen)
@@ -76,15 +105,15 @@ func checkPasswordLen(name, p string) error {
 }
 
 // Validate checks that the EncryptConfig is consistent:
-//   - _key_ is required whenever any album is encrypted (UUID filenames depend on it)
+//   - key is required whenever any album is encrypted (UUID filenames depend on it)
 //   - passwords must be at least minPasswordLen characters
-//   - empty per-album password values are rejected (they silently override _all_ with no encryption)
+//   - empty per-album password values are rejected (they silently override site with no encryption)
 func (ec *EncryptConfig) Validate() error {
 	if ec.HMACKey == "" && (ec.IsSiteEncrypted() || len(ec.AlbumPasswords) > 0) {
-		return fmt.Errorf("passwords file: _key_ is required when any album is encrypted")
+		return fmt.Errorf("passwords file: key is required when any album is encrypted")
 	}
 	if ec.SitePassword != "" {
-		if err := checkPasswordLen("_all_", ec.SitePassword); err != nil {
+		if err := checkPasswordLen("site", ec.SitePassword); err != nil {
 			return err
 		}
 	}
@@ -118,7 +147,7 @@ func (ec *EncryptConfig) HasPerAlbumPassword(slug string) bool {
 	return ok
 }
 
-// IsSiteEncrypted reports whether albums.json is encrypted (i.e., _all_ is set).
+// IsSiteEncrypted reports whether albums.json is encrypted (i.e., site.password is set).
 func (ec *EncryptConfig) IsSiteEncrypted() bool {
 	return ec.SitePassword != ""
 }

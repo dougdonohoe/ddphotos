@@ -272,8 +272,10 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 
 // SiteConfig is the structure for config.json (always unencrypted).
 type SiteConfig struct {
-	SiteID     string `json:"siteId"`
-	AlbumsFile string `json:"albumsFile"`
+	SiteID     string            `json:"siteId"`
+	AlbumsFile string            `json:"albumsFile"`
+	SiteHint   string            `json:"siteHint,omitempty"`
+	AlbumHints map[string]string `json:"albumHints,omitempty"`
 }
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
@@ -289,6 +291,12 @@ func (c *Config) WriteConfigJSON() error {
 		return nil
 	}
 	cfg := SiteConfig{SiteID: c.SiteID, AlbumsFile: albumsFile}
+	if c.Encrypt != nil {
+		cfg.SiteHint = c.Encrypt.SiteHint
+		if len(c.Encrypt.AlbumHints) > 0 {
+			cfg.AlbumHints = c.Encrypt.AlbumHints
+		}
+	}
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}

@@ -14,13 +14,19 @@ func TestLoadEncryptConfig(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "passwords.txt")
+	path := filepath.Join(dir, "passwords.yaml")
 
 	content := `# WARNING: demo only
-_key_:my-hmac-key
-_all_:site-pass
-uganda:uganda-pass
-antarctica:antar-pass
+key: my-hmac-key
+site:
+  password: site-pass
+  hint: Remember the site
+albums:
+  uganda:
+    password: uganda-pass
+    hint: Think of gorillas
+  antarctica:
+    password: antar-pass
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0644))
 
@@ -29,16 +35,19 @@ antarctica:antar-pass
 
 	assert.Equal(t, "my-hmac-key", ec.HMACKey)
 	assert.Equal(t, "site-pass", ec.SitePassword)
+	assert.Equal(t, "Remember the site", ec.SiteHint)
 	assert.Equal(t, "uganda-pass", ec.AlbumPasswords["uganda"])
+	assert.Equal(t, "Think of gorillas", ec.AlbumHints["uganda"])
 	assert.Equal(t, "antar-pass", ec.AlbumPasswords["antarctica"])
+	assert.Empty(t, ec.AlbumHints["antarctica"])
 }
 
 func TestLoadEncryptConfig_KeyOnly(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "passwords.txt")
-	require.NoError(t, os.WriteFile(path, []byte("_key_:secret\n"), 0644))
+	path := filepath.Join(dir, "passwords.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("key: secret\n"), 0644))
 
 	ec, err := LoadEncryptConfig(path)
 	require.NoError(t, err)
@@ -70,19 +79,19 @@ func TestEncryptConfigValidate(t *testing.T) {
 	t.Run("site password without key is invalid", func(t *testing.T) {
 		t.Parallel()
 		ec := &EncryptConfig{SitePassword: "pass"}
-		assert.ErrorContains(t, ec.Validate(), "_key_")
+		assert.ErrorContains(t, ec.Validate(), "key")
 	})
 
 	t.Run("per-album password without key is invalid", func(t *testing.T) {
 		t.Parallel()
 		ec := &EncryptConfig{AlbumPasswords: map[string]string{"uganda": "pass"}}
-		assert.ErrorContains(t, ec.Validate(), "_key_")
+		assert.ErrorContains(t, ec.Validate(), "key")
 	})
 
 	t.Run("site password too short is invalid", func(t *testing.T) {
 		t.Parallel()
 		ec := &EncryptConfig{HMACKey: "key", SitePassword: "ab"}
-		assert.ErrorContains(t, ec.Validate(), "_all_")
+		assert.ErrorContains(t, ec.Validate(), "site")
 	})
 
 	t.Run("site password exactly minimum length is valid", func(t *testing.T) {
@@ -216,13 +225,13 @@ func TestReadPwFile(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "test.enc.json")
 
-		encrypted, err := EncryptJSON(original, "passw0rd", "sample/config/passwords.txt")
+		encrypted, err := EncryptJSON(original, "passw0rd", "sample/config/passwords.yaml")
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(path, encrypted, 0o644))
 
 		got, err := ReadPwFile(path)
 		require.NoError(t, err)
-		assert.Equal(t, "sample/config/passwords.txt", got)
+		assert.Equal(t, "sample/config/passwords.yaml", got)
 	})
 
 	t.Run("returns empty string when no pwFile stored", func(t *testing.T) {

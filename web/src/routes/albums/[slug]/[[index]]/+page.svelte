@@ -514,6 +514,7 @@
 		<PasswordPrompt
 			prefix="Album"
 			name={albumTitle}
+			hint={data.albumHint}
 			{shakeCount}
 			onunlock={handleUnlock}
 		/>

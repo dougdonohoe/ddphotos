@@ -4,7 +4,7 @@
 # Usage:
 #   bin/run-tests.sh [--passwords <file>] [--mode dev|apache|both]
 #
-# --passwords  Path to a passwords file (e.g. sample/config/passwords-all.txt).
+# --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
 # --mode       Which server to test against: dev, apache, or both (default: both).
 #              dev   — Vite dev server on port 5174
@@ -20,7 +20,7 @@ usage() {
     echo "Usage: bin/run-tests.sh [--passwords <file>] [--mode dev|apache|both]"
     echo ""
     echo "Options:"
-    echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.txt)."
+    echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
     echo "                      Omit for the no-password variant."
     echo "  --mode <mode>       Server to test against: dev, apache, or both (default: both)."
     echo "                        dev    — Vite dev server on port 5174"
@@ -65,14 +65,14 @@ if [ -n "$PASSWORDS_FILE" ]; then
 fi
 
 # Derive site-id and symlink target from the passwords file basename.
-# Convention: passwords-all.txt -> site-id "sample-pw-all", symlink "sample-pw-all"
-#             passwords-uganda.txt -> site-id "sample-pw-uganda", symlink "sample-pw-uganda"
+# Convention: passwords-all.yaml -> site-id "sample-pw-all", symlink "sample-pw-all"
+#             passwords-uganda.yaml -> site-id "sample-pw-uganda", symlink "sample-pw-uganda"
 #             (no file) -> site-id "sample", symlink "sample"
 SITE_ID="sample"
 SYMLINK_TARGET="../albums/sample"
 PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -doit"
 if [ -n "$PASSWORDS_FILE" ]; then
-    BASENAME=$(basename "$PASSWORDS_FILE" .txt)   # e.g. "passwords-all"
+    BASENAME=$(basename "$PASSWORDS_FILE" .yaml)  # e.g. "passwords-all"
     VARIANT="${BASENAME#passwords-}"               # e.g. "all"
     SITE_ID="sample-pw-${VARIANT}"
     SYMLINK_TARGET="../albums/sample-pw-${VARIANT}"

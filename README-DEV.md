@@ -222,23 +222,31 @@ listed in `photogen.txt` are sorted by date and appended at the end.
 
 ### Passwords File
 
-The `-encrypt` flag points to a passwords file. Blank lines and lines starting
-with `#` are ignored. Three entry types are supported:
+The `-encrypt` flag points to a YAML passwords file. Comments (lines starting with `#`) are ignored.
 
+```yaml
+key: hmac-secret
+
+site:
+  password: site-wide-password
+  hint: Optional hint shown in the password dialog
+
+albums:
+  album-slug:
+    password: per-album-password
+    hint: Optional hint shown in the album password dialog
 ```
-_key_:hmac-secret
-_all_:site-wide-password
-album-slug:per-album-password
-```
 
-| Entry         | Description                                                                                                                                                       |
-|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `_key_:value` | HMAC-SHA256 secret used to derive UUID-format WebP filenames for encrypted albums, preventing filename guessing (e.g. `IMG_3961.webp` becomes `3f8a1c2d-...webp`) |
-| `_all_:value` | Encrypts `albums.json` and all per-album `index.json` files site-wide                                                                                             |
-| `slug:value`  | Per-album password override; encrypts only that album's `index.json`. Falls back to `_all_` if not set                                                            |
+| Field                    | Description                                                                                                                                                       |
+|--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `key`                    | HMAC-SHA256 secret used to derive UUID-format WebP filenames for encrypted albums, preventing filename guessing (e.g. `IMG_3961.webp` becomes `3f8a1c2d-...webp`) |
+| `site.password`          | Encrypts `albums.json` and all per-album `index.json` files site-wide                                                                                             |
+| `site.hint`              | Optional hint shown in the site-wide password dialog (always visible, even before a password attempt)                                                             |
+| `albums.<slug>.password` | Per-album password; encrypts only that album's `index.json`. Falls back to `site.password` if not set                                                             |
+| `albums.<slug>.hint`     | Optional hint shown in that album's password dialog                                                                                                               |
 
-Sample passwords files are in `sample/config/` — `passwords-all.txt` (full site) and
-`passwords-uganda.txt` (single album). Both contain demo-only passwords and a prominent WARNING header.
+Sample passwords files are in `sample/config/` — `passwords-all.yaml` (full site) and
+`passwords-uganda.yaml` (single album). Both contain demo-only passwords and a prominent WARNING header.
 
 **Do not commit real passwords.** Store production passwords outside the repo or in a
 git-ignored directory (e.g. `.secrets/`).
@@ -266,7 +274,7 @@ If the passwords file has moved, or the file was generated without an embedded p
 pass `-passwords` explicitly:
 
 ```bash
-go run cmd/decode/decode.go -passwords sample/config/passwords-uganda.txt \
+go run cmd/decode/decode.go -passwords sample/config/passwords-uganda.yaml \
   web/albums/sample-pw-uganda/uganda/index.enc.json
 ```
 

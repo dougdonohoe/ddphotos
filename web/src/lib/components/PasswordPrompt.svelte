@@ -2,11 +2,12 @@
 	interface Props {
 		prefix?: string;
 		name: string;
+		hint?: string;
 		onunlock: (password: string) => void;
 		shakeCount?: number;
 	}
 
-	let { prefix, name, onunlock, shakeCount = 0 }: Props = $props();
+	let { prefix, name, hint, onunlock, shakeCount = 0 }: Props = $props();
 	let password = $state('');
 	let shaking = $state(false);
 	let prevShakeCount = $state(0);
@@ -59,6 +60,9 @@
 				autocomplete="current-password"
 				autofocus
 			/>
+			{#if hint}
+				<p class="hint">Hint: <i>{hint}</i></p>
+			{/if}
 			<button type="submit">Unlock</button>
 		</form>
 	</div>
@@ -104,6 +108,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+
+	.hint {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--text-muted);
+		text-align: left;
 	}
 
 	input[type='password'] {

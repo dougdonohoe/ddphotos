@@ -231,6 +231,7 @@
 	<div class="fullscreen-overlay">
 		<PasswordPrompt
 			name={siteName}
+			hint={data.siteHint}
 			{shakeCount}
 			onunlock={handleUnlock}
 		/>

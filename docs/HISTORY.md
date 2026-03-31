@@ -629,6 +629,41 @@ Added encryption support to `photogen` for protecting album data at rest.
 
 **Makefile** — added `sample-photogen-pw-all`, `sample-photogen-pw-uganda`, `use-sample-pw-all`, `use-sample-pw-uganda` targets.
 
+### 45. V2 Auth: Frontend — Password Dialogs, Cover Flash, localStorage Scoping
+
+Wired the encrypted album/site data up to the SvelteKit frontend, then iterated through several flash and scoping bugs.
+
+#### Password Prompts
+
+**`web/src/lib/components/PasswordPrompt.svelte`** — new component: lock-icon card with password input, shake animation on wrong password, `autofocus` (suppressed with `<!-- svelte-ignore a11y_autofocus -->` comment since it is intentional for an explicit dialog).
+
+**`web/src/routes/+page.svelte`** — site-encrypted home page: tries stored site password then any stored album password on mount; shows `PasswordPrompt` in a `position: fixed` full-screen overlay if neither works; fades in album grid after decryption; shows site title only once decrypted (`{#if !data.encryptedBlob || albums}`).
+
+**`web/src/routes/albums/[slug]/[[index]]/+page.svelte`** — per-album encrypted page: same pattern; `handleUnlock` uses `decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid` to cache the correct cover URL.
+
+#### Cover Flash Fix (inline `<head>` script)
+
+The core problem matched the existing light/dark theme flash: SSR bakes a placeholder into the static HTML, and JS only runs after first paint. Solution: same pattern as the theme fix — a synchronous inline `<head>` script sets CSS custom properties from localStorage before the browser lays out the body.
+
+**`web/src/app.html`**:
+- Moved `%sveltekit.head%` *before* the inline script so the `<meta name="ddp-site-id">` tag (injected by `+layout.svelte`) is in the DOM when the script runs
+- Inline script reads `siteId` from the meta tag (not localStorage — avoids stale value on first load after build switch), then sets `--ddp-cover-{slug}` and `--ddp-icon-vis-{slug}` CSS custom properties on `<html>` for any cached cover URLs
+
+**`web/src/routes/+page.svelte`** — placeholder div references `var(--ddp-cover-{slug}, none)` as `background-image` default, so the cover appears from the very first paint. After Svelte hydrates, `albumCovers` state (populated synchronously via `untrack(() => data.albums)` in `$state` initializer) takes over with an explicit `url(...)`.
+
+Lock icon visibility trick: `--lock-vis` CSS variable set on the placeholder parent (`hidden` when a cover is cached, else inherits from `--ddp-icon-vis-{slug}` which the inline script sets). SVG uses `visibility: var(--lock-vis, visible)` — lock is always in the SSR HTML for layout but is CSS-hidden on first paint when a cover will show instead.
+
+`coversLoaded` state (false during SSR) gates the non-encrypted placeholder icon (mountain SVG) so it isn't baked into the static HTML.
+
+#### localStorage Key Scoping
+
+All keys are now scoped to `siteId` to prevent 404s when switching between dev builds (which use different HMAC keys, producing different filenames):
+- `ddp_cover_{siteId}_{slug}` — cover URL cache
+- `ddp_album_{siteId}_{slug}` — per-album password
+- `ddp_site_{siteId}` — site-wide password
+
+**`web/src/lib/crypto.ts`** — `siteKey(siteId)`, `albumKey(siteId, slug)`, `coverKey(siteId, slug)` replace the old unscoped constants. `syncSiteId(siteId)` called on mount: detects a siteId change and clears all stale `ddp_cover_*`, `ddp_album_*`, `ddp_site_*` entries. `tryStoredAlbumPasswords(encryptedBlob, siteId)` scans the `ddp_album_{siteId}_*` prefix.
+
 ### 46. V2 Auth: Playwright Testing System for Password Variants
 
 Built a complete Playwright testing infrastructure that covers all three password variants (no-password, pw-all, pw-uganda) against both dev and Apache modes.
@@ -665,39 +700,50 @@ All existing specs (`smoke`, `navigation`, `url`, `captions`, `back-nav`, `back-
 
 **`.github/workflows/ci.yml`** — simplified from 10 steps to 5: Go build/test/vet, Playwright install, Apache routing tests (`make sample-photogen sample-build web-docker-build sample-test-apache`), and `bin/test-all.sh --mode apache` covering all three password variants. Apache-only (not `--mode both`) because CI should test what gets deployed, and dev mode can hide production issues.
 
-### 45. V2 Auth: Frontend — Password Dialogs, Cover Flash, localStorage Scoping
-
-Wired the encrypted album/site data up to the SvelteKit frontend, then iterated through several flash and scoping bugs.
-
-#### Password Prompts
-
-**`web/src/lib/components/PasswordPrompt.svelte`** — new component: lock-icon card with password input, shake animation on wrong password, `autofocus` (suppressed with `<!-- svelte-ignore a11y_autofocus -->` comment since it is intentional for an explicit dialog).
-
-**`web/src/routes/+page.svelte`** — site-encrypted home page: tries stored site password then any stored album password on mount; shows `PasswordPrompt` in a `position: fixed` full-screen overlay if neither works; fades in album grid after decryption; shows site title only once decrypted (`{#if !data.encryptedBlob || albums}`).
-
-**`web/src/routes/albums/[slug]/[[index]]/+page.svelte`** — per-album encrypted page: same pattern; `handleUnlock` uses `decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid` to cache the correct cover URL.
-
-#### Cover Flash Fix (inline `<head>` script)
-
-The core problem matched the existing light/dark theme flash: SSR bakes a placeholder into the static HTML, and JS only runs after first paint. Solution: same pattern as the theme fix — a synchronous inline `<head>` script sets CSS custom properties from localStorage before the browser lays out the body.
-
-**`web/src/app.html`**:
-- Moved `%sveltekit.head%` *before* the inline script so the `<meta name="ddp-site-id">` tag (injected by `+layout.svelte`) is in the DOM when the script runs
-- Inline script reads `siteId` from the meta tag (not localStorage — avoids stale value on first load after build switch), then sets `--ddp-cover-{slug}` and `--ddp-icon-vis-{slug}` CSS custom properties on `<html>` for any cached cover URLs
-
-**`web/src/routes/+page.svelte`** — placeholder div references `var(--ddp-cover-{slug}, none)` as `background-image` default, so the cover appears from the very first paint. After Svelte hydrates, `albumCovers` state (populated synchronously via `untrack(() => data.albums)` in `$state` initializer) takes over with an explicit `url(...)`.
-
-Lock icon visibility trick: `--lock-vis` CSS variable set on the placeholder parent (`hidden` when a cover is cached, else inherits from `--ddp-icon-vis-{slug}` which the inline script sets). SVG uses `visibility: var(--lock-vis, visible)` — lock is always in the SSR HTML for layout but is CSS-hidden on first paint when a cover will show instead.
-
-`coversLoaded` state (false during SSR) gates the non-encrypted placeholder icon (mountain SVG) so it isn't baked into the static HTML.
-
-#### localStorage Key Scoping
-
-All keys are now scoped to `siteId` to prevent 404s when switching between dev builds (which use different HMAC keys, producing different filenames):
-- `ddp_cover_{siteId}_{slug}` — cover URL cache
-- `ddp_album_{siteId}_{slug}` — per-album password
-- `ddp_site_{siteId}` — site-wide password
-
-**`web/src/lib/crypto.ts`** — `siteKey(siteId)`, `albumKey(siteId, slug)`, `coverKey(siteId, slug)` replace the old unscoped constants. `syncSiteId(siteId)` called on mount: detects a siteId change and clears all stale `ddp_cover_*`, `ddp_album_*`, `ddp_site_*` entries. `tryStoredAlbumPasswords(encryptedBlob, siteId)` scans the `ddp_album_{siteId}_*` prefix.
-
 **`web/src/routes/+layout.svelte`** — injects `<meta name="ddp-site-id" content={siteId}>` so the inline script can read the current build's siteId without touching localStorage.
+
+### 47. V2 Auth: Password Hints + YAML Passwords Format
+
+#### YAML Passwords File
+
+Migrated passwords files from a custom `key:value` text format to YAML. The old format (`_key_:`, `_all_:`, `slug:`) was fragile — adding per-entry metadata required ad-hoc suffixes (`slug!hint:`) that both parsers had to skip explicitly.
+
+**New format (`sample/config/passwords-all.yaml`):**
+```yaml
+key: ddphotos-sample-key-all
+site:
+  password: allgood
+  hint: What say you now?
+albums:
+  uganda:
+    password: gorilla
+    hint: A big brown ape
+```
+
+`_key_` → `key`, `_all_` → `site:` (nested map), per-album entries nested under `albums:`. Hints are optional on both `site` and any album entry.
+
+**`pkg/photogen/encrypt.go`** — replaced `scanLines` text parser with `gopkg.in/yaml.v3` unmarshal. `EncryptConfig` gains `SiteHint string` and `AlbumHints map[string]string`. Validate error messages updated from `_key_`/`_all_` to `key`/`site`. Internal `passwordsFile` / `passwordEntry` structs handle YAML unmarshalling.
+
+**`pkg/photogen/json.go`** — `SiteConfig` gains `SiteHint string` and `AlbumHints map[string]string` (both `omitempty`). `WriteConfigJSON` populates them from `EncryptConfig` when present.
+
+Sample files renamed: `passwords-all.txt` → `passwords-all.yaml`, `passwords-uganda.txt` → `passwords-uganda.yaml`. Makefile, `bin/run-tests.sh`, `bin/test-all.sh`, and `README-DEV.md` all updated.
+
+#### Hint Display in Password Dialogs
+
+Hints flow from the passwords YAML → `config.json` (plaintext, always unencrypted) → frontend. No fallback: album hint is independent of site hint.
+
+**`web/src/lib/types.ts`** — `SiteConfig` gains `siteHint?: string` and `albumHints?: Record<string, string>`.
+
+**`web/src/routes/+page.ts`** — exposes `siteHint` from `siteConfig`.
+
+**`web/src/routes/albums/[slug]/[[index]]/+page.ts`** — exposes `albumHint` via `config.albumHints?.[params.slug]` (no fallback to site hint).
+
+**`web/src/lib/components/PasswordPrompt.svelte`** — new `hint?: string` prop. When set, renders `<p class="hint">Hint: <i>{hint}</i></p>` between the input and the Unlock button. Styled with `var(--text-muted)` at 0.85rem.
+
+#### Test Infrastructure
+
+**`web/tests/helpers.ts`** — `loadPasswords()` replaced with `js-yaml` YAML parser. `Passwords` interface gains `allHint: string | null` and `albumHints: Record<string, string>` so tests can check hint text without hardcoding it.
+
+**`web/tests/password.spec.ts`** — two new tests: `site password dialog shows hint` (skips if no site hint configured) and `album password dialog shows hint` (skips if no hint for `firstAlbumSlug`). Both check `.card .hint` visibility and content.
+
+**`web/tests/back-nav.spec.ts`** — fixed `back button after closing lightbox navigates to previous page`: added `unlockAlbumIfNeeded` after clicking the album card. In the pw-all variant, Antarctica is also site-encrypted; `waitForHydration` doesn't wait for auto-decryption to complete (gallery not in DOM yet), so the `.photo` click timed out.

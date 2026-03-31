@@ -1,36 +1,40 @@
 import * as fs from 'fs';
+import * as yaml from 'js-yaml';
 import { type Page, type Locator } from '@playwright/test';
 
 export interface Passwords {
 	all: string | null;
+	allHint: string | null;
 	albums: Record<string, string>;
+	albumHints: Record<string, string>;
 }
 
 /**
- * Parse a ddphotos passwords file (sample/config/passwords-*.txt).
+ * Parse a ddphotos passwords file (sample/config/passwords-*.yaml).
  * Returns { all, albums } from PLAYWRIGHT_PASSWORDS_FILE env var.
  * Returns nulls/empty if the env var is not set (no-password variant).
  */
 export function loadPasswords(): Passwords {
 	const file = process.env.PLAYWRIGHT_PASSWORDS_FILE;
-	if (!file) return { all: null, albums: {} };
+	if (!file) return { all: null, allHint: null, albums: {}, albumHints: {} };
 	const content = fs.readFileSync(file, 'utf-8');
-	let all: string | null = null;
+	const parsed = yaml.load(content) as Record<string, unknown>;
+	if (!parsed || typeof parsed !== 'object') return { all: null, allHint: null, albums: {}, albumHints: {} };
+
+	const site = parsed['site'] as Record<string, string> | undefined;
+	const all: string | null = site?.password ?? null;
+	const allHint: string | null = site?.hint ?? null;
+
 	const albums: Record<string, string> = {};
-	for (const line of content.split('\n')) {
-		const trimmed = line.trim();
-		if (!trimmed || trimmed.startsWith('#')) continue;
-		const colon = trimmed.indexOf(':');
-		if (colon === -1) continue;
-		const key = trimmed.slice(0, colon).trim();
-		const value = trimmed.slice(colon + 1).trim();
-		if (key === '_all_') {
-			all = value;
-		} else if (key !== '_key_') {
-			albums[key] = value;
+	const albumHints: Record<string, string> = {};
+	const albumsMap = parsed['albums'] as Record<string, Record<string, string>> | undefined;
+	if (albumsMap) {
+		for (const [slug, entry] of Object.entries(albumsMap)) {
+			if (entry?.password) albums[slug] = entry.password;
+			if (entry?.hint) albumHints[slug] = entry.hint;
 		}
 	}
-	return { all, albums };
+	return { all, allHint, albums, albumHints };
 }
 
 /**

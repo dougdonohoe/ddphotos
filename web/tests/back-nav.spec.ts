@@ -47,6 +47,7 @@ test('back button after closing lightbox navigates to previous page', async ({ p
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: 'Antarctica' }).click();
 	await waitForHydration(page);
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 
 	await page.locator('.photo').nth(0).click();
 	await expect(page.locator('.pswp')).toBeVisible();

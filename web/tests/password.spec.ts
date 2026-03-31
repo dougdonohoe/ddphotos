@@ -174,6 +174,25 @@ test('password dialog title uses album title not slug', async ({ page }) => {
 	expect(text).not.toMatch(/-/);
 });
 
+// --- Password hint display ---
+
+test('site password dialog shows hint', async ({ page }) => {
+	test.skip(!pw.all || !pw.allHint, 'no site-wide password or hint configured');
+	await page.goto('/');
+	await expect(page.locator('.card .hint')).toBeVisible();
+	await expect(page.locator('.card .hint')).toContainText(pw.allHint!);
+});
+
+test('album password dialog shows hint', async ({ page }) => {
+	const firstAlbumHint = firstAlbumSlug ? pw.albumHints[firstAlbumSlug] ?? null : null;
+	test.skip(!firstAlbumSlug || !firstAlbumHint, 'no per-album password or hint configured');
+	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
+	await page.goto(`/albums/${firstAlbumSlug}`);
+	await expect(page.locator('.card .hint')).toBeVisible();
+	await expect(page.locator('.card .hint')).toContainText(firstAlbumHint!);
+});
+
 // --- Album cover NOT shown before unlock (per-album encrypted) ---
 
 test('per-album encrypted album shows lock icon not cover before unlock', async ({ page }) => {

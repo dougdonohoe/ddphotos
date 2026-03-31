@@ -60,6 +60,7 @@ export async function load({ params, fetch }) {
 		albumTitle: albumMeta?.title ?? params.slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
 		dateSpan: albumMeta?.dateSpan ?? '',
 		description: albumMeta?.description ?? '',
-		photoIndex
+		photoIndex,
+		albumHint: config.albumHints?.[params.slug]
 	};
 }
