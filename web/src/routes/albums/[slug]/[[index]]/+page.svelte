@@ -14,11 +14,12 @@
 	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
 	import type { AlbumIndex } from '$lib/types';
 	import {
-		SITE_KEY,
+		siteKey,
 		albumKey,
 		getStoredPassword,
 		storePassword,
 		storeAlbumCover,
+		syncSiteId,
 		tryDecrypt
 	} from '$lib/crypto';
 	import { footerReady } from '$lib/stores';
@@ -41,7 +42,7 @@
 	// static HTML — this is fine since JS will correct it immediately on hydration.)
 	let unlocking = $state(false);
 	$effect.pre(() => {
-		if (data.encryptedBlob && (getStoredPassword(albumKey(data.slug)) || getStoredPassword(SITE_KEY))) {
+		if (data.encryptedBlob && (getStoredPassword(albumKey(data.siteId, data.slug)) || getStoredPassword(siteKey(data.siteId)))) {
 			unlocking = true;
 		}
 	});
@@ -110,15 +111,15 @@
 		unlocking = true;
 
 		// Try per-album stored password first, then site-wide.
-		for (const key of [albumKey(data.slug), SITE_KEY]) {
+		for (const key of [albumKey(data.siteId, data.slug), siteKey(data.siteId)]) {
 			const pw = getStoredPassword(key);
 			if (pw) {
 				const result = await tryDecrypt(data.encryptedBlob, pw);
 				if (result) {
 					decryptedAlbum = result as AlbumIndex;
-					storePassword(albumKey(data.slug), pw);
+					storePassword(albumKey(data.siteId, data.slug), pw);
 					const cover = decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid;
-					if (cover) storeAlbumCover(data.slug, `/albums/${data.slug}/${cover}`);
+					if (cover) storeAlbumCover(data.siteId, data.slug, `/albums/${data.slug}/${cover}`);
 					unlocking = false;
 					// Wait for Svelte to recompute photoswipeItems from the decrypted album,
 					// then auto-open the lightbox if this is a permalink URL.
@@ -139,9 +140,9 @@
 		const result = await tryDecrypt(data.encryptedBlob, password);
 		if (result) {
 			decryptedAlbum = result as AlbumIndex;
-			storePassword(albumKey(data.slug), password);
+			storePassword(albumKey(data.siteId, data.slug), password);
 			const cover = decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid;
-			if (cover) storeAlbumCover(data.slug, `/albums/${data.slug}/${cover}`);
+			if (cover) storeAlbumCover(data.siteId, data.slug, `/albums/${data.slug}/${cover}`);
 		} else {
 			shakeCount++;
 		}
@@ -376,6 +377,8 @@
 	});
 
 	onMount(() => {
+		syncSiteId(data.siteId);
+
 		const updateWidth = () => {
 			if (container) {
 				containerWidth = container.clientWidth;

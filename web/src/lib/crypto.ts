@@ -62,12 +62,14 @@ export async function tryDecrypt(
 	}
 }
 
-// localStorage key for the site-wide password.
-export const SITE_KEY = 'ddp_site';
+// localStorage key for the site-wide password, scoped to siteId.
+export function siteKey(siteId: string): string {
+	return `ddp_site_${siteId}`;
+}
 
-// localStorage key for a per-album password.
-export function albumKey(slug: string): string {
-	return `ddp_album_${slug}`;
+// localStorage key for a per-album password, scoped to siteId.
+export function albumKey(siteId: string, slug: string): string {
+	return `ddp_album_${siteId}_${slug}`;
 }
 
 export function getStoredPassword(key: string): string | null {
@@ -86,39 +88,67 @@ export function storePassword(key: string, password: string): void {
 	}
 }
 
-// localStorage key for a per-album cover URL (stored after decryption so the home page
-// can show the cover image without re-decrypting the album index).
-function coverKey(slug: string): string {
-	return `ddp_cover_${slug}`;
+// localStorage key tracking the siteId of the current build.
+// Used to detect when the user switches between different photogen builds (e.g. during
+// development) so stale cover URLs (which have build-specific HMAC filenames) are cleared.
+const SITE_ID_KEY = 'ddp_site_id';
+
+// localStorage key for a per-album cover URL, scoped to siteId so different builds
+// (with different HMAC keys and therefore different image filenames) don't share cover cache.
+function coverKey(siteId: string, slug: string): string {
+	return `ddp_cover_${siteId}_${slug}`;
 }
 
-export function storeAlbumCover(slug: string, url: string): void {
+export function storeAlbumCover(siteId: string, slug: string, url: string): void {
 	try {
-		localStorage.setItem(coverKey(slug), url);
+		localStorage.setItem(coverKey(siteId, slug), url);
 	} catch {
 		// Ignore
 	}
 }
 
-export function getAlbumCover(slug: string): string | null {
+export function getAlbumCover(siteId: string, slug: string): string | null {
 	try {
-		return localStorage.getItem(coverKey(slug));
+		return localStorage.getItem(coverKey(siteId, slug));
 	} catch {
 		return null;
 	}
 }
 
-// Try all stored ddp_album_* passwords against encryptedBlob.
+// Call once per page load with the siteId from config.json. If the siteId has changed
+// (i.e. the user switched to a different build), clears all stale per-site entries
+// (covers, passwords) so they don't leak across builds.
+export function syncSiteId(siteId: string): void {
+	try {
+		const stored = localStorage.getItem(SITE_ID_KEY);
+		if (stored === siteId) return;
+		const toRemove: string[] = [];
+		for (let i = 0; i < localStorage.length; i++) {
+			const k = localStorage.key(i);
+			if (k?.startsWith('ddp_cover_') || k?.startsWith('ddp_album_') || k?.startsWith('ddp_site_')) {
+				toRemove.push(k);
+			}
+		}
+		toRemove.forEach((k) => localStorage.removeItem(k));
+		localStorage.setItem(SITE_ID_KEY, siteId);
+	} catch {
+		// localStorage not available
+	}
+}
+
+// Try all stored ddp_album_{siteId}_* passwords against encryptedBlob.
 // Returns { result, password } on the first match, or null.
 // Used by the home page to silently unlock albums.enc.json when the user has
 // already unlocked an individual album in this session.
 export async function tryStoredAlbumPasswords(
-	encryptedBlob: string
+	encryptedBlob: string,
+	siteId: string
 ): Promise<{ result: unknown; password: string } | null> {
+	const prefix = `ddp_album_${siteId}_`;
 	try {
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
-			if (key?.startsWith('ddp_album_')) {
+			if (key?.startsWith(prefix)) {
 				const password = localStorage.getItem(key);
 				if (password) {
 					const result = await tryDecrypt(encryptedBlob, password);

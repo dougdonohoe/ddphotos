@@ -272,6 +272,7 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 
 // SiteConfig is the structure for config.json (always unencrypted).
 type SiteConfig struct {
+	SiteID     string `json:"siteId"`
 	AlbumsFile string `json:"albumsFile"`
 }
 
@@ -287,7 +288,7 @@ func (c *Config) WriteConfigJSON() error {
 		fmt.Printf("DRYRUN: would write %s\n", outputPath)
 		return nil
 	}
-	cfg := SiteConfig{AlbumsFile: albumsFile}
+	cfg := SiteConfig{SiteID: c.SiteID, AlbumsFile: albumsFile}
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}

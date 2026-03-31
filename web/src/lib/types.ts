@@ -39,5 +39,6 @@ export interface AlbumSummary {
 
 // Mirrors Go's SiteConfig in pkg/photogen/json.go.
 export interface SiteConfig {
+	siteId: string;
 	albumsFile: string;
 }

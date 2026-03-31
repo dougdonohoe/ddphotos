@@ -7,33 +7,42 @@
 		<link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
 		<link rel="icon" type="image/png" href="/favicon-192.png" sizes="192x192" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		%sveltekit.head%
 		<!-- Inline script to apply saved theme and album covers before first paint, preventing flash.
-		     Must run synchronously (no defer/async) so data-theme and CSS custom properties are
-		     set before the browser lays out and renders the body. -->
+		     Placed after %sveltekit.head% so the ddp-site-id meta tag (injected by +layout.svelte)
+		     is already in the DOM when this script reads it — ensuring we only set CSS vars for
+		     the current build's cover URLs and never fetch stale files from a previous build. -->
 		<script>
 			(function () {
 				var theme = localStorage.getItem('theme');
 				if (theme) document.documentElement.setAttribute('data-theme', theme);
 				try {
-					for (var i = 0; i < localStorage.length; i++) {
-						var k = localStorage.key(i);
-						if (k && k.startsWith('ddp_cover_')) {
-							var url = localStorage.getItem(k);
-							if (url) {
-								var slug = k.slice(10);
-								document.documentElement.style.setProperty(
-									'--ddp-cover-' + slug,
-									'url("' + url.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")'
-								);
-								// Hide the lock icon for this album on first paint — the cover shows instead.
-								document.documentElement.style.setProperty('--ddp-icon-vis-' + slug, 'hidden');
+					// Read siteId from the pre-rendered meta tag, not from localStorage.
+					// This guarantees we always use the current build's siteId, even on the first
+					// load after switching builds (when localStorage still has the old siteId).
+					var meta = document.querySelector('meta[name="ddp-site-id"]');
+					var siteId = meta && meta.getAttribute('content');
+					if (siteId) {
+						var prefix = 'ddp_cover_' + siteId + '_';
+						for (var i = 0; i < localStorage.length; i++) {
+							var k = localStorage.key(i);
+							if (k && k.startsWith(prefix)) {
+								var url = localStorage.getItem(k);
+								if (url) {
+									var slug = k.slice(prefix.length);
+									document.documentElement.style.setProperty(
+										'--ddp-cover-' + slug,
+										'url("' + url.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '")'
+									);
+									// Hide the lock icon for this album on first paint — the cover shows instead.
+									document.documentElement.style.setProperty('--ddp-icon-vis-' + slug, 'hidden');
+								}
 							}
 						}
 					}
 				} catch (e) {}
 			})();
 		</script>
-		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>

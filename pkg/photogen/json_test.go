@@ -255,6 +255,7 @@ func TestWriteConfigJSON(t *testing.T) {
 
 		data, err := os.ReadFile(filepath.Join(dir, "albums", "testsite", "config.json"))
 		require.NoError(t, err)
+		assert.Contains(t, string(data), `"siteId": "testsite"`)
 		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
 	})
 
@@ -266,6 +267,7 @@ func TestWriteConfigJSON(t *testing.T) {
 
 		data, err := os.ReadFile(filepath.Join(dir, "albums", "testsite", "config.json"))
 		require.NoError(t, err)
+		assert.Contains(t, string(data), `"siteId": "testsite"`)
 		assert.Contains(t, string(data), `"albumsFile": "albums.enc.json"`)
 	})
 }

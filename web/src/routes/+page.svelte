@@ -6,10 +6,11 @@
 	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
 	import type { AlbumSummary } from '$lib/types';
 	import {
-		SITE_KEY,
+		siteKey,
 		getStoredPassword,
 		getAlbumCover,
 		storePassword,
+		syncSiteId,
 		tryDecrypt,
 		tryStoredAlbumPasswords
 	} from '$lib/crypto';
@@ -32,7 +33,7 @@
 	// static HTML — this is fine since JS will correct it immediately on hydration.)
 	let unlocking = $state(false);
 	$effect.pre(() => {
-		if (data.encryptedBlob && getStoredPassword(SITE_KEY)) {
+		if (data.encryptedBlob && getStoredPassword(siteKey(data.siteId))) {
 			unlocking = true;
 		}
 	});
@@ -58,7 +59,7 @@
 		const covers: Record<string, string> = {};
 		for (const a of albumList) {
 			if (a.encrypted && !a.cover) {
-				const url = getAlbumCover(a.slug);
+				const url = getAlbumCover(data.siteId, a.slug);
 				if (url) covers[a.slug] = url;
 			}
 		}
@@ -82,6 +83,9 @@
 	let ogImage = $derived(ogCover ? `${siteUrl}/albums/${ogCover.coverJpeg}` : undefined);
 
 	onMount(async () => {
+		// Clear stale cover cache if the siteId changed (e.g. switching between dev builds).
+		syncSiteId(data.siteId);
+
 		// ?clear removes all stored ddp_* passwords and reloads the page without the param.
 		if (new URLSearchParams(window.location.search).has('clear')) {
 			try {
@@ -102,7 +106,7 @@
 		unlocking = true;
 
 		// Try the site-wide stored password first.
-		const sitePw = getStoredPassword(SITE_KEY);
+		const sitePw = getStoredPassword(siteKey(data.siteId));
 		if (sitePw) {
 			const result = await tryDecrypt(data.encryptedBlob, sitePw);
 			if (result) {
@@ -113,10 +117,10 @@
 		}
 
 		// Fall back to any stored per-album password (user may have visited an album first).
-		const match = await tryStoredAlbumPasswords(data.encryptedBlob);
+		const match = await tryStoredAlbumPasswords(data.encryptedBlob, data.siteId);
 		if (match) {
 			decryptedAlbums = match.result as AlbumSummary[];
-			storePassword(SITE_KEY, match.password);
+			storePassword(siteKey(data.siteId), match.password);
 			unlocking = false;
 			return;
 		}
@@ -129,7 +133,7 @@
 		const result = await tryDecrypt(data.encryptedBlob, password);
 		if (result) {
 			decryptedAlbums = result as AlbumSummary[];
-			storePassword(SITE_KEY, password);
+			storePassword(siteKey(data.siteId), password);
 		} else {
 			shakeCount++;
 		}
@@ -138,7 +142,7 @@
 
 <OpenGraph title={siteName} description={siteDesc} url={siteUrl} image={ogImage} />
 
-{#if !data.encryptedBlob}
+{#if !data.encryptedBlob || albums}
 	<header>
 		<h1>{siteName}</h1>
 	</header>

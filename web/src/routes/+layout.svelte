@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { footerReady } from '$lib/stores';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 
 	let { children } = $props();
 
@@ -26,14 +26,16 @@
 
 <svelte:head>
 	<link rel="icon" href="/favicon.ico" />
+	<!-- Consumed by the inline script in app.html to scope cover CSS vars to the current build. -->
+	<meta name="ddp-site-id" content={page.data.siteId ?? ''} />
 </svelte:head>
 
 <div class="app">
-	<div class="theme-toggle-wrap" class:ready={!$page.data.encryptedBlob || $footerReady}>
+	<div class="theme-toggle-wrap" class:ready={!page.data.encryptedBlob || $footerReady}>
 		<ThemeToggle />
 	</div>
 	{@render children()}
-	<footer class:ready={!$page.data.encryptedBlob || $footerReady}>
+	<footer class:ready={!page.data.encryptedBlob || $footerReady}>
 		<div>Copyright © {import.meta.env.VITE_COPYRIGHT_YEAR}-{new Date().getFullYear()}. {import.meta.env.VITE_COPYRIGHT_OWNER}.</div>
 		<div class="built-with">Built {builtOn} with <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">ddphotos</a>.</div>
 	</footer>

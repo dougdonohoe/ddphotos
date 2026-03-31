@@ -13,11 +13,13 @@ export async function load({ fetch }) {
 		error(albumsRes.status, 'Failed to load albums');
 	}
 
+	const siteId = siteConfig.siteId;
+
 	if (siteConfig.albumsFile.endsWith('.enc.json')) {
 		const encryptedBlob = await albumsRes.text();
-		return { albums: null as AlbumSummary[] | null, encryptedBlob };
+		return { albums: null as AlbumSummary[] | null, encryptedBlob, siteId };
 	}
 
 	const albums: AlbumSummary[] = await albumsRes.json();
-	return { albums, encryptedBlob: null as string | null };
+	return { albums, encryptedBlob: null as string | null, siteId };
 }

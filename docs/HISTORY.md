@@ -608,3 +608,60 @@ Installed `@types/justified-layout` (`npm install --save-dev`) to resolve the In
 The `app.html` shell used Vite's `%VITE_SITE_DESCRIPTION%` env substitution syntax for the global `<meta name="description">` tag. This only works when the variable is defined in a `.env` file at build time, but site config lives in the private config repo and is not in a `.env` file -- so Vite never substituted it, leaving the literal placeholder string in every built page.
 
 Fix: removed the broken tag from `app.html` and added `<meta name="description" content={description}>` to `OpenGraph.svelte`, which already has `description` as a prop and injects it via `<svelte:head>`. Since every page uses `OpenGraph`, the description is now correctly set on all pages.
+
+### 44. V2 Auth: Go Backend — Encryption, Cover Logic, SiteID
+
+Added encryption support to `photogen` for protecting album data at rest.
+
+**`pkg/photogen/encrypt.go`** — new file with `EncryptConfig` (loaded from `passwords.txt`), `EncryptJSON`, `HasPerAlbumPassword(slug)`, and PBKDF2-SHA256 + AES-256-GCM encryption matching the browser's `SubtleCrypto` API.
+
+**`pkg/photogen/json.go`**:
+- `SiteConfig` struct gains `SiteID string \`json:"siteId"\`` — written to `config.json` so the frontend can scope localStorage keys to the current build
+- `WriteConfigJSON()` populates the new field
+- `GetAlbumSummary()` cover logic fix: cover URL is only included in the summary when the album is unencrypted, *or* when a site-wide password protects it but the album has no dedicated per-album password. Albums with their own password get no cover in the public index (the cover is only revealed after the user unlocks that album). Implemented via `HasPerAlbumPassword(slug)` check.
+- `WriteAlbumsJSON()` / `WriteAlbumIndex()` — encrypt their output blobs when an `EncryptConfig` is present; per-album and site-wide encryption paths both handled.
+
+**`pkg/photogen/json_test.go`** — updated `TestWriteConfigJSON` to assert `siteId` field in output; updated `TestGetAlbumSummary` mixed encryption case to assert cover is empty for the per-album-password album and non-empty for site-password-only albums.
+
+**`cmd/photogen/photogen.go`** — added `-passwords` flag pointing to a passwords file; `-encrypt` flag to opt in; `-clean` flag to delete files from a previous encrypted build before regenerating.
+
+**`sample/config/`** — added `passwords-all.txt` (site + Uganda album passwords) and `passwords-uganda.txt` (Uganda-only) for testing both encryption modes.
+
+**Makefile** — added `sample-photogen-pw-all`, `sample-photogen-pw-uganda`, `use-sample-pw-all`, `use-sample-pw-uganda` targets.
+
+### 45. V2 Auth: Frontend — Password Dialogs, Cover Flash, localStorage Scoping
+
+Wired the encrypted album/site data up to the SvelteKit frontend, then iterated through several flash and scoping bugs.
+
+#### Password Prompts
+
+**`web/src/lib/components/PasswordPrompt.svelte`** — new component: lock-icon card with password input, shake animation on wrong password, `autofocus` (suppressed with `<!-- svelte-ignore a11y_autofocus -->` comment since it is intentional for an explicit dialog).
+
+**`web/src/routes/+page.svelte`** — site-encrypted home page: tries stored site password then any stored album password on mount; shows `PasswordPrompt` in a `position: fixed` full-screen overlay if neither works; fades in album grid after decryption; shows site title only once decrypted (`{#if !data.encryptedBlob || albums}`).
+
+**`web/src/routes/albums/[slug]/[[index]]/+page.svelte`** — per-album encrypted page: same pattern; `handleUnlock` uses `decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid` to cache the correct cover URL.
+
+#### Cover Flash Fix (inline `<head>` script)
+
+The core problem matched the existing light/dark theme flash: SSR bakes a placeholder into the static HTML, and JS only runs after first paint. Solution: same pattern as the theme fix — a synchronous inline `<head>` script sets CSS custom properties from localStorage before the browser lays out the body.
+
+**`web/src/app.html`**:
+- Moved `%sveltekit.head%` *before* the inline script so the `<meta name="ddp-site-id">` tag (injected by `+layout.svelte`) is in the DOM when the script runs
+- Inline script reads `siteId` from the meta tag (not localStorage — avoids stale value on first load after build switch), then sets `--ddp-cover-{slug}` and `--ddp-icon-vis-{slug}` CSS custom properties on `<html>` for any cached cover URLs
+
+**`web/src/routes/+page.svelte`** — placeholder div references `var(--ddp-cover-{slug}, none)` as `background-image` default, so the cover appears from the very first paint. After Svelte hydrates, `albumCovers` state (populated synchronously via `untrack(() => data.albums)` in `$state` initializer) takes over with an explicit `url(...)`.
+
+Lock icon visibility trick: `--lock-vis` CSS variable set on the placeholder parent (`hidden` when a cover is cached, else inherits from `--ddp-icon-vis-{slug}` which the inline script sets). SVG uses `visibility: var(--lock-vis, visible)` — lock is always in the SSR HTML for layout but is CSS-hidden on first paint when a cover will show instead.
+
+`coversLoaded` state (false during SSR) gates the non-encrypted placeholder icon (mountain SVG) so it isn't baked into the static HTML.
+
+#### localStorage Key Scoping
+
+All keys are now scoped to `siteId` to prevent 404s when switching between dev builds (which use different HMAC keys, producing different filenames):
+- `ddp_cover_{siteId}_{slug}` — cover URL cache
+- `ddp_album_{siteId}_{slug}` — per-album password
+- `ddp_site_{siteId}` — site-wide password
+
+**`web/src/lib/crypto.ts`** — `siteKey(siteId)`, `albumKey(siteId, slug)`, `coverKey(siteId, slug)` replace the old unscoped constants. `syncSiteId(siteId)` called on mount: detects a siteId change and clears all stale `ddp_cover_*`, `ddp_album_*`, `ddp_site_*` entries. `tryStoredAlbumPasswords(encryptedBlob, siteId)` scans the `ddp_album_{siteId}_*` prefix.
+
+**`web/src/routes/+layout.svelte`** — injects `<meta name="ddp-site-id" content={siteId}>` so the inline script can read the current build's siteId without touching localStorage.

@@ -50,11 +50,13 @@
 		</div>
 		<h2>{title}</h2>
 		<form onsubmit={handleSubmit}>
+			<!-- svelte-ignore a11y_autofocus — intentional: this is an explicit password dialog -->
 			<input
 				type="password"
 				placeholder="Password"
 				bind:value={password}
 				autocomplete="current-password"
+				autofocus
 			/>
 			<button type="submit">Unlock</button>
 		</form>
