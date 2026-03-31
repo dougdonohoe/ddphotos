@@ -40,18 +40,6 @@ jobs:
       - name: Go build, test, vet
         run: make build test vet
 
-      - name: Set albums symlink to sample
-        run: make use-sample
-
-      - name: Run photogen on sample data
-        run: make sample-photogen
-
-      - name: Build Docker image
-        run: make web-docker-build
-
-      - name: Build sample site
-        run: make sample-build
-
       - name: Install Playwright Chromium
         run: make web-playwright-install
 
@@ -59,7 +47,7 @@ jobs:
         run: cd web && npx playwright install-deps chromium
 
       - name: Run Apache routing tests
-        run: make sample-test-apache
+        run: make sample-photogen sample-build web-docker-build sample-test-apache
 
-      - name: Run Playwright e2e tests
-        run: make web-playwright-test-apache
+      - name: Run Playwright e2e tests (all password variants)
+        run: bin/test-all.sh --mode apache

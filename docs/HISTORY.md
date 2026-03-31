@@ -629,6 +629,42 @@ Added encryption support to `photogen` for protecting album data at rest.
 
 **Makefile** — added `sample-photogen-pw-all`, `sample-photogen-pw-uganda`, `use-sample-pw-all`, `use-sample-pw-uganda` targets.
 
+### 46. V2 Auth: Playwright Testing System for Password Variants
+
+Built a complete Playwright testing infrastructure that covers all three password variants (no-password, pw-all, pw-uganda) against both dev and Apache modes.
+
+#### Shell Scripts
+
+**`bin/run-tests.sh`** — runs one password variant against dev, Apache, or both. Handles: photogen + symlink setup, Vite dev server on port 5174 (`--clearScreen false` to preserve output), static build + Docker/Apache on port 8083, passing `PLAYWRIGHT_PASSWORDS_FILE` env var to Playwright. Key fix: `|| return 1` on build and docker commands inside `run_apache()` because bash suppresses `set -e` inside functions called via `||`.
+
+**`bin/test-all.sh`** — loops over all three variants, passes `--mode` through. Both scripts have `--help/-?` and `trap 'exit 130' INT TERM` for clean Ctrl-C handling.
+
+#### Playwright Helpers (`web/tests/helpers.ts`)
+
+- `loadPasswords()` — parses `PLAYWRIGHT_PASSWORDS_FILE` (skips `#` comments and `_key_` entries)
+- `unlockSite` / `unlockAlbum` — fill password, submit, wait for content. `unlockAlbum` waits for `.gallery.layout-ready` (set in onMount before decryption) not just `.gallery`
+- `unlockSiteIfNeeded` / `unlockAlbumIfNeeded` — use `Promise.race()` between content appearing and `.fullscreen-overlay` appearing, both with 15s timeouts. Required because `PasswordPrompt` is gated on `{#if browser}` so it is not in the SSR HTML; `isVisible()` returns false before hydration
+
+#### New `web/tests/password.spec.ts`
+
+12 tests covering: site/album prompt visible, wrong password rejected, correct unlock, password remembered on reload, cover caching after unlock, `?clear` behavior, autofocus, title capitalization, lock icon before unlock. Tests skip when the current variant doesn't apply.
+
+#### Adapted Existing Tests
+
+All existing specs (`smoke`, `navigation`, `url`, `captions`, `back-nav`, `back-to-top`) gained `unlockSiteIfNeeded` / `unlockAlbumIfNeeded` calls. Permalink tests (`url.spec.ts:46`, `captions.spec.ts:32`) unlock at the base album URL first to store the password in localStorage, then navigate to the permalink — `handleUnlock` (form submit) does not call `openLightbox`; only `tryDecryptAlbum` (called from `onMount` with stored password) does.
+
+#### Build Fix: Encrypted Builds and Prerendering
+
+**Problem:** When all albums are encrypted the SvelteKit crawler never discovers album page links (hidden behind the site password prompt), so `prerender.entries` didn't include album routes, and the build failed with `handleUnseenRoutes` error.
+
+**Fix (`web/svelte.config.js`):** Added `albumEntries()` which reads album slugs from `static/albums/` at build time using `readdirSync` and injects them into `prerender.entries`. This ensures album pages are always prerendered — in encrypted builds they render with the correct page skeleton (title, meta tags) and show the password prompt after JS hydration, rather than falling back to `index.html` which would show the *site* password prompt and confuse album-level test helpers.
+
+#### Config and CI
+
+**`web/playwright.config.ts`** — added `expect: { timeout: 10_000 }` (default 5s is too tight for `{#if browser}` components in Apache mode), `timeout: 15_000` per-test, `reporter: 'list'`.
+
+**`.github/workflows/ci.yml`** — simplified from 10 steps to 5: Go build/test/vet, Playwright install, Apache routing tests (`make sample-photogen sample-build web-docker-build sample-test-apache`), and `bin/test-all.sh --mode apache` covering all three password variants. Apache-only (not `--mode both`) because CI should test what gets deployed, and dev mode can hide production issues.
+
 ### 45. V2 Auth: Frontend — Password Dialogs, Cover Flash, localStorage Scoping
 
 Wired the encrypted album/site data up to the SvelteKit frontend, then iterated through several flash and scoping bugs.
