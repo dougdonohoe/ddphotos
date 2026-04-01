@@ -139,7 +139,7 @@ func main() {
 		err := album.Process(i+1, len(albums))
 		if err != nil {
 			fmt.Printf("Error processing %s: %s\n", albumConfig.Name, err)
-			continue
+			exit.ExitWithStatus(err)
 		}
 		summaries = append(summaries, album.GetAlbumSummary())
 	}

@@ -71,7 +71,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 				)
 				if err != nil {
 					errOnce.Do(func() {
-						firstErr = fmt.Errorf("resize %s to %s: %w", item.photo.FileName, item.size, err)
+						firstErr = fmt.Errorf("resize %s to %s: %w", item.photo.AbsolutePath, item.size, err)
 					})
 					return
 				}

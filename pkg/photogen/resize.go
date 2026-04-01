@@ -50,7 +50,9 @@ func prepareImage(inputPath, outputPath string, maxDim int, dryRunLabel string, 
 		return nil, &ResizeResult{DryRun: true, Message: fmt.Sprintf("DRYRUN: would write %s (%s)", outputPath, dryRunLabel)}, nil
 	}
 
-	img, err := vips.LoadImageFromFile(inputPath, nil)
+	params := vips.NewImportParams()
+	params.FailOnError.Set(false)
+	img, err := vips.LoadImageFromFile(inputPath, params)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load image %s: %w", inputPath, err)
 	}
