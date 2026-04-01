@@ -163,22 +163,22 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 
 ### CLI Flags
 
-| Flag          | Default       | Description                                                                             |
-|---------------|---------------|-----------------------------------------------------------------------------------------|
-| `-config-dir` | `config`      | Directory containing the albums YAML and descriptions files                             |
-| `-albums`     | `albums.yaml` | Albums YAML filename within `-config-dir`                                               |
-| `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                         |
-| `-resize`     | `false`       | Generate resized WebP image variants                                                    |
-| `-index`      | `false`       | Generate JSON index files and sitemap.xml                                               |
-| `-out`        | *(from YAML)* | Output directory override (overrides `settings.output_dir`)                             |
-| `-limit N`    | `0` (all)     | Limit photos per album (useful during development)                                      |
-| `-force`      | `false`       | Regenerate files even if they already exist                                             |
-| `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                      |
-| `-album`      | `""` (all)    | Comma-separated album slugs to process                                                  |
-| `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                               |
-| `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config     |
-| `-encrypt`    | `""` (none)   | Path to passwords file; enables JSON encryption (see [Passwords File](#passwords-file)) |
-| `-clean`      | `false`       | Remove stale files from processed album directories after a run                         |
+| Flag          | Default       | Description                                                                                    |
+|---------------|---------------|------------------------------------------------------------------------------------------------|
+| `-config-dir` | `config`      | Directory containing the albums YAML and descriptions files                                    |
+| `-albums`     | `albums.yaml` | Albums YAML filename within `-config-dir`                                                      |
+| `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                                |
+| `-resize`     | `false`       | Generate resized WebP image variants                                                           |
+| `-index`      | `false`       | Generate JSON index files and sitemap.xml                                                      |
+| `-out`        | *(from YAML)* | Output directory override (overrides `settings.output_dir`)                                    |
+| `-limit N`    | `0` (all)     | Limit photos per album (useful during development)                                             |
+| `-force`      | `false`       | Regenerate files even if they already exist                                                    |
+| `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                             |
+| `-album`      | `""` (all)    | Comma-separated album slugs to process                                                         |
+| `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                                      |
+| `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config            |
+| `-passwords`  | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Passwords File](#passwords-file)) |
+| `-clean`      | `false`       | Remove stale files from processed album directories after a run                                |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
 produces `web/albums/prod`). It must contain only lowercase letters, digits, and hyphens.
@@ -273,7 +273,10 @@ go run cmd/decode/decode.go web/albums/my-site/my-album/index.enc.json | grep -B
 
 ### Passwords File
 
-The `-encrypt` flag points to a YAML passwords file. Comments (lines starting with `#`) are ignored.
+Encryption is enabled by pointing photogen at a YAML passwords file, either via
+`settings.passwords` in `albums.yaml` (filename relative to the config dir) or the
+`-passwords` CLI flag (absolute or relative path; overrides `settings.passwords`).
+Comments (lines starting with `#`) are ignored.
 
 ```yaml
 key: hmac-secret
@@ -546,22 +549,23 @@ To deploy, I run `bin/deploy-photos.sh`, which:
 
 1. Runs `photogen` to resize images and generate JSON (skip with `--no-photogen`)
 2. Builds the static site via `npm run build` into `web/build`
-3. Starts the Docker/Apache container if not already running, runs 
+3. Starts the Docker/Apache container if not already running, runs
    `bin/test-photos-apache.sh --local` to verify routing locally, then stops the container
-4. Runs playwright tests against Docker/Apache too
+4. Runs Playwright tests against Docker/Apache (skip with `--no-playwright`)
 5. Rsync `web/build` to the `$RSYNC_DEST` directory on the EC2 server (`$AWS_APACHE`).
    It uses `--checksum` to reduce unnecessary re-copying since Vite resets timestamps.
 6. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
 7. Runs `bin/test-photos-apache.sh` to verify the deployment against production
-8. Runs playwright tests against Production (`$VITE_SITE_URL`)
+8. Runs Playwright tests against production (`$VITE_SITE_URL`) (skip with `--no-playwright`)
 
 The script uses `set -eo pipefail` - any failure (including local tests) aborts before rsync.
 
 ```bash
-bin/deploy-photos.sh                # full deploy
-bin/deploy-photos.sh --no-photogen  # skip photo generation
-bin/deploy-photos.sh --no-rsync     # build + local test only, no deploy (safe on a dev machine)
-bin/deploy-photos.sh --no-photogen --no-rsync  # build + local test, skip both photogen and rsync
+bin/deploy-photos.sh                          # full deploy
+bin/deploy-photos.sh --no-photogen            # skip photo generation
+bin/deploy-photos.sh --no-rsync               # build + local test only, no deploy (safe on a dev machine)
+bin/deploy-photos.sh --no-playwright          # skip Playwright tests (local and production)
+bin/deploy-photos.sh --no-photogen --no-rsync # build + local test, skip both photogen and rsync
 ```
 
 ## CI (GitHub Actions)

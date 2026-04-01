@@ -142,12 +142,12 @@ sample-photogen:
 .PHONY: sample-photogen-pw-all
 ## sample-photogen-pw-all: run photogen using sample images, all albums password-protected
 sample-photogen-pw-all:
-	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -encrypt sample/config/passwords-all.yaml -site-id sample-pw-all -doit
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -passwords sample/config/passwords-all.yaml -site-id sample-pw-all -doit
 
 .PHONY: sample-photogen-pw-uganda
 ## sample-photogen-pw-uganda: run photogen using sample images, uganda album password-protected
 sample-photogen-pw-uganda:
-	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -encrypt sample/config/passwords-uganda.yaml -site-id sample-pw-uganda -doit
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -passwords sample/config/passwords-uganda.yaml -site-id sample-pw-uganda -doit
 
 .PHONY: sample-build
 ## sample-build: build web app using sample config
@@ -169,63 +169,3 @@ sample-test-apache:
 ## sample-npm-run-dev: run npm dev server using sample config
 sample-npm-run-dev: use-sample
 	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
-
-###
-### Doug's private make commands, which I use to publish my photos site, and
-### are an example for other folks to learn from.
-###
-
-.PHONY: doug-use-laptop
-## use-laptop: symlink web/static/albums -> ../albums/laptop (web/albums/laptop/)
-doug-use-laptop:
-	ln -sfn ../albums/laptop web/static/albums
-
-.PHONY: doug-photogen-laptop
-## doug-photogen-laptop: run photogen using laptop albums
-doug-photogen-laptop:
-	go run cmd/photogen/photogen.go -config-dir ../dd-go/config -albums albums-laptop.yaml -resize -index -doit
-
-.PHONY: doug-npm-run-dev-laptop
-## doug-npm-run-dev-laptop: run npm dev server using laptop config
-doug-npm-run-dev-laptop: doug-use-laptop
-	SITE_ENV=../dd-go/config/site.env $(MAKE) web-npm-run-dev
-
-.PHONY: doug-build-laptop
-## doug-build-laptop: build web app using laptop config
-doug-build-laptop: doug-use-laptop
-	SITE_ENV=../dd-go/config/site.env $(MAKE) web-npm-build
-
-.PHONY: doug-use-prod
-## use-prod: symlink web/static/albums -> ../albums/prod (web/albums/prod/)
-doug-use-prod:
-	ln -sfn ../albums/prod web/static/albums
-
-.PHONY: doug-photogen-prod
-## doug-photogen-prod: run photogen using prod albums
-doug-photogen-prod:
-	go run cmd/photogen/photogen.go -config-dir ../dd-go/config -albums albums.yaml -resize -index -doit
-
-.PHONY: doug-npm-run-dev-prod
-## doug-npm-run-dev-prod: run npm dev server using prod config
-doug-npm-run-dev-prod: doug-use-prod
-	SITE_ENV=../dd-go/config/site.env $(MAKE) web-npm-run-dev
-
-.PHONY: doug-build-prod
-## doug-build-prod: build web app using prod config
-doug-build-prod: doug-use-prod
-	SITE_ENV=../dd-go/config/site.env $(MAKE) web-npm-build
-
-.PHONY: doug-deploy
-## doug-deploy: deploy prod site
-doug-deploy: doug-use-prod
-	bin/deploy-photos.sh --config-dir ../dd-go/config
-
-.PHONY: doug-deploy-no-photo-gen
-## doug-deploy-no-photo-gen: deploy prod site
-doug-deploy-no-photogen: doug-use-prod
-	bin/deploy-photos.sh --config-dir ../dd-go/config --no-photogen
-
-.PHONY: doug-test-prod
-## doug-test-prod: run Playwright e2e tests against prod server
-doug-test-prod:
-	$(NODE_INIT) cd web && PLAYWRIGHT_BASE_URL=https://photos.donohoe.info npx playwright test

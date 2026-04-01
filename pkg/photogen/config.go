@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 )
 
 var validSiteID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
@@ -114,6 +115,47 @@ func (c *Config) InitClean() {
 // ExpectedFiles returns the set of files tracked via TrackFile.
 func (c *Config) ExpectedFiles() map[string]bool {
 	return c.expectedFiles
+}
+
+// Summary returns a multi-line human-readable summary of the Config fields that
+// are not already reported in the caller's info line (mode, limit, site ID).
+func (c *Config) Summary() string {
+	on := func(b bool) string {
+		if b {
+			return "yes"
+		}
+		return "no"
+	}
+
+	encryptDesc := "none"
+	if c.Encrypt != nil {
+		var parts []string
+		if c.Encrypt.IsSiteEncrypted() {
+			parts = append(parts, "site")
+		}
+		if n := len(c.Encrypt.AlbumPasswords); n > 0 {
+			parts = append(parts, fmt.Sprintf("%d album(s)", n))
+		}
+		if len(parts) == 0 {
+			parts = append(parts, "key only")
+		}
+		encryptDesc = strings.Join(parts, " + ")
+		if c.Encrypt.PwFile != "" {
+			encryptDesc += fmt.Sprintf(" (%s)", c.Encrypt.PwFile)
+		}
+	}
+
+	lines := []string{
+		fmt.Sprintf("  output:   %s", c.SiteOutputPath()),
+		fmt.Sprintf("  resize:   %s", on(c.Resize)),
+		fmt.Sprintf("  index:    %s", on(c.Index)),
+		fmt.Sprintf("  force:    %s", on(c.Force)),
+		fmt.Sprintf("  clean:    %s", on(c.Clean)),
+		fmt.Sprintf("  workers:  %d", c.Workers()),
+		fmt.Sprintf("  site_url: %s", c.SiteURL),
+		fmt.Sprintf("  encrypt:  %s", encryptDesc),
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Workers returns the number of concurrent resize workers to use. If NumWorkers

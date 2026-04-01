@@ -23,7 +23,7 @@ var (
 	numWorkers = flag.Int("workers", 0, "number of concurrent resize workers (0 = auto: NumCPU/2, min 2)")
 	albumFlag  = flag.String("album", "", "comma-separated list of album slugs to process (empty = all)")
 	siteID     = flag.String("site-id", "", "override settings.id from albums YAML")
-	encrypt    = flag.String("encrypt", "", "path to passwords file; enables encryption of JSON index files")
+	passwords  = flag.String("passwords", "", "path to passwords file; overrides settings.passwords in albums YAML")
 	clean      = flag.Bool("clean", false, "remove stale output files not generated in this run")
 )
 
@@ -66,8 +66,13 @@ func main() {
 		Warn:        warn,
 	}
 
-	if *encrypt != "" {
-		ec, err := photogen.LoadEncryptConfig(*encrypt)
+	// -passwords overrides settings.passwords; fall back to YAML setting if flag not provided
+	passwordsPath := *passwords
+	if passwordsPath == "" && settings.Passwords != "" {
+		passwordsPath = filepath.Join(*configDir, settings.Passwords)
+	}
+	if passwordsPath != "" {
+		ec, err := photogen.LoadEncryptConfig(passwordsPath)
 		if err != nil {
 			fmt.Printf("Error loading encrypt config: %s\n", err)
 			exit.ExitWithStatus(err)
@@ -121,6 +126,7 @@ func main() {
 		info += fmt.Sprintf(", limit %d photos/album", *limit)
 	}
 	fmt.Println(info + fmt.Sprintf(" (id = %s)", cfg.SiteID))
+	fmt.Println(cfg.Summary())
 
 	var summaries []photogen.AlbumSummary
 

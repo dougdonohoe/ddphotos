@@ -5,11 +5,13 @@ set -eo pipefail
 # Parse flags
 SKIP_PHOTOGEN=false
 SKIP_RSYNC=false
+SKIP_PLAYWRIGHT=false
 CONFIG_DIR=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-photogen)  SKIP_PHOTOGEN=true; shift ;;
         --no-rsync)     SKIP_RSYNC=true; shift ;;
+        --no-playwright) SKIP_PLAYWRIGHT=true; shift ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
         *) echo "Unknown flag: $1"; exit 1 ;;
@@ -36,8 +38,9 @@ source "$CONFIG"
 if [ "$SKIP_PHOTOGEN" = true ]; then
     echo "Skipping photogen (--no-photogen)"
 else
-    PHOTOGEN_ARGS="-resize -index -doit"
+    PHOTOGEN_ARGS="-resize -index -clean -doit"
     [ -n "$CONFIG_DIR" ] && PHOTOGEN_ARGS="--config-dir $CONFIG_DIR $PHOTOGEN_ARGS"
+    # shellcheck disable=SC2086
     go run ./cmd/photogen $PHOTOGEN_ARGS
 fi
 
@@ -73,8 +76,12 @@ TEST_ARGS=(--local 8080)
 [ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
 "$SDIR/test-photos-apache.sh" "${TEST_ARGS[@]}"
 
-echo "Running Playwright e2e tests..."
-npx playwright test
+if [ "$SKIP_PLAYWRIGHT" = true ]; then
+    echo "Skipping Playwright tests (--no-playwright)"
+else
+    echo "Running Playwright e2e tests..."
+    npx playwright test
+fi
 
 if [ "$SKIP_RSYNC" = true ]; then
     echo "Skipping rsync, CloudFront invalidation, and post-deploy test (--no-rsync)"
@@ -93,6 +100,10 @@ else
     [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
     "$SDIR/test-photos-apache.sh" "${PROD_ARGS[@]}"
 
-    echo "Running Playwright e2e tests against production..."
-    PLAYWRIGHT_BASE_URL="$VITE_SITE_URL" npx playwright test
+    if [ "$SKIP_PLAYWRIGHT" = true ]; then
+        echo "Skipping Playwright tests against production (--no-playwright)"
+    else
+        echo "Running Playwright e2e tests against production..."
+        PLAYWRIGHT_BASE_URL="$VITE_SITE_URL" npx playwright test
+    fi
 fi

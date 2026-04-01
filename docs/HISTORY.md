@@ -782,3 +782,31 @@ Ski 2007/Alan's/photo.jpg    → ID ski2007_alans_photo,   file ski2007_alans_ph
 **`README.md`** — added backend features bullet for recursive album support.
 
 **`README-DEV.md`** — added "Recursive Albums" subsection under Photo Descriptions covering default sort, per-subfolder `photogen.txt`, inter-folder ordering via placeholder entries, and the cover photo prefix requirement.
+
+### 49. Config Improvements + Minor Additions
+
+#### `settings.passwords` in albums YAML
+
+Previously encryption required passing `-encrypt <path>` on every `photogen` invocation. Now the passwords file can be declared once in `albums.yaml` under `settings.passwords` (filename relative to the config dir), eliminating the need to pass it on the command line for routine runs.
+
+**`pkg/photogen/albums_config.go`** — `AlbumsSettings` gains `Passwords string` (`yaml:"passwords"`). New `(s *AlbumsSettings) LoadEncryptConfig(configDir string) (*EncryptConfig, error)` method resolves the filename relative to configDir and delegates to the existing `LoadEncryptConfig`.
+
+**`cmd/photogen/photogen.go`** — `-encrypt` flag renamed to `-passwords` (updated description: "overrides `settings.passwords`"). Load logic: if `-passwords` is provided use it directly; otherwise if `settings.Passwords` is set, join it to `configDir`. Both paths call `LoadEncryptConfig`.
+
+**`config/albums.example.yaml`** — added commented-out `passwords: passwords.yaml` entry under `settings:` with explanation and security note.
+
+**`Makefile`** — updated `sample-photogen-pw-all` and `sample-photogen-pw-uganda` targets from `-encrypt` to `-passwords`.
+
+**`README-DEV.md`** — updated CLI flags table (`-encrypt` → `-passwords`); updated Passwords File section to explain the YAML setting and CLI override relationship.
+
+#### `Config.Summary()` method
+
+**`pkg/photogen/config.go`** — new `Summary() string` method on `Config`. Prints a multi-line block of fields not already shown in the info line (mode, limit, site ID): `output`, `resize`, `index`, `force`, `clean`, `workers`, `site_url`, and `encrypt` (shows `none`, `key only`, `site`, `N album(s)`, or combinations, plus the passwords file path).
+
+**`cmd/photogen/photogen.go`** — `fmt.Println(cfg.Summary())` added immediately after the existing info line.
+
+#### `--no-playwright` flag for `deploy-photos.sh`
+
+**`bin/deploy-photos.sh`** — added `--no-playwright` flag (`SKIP_PLAYWRIGHT=false`). When set, both the local Docker/Apache Playwright run and the post-deploy production Playwright run are skipped with a log message. The Apache routing tests (`test-photos-apache.sh`) are unaffected.
+
+**`README-DEV.md`** — updated deploy steps list (step 4 and 8 note the skip flag) and added `--no-playwright` to the usage examples.

@@ -22,6 +22,7 @@ type AlbumsSettings struct {
 	SiteURL      string `yaml:"site_url"`
 	OutputDir    string `yaml:"output_dir"`
 	Descriptions string `yaml:"descriptions"` // filename relative to config dir
+	Passwords    string `yaml:"passwords"`    // filename relative to config dir; enables encryption
 }
 
 // AlbumEntry is the YAML representation of a single album.
@@ -167,4 +168,14 @@ func LoadAlbumConfigs(configDir, albumsFilename string) ([]*AlbumConfig, *Albums
 		return nil, nil, err
 	}
 	return configs, &af.Settings, nil
+}
+
+// LoadEncryptConfig loads the EncryptConfig from settings.passwords (resolved relative
+// to configDir). Returns nil, nil if Passwords is not set.
+func (s *AlbumsSettings) LoadEncryptConfig(configDir string) (*EncryptConfig, error) {
+	if s.Passwords == "" {
+		return nil, nil
+	}
+	path := filepath.Join(configDir, s.Passwords)
+	return LoadEncryptConfig(path)
 }

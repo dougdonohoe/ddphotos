@@ -152,7 +152,7 @@ echo ""
 echo "Static assets (expect 200):"
 check_status "$BASE/favicon.ico"                  200 "Favicon"
 check_status "$BASE/robots.txt"                   200 "Robots.txt"
-check_status "$BASE/albums/albums.json"           200 "Albums JSON"
+check_status "$BASE/albums/config.json"           200 "Config JSON"
 check_status "$BASE/sitemap.xml"                  200 "Sitemap"
 
 echo ""
