@@ -172,7 +172,23 @@
 								? 'hidden'
 								: `var(--ddp-icon-vis-${album.slug}, visible)`}
 						>
-							{#if album.encrypted}
+							{#if album.count === 0}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									width="48"
+									height="48"
+									aria-hidden="true"
+								>
+									<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+									<line x1="3" y1="3" x2="21" y2="21"></line>
+								</svg>
+							{:else if album.encrypted}
 								<!-- Always in SSR HTML; --lock-vis hides it when a cached cover shows instead -->
 								<svg
 									class="ddp-lock-icon"
@@ -215,7 +231,7 @@
 						{#if album.description}
 							<p class="description">{album.description}</p>
 						{/if}
-						<p class="meta">{album.count} photos · {album.dateSpan}</p>
+						<p class="meta">{album.count} photos{album.dateSpan ? ` · ${album.dateSpan}` : ''}</p>
 					</div>
 				</a>
 			{/each}
