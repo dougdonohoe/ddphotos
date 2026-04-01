@@ -76,7 +76,7 @@ if [ -n "$PASSWORDS_FILE" ]; then
     VARIANT="${BASENAME#passwords-}"               # e.g. "all"
     SITE_ID="sample-pw-${VARIANT}"
     SYMLINK_TARGET="../albums/sample-pw-${VARIANT}"
-    PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -encrypt $PASSWORDS_FILE -site-id $SITE_ID -doit"
+    PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -passwords $PASSWORDS_FILE -site-id $SITE_ID -doit"
 fi
 
 SITE_ENV="$(pwd)/sample/config/site.env"
