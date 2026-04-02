@@ -857,3 +857,9 @@ Added an optional full-width banner image to the home page, configured in `album
 **`web/tests/smoke.spec.ts`** — `og:image` regex loosened from `/\/cover\.jpg$/` to `/\.jpg$/`: the test intent was always "must be a JPEG, not WebP"; `hero.jpg` satisfies this just as well as `cover.jpg`.
 
 **`web/tests/password.spec.ts`** — two new tests in a "Logout button" section: `logout button is visible when encryption is configured` (works across pw-all and pw-uganda variants) and `logout button clears site password and shows prompt again` (pw-all only).
+
+### 51. `--hero-only` flag for `photogen`
+
+**`cmd/photogen/photogen.go`** — added `-hero-only` boolean flag. When set, photogen regenerates the hero image and exits immediately, skipping all album processing, JSON/index generation, sitemap, CSS copying, and clean. It forces `Config.Force = true` so the existing `hero.jpg` is always overwritten. Exits with an error if no hero is configured in `albums.yaml`.
+
+**`README-DEV.md`** — added `-hero-only` to the CLI flags table; added a usage note and example command under the Hero Image section.

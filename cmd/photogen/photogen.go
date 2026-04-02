@@ -26,6 +26,7 @@ var (
 	passwords  = flag.String("passwords", "", "path to passwords file; overrides settings.passwords in albums YAML")
 	css        = flag.String("css", "", "path to custom CSS file; overrides settings.css in albums YAML")
 	clean      = flag.Bool("clean", false, "remove stale output files not generated in this run")
+	heroOnly   = flag.Bool("hero-only", false, "regenerate hero image only, skipping all album and index processing")
 )
 
 func main() {
@@ -106,6 +107,20 @@ func main() {
 	if err := cfg.Validate(); err != nil {
 		fmt.Printf("Error: %s\n", err)
 		exit.ExitWithStatus(err)
+	}
+
+	// --hero-only: regenerate hero image and exit, skipping album and index processing.
+	if *heroOnly {
+		if cfg.Hero == nil {
+			fmt.Println("Error: --hero-only requires hero image to be configured in YAML")
+			exit.ExitWithStatus(fmt.Errorf("no hero configured"))
+		}
+		cfg.Force = true
+		if err := cfg.WriteHeroJPEG(); err != nil {
+			fmt.Printf("Error writing hero JPEG: %s\n", err)
+			exit.ExitWithStatus(err)
+		}
+		exit.ExitWithStatus(nil)
 	}
 
 	// Filter albums if -album flag is set

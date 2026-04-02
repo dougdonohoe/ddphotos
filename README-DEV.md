@@ -170,6 +170,13 @@ settings:
 alongside `config.json` (generated when `-resize` is set). The hero is never
 encrypted and takes priority as the `og:image` on the home page.
 
+To regenerate the hero without reprocessing albums or rebuilding indexes, use
+`-hero-only`. It always overwrites the existing `hero.jpg` regardless of `-force`:
+
+```bash
+go run cmd/photogen/photogen.go -hero-only -doit
+```
+
 #### Custom CSS
 
 To override site styles, add a `css:` entry under `settings:`:
@@ -214,6 +221,7 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-passwords`  | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Passwords File](#passwords-file)) |
 | `-css`        | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](#custom-css))              |
 | `-clean`      | `false`       | Remove stale files from processed album directories after a run                                |
+| `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation           |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
 produces `web/albums/prod`). It must contain only lowercase letters, digits, and hyphens.
