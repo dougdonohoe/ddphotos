@@ -6,12 +6,14 @@ set -eo pipefail
 SKIP_PHOTOGEN=false
 SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
+SKIP_APACHE_TEST=false
 CONFIG_DIR=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-photogen)  SKIP_PHOTOGEN=true; shift ;;
         --no-rsync)     SKIP_RSYNC=true; shift ;;
         --no-playwright) SKIP_PLAYWRIGHT=true; shift ;;
+        --no-apache-test) SKIP_APACHE_TEST=true; shift ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
         *) echo "Unknown flag: $1"; exit 1 ;;
@@ -61,20 +63,24 @@ _docker_cleanup() {
 }
 trap _docker_cleanup EXIT
 
-DOCKER_RUNNING=$(docker ps -q --filter publish=8080)
-if [ -n "$DOCKER_RUNNING" ]; then
-    echo "Docker already running on port 8080, using existing container..."
+if [ "$SKIP_APACHE_TEST" = true ]; then
+    echo "Skipping local Apache tests (--no-apache-test)"
 else
-    echo "Starting local Docker container for testing..."
-    docker run -d --rm -p 8080:80 -v "$PWD":/usr/local/apache2/htdocs:ro photos-apache > /dev/null
-    DOCKER_STARTED=true
-    sleep 1
-fi
+    DOCKER_RUNNING=$(docker ps -q --filter publish=8080)
+    if [ -n "$DOCKER_RUNNING" ]; then
+        echo "Docker already running on port 8080, using existing container..."
+    else
+        echo "Starting local Docker container for testing..."
+        docker run -d --rm -p 8080:80 -v "$PWD":/usr/local/apache2/htdocs:ro photos-apache > /dev/null
+        DOCKER_STARTED=true
+        sleep 1
+    fi
 
-echo "Running local Apache tests..."
-TEST_ARGS=(--local 8080)
-[ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
-"$SDIR/test-photos-apache.sh" "${TEST_ARGS[@]}"
+    echo "Running local Apache tests..."
+    TEST_ARGS=(--local 8080)
+    [ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
+    "$SDIR/test-photos-apache.sh" "${TEST_ARGS[@]}"
+fi
 
 if [ "$SKIP_PLAYWRIGHT" = true ]; then
     echo "Skipping Playwright tests (--no-playwright)"
@@ -93,12 +99,16 @@ else
     # Clear cache
     aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*"
 
-    # Wait, run test
-    echo "Sleeping 5 to allow cache to clear..."
-    sleep 5
-    PROD_ARGS=()
-    [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
-    "$SDIR/test-photos-apache.sh" "${PROD_ARGS[@]}"
+    if [ "$SKIP_APACHE_TEST" = true ]; then
+        echo "Skipping post-deploy Apache tests (--no-apache-test)"
+    else
+        # Wait, run test
+        echo "Sleeping 5 to allow cache to clear..."
+        sleep 5
+        PROD_ARGS=()
+        [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
+        "$SDIR/test-photos-apache.sh" "${PROD_ARGS[@]}"
+    fi
 
     if [ "$SKIP_PLAYWRIGHT" = true ]; then
         echo "Skipping Playwright tests against production (--no-playwright)"
