@@ -18,11 +18,24 @@ type AlbumsFile struct {
 
 // AlbumsSettings holds site-level configuration from the YAML settings block.
 type AlbumsSettings struct {
-	ID           string `yaml:"id"` // site identifier; output goes to albums-{id}/
-	SiteURL      string `yaml:"site_url"`
-	OutputDir    string `yaml:"output_dir"`
-	Descriptions string `yaml:"descriptions"` // filename relative to config dir
-	Passwords    string `yaml:"passwords"`    // filename relative to config dir; enables encryption
+	ID           string     `yaml:"id"` // site identifier; output goes to albums-{id}/
+	SiteURL      string     `yaml:"site_url"`
+	OutputDir    string     `yaml:"output_dir"`
+	Descriptions string     `yaml:"descriptions"` // filename relative to config dir
+	Passwords    string     `yaml:"passwords"`    // filename relative to config dir; enables encryption
+	CustomCSS    string     `yaml:"css"`          // filename relative to config dir; copied to output
+	Hero         *HeroEntry `yaml:"hero"`
+
+	// Resolved paths (populated by ToAlbumConfigs; not from YAML).
+	HeroImagePath string `yaml:"-"`
+	CustomCSSPath string `yaml:"-"`
+}
+
+// HeroEntry configures a full-width hero image displayed at the top of the home page.
+type HeroEntry struct {
+	Image string `yaml:"image"` // filename; joined to Base if set, else relative to config dir
+	Base  string `yaml:"base"`  // optional key into Bases map (same as album entries)
+	Crop  string `yaml:"crop"`  // vertical crop anchor: "top" | "center" | "bottom" (default: center)
 }
 
 // AlbumEntry is the YAML representation of a single album.
@@ -71,6 +84,16 @@ func (af *AlbumsFile) validate() error {
 			}
 		}
 	}
+	if h := af.Settings.Hero; h != nil {
+		if h.Image == "" {
+			return fmt.Errorf("hero: image is required")
+		}
+		if h.Base != "" {
+			if _, ok := af.Bases[h.Base]; !ok {
+				return fmt.Errorf("hero: base %q not defined in bases", h.Base)
+			}
+		}
+	}
 	return nil
 }
 
@@ -104,6 +127,23 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 			Description:     descriptions[a.Slug],
 		})
 	}
+
+	if af.Settings.Hero != nil {
+		heroPath, err := af.resolveHeroPath(configDir)
+		if err != nil {
+			return nil, err
+		}
+		af.Settings.HeroImagePath = heroPath
+	}
+
+	if af.Settings.CustomCSS != "" {
+		cssPath := filepath.Join(configDir, af.Settings.CustomCSS)
+		if _, err := os.Stat(cssPath); err != nil {
+			return nil, fmt.Errorf("css: file %q does not exist", cssPath)
+		}
+		af.Settings.CustomCSSPath = cssPath
+	}
+
 	return configs, nil
 }
 
@@ -131,6 +171,30 @@ func (af *AlbumsFile) resolvePath(configDir string, a AlbumEntry) (string, error
 		return "", fmt.Errorf("album %q: source path %q does not exist", a.Slug, src)
 	}
 	return src, nil
+}
+
+// resolveHeroPath returns the absolute path for the hero image, verifying it exists.
+// Uses the same base/source resolution logic as resolvePath for album entries.
+func (af *AlbumsFile) resolveHeroPath(configDir string) (string, error) {
+	h := af.Settings.Hero
+	imgPath := h.Image
+	if h.Base != "" {
+		base := af.Bases[h.Base]
+		if !filepath.IsAbs(base) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return "", fmt.Errorf("hero: get working directory: %w", err)
+			}
+			base = filepath.Join(cwd, base)
+		}
+		imgPath = filepath.Join(base, imgPath)
+	} else if !filepath.IsAbs(imgPath) {
+		imgPath = filepath.Join(configDir, imgPath)
+	}
+	if _, err := os.Stat(imgPath); err != nil {
+		return "", fmt.Errorf("hero: image path %q does not exist", imgPath)
+	}
+	return imgPath, nil
 }
 
 // LoadAlbumDescriptions reads a descriptions file and returns a slug→description map.

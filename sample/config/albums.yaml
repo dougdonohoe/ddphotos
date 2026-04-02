@@ -3,6 +3,10 @@ settings:
   site_url: https://sample.donohoe.info
   output_dir: web
   descriptions: descriptions.txt
+  hero:
+    image: theway/2024-The-Way-14.jpg
+    base: sample
+    crop: center
 
 bases:
   sample: sample/source

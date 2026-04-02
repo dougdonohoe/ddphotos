@@ -53,6 +53,7 @@ test('home page has Open Graph image tag pointing to a JPEG', async ({ page }) =
 
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
-	// Must be a JPEG (cover.jpg) for iMessage / crawler compatibility — not WebP
-	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\/cover\.jpg$/);
+	// Must be a JPEG for iMessage / crawler compatibility — not WebP.
+	// May be hero.jpg (when a hero is configured) or an album cover.jpg.
+	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\.jpg$/);
 });

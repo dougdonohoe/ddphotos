@@ -44,4 +44,7 @@ export interface SiteConfig {
 	albumsFile: string;
 	siteHint?: string;
 	albumHints?: Record<string, string>;
+	encrypted?: boolean;
+	heroImage?: string;
+	customCss?: string;
 }

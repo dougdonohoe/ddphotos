@@ -80,7 +80,13 @@
 	});
 
 	let ogCover = $derived(albums?.find((a) => !a.encrypted && a.coverJpeg));
-	let ogImage = $derived(ogCover ? `${siteUrl}/albums/${ogCover.coverJpeg}` : undefined);
+	let ogImage = $derived(
+		data.siteConfig?.heroImage
+			? `${siteUrl}/albums/${data.siteConfig.heroImage}`
+			: ogCover
+				? `${siteUrl}/albums/${ogCover.coverJpeg}`
+				: undefined
+	);
 
 	onMount(async () => {
 		// Clear stale cover cache if the siteId changed (e.g. switching between dev builds).
@@ -143,9 +149,18 @@
 <OpenGraph title={siteName} description={siteDesc} url={siteUrl} image={ogImage} />
 
 {#if !data.encryptedBlob || albums}
-	<header>
-		<h1>{siteName}</h1>
-	</header>
+	{#if data.siteConfig?.heroImage}
+		<div class="hero">
+			<img src="/albums/{data.siteConfig.heroImage}" alt={siteName} />
+			<div class="hero-overlay">
+				<h1>{siteName}</h1>
+			</div>
+		</div>
+	{:else}
+		<header>
+			<h1>{siteName}</h1>
+		</header>
+	{/if}
 {/if}
 
 {#if albums}
@@ -255,6 +270,46 @@
 {/if}
 
 <style>
+	.hero {
+		position: relative;
+		width: 100%;
+		height: 250px;
+		overflow: hidden;
+	}
+
+	.hero img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.hero-overlay {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		padding: 1.5rem 2rem;
+		background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+	}
+
+	.hero-overlay h1 {
+		margin: 0;
+		font-size: 2.8rem;
+		color: #fff;
+		text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+	}
+
+	@media (max-width: 480px) {
+		.hero {
+			height: 140px;
+		}
+
+		.hero-overlay h1 {
+			font-size: 1.7rem;
+		}
+	}
+
 	header {
 		padding: 1rem 2rem 0;
 	}

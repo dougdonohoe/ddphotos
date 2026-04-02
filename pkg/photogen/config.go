@@ -10,6 +10,12 @@ import (
 
 var validSiteID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
+// HeroConfig holds the resolved hero image parameters for site-level hero generation.
+type HeroConfig struct {
+	ImagePath string // absolute path to the source image
+	Crop      string // vertical crop anchor: "top" | "center" | "bottom"
+}
+
 // Config captures build parameters for the photogen pipeline.
 type Config struct {
 	// OutputRoot is the destination directory for generated assets and JSON.
@@ -38,6 +44,10 @@ type Config struct {
 	Encrypt *EncryptConfig
 	// Clean removes stale output files after processing.
 	Clean bool
+	// Hero holds the hero image config. nil means no hero.
+	Hero *HeroConfig
+	// CustomCSS is the absolute path to a CSS file to copy to the output. Empty means none.
+	CustomCSS string
 	// expectedFiles tracks files generated in this run (for --clean).
 	expectedFiles map[string]bool
 }
@@ -145,6 +155,20 @@ func (c *Config) Summary() string {
 		}
 	}
 
+	heroDesc := "none"
+	if c.Hero != nil {
+		crop := c.Hero.Crop
+		if crop == "" {
+			crop = "center"
+		}
+		heroDesc = fmt.Sprintf("yes (%s)", crop)
+	}
+
+	cssDesc := "none"
+	if c.CustomCSS != "" {
+		cssDesc = c.CustomCSS
+	}
+
 	lines := []string{
 		fmt.Sprintf("  output:   %s", c.SiteOutputPath()),
 		fmt.Sprintf("  resize:   %s", on(c.Resize)),
@@ -154,6 +178,8 @@ func (c *Config) Summary() string {
 		fmt.Sprintf("  workers:  %d", c.Workers()),
 		fmt.Sprintf("  site_url: %s", c.SiteURL),
 		fmt.Sprintf("  encrypt:  %s", encryptDesc),
+		fmt.Sprintf("  hero:     %s", heroDesc),
+		fmt.Sprintf("  css:      %s", cssDesc),
 	}
 	return strings.Join(lines, "\n")
 }

@@ -68,9 +68,14 @@ Website features:
   mouse-hover caption (desktop), always-visible caption (mobile), and lightbox caption.
 - Each album has a human-readable URL (e.g., `/albums/antarctica`).
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
-- Dark/light theme toggle.
+- Optional hero image: a full-width banner at the top of the home page, specified in
+  `albums.yaml` with a configurable crop position (top/center/bottom).
+- Dark/light theme toggle with a logout button for encrypted sites.
+- Custom CSS override: specify a CSS file in `albums.yaml` to restyle the site without
+  modifying the source code.
 - OpenGraph tags for rich link previews when sharing album or photo URLs on social media
-  or messaging apps, using a JPEG version of the album cover photo as the preview image.
+  or messaging apps. The hero image (if configured) or an album cover JPEG is used as
+  the preview image.
 
 Backend features:
 

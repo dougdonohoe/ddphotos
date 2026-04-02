@@ -1,12 +1,8 @@
 import { error } from '@sveltejs/kit';
-import type { AlbumSummary, SiteConfig } from '$lib/types';
+import type { AlbumSummary } from '$lib/types';
 
-export async function load({ fetch }) {
-	const configRes = await fetch('/albums/config.json');
-	if (!configRes.ok) {
-		error(configRes.status, 'Failed to load site config');
-	}
-	const siteConfig: SiteConfig = await configRes.json();
+export async function load({ fetch, parent }) {
+	const { siteConfig } = await parent();
 
 	const albumsRes = await fetch(`/albums/${siteConfig.albumsFile}`);
 	if (!albumsRes.ok) {

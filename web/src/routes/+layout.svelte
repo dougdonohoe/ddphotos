@@ -5,7 +5,10 @@
 	import { footerReady } from '$lib/stores';
 	import { page } from '$app/state';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	const hasHero = $derived(!!data.siteConfig?.heroImage);
+	const hasEncryption = $derived(!!data.siteConfig?.encrypted);
 
 	onMount(() => {
 		// Set initial theme on mount
@@ -22,16 +25,57 @@
 	}
 
 	const builtOn = formatBuildTime(import.meta.env.VITE_BUILD_TIME);
+
+	function logout() {
+		try {
+			const keys: string[] = [];
+			for (let i = 0; i < localStorage.length; i++) {
+				const key = localStorage.key(i);
+				if (key?.startsWith('ddp_')) keys.push(key);
+			}
+			keys.forEach((k) => localStorage.removeItem(k));
+		} catch {
+			// localStorage not available (e.g. private browsing)
+		}
+		window.location.replace('/');
+	}
 </script>
 
 <svelte:head>
 	<link rel="icon" href="/favicon.ico" />
 	<!-- Consumed by the inline script in app.html to scope cover CSS vars to the current build. -->
-	<meta name="ddp-site-id" content={page.data.siteId ?? ''} />
+	<meta name="ddp-site-id" content={data.siteConfig?.siteId ?? ''} />
+	{#if data.siteConfig?.customCss}
+		<link rel="stylesheet" href="/albums/{data.siteConfig.customCss}" />
+	{/if}
 </svelte:head>
 
 <div class="app">
-	<div class="theme-toggle-wrap" class:ready={!page.data.encryptedBlob || $footerReady}>
+	<div
+		class="top-controls"
+		class:ready={!page.data.encryptedBlob || $footerReady}
+		class:over-hero={hasHero}
+	>
+		{#if hasEncryption}
+			<button class="control-btn" onclick={logout} aria-label="Log out">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					width="16"
+					height="16"
+					aria-hidden="true"
+				>
+					<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+					<polyline points="16 17 21 12 16 7"></polyline>
+					<line x1="21" y1="12" x2="9" y2="12"></line>
+				</svg>
+			</button>
+		{/if}
 		<ThemeToggle />
 	</div>
 	{@render children()}
@@ -84,17 +128,50 @@
 		min-height: 100vh;
 	}
 
-	.theme-toggle-wrap {
+	.top-controls {
 		position: absolute;
 		top: 0.7rem;
 		right: 1rem;
-		z-index: 10;
+		z-index: 20;
 		opacity: 0;
+		display: flex;
+		gap: 0.3rem;
+		align-items: center;
+		border-radius: 20px;
+		padding: 3px 6px;
 	}
 
-	.theme-toggle-wrap.ready {
+	.top-controls.ready {
 		opacity: 1;
 		transition: opacity 400ms ease-out;
+	}
+
+	.top-controls.over-hero {
+		background: rgba(0, 0, 0, 0.4);
+	}
+
+	.control-btn {
+		background: none;
+		border: none;
+		border-radius: 50%;
+		width: 30px;
+		height: 30px;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--text-color);
+		transition: transform 0.2s;
+		flex-shrink: 0;
+		padding: 0;
+	}
+
+	.control-btn:hover {
+		transform: scale(1.1);
+	}
+
+	.top-controls.over-hero .control-btn {
+		color: #fff;
 	}
 
 	footer {

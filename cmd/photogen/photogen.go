@@ -80,6 +80,18 @@ func main() {
 		cfg.Encrypt = ec
 	}
 
+	if settings.HeroImagePath != "" {
+		crop := "center"
+		if settings.Hero != nil && settings.Hero.Crop != "" {
+			crop = settings.Hero.Crop
+		}
+		cfg.Hero = &photogen.HeroConfig{
+			ImagePath: settings.HeroImagePath,
+			Crop:      crop,
+		}
+	}
+	cfg.CustomCSS = settings.CustomCSSPath
+
 	cfg.Clean = *clean
 	if *clean {
 		cfg.InitClean()
@@ -144,7 +156,14 @@ func main() {
 		summaries = append(summaries, album.GetAlbumSummary())
 	}
 
-	// Write albums.json, config.json, and sitemap.xml if index generation is enabled
+	// Resize hero image alongside album images when resize is enabled.
+	if cfg.Resize {
+		if err := cfg.WriteHeroJPEG(); err != nil {
+			fmt.Printf("Error writing hero JPEG: %s\n", err)
+		}
+	}
+
+	// Write albums.json, config.json, sitemap.xml, and custom CSS if index generation is enabled
 	if cfg.Index {
 		if err := cfg.WriteAlbumsIndex(summaries); err != nil {
 			fmt.Printf("Error writing albums index: %s\n", err)
@@ -154,6 +173,9 @@ func main() {
 		}
 		if err := cfg.WriteSitemap(summaries); err != nil {
 			fmt.Printf("Error writing sitemap.xml: %s\n", err)
+		}
+		if err := cfg.WriteCSSFile(); err != nil {
+			fmt.Printf("Error copying CSS: %s\n", err)
 		}
 	}
 

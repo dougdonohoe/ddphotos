@@ -151,6 +151,38 @@ Album descriptions are in a TXT file (default: `config/descriptions.txt`).
 See [config/descriptions.example.txt](config/descriptions.example.txt)
 for the format.
 
+#### Hero Image
+
+An optional full-width banner image can be displayed at the top of the home page.
+Add a `hero:` block under `settings:` in `albums.yaml`:
+
+```yaml
+settings:
+  hero:
+    image: my-banner.jpg   # filename; joined to 'base' if set, else relative to config dir
+    base: drive            # optional — same base map as album entries
+    crop: center           # top | center | bottom (default: center)
+```
+
+`photogen` hard-crops the source image to 1600×250px and writes it as `hero.jpg`
+alongside `config.json` (generated when `-resize` is set). The hero is never
+encrypted and takes priority as the `og:image` on the home page.
+
+#### Custom CSS
+
+To override site styles, add a `css:` entry under `settings:`:
+
+```yaml
+settings:
+  css: custom.css   # filename relative to this config dir
+```
+
+`photogen` copies the file to the site output as `custom.css` (generated when
+`-index` is set). The frontend injects it site-wide as a `<link>` after the
+built-in styles, so any rules inside it take effect as normal cascade overrides.
+Redefining CSS custom properties (e.g. `--bg-color`, `--text-color-2nd`) is the
+cleanest approach — no specificity battles needed.
+
 ```bash
 go run cmd/photogen/photogen.go -resize -index -doit
 ```
@@ -459,13 +491,15 @@ make web-playwright-test-dev
 
 Tests are in `web/tests/` and cover:
 
-| File                  | What it tests                                                                 |
-|-----------------------|-------------------------------------------------------------------------------|
-| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav  |
-| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load     |
-| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description   |
-| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags   |
-| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload   |
+| File                  | What it tests                                                                       |
+|-----------------------|-------------------------------------------------------------------------------------|
+| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags         |
+| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav        |
+| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load           |
+| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description         |
+| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload         |
+| `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                   |
+| `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear` |
 
 Smoke and caption tests assume the presence of albums in the sample website (`antarctica`, `uganda`).
 Navigation tests are fully dynamic - they read album names from the page at runtime and

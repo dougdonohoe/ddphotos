@@ -278,6 +278,9 @@ type SiteConfig struct {
 	AlbumsFile string            `json:"albumsFile"`
 	SiteHint   string            `json:"siteHint,omitempty"`
 	AlbumHints map[string]string `json:"albumHints,omitempty"`
+	Encrypted  bool              `json:"encrypted,omitempty"` // true if any encryption is configured
+	HeroImage  string            `json:"heroImage,omitempty"` // "hero.jpg" if a hero image is configured
+	CustomCSS  string            `json:"customCss,omitempty"` // "custom.css" if a CSS override is configured
 }
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
@@ -294,14 +297,61 @@ func (c *Config) WriteConfigJSON() error {
 	}
 	cfg := SiteConfig{SiteID: c.SiteID, AlbumsFile: albumsFile}
 	if c.Encrypt != nil {
+		cfg.Encrypted = true
 		cfg.SiteHint = c.Encrypt.SiteHint
 		if len(c.Encrypt.AlbumHints) > 0 {
 			cfg.AlbumHints = c.Encrypt.AlbumHints
 		}
 	}
+	if c.Hero != nil {
+		cfg.HeroImage = "hero.jpg"
+	}
+	if c.CustomCSS != "" {
+		cfg.CustomCSS = "custom.css"
+	}
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}
+	c.TrackFile(outputPath)
+	return nil
+}
+
+// WriteHeroJPEG generates the hero image JPEG for the site home page.
+// No-op when Hero is nil. Should be called when resize is enabled.
+func (c *Config) WriteHeroJPEG() error {
+	if c.Hero == nil {
+		return nil
+	}
+	outputPath := c.SiteOutputPath("hero.jpg")
+	result, err := ResizeHeroJPEG(c.Hero.ImagePath, outputPath, c.Hero.Crop, c.Force, c.DryRun)
+	if err != nil {
+		return err
+	}
+	fmt.Println(result.Message)
+	c.TrackFile(outputPath)
+	return nil
+}
+
+// WriteCSSFile copies the custom CSS file to the site output directory as custom.css.
+// No-op when CustomCSS is empty. Should be called when index generation is enabled.
+func (c *Config) WriteCSSFile() error {
+	if c.CustomCSS == "" {
+		return nil
+	}
+	outputPath := c.SiteOutputPath("custom.css")
+	if c.DryRun {
+		fmt.Printf("DRYRUN: would copy %s → %s\n", c.CustomCSS, outputPath)
+		c.TrackFile(outputPath)
+		return nil
+	}
+	data, err := os.ReadFile(c.CustomCSS)
+	if err != nil {
+		return fmt.Errorf("read css: %w", err)
+	}
+	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+		return fmt.Errorf("write css: %w", err)
+	}
+	fmt.Printf("copied: %s\n", outputPath)
 	c.TrackFile(outputPath)
 	return nil
 }

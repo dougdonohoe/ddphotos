@@ -159,6 +159,92 @@ func ResizeCoverJPEG(inputPath, outputPath string, force, dryRun bool) (*ResizeR
 	}, nil
 }
 
+// heroWidth and heroHeight define the exact pixel dimensions of the output hero image.
+const heroWidth = 1600
+const heroHeight = 250
+
+// ResizeHeroJPEG scales and crops an image to heroWidth × heroHeight and writes it as JPEG.
+// crop controls the vertical anchor when the scaled image is taller than heroHeight:
+// "top" keeps the top, "bottom" keeps the bottom, anything else (including "") centers.
+// Horizontally the crop is always centered.
+func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*ResizeResult, error) {
+	if !force {
+		if _, err := os.Stat(outputPath); err == nil {
+			return &ResizeResult{Skipped: true, Message: fmt.Sprintf("exists: %s", outputPath)}, nil
+		}
+	}
+	if dryRun {
+		return &ResizeResult{DryRun: true, Message: fmt.Sprintf("DRYRUN: would write %s (hero jpeg)", outputPath)}, nil
+	}
+
+	params := vips.NewImportParams()
+	params.FailOnError.Set(false)
+	img, err := vips.LoadImageFromFile(inputPath, params)
+	if err != nil {
+		return nil, fmt.Errorf("load image %s: %w", inputPath, err)
+	}
+	defer img.Close()
+
+	if err := img.AutoRotate(); err != nil {
+		return nil, fmt.Errorf("auto-rotate: %w", err)
+	}
+
+	// Scale so the image covers the target dimensions (both width >= heroWidth and height >= heroHeight).
+	wScale := float64(heroWidth) / float64(img.Width())
+	hScale := float64(heroHeight) / float64(img.Height())
+	scale := wScale
+	if hScale > scale {
+		scale = hScale
+	}
+	if scale < 1.0 {
+		if err := img.Resize(scale, vips.KernelLanczos3); err != nil {
+			return nil, fmt.Errorf("resize: %w", err)
+		}
+	}
+
+	// Crop to exact target. Center horizontally; vertical position controlled by crop param.
+	x := (img.Width() - heroWidth) / 2
+	var y int
+	switch crop {
+	case "top":
+		y = 0
+	case "bottom":
+		y = img.Height() - heroHeight
+	default: // center
+		y = (img.Height() - heroHeight) / 2
+	}
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+	if err := img.ExtractArea(x, y, heroWidth, heroHeight); err != nil {
+		return nil, fmt.Errorf("crop: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return nil, fmt.Errorf("create output directory: %w", err)
+	}
+
+	ep := vips.NewJpegExportParams()
+	ep.Quality = 85
+	ep.StripMetadata = true
+
+	buf, _, err := img.ExportJpeg(ep)
+	if err != nil {
+		return nil, fmt.Errorf("export jpeg: %w", err)
+	}
+	if err := os.WriteFile(outputPath, buf, 0644); err != nil {
+		return nil, fmt.Errorf("write file: %w", err)
+	}
+
+	return &ResizeResult{
+		Written: true,
+		Message: fmt.Sprintf("wrote: %s (hero jpeg, %dx%d)", outputPath, heroWidth, heroHeight),
+	}, nil
+}
+
 // AllSizes returns all defined image sizes.
 func AllSizes() []ImageSize {
 	return []ImageSize{SizeGrid, SizeFull}

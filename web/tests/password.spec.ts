@@ -3,7 +3,8 @@ import {
 	loadPasswords,
 	unlockSite,
 	unlockAlbum,
-	unlockSiteIfNeeded
+	unlockSiteIfNeeded,
+	waitForHydration
 } from './helpers';
 
 // Password tests — exercise the client-side encryption/decryption flow.
@@ -115,6 +116,26 @@ test('album cover appears on home page after unlocking album', async ({ page }) 
 	const card = page.locator(`.album-card[href="/albums/${firstAlbumSlug}"]`);
 	const placeholder = card.locator('.album-cover-placeholder');
 	await expect(placeholder).toHaveCSS('background-image', /url\(/);
+});
+
+// --- Logout button tests ---
+
+test('logout button is visible when encryption is configured', async ({ page }) => {
+	test.skip(!pw.all && Object.keys(pw.albums).length === 0, 'no passwords configured');
+	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
+	await waitForHydration(page);
+	await expect(page.locator('button[aria-label="Log out"]')).toBeVisible();
+});
+
+test('logout button clears site password and shows prompt again', async ({ page }) => {
+	test.skip(!pw.all, 'no site-wide password configured');
+	await page.goto('/');
+	await unlockSite(page, pw.all!);
+	await expect(page.locator('.albums')).toBeVisible();
+	await page.locator('button[aria-label="Log out"]').click();
+	await expect(page).toHaveURL('/');
+	await expect(page.locator('input[type="password"]')).toBeVisible();
 });
 
 // --- ?clear tests ---

@@ -810,3 +810,50 @@ Previously encryption required passing `-encrypt <path>` on every `photogen` inv
 **`bin/deploy-photos.sh`** — added `--no-playwright` flag (`SKIP_PLAYWRIGHT=false`). When set, both the local Docker/Apache Playwright run and the post-deploy production Playwright run are skipped with a log message. The Apache routing tests (`test-photos-apache.sh`) are unaffected.
 
 **`README-DEV.md`** — updated deploy steps list (step 4 and 8 note the skip flag) and added `--no-playwright` to the usage examples.
+
+### 50. Hero Image, Logout Button, and Custom CSS
+
+#### Hero Image
+
+Added an optional full-width banner image to the home page, configured in `albums.yaml`.
+
+**`pkg/photogen/albums_config.go`** — `AlbumsSettings` gains `Hero *HeroEntry` and `CustomCSS string` (`yaml:"css"`). New `HeroEntry` struct has `Image`, `Base`, and `Crop` fields. `ToAlbumConfigs` resolves the hero image path (same base-map logic as album source paths) and CSS path into new `HeroImagePath` / `CustomCSSPath` fields on `AlbumsSettings`. `validate()` checks the hero base reference.
+
+**`pkg/photogen/config.go`** — new `HeroConfig` struct (`ImagePath`, `Crop`). `Config` gains `Hero *HeroConfig` and `CustomCSS string`. `Summary()` reports both.
+
+**`pkg/photogen/resize.go`** — new `ResizeHeroJPEG` function. Cover-scales the source image so both dimensions meet the target (1600×250px), then hard-crops: horizontally always centered; vertically anchored by `crop` param (`top`, `center`, `bottom`). Outputs JPEG/85, strips metadata.
+
+**`pkg/photogen/json.go`** — `SiteConfig` gains `HeroImage string`, `CustomCSS string`, and `Encrypted bool` (all `omitempty`). `WriteConfigJSON` populates them from `Config.Hero`, `Config.CustomCSS`, and `Config.Encrypt`. Two new site-level write methods: `WriteHeroJPEG()` (called when `-resize`) and `WriteCSSFile()` (called when `-index`); both call `TrackFile` for `--clean` tracking.
+
+**`cmd/photogen/photogen.go`** — wires `HeroImagePath`/`CustomCSSPath` from `AlbumsSettings` into `Config.Hero`/`Config.CustomCSS`. Calls `cfg.WriteHeroJPEG()` after the album loop when `cfg.Resize`, and `cfg.WriteCSSFile()` in the index block.
+
+**`sample/config/albums.yaml`** — added `hero: image: theway/2024-The-Way-14.jpg, base: sample, crop: center`.
+
+#### Custom CSS
+
+`WriteCSSFile` copies the configured `.css` file to `{siteOutput}/custom.css`. The frontend injects it site-wide as a `<link rel="stylesheet">` after built-in styles, making any rules inside it effective cascade overrides. Redefining CSS custom properties is the recommended approach.
+
+#### Frontend Refactor: `+layout.ts`
+
+`config.json` loading was moved from `+page.ts` into a new `+layout.ts` load function, returning `{ siteConfig }` to all pages. `+page.ts` now calls `parent()` to get `siteConfig` instead of fetching `config.json` itself, eliminating the duplicate fetch. The `SiteConfig` TypeScript interface gains `encrypted`, `heroImage`, and `customCss` fields to match the updated Go struct.
+
+#### Top Controls (Theme Toggle + Logout)
+
+**`web/src/routes/+layout.svelte`**:
+- The `.theme-toggle-wrap` container was renamed to `.top-controls` and converted to a flex row.
+- A logout button (door-and-arrow SVG icon) is rendered next to the theme toggle when `siteConfig.encrypted` is true.
+- When a hero image is present (`hasHero`), the `.over-hero` class adds `background: rgba(0,0,0,0.4)` to the pill so both buttons remain legible over any photo.
+- The logout function mirrors the `?clear` logic: clears all `ddp_*` localStorage keys and calls `window.location.replace('/')`.
+- `<link rel="stylesheet">` for `customCss` is injected in `<svelte:head>` when configured.
+- The `<meta name="ddp-site-id">` tag now reads from `data.siteConfig.siteId` (layout data) rather than `page.data.siteId`.
+
+**`web/src/routes/+page.svelte`**:
+- Hero section added above the album grid. The entire block (hero or plain header) is gated on `!data.encryptedBlob || albums` so nothing flashes before the password prompt on encrypted sites.
+- The hero renders a full-width image with a bottom gradient overlay and the site name in white text.
+- `ogImage` derivation prefers `siteConfig.heroImage` over the first album's `coverJpeg`.
+
+#### Tests
+
+**`web/tests/smoke.spec.ts`** — `og:image` regex loosened from `/\/cover\.jpg$/` to `/\.jpg$/`: the test intent was always "must be a JPEG, not WebP"; `hero.jpg` satisfies this just as well as `cover.jpg`.
+
+**`web/tests/password.spec.ts`** — two new tests in a "Logout button" section: `logout button is visible when encryption is configured` (works across pw-all and pw-uganda variants) and `logout button clears site password and shows prompt again` (pw-all only).

@@ -36,6 +36,25 @@ settings:
   # a secrets manager. See README-DEV.md for the passwords file format.
   # passwords: passwords.yaml
 
+  # Optional hero image displayed as a full-width banner at the top of the home page.
+  # The image is hard-cropped to 1600x250px (JPEG). 'image' is joined to the named
+  # 'base' path (if set) or resolved relative to this config dir (if not).
+  # crop controls the vertical anchor when the source is taller than 250px:
+  #   top | center | bottom (default: center)
+  # The hero image is never encrypted and is used as the og:image on the home page
+  # when present (preferred over the first album cover).
+  # hero:
+  #   image: my-banner-photo.jpg
+  #   base: drive
+  #   crop: center
+
+  # Optional custom CSS file (relative to this config dir). Copied to the site
+  # output as custom.css and injected site-wide via a <link> tag after the
+  # built-in styles, so it can override theme variables or any other rules.
+  # Redefining CSS custom properties (--bg-color, --text-color, etc.) is the
+  # cleanest way to restyle without fighting specificity.
+  # css: custom.css
+
 # Named source base paths. Albums reference these by name via the 'base' key.
 # Defining bases here lets you swap root paths between configs (e.g., prod vs.
 # laptop) without touching individual album entries.
