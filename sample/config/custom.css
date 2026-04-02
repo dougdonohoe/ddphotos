@@ -1,0 +1,20 @@
+/* DD Photos custom styles — sample site demo
+   This file is copied to the site output by photogen (-index) and injected
+   site-wide as a <link> after the built-in styles.
+
+   CSS custom properties are the cleanest override path: they cascade naturally
+   and cover both dark and light themes with minimal specificity issues. */
+
+/* Swap the golden accent (album descriptions, highlights) to teal */
+:root {
+    --text-color-2nd: #2a9d8f;
+}
+
+:root[data-theme='light'] {
+    --text-color-2nd: #1b6b62;
+}
+
+/* Rounder album cards — !important needed to override Svelte's scoped class specificity */
+.album-card {
+    border-radius: 16px !important;
+}

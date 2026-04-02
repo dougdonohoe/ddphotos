@@ -3,6 +3,7 @@
 #   1. No passwords (plain site)
 #   2. passwords-all.yaml (entire site encrypted + Uganda per-album)
 #   3. passwords-uganda.yaml (Uganda album only)
+#   4. custom-css (sample/config/custom.css injected)
 #
 # Usage:
 #   bin/test-all.sh [--mode dev|apache|both]
@@ -16,10 +17,11 @@ MODE="both"
 usage() {
     echo "Usage: bin/test-all.sh [--mode dev|apache|both]"
     echo ""
-    echo "Runs Playwright tests against all password variants of the sample site:"
+    echo "Runs Playwright tests against all sample site variants:"
     echo "  1. No passwords (plain site)"
     echo "  2. passwords-all.yaml (entire site + Uganda album encrypted)"
     echo "  3. passwords-uganda.yaml (Uganda album only)"
+    echo "  4. custom-css (sample/config/custom.css injected)"
     echo ""
     echo "Options:"
     echo "  --mode <mode>  Server to test against: dev, apache, or both (default: both)."
@@ -41,7 +43,6 @@ done
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 cd "$SDIR/.."
 
-OVERALL_EXIT=0
 trap 'exit 130' INT TERM
 
 run_variant() {
@@ -51,19 +52,13 @@ run_variant() {
     echo "###############################################################"
     echo "# Variant: $label"
     echo "###############################################################"
-    bin/run-tests.sh "$@" --mode "$MODE" || OVERALL_EXIT=$?
+    bin/run-tests.sh "$@" --mode "$MODE"
 }
 
 run_variant "no passwords"
 run_variant "passwords-all.yaml"    --passwords sample/config/passwords-all.yaml
 run_variant "passwords-uganda.yaml" --passwords sample/config/passwords-uganda.yaml
+run_variant "custom-css"            --css sample/config/custom.css
 
-if [ "$OVERALL_EXIT" -eq 0 ]; then
-    echo ""
-    echo "All variants passed."
-else
-    echo ""
-    echo "One or more variants failed." >&2
-fi
-
-exit $OVERALL_EXIT
+echo ""
+echo "All variants passed."

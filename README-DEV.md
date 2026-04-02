@@ -132,10 +132,12 @@ Common tasks are available via `make` from the repo root:
 | `use-sample`                 | Symlink `web/static/albums` → `../albums/sample`                   |
 | `use-sample-pw-all`          | Symlink `web/static/albums` → `../albums/sample-pw-all`            |
 | `use-sample-pw-uganda`       | Symlink `web/static/albums` → `../albums/sample-pw-uganda`         |
+| `use-sample-css`             | Symlink `web/static/albums` → `../albums/sample-css`               |
 | `use-prod`                   | Symlink `web/static/albums` → `../albums/prod`                     |
 | `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                     |
 | `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected    |
 | `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected  |
+| `sample-photogen-css`        | Run photogen using sample config with custom CSS injected          |
 | `sample-build`               | Build the static site using sample config                          |
 | `sample-npm-run-dev`         | Run the Vite dev server using sample config                        |
 | `sample-test-apache`         | Run Apache routing tests against Docker on port 8082               |
@@ -210,6 +212,7 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                                      |
 | `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config            |
 | `-passwords`  | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Passwords File](#passwords-file)) |
+| `-css`        | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](#custom-css))              |
 | `-clean`      | `false`       | Remove stale files from processed album directories after a run                                |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
@@ -500,6 +503,7 @@ Tests are in `web/tests/` and cover:
 | `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload         |
 | `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                   |
 | `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear` |
+| `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius           |
 
 Smoke and caption tests assume the presence of albums in the sample website (`antarctica`, `uganda`).
 Navigation tests are fully dynamic - they read album names from the page at runtime and
@@ -508,6 +512,18 @@ work against any site without hardcoding album names.
 The `baseURL` defaults to `http://localhost:8080` (used by `deploy-photos.sh`)
 and can be overridden via `PLAYWRIGHT_BASE_URL` - the Makefile target passes
 `http://localhost:8081` to avoid port conflicts.
+
+Password and CSS tests are gated by environment variables so they only run against
+the appropriate site variant:
+
+| Variable                  | Set by                  | Effect                                          |
+|---------------------------|-------------------------|-------------------------------------------------|
+| `PLAYWRIGHT_PASSWORDS_FILE` | `bin/run-tests.sh`    | Path to passwords file; enables password tests  |
+| `PLAYWRIGHT_CUSTOM_CSS`     | `bin/run-tests.sh`    | Set to `true`; enables CSS tests                |
+
+Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
+`bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
+and `custom-css` (with `sample/config/custom.css` injected).
 
 The `bin/deploy-photos.sh` script runs Playwright automatically: locally before rsync,
 and against production after CloudFront cache invalidation.

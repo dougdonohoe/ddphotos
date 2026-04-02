@@ -45,12 +45,17 @@
 	<link rel="icon" href="/favicon.ico" />
 	<!-- Consumed by the inline script in app.html to scope cover CSS vars to the current build. -->
 	<meta name="ddp-site-id" content={data.siteConfig?.siteId ?? ''} />
-	{#if data.siteConfig?.customCss}
-		<link rel="stylesheet" href="/albums/{data.siteConfig.customCss}" />
-	{/if}
 </svelte:head>
 
 <div class="app">
+	<!--
+		Custom CSS is injected here in the body (not <svelte:head>) so it lands after
+		the Svelte <style data-sveltekit> block in document order, giving it cascade
+		priority over scoped component styles and :root custom property declarations.
+	-->
+	{#if data.siteConfig?.customCss}
+		<link rel="stylesheet" href="/albums/{data.siteConfig.customCss}" />
+	{/if}
 	<div
 		class="top-controls"
 		class:ready={!page.data.encryptedBlob || $footerReady}

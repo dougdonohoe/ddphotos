@@ -149,6 +149,16 @@ sample-photogen-pw-all:
 sample-photogen-pw-uganda:
 	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -passwords sample/config/passwords-uganda.yaml -site-id sample-pw-uganda -doit
 
+.PHONY: sample-photogen-css
+## sample-photogen-css: run photogen using sample images with custom CSS injected
+sample-photogen-css:
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -site-id sample-css -doit
+
+.PHONY: use-sample-css
+## use-sample-css: symlink web/static/albums -> ../albums/sample-css
+use-sample-css:
+	ln -sfn ../albums/sample-css web/static/albums
+
 .PHONY: sample-build
 ## sample-build: build web app using sample config
 sample-build: use-sample
@@ -168,4 +178,9 @@ sample-test-apache:
 .PHONY: sample-npm-run-dev
 ## sample-npm-run-dev: run npm dev server using sample config
 sample-npm-run-dev: use-sample
+	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
+
+.PHONY: sample-npm-run-dev-css
+## sample-npm-run-dev-css: run npm dev server using sample config with custom CSS
+sample-npm-run-dev-css: use-sample-css
 	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev

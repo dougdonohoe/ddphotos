@@ -24,6 +24,7 @@ var (
 	albumFlag  = flag.String("album", "", "comma-separated list of album slugs to process (empty = all)")
 	siteID     = flag.String("site-id", "", "override settings.id from albums YAML")
 	passwords  = flag.String("passwords", "", "path to passwords file; overrides settings.passwords in albums YAML")
+	css        = flag.String("css", "", "path to custom CSS file; overrides settings.css in albums YAML")
 	clean      = flag.Bool("clean", false, "remove stale output files not generated in this run")
 )
 
@@ -90,7 +91,12 @@ func main() {
 			Crop:      crop,
 		}
 	}
+
+	// -css overrides settings.css; fall back to YAML setting if flag not provided
 	cfg.CustomCSS = settings.CustomCSSPath
+	if *css != "" {
+		cfg.CustomCSS = *css
+	}
 
 	cfg.Clean = *clean
 	if *clean {

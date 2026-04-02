@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Run Playwright tests against one password variant of the sample site.
+# Run Playwright tests against one variant of the sample site.
 #
 # Usage:
-#   bin/run-tests.sh [--passwords <file>] [--mode dev|apache|both]
+#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|both]
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
+# --css        Path to a custom CSS file (e.g. sample/config/custom.css).
+#              Omit for the no-CSS variant.
 # --mode       Which server to test against: dev, apache, or both (default: both).
 #              dev   — Vite dev server on port 5174
 #              apache — static build + Docker/Apache on port 8083
@@ -14,14 +16,17 @@
 set -eo pipefail
 
 PASSWORDS_FILE=""
+CSS_FILE=""
 MODE="both"
 
 usage() {
-    echo "Usage: bin/run-tests.sh [--passwords <file>] [--mode dev|apache|both]"
+    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|both]"
     echo ""
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
     echo "                      Omit for the no-password variant."
+    echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom.css)."
+    echo "                      Omit for the no-CSS variant."
     echo "  --mode <mode>       Server to test against: dev, apache, or both (default: both)."
     echo "                        dev    — Vite dev server on port 5174"
     echo "                        apache — static build + Docker/Apache on port 8083"
@@ -33,6 +38,8 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --passwords)   PASSWORDS_FILE="$2"; shift 2 ;;
         --passwords=*) PASSWORDS_FILE="${1#*=}"; shift ;;
+        --css)         CSS_FILE="$2"; shift 2 ;;
+        --css=*)       CSS_FILE="${1#*=}"; shift ;;
         --mode)        MODE="$2"; shift 2 ;;
         --mode=*)      MODE="${1#*=}"; shift ;;
         --help|-\?)    usage; exit 0 ;;
@@ -64,10 +71,17 @@ if [ -n "$PASSWORDS_FILE" ]; then
     [ -f "$PASSWORDS_FILE" ] || { echo "Error: passwords file not found: $PASSWORDS_FILE" >&2; exit 1; }
 fi
 
-# Derive site-id and symlink target from the passwords file basename.
-# Convention: passwords-all.yaml -> site-id "sample-pw-all", symlink "sample-pw-all"
-#             passwords-uganda.yaml -> site-id "sample-pw-uganda", symlink "sample-pw-uganda"
-#             (no file) -> site-id "sample", symlink "sample"
+# Resolve CSS file to absolute path
+if [ -n "$CSS_FILE" ]; then
+    CSS_FILE="$(cd "$(dirname "$CSS_FILE")" && pwd)/$(basename "$CSS_FILE")"
+    [ -f "$CSS_FILE" ] || { echo "Error: CSS file not found: $CSS_FILE" >&2; exit 1; }
+fi
+
+# Derive site-id and symlink target from flags.
+# Convention: passwords-all.yaml -> site-id "sample-pw-all"
+#             passwords-uganda.yaml -> site-id "sample-pw-uganda"
+#             --css <file> -> site-id "sample-css"
+#             (no flags) -> site-id "sample"
 SITE_ID="sample"
 SYMLINK_TARGET="../albums/sample"
 PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -doit"
@@ -77,6 +91,11 @@ if [ -n "$PASSWORDS_FILE" ]; then
     SITE_ID="sample-pw-${VARIANT}"
     SYMLINK_TARGET="../albums/sample-pw-${VARIANT}"
     PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -passwords $PASSWORDS_FILE -site-id $SITE_ID -doit"
+fi
+if [ -n "$CSS_FILE" ]; then
+    SITE_ID="sample-css"
+    SYMLINK_TARGET="../albums/sample-css"
+    PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -css $CSS_FILE -site-id $SITE_ID -doit"
 fi
 
 SITE_ENV="$(pwd)/sample/config/site.env"
@@ -109,6 +128,7 @@ run_playwright() {
         cd web
         export PLAYWRIGHT_BASE_URL="$base_url"
         [ -n "$PASSWORDS_FILE" ] && export PLAYWRIGHT_PASSWORDS_FILE="$PASSWORDS_FILE"
+        [ -n "$CSS_FILE" ] && export PLAYWRIGHT_CUSTOM_CSS="true"
         npx playwright test
     )
 }
