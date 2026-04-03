@@ -316,7 +316,8 @@ for a detailed session log covering WebP conversion, concurrent image resizing,
 static site setup, Apache URL routing and Docker test environment, photo
 descriptions and captions, photo permalinks, Open Graph and social sharing tags,
 SvelteKit client-side navigation, Playwright E2E tests, YAML-based album
-configuration, deploy scripts, open-source prep, and more.
+configuration, deploy scripts, open-source prep, encryption and password
+protection, recursive album support, hero images, custom CSS, and more.
 
 ## License
 

@@ -5,8 +5,8 @@
 This page covers the technical details of DD Photos for developers and those
 who want to understand how the pieces fit together. Topics include the SvelteKit
 frontend, environment configuration, all Makefile targets, `photogen` CLI flags
-and output layout, photo descriptions and sort order, deployment, Apache routing,
-and development tips.
+and output layout, photo descriptions and sort order, encryption and password
+protection, deployment, Apache routing, and development tips.
 
 ## SvelteKit
 
@@ -160,7 +160,7 @@ Album descriptions are in a TXT file (default: `config/descriptions.txt`).
 See [config/descriptions.example.txt](config/descriptions.example.txt)
 for the format.
 
-#### Hero Image
+### Hero Image
 
 An optional full-width banner image can be displayed at the top of the home page.
 Add a `hero:` block under `settings:` in `albums.yaml`:
@@ -184,7 +184,7 @@ To regenerate the hero without reprocessing albums or rebuilding indexes, use
 go run cmd/photogen/photogen.go -hero-only -doit
 ```
 
-#### Custom CSS
+### Custom CSS
 
 To override site styles, add a `css:` entry under `settings:`:
 
@@ -722,12 +722,12 @@ bin/deploy-photos.sh --no-photogen --no-rsync # build + local test, skip both ph
 The workflow in `.github/workflows/ci.yml` runs on every pull request to `main`. It:
 
 1. Installs `libvips-dev` and `pkg-config` via `apt-get`
-2. Sets up Go (version from `go.mod`) and Node (version from `web/.nvmrc`)
+2. Sets up Go (version from `go.mod`) and Node (version from `web/.nvmrc`); installs dependencies
 3. Runs `make build test vet`
-4. Runs `make sample-photogen` to resize sample photos and generate JSON
-5. Builds the Docker image and sample site
-6. Runs Apache routing tests (`make sample-test-apache`)
-7. Runs Playwright e2e tests (`make web-playwright-test-apache`)
+4. Installs Playwright Chromium and its system dependencies
+5. Runs `make sample-photogen sample-build web-docker-build sample-test-apache` — photogens
+   the sample site, builds the static site and Docker image, and runs Apache routing tests
+6. Runs `bin/test-all.sh --mode apache` — Playwright e2e tests across all password/CSS variants
 
 ### Testing CI Locally with `act`
 
