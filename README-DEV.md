@@ -24,7 +24,10 @@ What SvelteKit specifically does for this project:
 - **Routing** — `src/routes/albums/[slug]/[[index]]/` becomes `/albums/antarctica/1` automatically
 - **Data loading** — `+page.ts` fetches `albums.json` and `index.json` before the page renders
 - **Component reactivity** — lightbox state, theme toggle, image loading effects
-- **Build pipeline** — Vite bundles everything; `adapter-static` pre-renders all routes to `.html` files
+- **Build pipeline** — Vite bundles everything; `adapter-static` pre-renders all routes to `.html` files.
+  For encrypted builds, the SvelteKit crawler cannot discover album links hidden behind the password
+  prompt, so `svelte.config.js` uses an `albumEntries()` function to read album slugs from
+  `web/static/albums/` at build time and inject them into `prerender.entries` directly.
 - **Client-side navigation** — clicking between albums swaps content without a full page reload
 
 The site is a hybrid of static and dynamic rendering:
@@ -110,41 +113,42 @@ SITE_ENV=~/work/my-config/site.env make web-npm-run-dev
 
 Common tasks are available via `make` from the repo root:
 
-| Target                       | Description                                                        |
-|------------------------------|--------------------------------------------------------------------|
-| `help`                       | Show all available make targets (default when running `make`)      |
-| `build`                      | Compile all Go binaries                                            |
-| `test`                       | Run Go unit tests                                                  |
-| `mod-tidy`                   | Run `go mod tidy` to clean up imports                              |
-| `clean-cache`                | Run `go clean -cache` (useful after a vips library upgrade)        |
-| `vet`                        | Run `go vet` static analysis                                       |
-| `web-nvm-install`            | Install the Node version specified in `web/.nvmrc`                 |
-| `web-npm-install`            | Install npm dependencies in `web/`                                 |
-| `web-npm-run-dev`            | Start Vite dev server and open browser                             |
-| `web-npm-build`              | Build the static site into `web/build/`                            |
-| `web-docker-build`           | Build the `photos-apache` Docker image                             |
-| `web-docker-run`             | Run Apache on port 8080 with `web/` mounted as document root       |
-| `web-docker-stop`            | Stop the running `photos-apache` container                         |
-| `web-docker-test`            | Run `bin/test-photos-apache.sh` against `localhost:8080`           |
-| `web-playwright-install`     | One-time setup: install `@playwright/test` and Chromium binary     |
-| `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker on port 8081, runs, stops) |
-| `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                 |
-| `use-sample`                 | Symlink `web/static/albums` → `../albums/sample`                   |
-| `use-sample-pw-all`          | Symlink `web/static/albums` → `../albums/sample-pw-all`            |
-| `use-sample-pw-uganda`       | Symlink `web/static/albums` → `../albums/sample-pw-uganda`         |
-| `use-sample-css`             | Symlink `web/static/albums` → `../albums/sample-css`               |
-| `use-prod`                   | Symlink `web/static/albums` → `../albums/prod`                     |
-| `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                     |
-| `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected    |
-| `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected  |
-| `sample-photogen-css`        | Run photogen using sample config with custom CSS injected          |
+| Target                       | Description                                                                        |
+|------------------------------|------------------------------------------------------------------------------------|
+| `help`                       | Show all available make targets (default when running `make`)                      |
+| `build`                      | Compile all Go binaries                                                            |
+| `test`                       | Run Go unit tests                                                                  |
+| `mod-tidy`                   | Run `go mod tidy` to clean up imports                                              |
+| `clean-cache`                | Run `go clean -cache` (useful after a vips library upgrade)                        |
+| `vet`                        | Run `go vet` static analysis                                                       |
+| `web-nvm-install`            | Install the Node version specified in `web/.nvmrc`                                 |
+| `web-npm-install`            | Install npm dependencies in `web/`                                                 |
+| `web-npm-run-dev`            | Start Vite dev server and open browser                                             |
+| `web-npm-build`              | Build the static site into `web/build/`                                            |
+| `web-docker-build`           | Build the `photos-apache` Docker image                                             |
+| `web-docker-run`             | Run Apache on port 8080 with `web/` mounted as document root                       |
+| `web-docker-stop`            | Stop the running `photos-apache` container                                         |
+| `web-docker-test`            | Run `bin/test-photos-apache.sh` against `localhost:8080`                           |
+| `web-playwright-install`     | One-time setup: install `@playwright/test` and Chromium binary                     |
+| `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker on port 8081, runs, stops)                 |
+| `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                                 |
+| `web-playwright-test-all`    | Run `bin/test-all.sh` across all password/CSS variants                             |
+| `use-sample`                 | Symlink `web/static/albums` → `../albums/sample`                                   |
+| `use-sample-pw-all`          | Symlink `web/static/albums` → `../albums/sample-pw-all`                            |
+| `use-sample-pw-uganda`       | Symlink `web/static/albums` → `../albums/sample-pw-uganda`                         |
+| `use-sample-css`             | Symlink `web/static/albums` → `../albums/sample-css`                               |
+| `use-prod`                   | Symlink `web/static/albums` → `../albums/prod`                                     |
+| `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                                     |
+| `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected                    |
+| `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected                  |
+| `sample-photogen-css`        | Run photogen using sample config with custom CSS injected                          |
 | `sample-photogen-demo`       | Run photogen using sample config with custom CSS and all albums password-protected |
-| `use-sample-demo`            | Symlink `web/static/albums` → `../albums/sample-demo`             |
-| `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server       |
-| `sample-build`               | Build the static site using sample config                          |
-| `sample-npm-run-dev`         | Run the Vite dev server using sample config                        |
-| `sample-test-apache`         | Run Apache routing tests against Docker on port 8082               |
-| `web-screenshots`            | Capture screenshots (requires a running server on port 8080)       |
+| `use-sample-demo`            | Symlink `web/static/albums` → `../albums/sample-demo`                              |
+| `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server                       |
+| `sample-build`               | Build the static site using sample config                                          |
+| `sample-npm-run-dev`         | Run the Vite dev server using sample config                                        |
+| `sample-test-apache`         | Run Apache routing tests against Docker on port 8082                               |
+| `web-screenshots`            | Capture screenshots (requires a running server on port 8080)                       |
 
 ## Generating Photos (`photogen`)
 
@@ -561,16 +565,16 @@ make web-playwright-test-dev
 
 Tests are in `web/tests/` and cover:
 
-| File                  | What it tests                                                                       |
-|-----------------------|-------------------------------------------------------------------------------------|
-| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags         |
-| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav        |
-| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load           |
-| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description         |
-| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload         |
-| `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                   |
+| File                  | What it tests                                                                                   |
+|-----------------------|-------------------------------------------------------------------------------------------------|
+| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags                     |
+| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav                    |
+| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load                       |
+| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description                     |
+| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload                     |
+| `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                               |
 | `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear` |
-| `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius           |
+| `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius            |
 
 Smoke and caption tests assume the presence of albums in the sample website (`antarctica`, `uganda`).
 Navigation tests are fully dynamic - they read album names from the page at runtime and
@@ -583,14 +587,31 @@ and can be overridden via `PLAYWRIGHT_BASE_URL` - the Makefile target passes
 Password and CSS tests are gated by environment variables so they only run against
 the appropriate site variant:
 
-| Variable                  | Set by                  | Effect                                          |
-|---------------------------|-------------------------|-------------------------------------------------|
-| `PLAYWRIGHT_PASSWORDS_FILE` | `bin/run-tests.sh`    | Path to passwords file; enables password tests  |
-| `PLAYWRIGHT_CUSTOM_CSS`     | `bin/run-tests.sh`    | Set to `true`; enables CSS tests                |
+| Variable                    | Set by             | Effect                                         |
+|-----------------------------|--------------------|------------------------------------------------|
+| `PLAYWRIGHT_PASSWORDS_FILE` | `bin/run-tests.sh` | Path to passwords file; enables password tests |
+| `PLAYWRIGHT_CUSTOM_CSS`     | `bin/run-tests.sh` | Set to `true`; enables CSS tests               |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
 `bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
 and `custom-css` (with `sample/config/custom.css` injected).
+
+```bash
+# Run all 4 variants against Apache (recommended; mirrors CI)
+bin/test-all.sh --mode apache
+
+# Run all 4 variants against both dev server and Apache
+bin/test-all.sh --mode both
+
+# Run a single variant against Apache (no password)
+bin/run-tests.sh --mode apache
+
+# Run pw-all variant against Apache
+bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
+
+# Run custom CSS variant against dev server
+bin/run-tests.sh --css sample/config/custom.css --mode dev
+```
 
 The `bin/deploy-photos.sh` script runs Playwright automatically: locally before rsync,
 and against production after CloudFront cache invalidation.
