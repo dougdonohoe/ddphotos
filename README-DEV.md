@@ -281,8 +281,13 @@ Craig's/img001.jpg      → ID: craigs_img001,       file: craigs_img001.jpg
 Ski 2007/Alan's/a.jpg   → ID: ski2007_alans_a,     file: ski2007_alans_a.jpg
 ```
 
-**Default sort order** (no `photogen.txt`): photos at the root sorted by date, then
-subdirectories processed alphabetically, each date-sorted. No configuration needed.
+There are three modes depending on configuration:
+
+| Mode          | Config                                                       | Behavior                                                                                        |
+|---------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| Off (default) | `recurse: false`                                             | Only photos in the album root directory are collected; subdirectories ignored                   |
+| Auto sort     | `recurse: true`, no `photogen.txt`                           | Root photos date-sorted, then subdirectories processed alphabetically, each date-sorted         |
+| Manual sort   | `recurse: true` + `manual_sort_order: true` + `photogen.txt` | Subfolder names in `photogen.txt` expand inline; photos and subfolder groups freely interleaved |
 
 **Per-subfolder `photogen.txt`**: place a `photogen.txt` in any subfolder for captions
 and (with `manual_sort_order: true`) local sort order within that folder. Entries use
@@ -308,6 +313,12 @@ with a warning.
 (e.g. `cover: craigs_img001.jpg`). If omitted, the first collected photo is used.
 The prefixed filename is in the `fileName` field of `index.json`. To find it from an
 original filename, use `sourcePath` (see below) or grep the decoded index.
+
+**Working example**: the sample Uganda album (`sample/source/uganda/`) uses `recurse: true`
+with a `subfolder/` subdirectory. Its root `photogen.txt` uses `subfolder` as a placeholder
+at the end to append those photos after the root-level ones. The album entry in
+`sample/config/albums.yaml` shows the full configuration including `cover`, `manual_sort_order`,
+and `recurse`.
 
 **`sourcePath` field**: subfolder photos include a `sourcePath` field in `index.json`
 with their original relative path from the album root (e.g. `"Craig's/img001.jpg"`).
