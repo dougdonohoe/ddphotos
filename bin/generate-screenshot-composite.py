@@ -30,7 +30,7 @@ SHADOW_OPACITY = 0.5       # 0–1
 SHADOW_COLOR   = (0, 0, 0)
 
 # Inner stroke — Photoshop: 2px inside, black, opacity=20%
-STROKE_WIDTH   = 2
+STROKE_WIDTH   = 0  # screenshots already have a stroke baked in by screenshots.mjs
 STROKE_OPACITY = 0.20
 STROKE_COLOR   = (0, 0, 0)
 

@@ -102,8 +102,11 @@ async function applyTheme(page, theme) {
 
 /**
  * Take a screenshot and log the path.
+ * Injects a subtle inset stroke so screenshots have a visible border in docs
+ * (matches the stroke applied by bin/generate-screenshot-composite.py).
  */
 async function capture(page, filename) {
+	await page.addStyleTag({ content: 'body::after { content: ""; position: fixed; inset: 0; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.20); pointer-events: none; z-index: 99999; }' });
 	const fullPath = path.join(outDir, filename);
 	await page.screenshot({ path: fullPath, fullPage: false });
 	console.log(`  ✓  ${fullPath}`);
