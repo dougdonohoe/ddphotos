@@ -220,7 +220,7 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config            |
 | `-passwords`  | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Passwords File](#passwords-file)) |
 | `-css`        | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](#custom-css))              |
-| `-clean`      | `false`       | Remove stale files from processed album directories after a run (requies -resize)              |
+| `-clean`      | `false`       | Remove stale files from processed album directories after a run (requires `-resize`)           |
 | `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation           |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
@@ -316,6 +316,24 @@ go run cmd/decode/decode.go web/albums/my-site/my-album/index.enc.json | grep -B
 
 ### Passwords File
 
+When a passwords file is present, `photogen` encrypts `albums.json` and each album's
+`index.json` using AES-256-GCM (keys derived via PBKDF2-SHA256). The encrypted files
+are written as `.enc.json` alongside their plaintext counterparts. `config.json` is
+always written in plaintext — it contains only non-sensitive metadata (site ID, hints,
+hero/CSS filenames) needed to bootstrap the frontend before any password is entered.
+
+Decryption happens entirely in-browser using the Web Crypto API. Passwords are never
+sent to a server.
+
+The `key` field enables an additional layer of protection: WebP filenames for encrypted
+albums are derived via HMAC-SHA256 rather than using the original filename, so the
+actual photo files cannot be guessed even if someone knows the source filename.
+
+A `SiteID` is written to `config.json` and used by the frontend to scope all
+localStorage keys (stored passwords, cover image cache) to the current build. This
+prevents stale data from a previous build bleeding through after a re-encryption with
+new passwords or a different `key`.
+
 Encryption is enabled by pointing photogen at a YAML passwords file, either via
 `settings.passwords` in `albums.yaml` (filename relative to the config dir) or the
 `-passwords` CLI flag (absolute or relative path; overrides `settings.passwords`).
@@ -379,7 +397,7 @@ The correct password is selected automatically from the filename:
 
 | File              | Password used                                    |
 |-------------------|--------------------------------------------------|
-| `albums.enc.json` | Site-wide password (`_all_`)                     |
+| `albums.enc.json` | Site-wide password (`site.password`)             |
 | `index.enc.json`  | Per-album password for the parent directory slug |
 
 ## Testing

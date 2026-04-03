@@ -108,7 +108,7 @@ func TestEncryptConfigValidate(t *testing.T) {
 
 	t.Run("empty per-album password is invalid", func(t *testing.T) {
 		t.Parallel()
-		// Empty value (e.g. "uganda:" in passwords file) silently overrides _all_ with no
+		// Empty value (e.g. "uganda:" in passwords file) silently overrides site.password with no
 		// encryption for that album — reject it explicitly.
 		ec := &EncryptConfig{HMACKey: "key", SitePassword: "globalpass", AlbumPasswords: map[string]string{"uganda": ""}}
 		assert.ErrorContains(t, ec.Validate(), "uganda")

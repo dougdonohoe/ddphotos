@@ -9,12 +9,12 @@ import {
 
 // Password tests — exercise the client-side encryption/decryption flow.
 // All tests are skipped when PLAYWRIGHT_PASSWORDS_FILE is not set (no-password variant).
-// Tests that require a site-wide password (_all_) are skipped when only per-album
+// Tests that require a site-wide password are skipped when only per-album
 // passwords are configured, and vice versa.
 
 const pw = loadPasswords();
 
-// First per-album-only slug (not covered by _all_): used for per-album tests.
+// First per-album-only slug (not covered by site.password): used for per-album tests.
 // In pw-all, the site password also covers all albums so per-album tests
 // use any album that has an explicit entry in the passwords file (e.g. "uganda").
 const firstAlbumSlug = Object.keys(pw.albums)[0] ?? null;

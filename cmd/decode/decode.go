@@ -9,7 +9,7 @@
 // field embedded in the enc.json by photogen. The correct password is determined
 // automatically from the filename:
 //
-//   - albums.enc.json  → site-wide password (_all_)
+//   - albums.enc.json  → site-wide password (site.password)
 //   - index.enc.json   → per-album password for the parent directory slug
 package main
 
