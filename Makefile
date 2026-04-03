@@ -110,9 +110,11 @@ web-playwright-test-all:
 	bin/test-all.sh
 
 .PHONY: web-screenshots
-## web-screenshots: capture screenshots (home dark/light, album dark/light, lightbox) — requires a running server on port 8080
+## web-screenshots: capture screenshots and regenerate composite — requires a running server on port 8080
 web-screenshots:
+	# run `make sample-photogen sample-build web-docker-run` to start docker/apache for this script
 	$(NODE_INIT) cd web && node scripts/screenshots.mjs --album antarctica --photo 4
+	.venv/bin/python3 bin/generate-screenshot-composite.py
 
 .PHONY: use-sample
 ## use-sample: symlink web/static/albums -> ../albums/sample (web/albums/sample/)

@@ -26,9 +26,6 @@ vite.config.ts.timestamp-*
 /test-results
 /playwright-report
 
-# Screenshots
-/web/screenshots
-
 # Generated photo albums
 /static/albums
 /static/sitemap.xml

@@ -8,7 +8,7 @@
  *   --base-url <url>   Base URL of the running site (default: http://localhost:8080)
  *   --album <slug>     Album slug to use for album/lightbox screenshots
  *                      (default: first album found on the home page)
- *   --out <dir>        Output directory (default: screenshots/)
+ *   --out <dir>        Output directory (default: ../images/screenshots/)
  *   --photo <n>        1-based photo number to open in lightbox (default: 1)
  *
  * Requires a running server (Docker Apache or Vite dev server).
@@ -33,7 +33,7 @@ const get = (flag) => {
 };
 
 const baseURL = get('--base-url') ?? 'http://localhost:8080';
-const outDir = get('--out') ?? 'screenshots';
+const outDir = get('--out') ?? '../images/screenshots';
 const albumArg = get('--album'); // resolved below if not provided
 const photoNum = parseInt(get('--photo') ?? '1', 10);
 

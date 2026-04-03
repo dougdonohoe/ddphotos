@@ -220,7 +220,7 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config            |
 | `-passwords`  | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Passwords File](#passwords-file)) |
 | `-css`        | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](#custom-css))              |
-| `-clean`      | `false`       | Remove stale files from processed album directories after a run                                |
+| `-clean`      | `false`       | Remove stale files from processed album directories after a run (requies -resize)              |
 | `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation           |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
@@ -671,3 +671,18 @@ without signaling the code is ready to merge:
 git commit --allow-empty -m "ci: test GitHub Actions workflow"
 gh pr create --draft --title "wip: testing CI" --body ""
 ```
+
+## Python Setup
+
+The `bin/generate-screenshot-composite.py` script (invoked by `make web-screenshots`) requires
+[Pillow](https://pillow.readthedocs.io/). Set up a local virtualenv once using
+[uv](https://github.com/astral-sh/uv):
+
+```bash
+brew install uv          # if not already installed
+uv venv .venv
+uv pip install -r requirements.txt
+```
+
+The `.venv/` directory is git-ignored. The `make web-screenshots` target calls
+`.venv/bin/python3` directly, so no manual activation is needed.
