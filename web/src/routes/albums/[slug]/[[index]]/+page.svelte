@@ -314,7 +314,42 @@
 				});
 			};
 
-			pswp.on('change', () => requestAnimationFrame(updateAll));
+			// Fade captions in/out when zooming. Captions live outside the zoom
+			// transform so they stay fixed while the image moves, which looks wrong.
+			// On zoom-out, delay the fade-in so it waits for the animation to settle.
+			let captionFadeTimer: ReturnType<typeof setTimeout> | null = null;
+			const setCaptionOpacity = (opacity: string) => {
+				holders.forEach((holder: any) => {
+					const el = holder.el?.querySelector('.pswp-caption') as HTMLElement | null;
+					if (el && el.style.display !== 'none') el.style.opacity = opacity;
+				});
+			};
+			// beforeZoomTo fires at the start of any zoom animation — fade out immediately
+			pswp.on('beforeZoomTo' as any, () => {
+				if (captionFadeTimer) { clearTimeout(captionFadeTimer); captionFadeTimer = null; }
+				setCaptionOpacity('0');
+			});
+			// zoomPanUpdate fires during pinch and after tap-zoom settles
+			pswp.on('zoomPanUpdate', () => {
+				const slide = (pswp as any).currSlide;
+				const isZoomed = slide?.currZoomLevel > slide?.zoomLevels?.initial * 1.01;
+				if (isZoomed) {
+					// Covers pinch-to-zoom (beforeZoomTo doesn't fire for pinch)
+					if (captionFadeTimer) { clearTimeout(captionFadeTimer); captionFadeTimer = null; }
+					setCaptionOpacity('0');
+				} else if (!captionFadeTimer) {
+					captionFadeTimer = setTimeout(() => {
+						captionFadeTimer = null;
+						setCaptionOpacity('1');
+					}, 0);
+				}
+			});
+			// Reset caption opacity when navigating between slides
+			pswp.on('change', () => {
+				if (captionFadeTimer) { clearTimeout(captionFadeTimer); captionFadeTimer = null; }
+				setCaptionOpacity('1');
+				requestAnimationFrame(updateAll);
+			});
 			pswp.on('resize', updateAll);
 			pswp.on('openingAnimationEnd', updateAll);
 			// Show caption for the initial photo via rAF. This covers two cases:
@@ -728,5 +763,6 @@
 		text-align: center;
 		pointer-events: none;
 		z-index: 10;
+		transition: opacity 0.3s ease;
 	}
 </style>
