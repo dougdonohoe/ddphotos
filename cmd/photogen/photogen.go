@@ -52,6 +52,10 @@ func main() {
 	if *outputDir != "" {
 		resolvedOutputDir = *outputDir
 	}
+	resolvedCSSPath := settings.CustomCSSPath
+	if *css != "" {
+		resolvedCSSPath = *css
+	}
 
 	warn := &photogen.WarnCollector{}
 	cfg := &photogen.Config{
@@ -66,6 +70,7 @@ func main() {
 		SiteURL:     resolvedSiteURL,
 		NumWorkers:  *numWorkers,
 		Warn:        warn,
+		CustomCSS:   resolvedCSSPath,
 	}
 
 	// -passwords overrides settings.passwords; fall back to YAML setting if flag not provided
@@ -93,12 +98,7 @@ func main() {
 		}
 	}
 
-	// -css overrides settings.css; fall back to YAML setting if flag not provided
-	cfg.CustomCSS = settings.CustomCSSPath
-	if *css != "" {
-		cfg.CustomCSS = *css
-	}
-
+	// Don't allow -clean without -resize (you can delete all resized photos!)
 	cfg.Clean = *clean
 	if *clean {
 		if !*resize {
@@ -111,6 +111,7 @@ func main() {
 		cfg.InitClean()
 	}
 
+	// Validate config
 	if err := cfg.Validate(); err != nil {
 		fmt.Printf("Error: %s\n", err)
 		exit.ExitWithStatus(err)
@@ -207,9 +208,9 @@ func main() {
 		}
 	}
 
-	warn.PrintSummary()
-
+	// Clean up old files
 	if cfg.Clean {
+		fmt.Println("\nCleaning...")
 		var slugs []string
 		for _, a := range albums {
 			slugs = append(slugs, a.Slug)
@@ -218,6 +219,9 @@ func main() {
 			fmt.Printf("Error cleaning output dir: %s\n", err)
 		}
 	}
+
+	// Summarize warnings
+	warn.PrintSummary()
 
 	exit.ExitWithStatus(nil)
 }
