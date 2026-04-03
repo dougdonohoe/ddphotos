@@ -369,6 +369,44 @@ Sample passwords files are in `sample/config/` — `passwords-all.yaml` (full si
 **Do not commit real passwords.** Store production passwords outside the repo or in a
 git-ignored directory (e.g. `.secrets/`).
 
+### Frontend Behavior (Encrypted Sites)
+
+When the frontend loads an encrypted page, it:
+
+1. Reads `config.json` (always plaintext) to get the `siteId`, hints, and which albums
+   file to load (`albums.json` vs `albums.enc.json`).
+2. Checks localStorage for a stored password scoped to the current `siteId`.
+3. If a stored password decrypts successfully, the page renders normally with no prompt.
+4. If no stored password works, a full-screen `PasswordPrompt` overlay appears with a
+   lock icon, a password input, and an optional hint. A wrong password triggers a shake
+   animation; a correct one stores the password in localStorage and decrypts the content.
+
+**Stored passwords and auto-unlock:** After a successful unlock, the password is saved
+to localStorage so subsequent visits auto-decrypt without prompting. Append `?clear` to
+any URL to clear all stored passwords and covers and return to the prompt:
+
+```
+http://localhost:5173/?clear
+http://localhost:5173/albums/uganda?clear
+```
+
+**Cover flash prevention:** Album cover images are cached in localStorage after unlock.
+An inline script in `app.html` runs synchronously before first paint, reading the cover
+cache and setting CSS custom properties (`--ddp-cover-{slug}`) on `<html>`. This means
+the cover image is visible from the very first paint with no flash, even before Svelte
+hydrates.
+
+**localStorage key format** (useful for debugging):
+
+| Key                          | Contains                                      |
+|------------------------------|-----------------------------------------------|
+| `ddp_site_{siteId}`          | Site-wide password                            |
+| `ddp_album_{siteId}_{slug}`  | Per-album password for `slug`                 |
+| `ddp_cover_{siteId}_{slug}`  | Cached cover image URL for `slug`             |
+
+All keys are scoped to `siteId` so that switching between builds (which use different
+HMAC keys and produce different filenames) automatically invalidates stale cached data.
+
 ## Decoding Encrypted Files (`decode`)
 
 The `decode` tool decrypts `.enc.json` files produced by `photogen` and prints the
