@@ -248,6 +248,7 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 			action = "encrypt+write"
 		}
 		fmt.Printf("DRYRUN: would %s %s (%d albums)\n", action, outputPath, len(summaries))
+		c.TrackFile(outputPath)
 		return nil
 	}
 
@@ -293,6 +294,7 @@ func (c *Config) WriteConfigJSON() error {
 	outputPath := c.SiteOutputPath("config.json")
 	if c.DryRun {
 		fmt.Printf("DRYRUN: would write %s\n", outputPath)
+		c.TrackFile(outputPath)
 		return nil
 	}
 	cfg := SiteConfig{SiteID: c.SiteID, AlbumsFile: albumsFile}
@@ -364,6 +366,7 @@ func (c *Config) WriteSitemap(summaries []AlbumSummary) error {
 
 	if c.DryRun {
 		fmt.Printf("DRYRUN: would write %s (%d URLs)\n", outputPath, len(summaries)+1)
+		c.TrackFile(outputPath)
 		return nil
 	}
 
