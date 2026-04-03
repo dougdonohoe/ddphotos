@@ -72,7 +72,8 @@ Website features:
   `albums.yaml` with a configurable crop position (top/center/bottom).
 - Optional password protection: encrypt individual albums or the entire site. Passwords
   are never stored server-side, decryption happens in-browser using the Web Crypto API.
-  A logout button clears stored passwords on encrypted sites.
+  Optional hints can be shown in the password dialog. A logout button clears stored
+  passwords on encrypted sites.
 - Dark/light theme toggle.
 - Custom CSS override: specify a CSS file in `albums.yaml` to restyle the site without
   modifying the source code.
