@@ -101,6 +101,13 @@ func main() {
 
 	cfg.Clean = *clean
 	if *clean {
+		if !*resize {
+			fmt.Println("ERROR: -clean requires -resize.")
+			fmt.Println("Without -resize, photogen does not track resized images, so -clean would")
+			fmt.Println("delete all of them. If you really want to remove all output files,")
+			fmt.Printf("delete the output directory manually (e.g. rm -rf %s).\n", cfg.SiteOutputPath())
+			exit.ExitWithStatus(fmt.Errorf("-clean requires -resize"))
+		}
 		cfg.InitClean()
 	}
 
