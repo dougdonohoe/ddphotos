@@ -7,7 +7,7 @@
 
 	let { children, data } = $props();
 
-	const hasHero = $derived(!!data.siteConfig?.heroImage);
+	const hasHero = $derived(!!data.siteConfig?.heroImage && page.url.pathname === '/');
 	const hasEncryption = $derived(!!data.siteConfig?.encrypted);
 
 	onMount(() => {
@@ -175,7 +175,15 @@
 		transform: scale(1.1);
 	}
 
+	.control-btn:focus:not(:focus-visible) {
+		outline: none;
+	}
+
 	.top-controls.over-hero .control-btn {
+		color: #fff;
+	}
+
+	.top-controls.over-hero :global(.theme-toggle) {
 		color: #fff;
 	}
 
