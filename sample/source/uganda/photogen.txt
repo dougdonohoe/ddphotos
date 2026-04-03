@@ -16,6 +16,4 @@ img_437_c One of the many species of lizards we saw in the camp.
 img_528_d A black headed weaver takes a break from nest building.
 img_653_d This is Rwansigazi, the dominant silverback of the Habinyanja group.
 img_687_d Males reach 5-6 feet in height, with an arm span of 7 feet 6 inches.  They weigh 450-500 lbs.
-img_727_c Their diet is composed primarily of leaves, shoots, stems, bark and roots.
-img_756_c "Oh for Kong's sake, not more tourists!"
-img_840_d "When you realize the value of all life, you dwell less on what is past and concentrate more on the preservation of the future." -- Dian Fossey
+subfolder

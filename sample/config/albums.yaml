@@ -22,8 +22,9 @@ albums:
     name: Uganda
     base: sample
     source: uganda
-    cover: img_840_d.jpg
+    cover: subfolder_img_840_d.jpg
     manual_sort_order: true
+    recurse: true
 
   - slug: antarctica
     name: Antarctica
