@@ -160,6 +160,18 @@ make sample-npm-run-dev
 You should see a `VITE` message and a browser window should
 open at [localhost:5173](http://localhost:5173/).
 
+To try a site with password protection and custom CSS together in one step:
+
+```bash
+make sample-demo
+```
+
+This photogens the sample site with all albums password-protected and a custom CSS
+override applied, then launches the dev server. The password for the sample site is
+`allgood`; the Uganda album password is `gorilla`; the Antarctica password is
+`penguin`.  The CSS changes the font color
+to cyan and rounds the album card corners a bit more.
+
 You can also build the static site and test it in Apache (requires Docker and
 assumes `photogen` has been run).
 

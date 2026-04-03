@@ -138,6 +138,9 @@ Common tasks are available via `make` from the repo root:
 | `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected    |
 | `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected  |
 | `sample-photogen-css`        | Run photogen using sample config with custom CSS injected          |
+| `sample-photogen-demo`       | Run photogen using sample config with custom CSS and all albums password-protected |
+| `use-sample-demo`            | Symlink `web/static/albums` → `../albums/sample-demo`             |
+| `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server       |
 | `sample-build`               | Build the static site using sample config                          |
 | `sample-npm-run-dev`         | Run the Vite dev server using sample config                        |
 | `sample-test-apache`         | Run Apache routing tests against Docker on port 8082               |

@@ -161,6 +161,21 @@ sample-photogen-css:
 use-sample-css:
 	ln -sfn ../albums/sample-css web/static/albums
 
+.PHONY: sample-photogen-demo
+## sample-photogen-demo: run photogen using sample images with custom CSS and all albums password-protected
+sample-photogen-demo:
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -passwords sample/config/passwords-all.yaml -site-id sample-demo -doit
+
+.PHONY: use-sample-demo
+## use-sample-demo: symlink web/static/albums -> ../albums/sample-demo
+use-sample-demo:
+	ln -sfn ../albums/sample-demo web/static/albums
+
+.PHONY: sample-demo
+## sample-demo: one-step demo with custom CSS + password protection — photogens and runs dev server
+sample-demo: sample-photogen-demo use-sample-demo
+	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
+
 .PHONY: sample-build
 ## sample-build: build web app using sample config
 sample-build: use-sample
