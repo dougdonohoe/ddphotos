@@ -323,7 +323,9 @@ func (c *Config) WriteHeroJPEG() error {
 		return nil
 	}
 	outputPath := c.SiteOutputPath("hero.jpg")
-	result, err := ResizeHeroJPEG(c.Hero.ImagePath, outputPath, c.Hero.Crop, c.Force, c.DryRun)
+	// Always force-regenerate hero.jpg: the output filename is fixed, so a source
+	// change won't trigger normal skip logic.
+	result, err := ResizeHeroJPEG(c.Hero.ImagePath, outputPath, c.Hero.Crop, true, c.DryRun)
 	if err != nil {
 		return err
 	}

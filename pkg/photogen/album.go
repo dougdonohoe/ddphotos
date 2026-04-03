@@ -551,7 +551,9 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 	}
 	outputPath := ap.OutputPath("cover.jpg")
 	ap.Config.TrackFile(outputPath)
-	result, err := ResizeCoverJPEG(cover.AbsolutePath, outputPath, ap.Config.Force, ap.Config.DryRun)
+	// Always force-regenerate cover.jpg: the output filename is fixed, so a source
+	// change won't trigger normal skip logic. Covers are few and cheap to redo.
+	result, err := ResizeCoverJPEG(cover.AbsolutePath, outputPath, true, ap.Config.DryRun)
 	if err != nil {
 		return fmt.Errorf("write cover jpeg: %w", err)
 	}

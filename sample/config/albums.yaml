@@ -4,7 +4,7 @@ settings:
   output_dir: web
   descriptions: descriptions.txt
   hero:
-    image: theway/2024-The-Way-14.jpg
+    image: theway/2024-The-Way-13.jpg
     base: sample
     crop: center
 
