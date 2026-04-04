@@ -20,6 +20,5 @@ memory/
 # Python virtualenv
 .venv/
 
-# photogen output (generated; use 'make use-sample' or 'make use-prod' to symlink)
-web/static/albums
-web/albums/
+# photogen output
+albums

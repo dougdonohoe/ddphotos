@@ -1,9 +1,13 @@
 import adapter from '@sveltejs/adapter-static';
 import { readdirSync } from 'fs';
+import { join, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 /**
  * Return /albums/<slug> prerender entries for every album directory found under
- * static/albums/ (which may be a symlink to the active album set).
+ * DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID.
  *
  * This is necessary for encrypted builds: when all albums require a password the
  * SvelteKit crawler never finds links to album pages, so without explicit entries
@@ -13,7 +17,12 @@ import { readdirSync } from 'fs';
  */
 function albumEntries() {
 	try {
-		return readdirSync('static/albums', { withFileTypes: true })
+		const albumsDir = process.env.DDPHOTOS_ALBUMS_DIR ?? 'albums';
+		const siteId = process.env.DDPHOTOS_SITE_ID ?? 'sample';
+		const root = resolve(__dirname, '..');
+		const base = albumsDir.startsWith('/') ? albumsDir : resolve(root, albumsDir);
+		const dir = join(base, siteId);
+		return readdirSync(dir, { withFileTypes: true })
 			.filter((d) => d.isDirectory())
 			.map((d) => `/albums/${d.name}`);
 	} catch {
@@ -35,7 +44,13 @@ const config = {
 			relative: false
 		},
 		prerender: {
-			entries: ['*', ...albumEntries()]
+			entries: ['*', ...albumEntries()],
+			handleHttpError: ({ path, message }) => {
+				// Album assets (/albums/**) are served at runtime, not prerendered.
+				// Ignore 404s the crawler encounters for images, JSON, etc.
+				if (path.startsWith('/albums/')) return;
+				throw new Error(message);
+			}
 		}
 	}
 };

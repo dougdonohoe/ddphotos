@@ -3,6 +3,11 @@
 SITE_ENV ?= config/site.env
 override SITE_ENV := $(abspath $(patsubst ~/%,$(HOME)/%,$(SITE_ENV)))
 
+# Albums directory and site ID — defaults loaded from config/defaults.env.
+# Override on the command line, e.g.: make sample-build DDPHOTOS_SITE_ID=sample-css
+include config/defaults.env
+override DDPHOTOS_ALBUMS_DIR := $(abspath $(patsubst ~/%,$(HOME)/%,$(DDPHOTOS_ALBUMS_DIR)))
+
 # nvm/Node.js initialization:
 # - NVM_INIT always sources nvm.sh (nvm is a shell function, not a binary, so Make's subshell
 #   never has it). NVM_SH is derived from NVM_DIR if set (e.g. Homebrew install), else ~/.nvm.
@@ -67,12 +72,12 @@ web-playwright-install:
 .PHONY: web-npm-run-dev
 ## web-npm-run-dev: run npm dev server in web, opening a browser window to the site
 web-npm-run-dev:
-	$(NODE_INIT) cd web && SITE_ENV=$(abspath $(SITE_ENV)) npm run dev -- --open
+	$(NODE_INIT) cd web && SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run dev -- --open
 
 .PHONY: web-npm-build
 ## web-npm-build: build web app
 web-npm-build:
-	$(NODE_INIT) cd web && SITE_ENV=$(abspath $(SITE_ENV)) npm run build
+	$(NODE_INIT) cd web && SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run build
 
 .PHONY: web-docker-build
 ## web-docker-build: build the photos Apache Docker image
@@ -82,7 +87,11 @@ web-docker-build:
 .PHONY: web-docker-run
 ## web-docker-run: run the photos Apache Docker container on port 8080 (mount web/build as document root)
 web-docker-run:
-	docker run --rm -p 8080:80 -v $(PWD)/web:/usr/local/apache2/htdocs:ro photos-apache
+	mkdir -p web/build/albums
+	docker run --rm -p 8080:80 \
+		-v $(PWD)/web:/usr/local/apache2/htdocs:ro \
+		-v $(DDPHOTOS_ALBUMS_DIR)/$(DDPHOTOS_SITE_ID):/usr/local/apache2/htdocs/build/albums:ro \
+		photos-apache
 
 .PHONY: web-docker-stop
 ## web-docker-stop: stop the running photos Apache Docker container
