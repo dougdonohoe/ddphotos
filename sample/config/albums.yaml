@@ -1,7 +1,7 @@
 settings:
   id: sample
   site_url: https://sample.donohoe.info
-  output_dir: web
+  output_dir: .
   descriptions: descriptions.txt
   hero:
     image: theway/2024-The-Way-13.jpg

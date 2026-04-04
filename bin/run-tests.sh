@@ -77,26 +77,25 @@ if [ -n "$CSS_FILE" ]; then
     [ -f "$CSS_FILE" ] || { echo "Error: CSS file not found: $CSS_FILE" >&2; exit 1; }
 fi
 
-# Derive site-id and symlink target from flags.
+# Derive site-id from flags.
 # Convention: passwords-all.yaml -> site-id "sample-pw-all"
 #             passwords-uganda.yaml -> site-id "sample-pw-uganda"
 #             --css <file> -> site-id "sample-css"
 #             (no flags) -> site-id "sample"
 SITE_ID="sample"
-SYMLINK_TARGET="../albums/sample"
 PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -doit"
 if [ -n "$PASSWORDS_FILE" ]; then
     BASENAME=$(basename "$PASSWORDS_FILE" .yaml)  # e.g. "passwords-all"
     VARIANT="${BASENAME#passwords-}"               # e.g. "all"
     SITE_ID="sample-pw-${VARIANT}"
-    SYMLINK_TARGET="../albums/sample-pw-${VARIANT}"
     PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -passwords $PASSWORDS_FILE -site-id $SITE_ID -doit"
 fi
 if [ -n "$CSS_FILE" ]; then
     SITE_ID="sample-css"
-    SYMLINK_TARGET="../albums/sample-css"
     PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -css $CSS_FILE -site-id $SITE_ID -doit"
 fi
+
+ALBUMS_DIR="$(pwd)/albums"
 
 SITE_ENV="$(pwd)/sample/config/site.env"
 DEV_PORT=5174
@@ -117,9 +116,6 @@ echo ""
 echo "=== Generating sample data (site-id: $SITE_ID) ==="
 # shellcheck disable=SC2086
 go run cmd/photogen/photogen.go $PHOTOGEN_FLAGS
-
-echo "=== Setting symlink: web/static/albums -> $SYMLINK_TARGET ==="
-ln -sfn "$SYMLINK_TARGET" web/static/albums
 
 # --- helper: run Playwright against a base URL ---
 run_playwright() {
@@ -153,7 +149,7 @@ wait_for_http() {
 run_dev() {
     echo ""
     echo "=== [dev] Starting Vite dev server on port $DEV_PORT ==="
-    (cd web && SITE_ENV="$SITE_ENV" npx vite dev --port "$DEV_PORT" --clearScreen false) &
+    (cd web && SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npx vite dev --port "$DEV_PORT" --clearScreen false) &
     DEV_PID=$!
 
     wait_for_http "http://localhost:$DEV_PORT" "dev server"
@@ -174,7 +170,7 @@ run_apache() {
     echo "=== [apache] Building static site ==="
     # Explicit error check: set -e is suppressed inside functions called via ||
     # (see run_apache || OVERALL_EXIT=$? below), so failures must be caught manually.
-    (cd web && SITE_ENV="$SITE_ENV" npm run build) || return 1
+    (cd web && SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
 
     # Build Docker image if it doesn't already exist
     if ! docker image inspect photos-apache &>/dev/null 2>&1; then
@@ -184,7 +180,9 @@ run_apache() {
 
     echo "=== [apache] Starting Apache on port $DOCKER_PORT ==="
     docker run -d --rm --name "$DOCKER_CONTAINER" -p "$DOCKER_PORT:80" \
-        -v "$(pwd)/web":/usr/local/apache2/htdocs:ro photos-apache
+        -v "$(pwd)/web":/usr/local/apache2/htdocs \
+        -v "$ALBUMS_DIR/$SITE_ID":/albums:ro \
+        photos-apache
 
     wait_for_http "http://localhost:$DOCKER_PORT" "Apache"
 

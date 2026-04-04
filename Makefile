@@ -1,11 +1,20 @@
+# Migration check: album data moved from web/albums/ to albums/ in the decouple refactor.
+ifneq ($(wildcard web/albums),)
+$(warning MIGRATION REQUIRED: web/albums/ exists but album data now lives in albums/ )
+$(warning run: 'mv web/albums albums')
+$(error ERROR)
+endif
+
 # Path to site.env - override if your config lives elsewhere, e.g.:
 #   make web-npm-run-dev SITE_ENV=~/work/my-photos/config/site.env
 SITE_ENV ?= config/site.env
 override SITE_ENV := $(abspath $(patsubst ~/%,$(HOME)/%,$(SITE_ENV)))
 
-# Albums directory and site ID — defaults loaded from config/defaults.env.
+# Albums directory and site ID — defaults read from config/defaults.env.
+# ?= means env vars and command-line assignments take precedence over the file defaults.
 # Override on the command line, e.g.: make sample-build DDPHOTOS_SITE_ID=sample-css
-include config/defaults.env
+DDPHOTOS_ALBUMS_DIR ?= $(shell sed -n 's/^DDPHOTOS_ALBUMS_DIR=//p' config/defaults.env)
+DDPHOTOS_SITE_ID    ?= $(shell sed -n 's/^DDPHOTOS_SITE_ID=//p' config/defaults.env)
 override DDPHOTOS_ALBUMS_DIR := $(abspath $(patsubst ~/%,$(HOME)/%,$(DDPHOTOS_ALBUMS_DIR)))
 
 # nvm/Node.js initialization:
@@ -87,10 +96,9 @@ web-docker-build:
 .PHONY: web-docker-run
 ## web-docker-run: run the photos Apache Docker container on port 8080 (mount web/build as document root)
 web-docker-run:
-	mkdir -p web/build/albums
 	docker run --rm -p 8080:80 \
-		-v $(PWD)/web:/usr/local/apache2/htdocs:ro \
-		-v $(DDPHOTOS_ALBUMS_DIR)/$(DDPHOTOS_SITE_ID):/usr/local/apache2/htdocs/build/albums:ro \
+		-v $(PWD)/web:/usr/local/apache2/htdocs \
+		-v $(DDPHOTOS_ALBUMS_DIR)/$(DDPHOTOS_SITE_ID):/albums:ro \
 		photos-apache
 
 .PHONY: web-docker-stop
@@ -125,26 +133,6 @@ web-screenshots:
 	$(NODE_INIT) cd web && node scripts/screenshots.mjs --album antarctica --photo 4
 	.venv/bin/python3 bin/generate-screenshot-composite.py
 
-.PHONY: use-sample
-## use-sample: symlink web/static/albums -> ../albums/sample (web/albums/sample/)
-use-sample:
-	ln -sfn ../albums/sample web/static/albums
-
-.PHONY: use-sample-pw-all
-## use-sample-pw-all: symlink web/static/albums -> ../albums/sample-pw-all
-use-sample-pw-all:
-	ln -sfn ../albums/sample-pw-all web/static/albums
-
-.PHONY: use-sample-pw-uganda
-## use-sample-pw-uganda: symlink web/static/albums -> ../albums/sample-pw-uganda
-use-sample-pw-uganda:
-	ln -sfn ../albums/sample-pw-uganda web/static/albums
-
-.PHONY: use-prod
-## use-prod: symlink web/static/albums -> ../albums/prod (web/albums/prod/)
-use-prod:
-	ln -sfn ../albums/prod web/static/albums
-
 .PHONY: sample-photogen
 ## sample-photogen: run photogen using sample images
 sample-photogen:
@@ -165,29 +153,19 @@ sample-photogen-pw-uganda:
 sample-photogen-css:
 	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -site-id sample-css -doit
 
-.PHONY: use-sample-css
-## use-sample-css: symlink web/static/albums -> ../albums/sample-css
-use-sample-css:
-	ln -sfn ../albums/sample-css web/static/albums
-
 .PHONY: sample-photogen-demo
 ## sample-photogen-demo: run photogen using sample images with custom CSS and all albums password-protected
 sample-photogen-demo:
 	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -passwords sample/config/passwords-all.yaml -site-id sample-demo -doit
 
-.PHONY: use-sample-demo
-## use-sample-demo: symlink web/static/albums -> ../albums/sample-demo
-use-sample-demo:
-	ln -sfn ../albums/sample-demo web/static/albums
-
 .PHONY: sample-demo
 ## sample-demo: one-step demo with custom CSS + password protection — photogens and runs dev server
-sample-demo: sample-photogen-demo use-sample-demo
-	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
+sample-demo: sample-photogen-demo
+	SITE_ENV=sample/config/site.env DDPHOTOS_SITE_ID=sample-demo $(MAKE) web-npm-run-dev
 
 .PHONY: sample-build
 ## sample-build: build web app using sample config
-sample-build: use-sample
+sample-build:
 	SITE_ENV=sample/config/site.env $(MAKE) web-npm-build
 
 .PHONY: sample-test-apache
@@ -195,7 +173,9 @@ sample-build: use-sample
 sample-test-apache:
 	@test -d web/build || { echo "Error: web/build not found. Run 'make web-npm-build' first."; exit 1; }
 	docker run -d --rm --name sample-test-apache -p 8082:80 \
-		-v $(PWD)/web:/usr/local/apache2/htdocs:ro photos-apache
+		-v $(PWD)/web:/usr/local/apache2/htdocs \
+		-v $(DDPHOTOS_ALBUMS_DIR)/$(DDPHOTOS_SITE_ID):/albums:ro \
+		photos-apache
 	@echo "Waiting for Apache to be ready..."; \
 	until curl -s -o /dev/null http://localhost:8082; do sleep 1; done
 	bin/test-photos-apache.sh --config-dir sample/config --local 8082; \
@@ -203,10 +183,10 @@ sample-test-apache:
 
 .PHONY: sample-npm-run-dev
 ## sample-npm-run-dev: run npm dev server using sample config
-sample-npm-run-dev: use-sample
+sample-npm-run-dev:
 	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
 
 .PHONY: sample-npm-run-dev-css
 ## sample-npm-run-dev-css: run npm dev server using sample config with custom CSS
-sample-npm-run-dev-css: use-sample-css
-	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
+sample-npm-run-dev-css:
+	SITE_ENV=sample/config/site.env DDPHOTOS_SITE_ID=sample-css $(MAKE) web-npm-run-dev

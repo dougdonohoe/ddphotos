@@ -7,15 +7,20 @@ SKIP_PHOTOGEN=false
 SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
 SKIP_APACHE_TEST=false
+DRY_RUN=false
 CONFIG_DIR=""
+SITE_ENV_ARG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-photogen)  SKIP_PHOTOGEN=true; shift ;;
         --no-rsync)     SKIP_RSYNC=true; shift ;;
         --no-playwright) SKIP_PLAYWRIGHT=true; shift ;;
         --no-apache-test) SKIP_APACHE_TEST=true; shift ;;
+        --dry-run)      DRY_RUN=true; shift ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
+        --site-env)     SITE_ENV_ARG="$2"; shift 2 ;;
+        --site-env=*)   SITE_ENV_ARG="${1#*=}"; shift ;;
         *) echo "Unknown flag: $1"; exit 1 ;;
     esac
 done
@@ -24,17 +29,38 @@ done
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 cd "$SDIR/.."
 
-# Resolve CONFIG_DIR to absolute path (relative paths break after subsequent cd's)
-[ -n "$CONFIG_DIR" ] && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
+# Resolve CONFIG_DIR and SITE_ENV_ARG to absolute paths (relative paths break after subsequent cd's)
+[ -n "$CONFIG_DIR" ]    && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
+[ -n "$SITE_ENV_ARG" ]  && SITE_ENV_ARG="$(cd "$(dirname "$SITE_ENV_ARG")" && pwd)/$(basename "$SITE_ENV_ARG")"
 
-# Load site config
-if [ -n "$CONFIG_DIR" ]; then
-    CONFIG="$CONFIG_DIR/site.env"
+# Resolve site.env: --site-env takes priority, then --config-dir/site.env, then config/site.env
+if [ -n "$SITE_ENV_ARG" ]; then
+    SITE_ENV="$SITE_ENV_ARG"
+elif [ -n "$CONFIG_DIR" ]; then
+    SITE_ENV="$CONFIG_DIR/site.env"
 else
-    CONFIG="config/site.env"
+    SITE_ENV="config/site.env"
 fi
-[ -f "$CONFIG" ] || { echo "Error: $CONFIG not found"; exit 1; }
-source "$CONFIG"
+[ -f "$SITE_ENV" ] || { echo "Error: $SITE_ENV not found"; exit 1; }
+source "$SITE_ENV"
+
+# These must be set by the caller (e.g. Makefile)
+[ -n "$DDPHOTOS_ALBUMS_DIR" ] || { echo "Error: DDPHOTOS_ALBUMS_DIR not set"; exit 1; }
+[ -n "$DDPHOTOS_SITE_ID" ]    || { echo "Error: DDPHOTOS_SITE_ID not set"; exit 1; }
+
+# These must be set in site.env — guard early so a missing value can't
+# cause rsync --delete to target the wrong (or empty) remote path.
+[ -n "$AWS_APACHE" ]      || { echo "Error: AWS_APACHE not set in $SITE_ENV"; exit 1; }
+[ -n "$RSYNC_DEST" ]      || { echo "Error: RSYNC_DEST not set in $SITE_ENV"; exit 1; }
+[ -n "$CLOUDFRONT_ID" ]   || { echo "Error: CLOUDFRONT_ID not set in $SITE_ENV"; exit 1; }
+[ -n "$VITE_SITE_URL" ]   || { echo "Error: VITE_SITE_URL not set in $SITE_ENV"; exit 1; }
+
+# Ensure RSYNC_DEST ends with / so rsync targets an explicit directory path,
+# never a bare or empty string that could default to the remote home directory.
+[[ "$RSYNC_DEST" == */ ]] || RSYNC_DEST="${RSYNC_DEST}/"
+
+# Resolve DDPHOTOS_ALBUMS_DIR to absolute path
+DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
 
 # Generate photos
 if [ "$SKIP_PHOTOGEN" = true ]; then
@@ -49,8 +75,7 @@ fi
 # Build static site
 cd web
 source "$HOME/.nvm/nvm.sh"
-[ -n "$CONFIG_DIR" ] && export SITE_ENV="$CONFIG_DIR/site.env"
-npm run build
+SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
 
 # Local Apache test before deploying.
 # Start Docker container if not already running on port 8080, and stop it on exit.
@@ -71,7 +96,10 @@ else
         echo "Docker already running on port 8080, using existing container..."
     else
         echo "Starting local Docker container for testing..."
-        docker run -d --rm -p 8080:80 -v "$PWD":/usr/local/apache2/htdocs:ro photos-apache > /dev/null
+        docker run -d --rm -p 8080:80 \
+            -v "$PWD":/usr/local/apache2/htdocs \
+            -v "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID":/albums:ro \
+            photos-apache > /dev/null
         DOCKER_STARTED=true
         sleep 1
     fi
@@ -89,18 +117,48 @@ else
     npx playwright test
 fi
 
+RSYNC_OPTS="-avz --checksum --delete"
+[ "$DRY_RUN" = true ] && RSYNC_OPTS="$RSYNC_OPTS --dry-run"
+
 if [ "$SKIP_RSYNC" = true ]; then
     echo "Skipping rsync, CloudFront invalidation, and post-deploy test (--no-rsync)"
 else
-    # Deploy (--checksum so rsync skips files with matching content, since
-    # Vite resets timestamps on static/ files copied into build/)
-    rsync -avz --checksum --delete build/ "$AWS_APACHE":"$RSYNC_DEST"
+    [ "$DRY_RUN" = true ] && echo "=== DRY RUN: rsync will not transfer any files ==="
 
-    # Clear cache
-    aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*"
+    # Remove Docker-created symlinks from build/albums/ before rsyncing.
+    # The entrypoint.sh creates symlinks in build/albums/ at container startup;
+    # they persist on the host and must not be rsynced to the server.
+    find build/albums -maxdepth 1 -type l -delete
+
+    # Deploy app files + prerendered album HTML/JSON.
+    # --checksum: rsync skips files with matching content (Vite resets timestamps on static/ files)
+    # --exclude=albums/*/: skip album image subdirs (rsynced separately below)
+    # --exclude=albums/README.md: skip the Docker placeholder file
+    # shellcheck disable=SC2086
+    rsync $RSYNC_OPTS \
+        --exclude=albums/*/ \
+        --exclude=albums/README.md \
+        build/ "$AWS_APACHE":"$RSYNC_DEST"
+
+    # Deploy album data (images + JSON) independently.
+    # --exclude=*.html: don't delete prerendered .html pages synced above
+    # shellcheck disable=SC2086
+    rsync $RSYNC_OPTS \
+        --exclude=*.html \
+        "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" \
+        "$AWS_APACHE":"${RSYNC_DEST}albums/"
+
+    # Clear cache (skipped in dry-run mode)
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY RUN: skipping CloudFront invalidation"
+    else
+        aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*"
+    fi
 
     if [ "$SKIP_APACHE_TEST" = true ]; then
         echo "Skipping post-deploy Apache tests (--no-apache-test)"
+    elif [ "$DRY_RUN" = true ]; then
+        echo "DRY RUN: skipping post-deploy Apache tests"
     else
         # Wait, run test
         echo "Sleeping 5 to allow cache to clear..."
@@ -112,6 +170,8 @@ else
 
     if [ "$SKIP_PLAYWRIGHT" = true ]; then
         echo "Skipping Playwright tests against production (--no-playwright)"
+    elif [ "$DRY_RUN" = true ]; then
+        echo "DRY RUN: skipping Playwright tests against production"
     else
         echo "Running Playwright e2e tests against production..."
         PLAYWRIGHT_BASE_URL="$VITE_SITE_URL" npx playwright test
