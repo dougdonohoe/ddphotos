@@ -172,9 +172,11 @@ run_apache() {
     # (see run_apache || OVERALL_EXIT=$? below), so failures must be caught manually.
     (cd web && SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
 
-    # Build Docker image if it doesn't already exist
-    if ! docker image inspect photos-apache &>/dev/null 2>&1; then
-        echo "=== [apache] Building Docker image ==="
+    # Build Docker image if missing or schema label is stale
+    local schema
+    schema=$(docker image inspect photos-apache --format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null)
+    if [ "$schema" != "2" ]; then
+        echo "=== [apache] Building Docker image (schema stale or missing) ==="
         docker build -t photos-apache web/ || return 1
     fi
 

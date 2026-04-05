@@ -88,14 +88,24 @@ web-npm-run-dev:
 web-npm-build:
 	$(NODE_INIT) cd web && SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run build
 
+DOCKER_SCHEMA := 2
+
 .PHONY: web-docker-build
 ## web-docker-build: build the photos Apache Docker image
 web-docker-build:
 	docker build -t photos-apache web/
 
+.PHONY: _check-docker-schema
+_check-docker-schema:
+	@label=$$(docker image inspect photos-apache \
+		--format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null); \
+	[ "$$label" = "$(DOCKER_SCHEMA)" ] || { \
+		echo "ERROR: photos-apache image is stale or missing (expected schema=$(DOCKER_SCHEMA), got '$$label')."; \
+		echo "Run: make web-docker-build"; exit 1; }
+
 .PHONY: web-docker-run
 ## web-docker-run: run the photos Apache Docker container on port 8080
-web-docker-run:
+web-docker-run: _check-docker-schema
 	docker run --rm -p 8080:80 \
 		-e DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) \
 		-v $(PWD)/build:/build:ro \
@@ -171,7 +181,7 @@ sample-build:
 
 .PHONY: sample-test-apache
 ## sample-test-apache: run test-photos-apache.sh tests against local Docker container on port 8082 (starts/stops Docker automatically)
-sample-test-apache:
+sample-test-apache: _check-docker-schema
 	@test -d build/$(DDPHOTOS_SITE_ID) || { echo "Error: build/$(DDPHOTOS_SITE_ID) not found. Run 'make web-npm-build' first."; exit 1; }
 	docker run -d --rm --name sample-test-apache -p 8082:80 \
 		-e DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) \

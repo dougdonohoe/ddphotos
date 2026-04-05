@@ -103,6 +103,14 @@ trap _docker_cleanup EXIT
 if [ "$SKIP_APACHE_TEST" = true ]; then
     echo "Skipping local Apache tests (--no-apache-test)"
 else
+    # Verify Docker image schema before running
+    _schema=$(docker image inspect photos-apache --format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null)
+    if [ "$_schema" != "2" ]; then
+        echo "ERROR: photos-apache image is stale or missing (expected schema=2, got '$_schema')."
+        echo "Run: make web-docker-build"
+        exit 1
+    fi
+
     DOCKER_RUNNING=$(docker ps -q --filter publish=8080)
     if [ -n "$DOCKER_RUNNING" ]; then
         echo "Docker already running on port 8080, using existing container..."
