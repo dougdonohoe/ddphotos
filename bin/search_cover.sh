@@ -6,6 +6,8 @@
 #
 # Example:
 #   bin/search_cover.sh http://localhost:5173/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
+#
+# Respects DDPHOTOS_ALBUMS_DIR and DDPHOTOS_SITE_ID (falls back to config/defaults.env).
 
 set -eo pipefail
 
@@ -15,6 +17,28 @@ if [[ $# -ne 1 ]]; then
 fi
 
 url="$1"
+
+# cd to repo root
+SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+cd "$SDIR/.."
+
+# Load defaults.env for DDPHOTOS_ALBUMS_DIR / DDPHOTOS_SITE_ID if not already set
+if [ -f config/defaults.env ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ "$line" =~ ^#|^$ ]] && continue
+        key="${line%%=*}"
+        val="${line#*=}"
+        [ -z "${!key+x}" ] && export "$key"="$val"
+    done < config/defaults.env
+fi
+
+ALBUMS_DIR="${DDPHOTOS_ALBUMS_DIR:-albums}"
+SITE_ID="${DDPHOTOS_SITE_ID:-sample}"
+
+# Resolve relative ALBUMS_DIR against repo root
+[[ "$ALBUMS_DIR" = /* ]] || ALBUMS_DIR="$(pwd)/$ALBUMS_DIR"
+
+SEARCH_ROOT="$ALBUMS_DIR/$SITE_ID"
 
 # Extract slug (e.g. "banff-2002") and src path (e.g. "full/0918bedf-....webp")
 # URL form: .../albums/{slug}/full/{uuid}.webp  or  .../albums/{slug}/grid/{uuid}.webp
@@ -26,12 +50,12 @@ if [[ -z "$slug" || -z "$src_path" ]]; then
     exit 1
 fi
 
-# Find index.enc.json (or index.json) for this album under albums/
-index_file=$(find albums -maxdepth 3 -type f \( -name "index.enc.json" -o -name "index.json" \) \
+# Find index.enc.json (or index.json) for this album under the active site
+index_file=$(find "$SEARCH_ROOT" -maxdepth 2 -type f \( -name "index.enc.json" -o -name "index.json" \) \
     | grep "/${slug}/" | head -1)
 
 if [[ -z "$index_file" ]]; then
-    echo "No index file found for album slug: $slug" >&2
+    echo "No index file found for album slug '$slug' under $SEARCH_ROOT" >&2
     exit 1
 fi
 

@@ -508,6 +508,13 @@ The script parses the album slug and image path from the URL, locates the album'
 `cmd/decode`), and searches for the matching `src` entry to print the `fileName`, `id`,
 and `sourcePath` (for recursive albums).
 
+The search is scoped to `DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID` (defaults from
+`config/defaults.env`). Override to search a different site:
+
+```bash
+DDPHOTOS_SITE_ID=prod bin/search_cover.sh <url>
+```
+
 ## Testing
 
 There are three ways of testing the website:
