@@ -1,31 +1,45 @@
 #!/bin/sh
 set -e
 
-# Symlink album data from /albums (the external mount) into build/albums/ so
-# Apache can serve images alongside the pre-rendered .html pages.
+# Populate /usr/local/apache2/htdocs with symlinks so Apache can serve the site.
 #
-# Only items not already present in build/albums/ get a symlink — this preserves
-# pre-rendered files (antarctica.html, config.json, etc.) from the build step.
-# Existing dangling symlinks (from a previous container run) are refreshed.
+# Mounts:
+#   /build        — <root>/build  (all site builds)
+#   /albums       — <root>/albums/<site-id>  (photogen output: image dirs + JSON)
+#
+# Strategy:
+#   1. Symlink everything from /build/<site-id>/ into htdocs/, except albums/.
+#   2. Create htdocs/albums/ as a real directory, then populate it with:
+#        - symlinks to *.html files from /build/<site-id>/albums/  (pre-rendered pages)
+#        - symlinks to everything in /albums/                       (image dirs, JSON, etc.)
+#
+# All symlinks live inside the container — nothing dangling is left on the host.
 
-BUILD_ALBUMS=/usr/local/apache2/htdocs/build/albums
+SITE_ID="${DDPHOTOS_SITE_ID:-sample}"
+BUILD_SITE="/build/$SITE_ID"
+HTDOCS="/usr/local/apache2/htdocs"
 
-for item in /albums/*; do
-    [ -e "$item" ] || continue          # skip if glob matched nothing
+# 1. Symlink build output into htdocs (skip albums/ — handled separately below).
+# Use find rather than glob so dotfiles like .htaccess are included.
+find "$BUILD_SITE" -maxdepth 1 -mindepth 1 | while IFS= read -r item; do
     name=$(basename "$item")
-    target="$BUILD_ALBUMS/$name"
-    if [ -d "$item" ]; then
-        # Album slug directory: always replace with a symlink to /albums/<slug>.
-        # The pre-rendered dir only has index.json; images live in /albums/<slug>.
-        # The symlink serves index.json correctly (identical content).
-        rm -rf "$target"
-        ln -s "$item" "$target"
-    elif [ -L "$target" ]; then
-        ln -sf "$item" "$target"        # refresh existing file symlink
-    elif [ ! -e "$target" ]; then
-        ln -s "$item" "$target"         # create symlink for files not in build
-    fi
-    # real file already exists (pre-rendered .html / .json) — leave it alone
+    [ "$name" = "albums" ] && continue
+    ln -sf "$item" "$HTDOCS/$name"
+done
+
+# 2. Create htdocs/albums/ and populate with symlinks
+mkdir -p "$HTDOCS/albums"
+
+# Pre-rendered album HTML pages from the build
+for item in "$BUILD_SITE/albums"/*.html; do
+    [ -e "$item" ] || continue
+    ln -sf "$item" "$HTDOCS/albums/$(basename "$item")"
+done
+
+# Album data (image dirs, albums.json, sitemap.xml, etc.) from the photogen mount
+for item in /albums/*; do
+    [ -e "$item" ] || continue
+    ln -sf "$item" "$HTDOCS/albums/$(basename "$item")"
 done
 
 exec httpd-foreground

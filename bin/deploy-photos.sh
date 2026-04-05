@@ -25,9 +25,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# cd
+# cd to root of repo
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 cd "$SDIR/.."
+REPO_ROOT="$(pwd)"
 
 # Resolve CONFIG_DIR and SITE_ENV_ARG to absolute paths (relative paths break after subsequent cd's)
 [ -n "$CONFIG_DIR" ]    && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
@@ -97,7 +98,8 @@ else
     else
         echo "Starting local Docker container for testing..."
         docker run -d --rm -p 8080:80 \
-            -v "$PWD":/usr/local/apache2/htdocs \
+            -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
+            -v "$REPO_ROOT/build":/build:ro \
             -v "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID":/albums:ro \
             photos-apache > /dev/null
         DOCKER_STARTED=true
@@ -125,23 +127,16 @@ if [ "$SKIP_RSYNC" = true ]; then
 else
     [ "$DRY_RUN" = true ] && echo "=== DRY RUN: rsync will not transfer any files ==="
 
-    # Remove Docker-created symlinks from build/albums/ before rsyncing.
-    # The entrypoint.sh creates symlinks in build/albums/ at container startup;
-    # they persist on the host and must not be rsynced to the server.
-    find build/albums -maxdepth 1 -type l -delete
-
-    # Deploy app files + prerendered album HTML/JSON.
+    # Deploy app files + pre-rendered album HTML/JSON.
     # --checksum: rsync skips files with matching content (Vite resets timestamps on static/ files)
     # --exclude=albums/*/: skip album image subdirs (rsynced separately below)
-    # --exclude=albums/README.md: skip the Docker placeholder file
     # shellcheck disable=SC2086
     rsync $RSYNC_OPTS \
         --exclude=albums/*/ \
-        --exclude=albums/README.md \
-        build/ "$AWS_APACHE":"$RSYNC_DEST"
+        "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "$AWS_APACHE":"$RSYNC_DEST"
 
     # Deploy album data (images + JSON) independently.
-    # --exclude=*.html: don't delete prerendered .html pages synced above
+    # --exclude=*.html: don't delete pre-rendered .html pages synced above
     # shellcheck disable=SC2086
     rsync $RSYNC_OPTS \
         --exclude=*.html \

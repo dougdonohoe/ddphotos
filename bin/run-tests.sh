@@ -180,7 +180,8 @@ run_apache() {
 
     echo "=== [apache] Starting Apache on port $DOCKER_PORT ==="
     docker run -d --rm --name "$DOCKER_CONTAINER" -p "$DOCKER_PORT:80" \
-        -v "$(pwd)/web":/usr/local/apache2/htdocs \
+        -e DDPHOTOS_SITE_ID="$SITE_ID" \
+        -v "$(pwd)/build":/build:ro \
         -v "$ALBUMS_DIR/$SITE_ID":/albums:ro \
         photos-apache
 

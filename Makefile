@@ -94,10 +94,11 @@ web-docker-build:
 	docker build -t photos-apache web/
 
 .PHONY: web-docker-run
-## web-docker-run: run the photos Apache Docker container on port 8080 (mount web/build as document root)
+## web-docker-run: run the photos Apache Docker container on port 8080
 web-docker-run:
 	docker run --rm -p 8080:80 \
-		-v $(PWD)/web:/usr/local/apache2/htdocs \
+		-e DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) \
+		-v $(PWD)/build:/build:ro \
 		-v $(DDPHOTOS_ALBUMS_DIR)/$(DDPHOTOS_SITE_ID):/albums:ro \
 		photos-apache
 
@@ -171,9 +172,10 @@ sample-build:
 .PHONY: sample-test-apache
 ## sample-test-apache: run test-photos-apache.sh tests against local Docker container on port 8082 (starts/stops Docker automatically)
 sample-test-apache:
-	@test -d web/build || { echo "Error: web/build not found. Run 'make web-npm-build' first."; exit 1; }
+	@test -d build/$(DDPHOTOS_SITE_ID) || { echo "Error: build/$(DDPHOTOS_SITE_ID) not found. Run 'make web-npm-build' first."; exit 1; }
 	docker run -d --rm --name sample-test-apache -p 8082:80 \
-		-v $(PWD)/web:/usr/local/apache2/htdocs \
+		-e DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) \
+		-v $(PWD)/build:/build:ro \
 		-v $(DDPHOTOS_ALBUMS_DIR)/$(DDPHOTOS_SITE_ID):/albums:ro \
 		photos-apache
 	@echo "Waiting for Apache to be ready..."; \

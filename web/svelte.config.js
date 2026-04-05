@@ -30,12 +30,14 @@ function albumEntries() {
 	}
 }
 
+const siteId = process.env.DDPHOTOS_SITE_ID ?? 'sample';
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
 		adapter: adapter({
-			pages: 'build',
-			assets: 'build',
+			pages: `../build/${siteId}`,
+			assets: `../build/${siteId}`,
 			fallback: null,
 			precompress: false,
 			strict: true

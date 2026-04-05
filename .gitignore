@@ -22,3 +22,6 @@ memory/
 
 # photogen output
 /albums
+
+# per-site static builds (npm run build output)
+/build

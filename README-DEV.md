@@ -460,7 +460,7 @@ The correct password is selected automatically from the filename:
 
 There are three ways of testing the website:
 
-1. **Manual testing** in a browser, against the Vite dev server or a local static build (via Python or Docker/Apache)
+1. **Manual testing** in a browser, against the Vite dev server or a local static build (via Docker/Apache)
 2. **Playwright e2e tests** that drive a headless Chromium browser to verify UI behavior
 3. **Apache routing tests** using `curl` to verify `.htaccess` URL routing, redirects, and 404 handling
 
@@ -502,25 +502,13 @@ ln -sfn ../albums/private web/static/albums
 SITE_ENV=private/config/site.env make web-npm-build
 ```
 
-Once the site is built (into `web/build`), you can serve
-it via Python or Docker/Apache.
-
-### Manual Testing - Build Served via Python
-
-If you have Python installed, this will serve up the site:
-
-```bash
-python3 -m http.server 8000 --directory web/build
-```
-
-Note: Python's server doesn't apply `.htaccess` rules, so URL routing won't
-match Apache. Use the Docker setup below for accurate Apache testing.
+Once the site is built, you can serve it via Docker/Apache.
 
 ### Manual Testing - Build Served via Docker/Apache
 
 The Docker/Apache environment mirrors one possible production setup and applies
-`.htaccess` routing locally. The `web` directory is mounted in the container (not
-`web/build`) so that npm rebuilds (which delete and recreate `build`)
+`.htaccess` routing locally. The `build/` directory is mounted in the container (not
+`build/<site-id>/`) so that npm rebuilds (which delete and recreate `build/<site-id>/`)
 don't break the container's bind mount.
 
 ```bash
