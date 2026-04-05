@@ -92,9 +92,11 @@ func (c *Config) Validate() error {
 }
 
 // SiteOutputPath returns the root output directory for all photogen-generated content:
-// {OutputRoot}/albums/{SiteID}[/parts...]
+// {OutputRoot}/{SiteID}[/parts...]
+// OutputRoot is the albums directory (e.g. "albums" or an absolute path), set from
+// DDPHOTOS_ALBUMS_DIR. The SiteID subdirectory is appended automatically.
 func (c *Config) SiteOutputPath(parts ...string) string {
-	base := []string{c.OutputRoot, "albums", c.SiteID}
+	base := []string{c.OutputRoot, c.SiteID}
 	return filepath.Join(append(base, parts...)...)
 }
 

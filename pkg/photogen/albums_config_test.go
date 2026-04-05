@@ -18,7 +18,6 @@ func TestLoadAlbumsFile(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, "https://photos.example.com", af.Settings.SiteURL)
-		assert.Equal(t, "web/static", af.Settings.OutputDir)
 		assert.Equal(t, "descriptions.txt", af.Settings.Descriptions)
 
 		assert.Equal(t, "/Volumes/T7/Photos", af.Bases["t7"])
@@ -289,7 +288,6 @@ func TestLoadAlbumConfigs(t *testing.T) {
 			[]byte(`
 settings:
   site_url: https://my.example.com
-  output_dir: /tmp/output
   descriptions: descriptions.txt
 albums:
   - slug: myalbum
@@ -306,7 +304,6 @@ albums:
 		assert.Equal(t, "A great album.", configs[0].Description)
 		assert.Equal(t, photoDir, configs[0].Path)
 		assert.Equal(t, "https://my.example.com", settings.SiteURL)
-		assert.Equal(t, "/tmp/output", settings.OutputDir)
 	})
 
 	t.Run("missing albums file", func(t *testing.T) {

@@ -18,9 +18,8 @@ type AlbumsFile struct {
 
 // AlbumsSettings holds site-level configuration from the YAML settings block.
 type AlbumsSettings struct {
-	ID           string     `yaml:"id"` // site identifier; output goes to albums-{id}/
+	ID           string     `yaml:"id"` // site identifier; output goes to {DDPHOTOS_ALBUMS_DIR}/{id}/
 	SiteURL      string     `yaml:"site_url"`
-	OutputDir    string     `yaml:"output_dir"`
 	Descriptions string     `yaml:"descriptions"` // filename relative to config dir
 	Passwords    string     `yaml:"passwords"`    // filename relative to config dir; enables encryption
 	CustomCSS    string     `yaml:"css"`          // filename relative to config dir; copied to output

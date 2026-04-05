@@ -85,8 +85,8 @@ func TestConfigValidate(t *testing.T) {
 func TestConfigSiteOutputPath(t *testing.T) {
 	t.Parallel()
 
-	cfg := Config{OutputRoot: "/tmp/out", SiteID: "prod"}
-	assert.Equal(t, "/tmp/out/albums/prod", cfg.SiteOutputPath())
-	assert.Equal(t, "/tmp/out/albums/prod/albums.json", cfg.SiteOutputPath("albums.json"))
-	assert.Equal(t, "/tmp/out/albums/prod/theway/grid/photo.webp", cfg.SiteOutputPath("theway", "grid", "photo.webp"))
+	cfg := Config{OutputRoot: "/tmp/albums", SiteID: "prod"}
+	assert.Equal(t, "/tmp/albums/prod", cfg.SiteOutputPath())
+	assert.Equal(t, "/tmp/albums/prod/albums.json", cfg.SiteOutputPath("albums.json"))
+	assert.Equal(t, "/tmp/albums/prod/theway/grid/photo.webp", cfg.SiteOutputPath("theway", "grid", "photo.webp"))
 }

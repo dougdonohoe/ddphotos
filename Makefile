@@ -40,7 +40,7 @@ help:
 .PHONY: build
 ## build: run `go build`
 build:
-	go build ./...
+	go build -ldflags "-X main.repoRoot=$(PWD)" ./...
 
 .PHONY: test
 ## test: run `go test`

@@ -241,7 +241,7 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                                |
 | `-resize`     | `false`       | Generate resized WebP image variants                                                           |
 | `-index`      | `false`       | Generate JSON index files and sitemap.xml                                                      |
-| `-out`        | *(from YAML)* | Output directory override (overrides `settings.output_dir`)                                    |
+| `-out`        | *(from env)*  | Albums directory override (overrides `DDPHOTOS_ALBUMS_DIR`)                                    |
 | `-limit N`    | `0` (all)     | Limit photos per album (useful during development)                                             |
 | `-force`      | `false`       | Regenerate files even if they already exist                                                    |
 | `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                             |
@@ -258,10 +258,9 @@ produces `albums/prod`). It must contain only lowercase letters, digits, and hyp
 The `-site-id` flag overrides this, which is useful when generating an encrypted variant
 alongside the standard output from the same config.
 
-Output goes to `{output_dir}/albums/{id}` (configured via `settings.output_dir` and
-`settings.id` in the YAML; git-ignored). Set `output_dir: .` so that output lands in
-`albums/{id}` at the repo root. Do not set it to `web/static` or Vite will double-copy
-the generated files during build.
+Output goes to `{DDPHOTOS_ALBUMS_DIR}/{id}` (git-ignored). `DDPHOTOS_ALBUMS_DIR` defaults
+to `albums` at the repo root (from `config/defaults.env`). Override with the `-out` flag
+or by setting `DDPHOTOS_ALBUMS_DIR` in the environment.
 
 ### Photo Descriptions (`photogen.txt`)
 

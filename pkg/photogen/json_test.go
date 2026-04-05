@@ -143,9 +143,9 @@ func TestWriteAlbumIndex(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, makeAP(dir, nil).WriteAlbumIndex())
 
-		outPath := filepath.Join(dir, "albums", "testsite", "myalbum", "index.json")
+		outPath := filepath.Join(dir, "testsite", "myalbum", "index.json")
 		assert.FileExists(t, outPath)
-		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "myalbum", "index.enc.json"))
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "myalbum", "index.enc.json"))
 
 		idx, err := LoadAlbumIndex(outPath)
 		require.NoError(t, err)
@@ -161,9 +161,9 @@ func TestWriteAlbumIndex(t *testing.T) {
 		encrypt := &EncryptConfig{SitePassword: "test-pass"}
 		require.NoError(t, makeAP(dir, encrypt).WriteAlbumIndex())
 
-		encPath := filepath.Join(dir, "albums", "testsite", "myalbum", "index.enc.json")
+		encPath := filepath.Join(dir, "testsite", "myalbum", "index.enc.json")
 		assert.FileExists(t, encPath)
-		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "myalbum", "index.json"))
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "myalbum", "index.json"))
 
 		data, err := os.ReadFile(encPath)
 		require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestWriteAlbumIndex(t *testing.T) {
 	t.Run("switching to unencrypted removes stale index.enc.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		albumDir := filepath.Join(dir, "albums", "testsite", "myalbum")
+		albumDir := filepath.Join(dir, "testsite", "myalbum")
 		require.NoError(t, os.MkdirAll(albumDir, 0o755))
 
 		staleEnc := filepath.Join(albumDir, "index.enc.json")
@@ -204,9 +204,9 @@ func TestWriteAlbumsIndex(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, makeSiteCfg(dir, nil).WriteAlbumsIndex(summaries))
 
-		outPath := filepath.Join(dir, "albums", "testsite", "albums.json")
+		outPath := filepath.Join(dir, "testsite", "albums.json")
 		assert.FileExists(t, outPath)
-		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "albums.enc.json"))
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "albums.enc.json"))
 
 		loaded, err := LoadAlbumSummaries(outPath)
 		require.NoError(t, err)
@@ -220,9 +220,9 @@ func TestWriteAlbumsIndex(t *testing.T) {
 		encrypt := &EncryptConfig{SitePassword: "site-pass"}
 		require.NoError(t, makeSiteCfg(dir, encrypt).WriteAlbumsIndex(summaries))
 
-		encPath := filepath.Join(dir, "albums", "testsite", "albums.enc.json")
+		encPath := filepath.Join(dir, "testsite", "albums.enc.json")
 		assert.FileExists(t, encPath)
-		assert.NoFileExists(t, filepath.Join(dir, "albums", "testsite", "albums.json"))
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "albums.json"))
 
 		data, err := os.ReadFile(encPath)
 		require.NoError(t, err)
@@ -232,7 +232,7 @@ func TestWriteAlbumsIndex(t *testing.T) {
 	t.Run("switching to unencrypted removes stale albums.enc.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		siteDir := filepath.Join(dir, "albums", "testsite")
+		siteDir := filepath.Join(dir, "testsite")
 		require.NoError(t, os.MkdirAll(siteDir, 0o755))
 
 		staleEnc := filepath.Join(siteDir, "albums.enc.json")
@@ -253,7 +253,7 @@ func TestWriteConfigJSON(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, makeSiteCfg(dir, nil).WriteConfigJSON())
 
-		data, err := os.ReadFile(filepath.Join(dir, "albums", "testsite", "config.json"))
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"siteId": "testsite"`)
 		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
@@ -265,7 +265,7 @@ func TestWriteConfigJSON(t *testing.T) {
 		encrypt := &EncryptConfig{SitePassword: "passw0rd"}
 		require.NoError(t, makeSiteCfg(dir, encrypt).WriteConfigJSON())
 
-		data, err := os.ReadFile(filepath.Join(dir, "albums", "testsite", "config.json"))
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"siteId": "testsite"`)
 		assert.Contains(t, string(data), `"albumsFile": "albums.enc.json"`)

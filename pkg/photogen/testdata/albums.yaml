@@ -5,7 +5,6 @@
 
 settings:
   site_url: https://photos.example.com
-  output_dir: web/static
   descriptions: descriptions.txt
 
 bases:

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -10,10 +11,51 @@ import (
 	"github.com/dougdonohoe/ddphotos/pkg/photogen"
 )
 
+// repoRoot is embedded at build time via:
+//
+//	go build -ldflags "-X main.repoRoot=/path/to/repo"
+//
+// When set, loadDefaultsEnv looks for config/defaults.env there first.
+// Falls back to cwd-relative path so `go run ./cmd/photogen` still works from the repo root.
+var repoRoot string
+
+// loadDefaultsEnv reads config/defaults.env and sets any keys not already in the environment.
+// This mirrors the behaviour of vite.config.ts and the shell scripts.
+func loadDefaultsEnv() {
+	candidates := []string{filepath.Join("config", "defaults.env")}
+	if repoRoot != "" {
+		candidates = append([]string{filepath.Join(repoRoot, "config", "defaults.env")}, candidates...)
+	}
+
+	for _, path := range candidates {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			eq := strings.IndexByte(line, '=')
+			if eq < 0 {
+				continue
+			}
+			key := strings.TrimSpace(line[:eq])
+			val := strings.TrimSpace(line[eq+1:])
+			if _, exists := os.LookupEnv(key); !exists {
+				os.Setenv(key, val) //nolint:errcheck
+			}
+		}
+		return // parsed successfully
+	}
+	// No defaults.env found — explicit env var or -out flag must provide the albums dir.
+}
+
 var (
 	configDir  = flag.String("config-dir", "config", "directory containing albums YAML and descriptions files")
 	albumsFile = flag.String("albums", "albums.yaml", "albums YAML filename within config-dir")
-	outputDir  = flag.String("out", "", "output directory for generated albums (overrides YAML output_dir)")
+	outputDir  = flag.String("out", "", "albums directory override (overrides DDPHOTOS_ALBUMS_DIR env var)")
 	doit       = flag.Bool("doit", false, "do actual work; otherwise log planned work without writing any files")
 	limit      = flag.Int("limit", 0, "limit number of photos per album (0 = no limit)")
 	force      = flag.Bool("force", false, "regenerate output files even if they already exist")
@@ -32,6 +74,7 @@ var (
 func main() {
 	flag.Parse()
 	exit.HandleSignal()
+	loadDefaultsEnv()
 
 	albums, settings, err := photogen.LoadAlbumConfigs(*configDir, *albumsFile)
 	if err != nil {
@@ -48,10 +91,19 @@ func main() {
 	if *siteURL != "" {
 		resolvedSiteURL = *siteURL
 	}
-	resolvedOutputDir := settings.OutputDir
+
+	// Albums directory: -out flag > DDPHOTOS_ALBUMS_DIR env var > defaults.env (loaded above)
+	resolvedAlbumsDir := os.Getenv("DDPHOTOS_ALBUMS_DIR")
 	if *outputDir != "" {
-		resolvedOutputDir = *outputDir
+		resolvedAlbumsDir = *outputDir
 	}
+	if resolvedAlbumsDir == "" {
+		fmt.Println("Error: albums output directory is not set.")
+		fmt.Println("  Set DDPHOTOS_ALBUMS_DIR in the environment, use the -out flag,")
+		fmt.Println("  or ensure config/defaults.env is present in the working directory.")
+		exit.ExitWithStatus(fmt.Errorf("DDPHOTOS_ALBUMS_DIR not set"))
+	}
+
 	resolvedCSSPath := settings.CustomCSSPath
 	if *css != "" {
 		resolvedCSSPath = *css
@@ -59,7 +111,7 @@ func main() {
 
 	warn := &photogen.WarnCollector{}
 	cfg := &photogen.Config{
-		OutputRoot:  filepath.Clean(resolvedOutputDir),
+		OutputRoot:  filepath.Clean(resolvedAlbumsDir),
 		SiteID:      resolvedSiteID,
 		DryRun:      !(*doit),
 		SkipVariant: true,
