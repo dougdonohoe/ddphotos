@@ -174,7 +174,7 @@ run_apache() {
 
     # Build Docker image if missing or schema label is stale
     local schema
-    schema=$(docker image inspect photos-apache --format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null)
+    schema=$(docker image inspect photos-apache --format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null || true)
     if [ "$schema" != "2" ]; then
         echo "=== [apache] Building Docker image (schema stale or missing) ==="
         docker build -t photos-apache web/ || return 1

@@ -99,12 +99,11 @@ _docker_cleanup() {
     fi
 }
 trap _docker_cleanup EXIT
-
 if [ "$SKIP_APACHE_TEST" = true ]; then
     echo "Skipping local Apache tests (--no-apache-test)"
 else
     # Verify Docker image schema before running
-    _schema=$(docker image inspect photos-apache --format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null)
+    _schema=$(docker image inspect photos-apache --format '{{index .Config.Labels "ddphotos.schema"}}' 2>/dev/null || true)
     if [ "$_schema" != "2" ]; then
         echo "ERROR: photos-apache image is stale or missing (expected schema=2, got '$_schema')."
         echo "Run: make web-docker-build"
@@ -148,10 +147,12 @@ else
 
     # Deploy app files + pre-rendered album HTML/JSON.
     # --checksum: rsync skips files with matching content (Vite resets timestamps on static/ files)
-    # --exclude=albums/*/: skip album image subdirs (rsynced separately below)
+    # --filter='protect albums/**': prevent --delete from touching albums/ content (hero.jpg,
+    #   sitemap.xml, images, JSON) — those files are managed by the second rsync pass below.
+    #   Note: 'protect' only suppresses deletion; it still transfers new files from the source.
     # shellcheck disable=SC2086
     rsync $RSYNC_OPTS \
-        --exclude=albums/*/ \
+        --filter='protect albums/**' \
         "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "$AWS_APACHE":"$RSYNC_DEST"
 
     # Deploy album data (images + JSON) independently.
