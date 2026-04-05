@@ -478,7 +478,7 @@ The correct password is selected automatically from the filename:
 
 ## Finding a Cover Photo (`search_cover.sh`)
 
-When browsing the site and you want to set a photo as an album cover, you need its
+When browsing the site, and you want to set a photo as an album cover, you need its
 `fileName` value for the `cover:` field in `albums.yaml`. The easiest way to get it is
 to right-click the photo, copy the image URL, and pass it to `bin/search_cover.sh`:
 
@@ -734,24 +734,39 @@ assumes `AWS_APACHE` is in the environment and specifies an accessible IP to you
 
 To deploy, I run `bin/deploy-photos.sh`, which:
 
-1. Runs `photogen` to resize images and generate JSON (skip with `--no-photogen`)
-2. Builds the static site via `npm run build` into `web/build`
+1. Runs `photogen` to resize images and generate JSON
+2. Builds the static site via `npm run build` into `build/<site-id>/`
 3. Starts the Docker/Apache container if not already running, runs
    `bin/test-photos-apache.sh --local` to verify routing locally, then stops the container
-4. Runs Playwright tests against Docker/Apache (skip with `--no-playwright`)
-5. Rsync `web/build` to the `$RSYNC_DEST` directory on the EC2 server (`$AWS_APACHE`).
-   It uses `--checksum` to reduce unnecessary re-copying since Vite resets timestamps.
+4. Runs Playwright tests against Docker/Apache
+5. Rsyncs `build/<site-id>/` to the `$RSYNC_DEST` directory on the EC2 server (`$AWS_APACHE`),
+   using `--checksum` to reduce unnecessary re-copying since Vite resets timestamps.
+   A second rsync pass syncs album data (`albums/<site-id>/`) independently.
 6. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
 7. Runs `bin/test-photos-apache.sh` to verify the deployment against production
-8. Runs Playwright tests against production (`$VITE_SITE_URL`) (skip with `--no-playwright`)
+8. Runs Playwright tests against production (`$VITE_SITE_URL`)
 
-The script uses `set -eo pipefail` - any failure (including local tests) aborts before rsync.
+The script uses `set -eo pipefail` — any failure (including local tests) aborts before rsync.
+
+### Flags
+
+| Flag               | Description                                                                                                                                       |
+|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--dry-run`        | Pass `--dry-run` to both rsync calls (shows what would transfer without touching the server); skips CloudFront invalidation and post-deploy tests |
+| `--no-photogen`    | Skip photo generation step                                                                                                                        |
+| `--no-rsync`       | Skip rsync, CloudFront invalidation, and post-deploy tests (build + local test only)                                                              |
+| `--no-apache-test` | Skip both the local and post-deploy Apache routing tests                                                                                          |
+| `--no-playwright`  | Skip Playwright tests (both local and production)                                                                                                 |
+| `--config-dir`     | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                                               |
+| `--site-env`       | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                                                   |
+
+Examples:
 
 ```bash
 bin/deploy-photos.sh                          # full deploy
+bin/deploy-photos.sh --dry-run                # preview what rsync would transfer, no changes made
 bin/deploy-photos.sh --no-photogen            # skip photo generation
-bin/deploy-photos.sh --no-rsync               # build + local test only, no deploy (safe on a dev machine)
-bin/deploy-photos.sh --no-playwright          # skip Playwright tests (local and production)
+bin/deploy-photos.sh --no-rsync               # build + local test only (safe on a dev machine)
 bin/deploy-photos.sh --no-photogen --no-rsync # build + local test, skip both photogen and rsync
 ```
 

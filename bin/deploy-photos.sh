@@ -45,9 +45,20 @@ fi
 [ -f "$SITE_ENV" ] || { echo "Error: $SITE_ENV not found"; exit 1; }
 source "$SITE_ENV"
 
-# These must be set by the caller (e.g. Makefile)
-[ -n "$DDPHOTOS_ALBUMS_DIR" ] || { echo "Error: DDPHOTOS_ALBUMS_DIR not set"; exit 1; }
-[ -n "$DDPHOTOS_SITE_ID" ]    || { echo "Error: DDPHOTOS_SITE_ID not set"; exit 1; }
+# Load defaults.env as a fallback for vars not already set (e.g. DDPHOTOS_ALBUMS_DIR, DDPHOTOS_SITE_ID)
+DEFAULTS_ENV="$(dirname "$SDIR")/config/defaults.env"
+if [ -f "$DEFAULTS_ENV" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ "$line" =~ ^#|^$ ]] && continue
+        key="${line%%=*}"
+        val="${line#*=}"
+        [ -z "${!key+x}" ] && export "$key"="$val"
+    done < "$DEFAULTS_ENV"
+fi
+
+# These must be set — either by the caller, site.env, or defaults.env
+[ -n "$DDPHOTOS_ALBUMS_DIR" ] || { echo "Error: DDPHOTOS_ALBUMS_DIR not set (not in environment or config/defaults.env)"; exit 1; }
+[ -n "$DDPHOTOS_SITE_ID" ]    || { echo "Error: DDPHOTOS_SITE_ID not set (not in environment or config/defaults.env)"; exit 1; }
 
 # These must be set in site.env — guard early so a missing value can't
 # cause rsync --delete to target the wrong (or empty) remote path.
