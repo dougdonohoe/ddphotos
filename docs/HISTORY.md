@@ -898,7 +898,7 @@ The symlink-based approach for serving album data (`web/static/albums` → `web/
 
 **`Makefile`** — removed all `use-sample*`, `use-prod`, `use-sample-css`, `use-sample-demo` symlink targets; added migration check (`$(warning)` + `$(error)`) if `web/albums/` still exists; `DDPHOTOS_ALBUMS_DIR`/`DDPHOTOS_SITE_ID` read from `config/defaults.env` via `sed` (using `?=` to allow env var override); all npm build/dev targets pass the two env vars; `web-docker-run` updated to mount `$(PWD)/build:/build:ro` and pass `-e DDPHOTOS_SITE_ID`.
 
-**`sample/config/albums.yaml`** and **`infra/photos/*/albums.yaml`** — changed `output_dir: web` → `output_dir: .`.
+**`sample/config/albums.yaml`** and **`infra/photos/*/albums.yaml`** — removed `output_dir` entirely (now driven by `DDPHOTOS_ALBUMS_DIR`).
 
 **`bin/run-tests.sh`** — removed symlink step; Docker run updated to mount `$(pwd)/build:/build:ro` and pass `-e DDPHOTOS_SITE_ID`; removed `mkdir -p web/build/albums`.
 
@@ -909,6 +909,22 @@ The symlink-based approach for serving album data (`web/static/albums` → `web/
 **`bin/search_cover.sh`** — updated stale `web/albums` path to `albums`.
 
 **`README.md`** and **`README-DEV.md`** — updated throughout: removed symlink-based workflow, updated output paths (`web/albums/` → `albums/`, `web/build` → `build/<site-id>`), removed `use-*` targets from Makefile table, added "Album Location Variables" section documenting `DDPHOTOS_ALBUMS_DIR`/`DDPHOTOS_SITE_ID`, added `bin/search_cover.sh` section, removed Python static server section (no longer viable), updated Docker/Apache description.
+
+#### Eliminating `settings.output_dir` from `albums.yaml`
+
+`output_dir` was removed entirely from the YAML schema. `photogen` now reads its output directory from `DDPHOTOS_ALBUMS_DIR` (env var), falling back to `config/defaults.env`, with the `-out` CLI flag as an explicit override.
+
+**`pkg/photogen/config.go`** — `SiteOutputPath()` simplified: no longer inserts an `albums/` component. `OutputRoot` is now the albums dir itself (e.g. `albums/`), so `SiteOutputPath()` = `OutputRoot/SiteID`.
+
+**`pkg/photogen/albums_config.go`** — removed `OutputDir` field from `AlbumsSettings`.
+
+**`cmd/photogen/photogen.go`** — added `repoRoot` var embedded at build time via `-ldflags "-X main.repoRoot=$(PWD)"`; `loadDefaultsEnv()` tries the compile-time repo root first, then falls back to cwd-relative `config/defaults.env` (so `go run ./cmd/photogen` still works from the repo root); fails fast with a clear error if `DDPHOTOS_ALBUMS_DIR` is still unresolved after all attempts.
+
+**`Makefile`** — `build` target updated to pass `-ldflags "-X main.repoRoot=$(PWD)"`.
+
+**Tests** (`config_test.go`, `albums_config_test.go`, `json_test.go`, `testdata/albums.yaml`) — updated to match new path structure; `OutputDir` references removed.
+
+**`config/albums.example.yaml`** — removed `output_dir` setting; updated comments to reference `DDPHOTOS_ALBUMS_DIR`.
 
 #### Key Design Decisions
 
