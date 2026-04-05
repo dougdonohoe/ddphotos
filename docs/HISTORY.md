@@ -863,3 +863,56 @@ Added an optional full-width banner image to the home page, configured in `album
 **`cmd/photogen/photogen.go`** — added `-hero-only` boolean flag. When set, photogen regenerates the hero image and exits immediately, skipping all album processing, JSON/index generation, sitemap, CSS copying, and clean. It forces `Config.Force = true` so the existing `hero.jpg` is always overwritten. Exits with an error if no hero is configured in `albums.yaml`.
 
 **`README-DEV.md`** — added `-hero-only` to the CLI flags table; added a usage note and example command under the Hero Image section.
+
+### 52. Decouple Album Data from Web Directory (branch: `decouple`)
+
+The symlink-based approach for serving album data (`web/static/albums` → `web/albums/<site-id>`) was replaced with two environment variables (`DDPHOTOS_ALBUMS_DIR`, `DDPHOTOS_SITE_ID`) and a new per-site build output structure (`build/<site-id>/`). This eliminates the need for manual symlink management and allows multiple site builds to coexist.
+
+#### Core Architecture Change
+
+**Before:** `photogen` wrote output to `web/albums/<site-id>/`; a `web/static/albums` symlink pointed at the active site; the SvelteKit build consumed files via that symlink; Docker mounted `web/` with DocumentRoot at `web/build/`.
+
+**After:** `photogen` writes output to `albums/<site-id>/` at the repo root (set via `output_dir: .` in `albums.yaml`). Two env vars — `DDPHOTOS_ALBUMS_DIR` (default: `albums`) and `DDPHOTOS_SITE_ID` (default: `sample`) — select the active site. The SvelteKit build outputs to `build/<site-id>/`. Docker mounts `build/` and `albums/<site-id>/` separately, with `entrypoint.sh` creating all symlinks inside the container.
+
+#### Files Changed
+
+**`config/defaults.env`** (new) — single source of truth for default values of `DDPHOTOS_ALBUMS_DIR` and `DDPHOTOS_SITE_ID`; read by both the Makefile and `vite.config.ts`.
+
+**`web/svelte.config.js`** — adapter output dir is now dynamic: `pages`/`assets` set to `../build/${siteId}` so each site ID gets its own build directory at the repo root.
+
+**`web/vite.config.ts`** — added `loadDefaultsEnv()` to read `config/defaults.env` as a lower-priority fallback; added `resolveAlbumsDir()` combining `DDPHOTOS_ALBUMS_DIR` + `DDPHOTOS_SITE_ID`; replaced the static-reload plugin with `albums-dev-server` plugin that serves `/albums/**` from the resolved albums dir via middleware and watches it for live reload.
+
+**`web/src/hooks.server.ts`** (new) — build-time hook; `handleFetch` intercepts `fetch()` calls to `/albums/**` during `npm run build` and reads the files directly from disk, eliminating the need for any symlink at build time.
+
+**`web/svelte.config.js`** — added `handleHttpError` to `prerender` config to silently ignore 404s on `/albums/**` paths (images and other assets are not pre-rendered, only served at runtime).
+
+**`web/Dockerfile`** — removed DocumentRoot `sed` lines (no longer needed); kept `mod_rewrite`, `AllowOverride All`, `FollowSymLinks`, `ServerName`; updated to use `entrypoint.sh` for container startup.
+
+**`web/entrypoint.sh`** (rewritten) — populates `/usr/local/apache2/htdocs` with symlinks at container startup: (1) uses `find` (not glob, so `.htaccess` is included) to symlink everything from `/build/<site-id>/` except `albums/`; (2) creates `htdocs/albums/` as a real directory; (3) symlinks `*.html` files from `/build/<site-id>/albums/` (pre-rendered album pages); (4) symlinks everything from `/albums/` (photogen output: image dirs, JSON). All symlinks live inside the container — nothing dangling is left on the host.
+
+**`web/static/albums/README.md`** — removed; was only needed as a Docker mountpoint placeholder, which is no longer required.
+
+**`web/.gitignore`** — removed `/build` entry (build output no longer lives in `web/`).
+
+**`.gitignore`** — added `/build` (new output location at repo root).
+
+**`Makefile`** — removed all `use-sample*`, `use-prod`, `use-sample-css`, `use-sample-demo` symlink targets; added migration check (`$(warning)` + `$(error)`) if `web/albums/` still exists; `DDPHOTOS_ALBUMS_DIR`/`DDPHOTOS_SITE_ID` read from `config/defaults.env` via `sed` (using `?=` to allow env var override); all npm build/dev targets pass the two env vars; `web-docker-run` updated to mount `$(PWD)/build:/build:ro` and pass `-e DDPHOTOS_SITE_ID`.
+
+**`sample/config/albums.yaml`** and **`infra/photos/*/albums.yaml`** — changed `output_dir: web` → `output_dir: .`.
+
+**`bin/run-tests.sh`** — removed symlink step; Docker run updated to mount `$(pwd)/build:/build:ro` and pass `-e DDPHOTOS_SITE_ID`; removed `mkdir -p web/build/albums`.
+
+**`bin/deploy-photos.sh`** — added `--site-env` flag (separate from `--config-dir`) for specifying `site.env` location independently; added `--dry-run` flag that passes `--dry-run` to both rsync calls and skips CloudFront invalidation and post-deploy tests; added early guards for `AWS_APACHE`, `RSYNC_DEST`, `CLOUDFRONT_ID`, `VITE_SITE_URL` (prevents rsync `--delete` targeting wrong path if a var is unset); enforces trailing `/` on `RSYNC_DEST`; stored `REPO_ROOT` before `cd web`; Docker run updated to new mount strategy; removed `find build/albums -type l -delete` (no longer needed); rsync source changed from `build/` to `$REPO_ROOT/build/$DDPHOTOS_SITE_ID/`.
+
+**`infra/Makefile`** — added `DDPHOTOS_ALBUMS`; removed all `ddphotos-use-*` targets; all deploy targets pass `DDPHOTOS_ALBUMS_DIR` and `DDPHOTOS_SITE_ID` inline.
+
+**`bin/search_cover.sh`** — updated stale `web/albums` path to `albums`.
+
+**`README.md`** and **`README-DEV.md`** — updated throughout: removed symlink-based workflow, updated output paths (`web/albums/` → `albums/`, `web/build` → `build/<site-id>`), removed `use-*` targets from Makefile table, added "Album Location Variables" section documenting `DDPHOTOS_ALBUMS_DIR`/`DDPHOTOS_SITE_ID`, added `bin/search_cover.sh` section, removed Python static server section (no longer viable), updated Docker/Apache description.
+
+#### Key Design Decisions
+
+- **No Docker restart on rebuild**: `build/` (parent) is mounted rather than `build/<site-id>/` (the actual output dir), so npm rebuilds that delete and recreate `build/<site-id>/` don't break the bind mount's inode binding.
+- **Dangling symlinks eliminated**: all symlinks live inside the container's writable layer; the host filesystem is never written to by Docker.
+- **Rsync safety**: two-pass rsync strategy — pass 1 syncs app files + pre-rendered HTML (excludes album image subdirs); pass 2 syncs album data (excludes `*.html` so pre-rendered pages aren't deleted). Early variable guards prevent `--delete` from targeting an empty or wrong remote path.
+- **Migration**: Makefile detects if `web/albums/` still exists (old layout) and aborts with instructions to run `mv web/albums albums/`. Git cleanly replaces the old `web/static/albums` symlink with the new `web/static/albums/` directory on branch checkout.

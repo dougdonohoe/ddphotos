@@ -93,8 +93,8 @@ The `site.env` variables are:
 | `TEST_ALBUM_PROD`       | `bin/test-photos-apache.sh` | Album slug used for production tests                                                    |
 | `TEST_ALBUM_HYPHEN`     | `bin/test-photos-apache.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
 
-The last five variables are only needed if using the deployment script. For local development,
-only the `VITE_*` vars are required.
+The last five variables (`CLOUDFRONT_ID`, `RSYNC_DEST`, `TEST_ALBUM_*`) are only needed
+for deployment and Apache routing tests. For local development, only the `VITE_*` vars are required.
 
 In the web app, `vite.config.ts` reads `config/site.env` at startup and injects `VITE_*` keys into `process.env`
 before Vite runs, so the values are available as `import.meta.env.VITE_*` in Svelte components.
@@ -108,6 +108,35 @@ when your config lives outside the repo (e.g. in a private config repo):
 ```bash
 SITE_ENV=~/work/my-config/site.env make web-npm-run-dev
 ```
+
+### Album Location Variables
+
+Two variables tell the dev server, build, and Docker container where to find album data:
+
+| Variable              | Default  | Description                                                                     |
+|-----------------------|----------|---------------------------------------------------------------------------------|
+| `DDPHOTOS_ALBUMS_DIR` | `albums` | Path to the root albums directory (absolute or repo-root-relative)              |
+| `DDPHOTOS_SITE_ID`    | `sample` | Site ID — selects `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>` as the active site |
+
+Defaults are defined in `config/defaults.env` and are automatically picked up by the Makefile
+and `vite.config.ts`. Override them on the command line as needed:
+
+```bash
+# Use a different site ID
+DDPHOTOS_SITE_ID=prod make web-npm-run-dev
+
+# Albums directory outside the repo
+DDPHOTOS_ALBUMS_DIR=~/photos/albums DDPHOTOS_SITE_ID=mySite make web-npm-build
+
+# Both via SITE_ENV and album vars together
+SITE_ENV=~/work/my-config/site.env DDPHOTOS_ALBUMS_DIR=~/photos/albums DDPHOTOS_SITE_ID=prod make web-npm-build
+```
+
+These variables are consumed by:
+- `vite.config.ts` — dev server middleware serves `/albums/**` from `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>/`
+- `web/svelte.config.js` — build output goes to `build/<DDPHOTOS_SITE_ID>/`; album slugs are read for pre-rendered entries
+- `web/hooks.server.ts` — intercepts fetch calls to `/albums/**` during `npm run build`
+- `web/entrypoint.sh` — symlinks `build/<DDPHOTOS_SITE_ID>/` into the Apache document root at container startup
 
 ## Makefile Targets
 
@@ -124,26 +153,20 @@ Common tasks are available via `make` from the repo root:
 | `web-nvm-install`            | Install the Node version specified in `web/.nvmrc`                                 |
 | `web-npm-install`            | Install npm dependencies in `web/`                                                 |
 | `web-npm-run-dev`            | Start Vite dev server and open browser                                             |
-| `web-npm-build`              | Build the static site into `web/build/`                                            |
+| `web-npm-build`              | Build the static site into `build/<site-id>/`                                      |
 | `web-docker-build`           | Build the `photos-apache` Docker image                                             |
-| `web-docker-run`             | Run Apache on port 8080 with `web/` mounted as document root                       |
+| `web-docker-run`             | Run Apache on port 8080 (mounts `build/` and `albums/<site-id>/`)                  |
 | `web-docker-stop`            | Stop the running `photos-apache` container                                         |
 | `web-docker-test`            | Run `bin/test-photos-apache.sh` against `localhost:8080`                           |
 | `web-playwright-install`     | One-time setup: install `@playwright/test` and Chromium binary                     |
 | `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker on port 8081, runs, stops)                 |
 | `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                                 |
 | `web-playwright-test-all`    | Run `bin/test-all.sh` across all password/CSS variants                             |
-| `use-sample`                 | Symlink `web/static/albums` → `../albums/sample`                                   |
-| `use-sample-pw-all`          | Symlink `web/static/albums` → `../albums/sample-pw-all`                            |
-| `use-sample-pw-uganda`       | Symlink `web/static/albums` → `../albums/sample-pw-uganda`                         |
-| `use-sample-css`             | Symlink `web/static/albums` → `../albums/sample-css`                               |
-| `use-prod`                   | Symlink `web/static/albums` → `../albums/prod`                                     |
 | `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                                     |
 | `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected                    |
 | `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected                  |
 | `sample-photogen-css`        | Run photogen using sample config with custom CSS injected                          |
 | `sample-photogen-demo`       | Run photogen using sample config with custom CSS and all albums password-protected |
-| `use-sample-demo`            | Symlink `web/static/albums` → `../albums/sample-demo`                              |
 | `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server                       |
 | `sample-build`               | Build the static site using sample config                                          |
 | `sample-npm-run-dev`         | Run the Vite dev server using sample config                                        |
@@ -231,17 +254,14 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation           |
 
 `settings.id` is required and determines the output directory name (e.g. `id: prod`
-produces `web/albums/prod`). It must contain only lowercase letters, digits, and hyphens.
+produces `albums/prod`). It must contain only lowercase letters, digits, and hyphens.
 The `-site-id` flag overrides this, which is useful when generating an encrypted variant
 alongside the standard output from the same config.
 
 Output goes to `{output_dir}/albums/{id}` (configured via `settings.output_dir` and
-`settings.id` in the YAML; git-ignored). Set `output_dir: web` - the code appends
-`albums/{id}` automatically. Do not set it to `web/static` or Vite will double-copy
+`settings.id` in the YAML; git-ignored). Set `output_dir: .` so that output lands in
+`albums/{id}` at the repo root. Do not set it to `web/static` or Vite will double-copy
 the generated files during build.
-
-Use `make use-sample` or `make use-prod` to point `web/static/albums` at the desired
-output via symlink before running the dev server or building.
 
 ### Photo Descriptions (`photogen.txt`)
 
@@ -326,10 +346,10 @@ This makes it easy to find the prefixed `fileName` for a given original file:
 
 ```bash
 # plain album
-grep -B2 "IMG_0436" web/albums/my-site/my-album/index.json
+grep -B2 "IMG_0436" albums/my-site/my-album/index.json
 
 # encrypted album
-go run cmd/decode/decode.go web/albums/my-site/my-album/index.enc.json | grep -B2 "IMG_0436"
+go run cmd/decode/decode.go albums/my-site/my-album/index.enc.json | grep -B2 "IMG_0436"
 ```
 
 ### Passwords File
@@ -437,8 +457,8 @@ go run cmd/decode/decode.go -passwords <pw-file> <path.enc.json>
 cases no flags are needed:
 
 ```bash
-go run cmd/decode/decode.go web/albums/sample-pw-uganda/uganda/index.enc.json
-go run cmd/decode/decode.go web/albums/sample-pw-all/albums.enc.json
+go run cmd/decode/decode.go albums/sample-pw-uganda/uganda/index.enc.json
+go run cmd/decode/decode.go albums/sample-pw-all/albums.enc.json
 ```
 
 If the passwords file has moved, or the file was generated without an embedded path,
@@ -446,7 +466,7 @@ pass `-passwords` explicitly:
 
 ```bash
 go run cmd/decode/decode.go -passwords sample/config/passwords-uganda.yaml \
-  web/albums/sample-pw-uganda/uganda/index.enc.json
+  albums/sample-pw-uganda/uganda/index.enc.json
 ```
 
 The correct password is selected automatically from the filename:
@@ -455,6 +475,38 @@ The correct password is selected automatically from the filename:
 |-------------------|--------------------------------------------------|
 | `albums.enc.json` | Site-wide password (`site.password`)             |
 | `index.enc.json`  | Per-album password for the parent directory slug |
+
+## Finding a Cover Photo (`search_cover.sh`)
+
+When browsing the site and you want to set a photo as an album cover, you need its
+`fileName` value for the `cover:` field in `albums.yaml`. The easiest way to get it is
+to right-click the photo, copy the image URL, and pass it to `bin/search_cover.sh`:
+
+```bash
+bin/search_cover.sh <url>
+```
+
+Example:
+
+```bash
+bin/search_cover.sh http://localhost:5173/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
+```
+
+Output:
+
+```
+Album:  banff-2002
+Index:  albums/sample/banff-2002/index.json
+src:    full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
+
+fileName:   banff-2002-original-name.webp
+id:         banff-2002-original-name
+```
+
+The script parses the album slug and image path from the URL, locates the album's
+`index.json` (or `index.enc.json` for encrypted albums — decoded automatically via
+`cmd/decode`), and searches for the matching `src` entry to print the `fileName`, `id`,
+and `sourcePath` (for recursive albums).
 
 ## Testing
 
@@ -476,7 +528,6 @@ any of the SvelteKit files change or even when `photogen` is re-run.
 # Sample site
 make sample-npm-run-dev
 
-# Uses current web/static/albums symlink
 make web-npm-run-dev
 
 # Uses custom site.env
@@ -498,7 +549,6 @@ make sample-build
 make web-npm-build
 
 # Uses custom site.env
-ln -sfn ../albums/private web/static/albums
 SITE_ENV=private/config/site.env make web-npm-build
 ```
 

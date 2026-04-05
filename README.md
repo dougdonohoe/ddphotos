@@ -221,9 +221,6 @@ cp config/descriptions.example.txt config/descriptions.txt
 cp config/site.example.env config/site.env
 ```
 
-**TIP**: If you use `prod` as your `settings.id` value in `albums.yaml`,
-you can use some provided make targets, like `use-prod`.
-
 ## Commands
 
 The `Makefile` is a good reference for the commands (you used them to run the sample site).
@@ -239,11 +236,8 @@ go run cmd/photogen/photogen.go -resize -index
 go run cmd/photogen/photogen.go -resize -index -doit
 ```
 
-**NOTE**: output goes to `web/albums/[ID]` by default.  For example,
-the sample site is in `web/albums/sample`.  A symlink from
-`web/static/albums` points to the current site data you are working
-with.  See the `use-prod` Makefile target for an example of
-how this symlink is created.
+**NOTE**: output goes to `albums/[ID]` at the repo root by default. For example,
+the sample site is in `albums/sample`.
 
 ### Run Site
 
@@ -251,11 +245,6 @@ Once `photogen` has been successfully run, you can run the
 dev server.
 
 ```bash
-# Make sure symlink is correct
-ln -sfn ../albums/my-site web/static/albums # if id is not 'prod'
-make use-prod # if id is 'prod'
-
-# Run dev server
 make web-npm-run-dev
 ```
 
@@ -267,7 +256,7 @@ To test the build process:
 make web-npm-build
 ```
 
-This deletes and recreates the `web/build` directory, which will have all
+This deletes and recreates the `build/<site-id>` directory, which will have all
 the files needed to run the site, including copies of your resized photos.
 
 To run it using the Docker/Apache image:

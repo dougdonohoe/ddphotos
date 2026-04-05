@@ -26,8 +26,8 @@ if [[ -z "$slug" || -z "$src_path" ]]; then
     exit 1
 fi
 
-# Find index.enc.json (or index.json) for this album under web/albums/
-index_file=$(find web/albums -maxdepth 3 -type f \( -name "index.enc.json" -o -name "index.json" \) \
+# Find index.enc.json (or index.json) for this album under albums/
+index_file=$(find albums -maxdepth 3 -type f \( -name "index.enc.json" -o -name "index.json" \) \
     | grep "/${slug}/" | head -1)
 
 if [[ -z "$index_file" ]]; then
