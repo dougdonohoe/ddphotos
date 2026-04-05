@@ -52,10 +52,11 @@ fi
 
 # Find index.enc.json (or index.json) for this album under the active site
 index_file=$(find "$SEARCH_ROOT" -maxdepth 2 -type f \( -name "index.enc.json" -o -name "index.json" \) \
-    | grep "/${slug}/" | head -1)
+    | grep "/${slug}/" | head -1 || true)
 
 if [[ -z "$index_file" ]]; then
     echo "No index file found for album slug '$slug' under $SEARCH_ROOT" >&2
+    echo "Try another site with DDPHOTOS_SITE_ID=<site-id> search_cover.sh $url" >&2
     exit 1
 fi
 
