@@ -112,9 +112,9 @@ DEV_PID=""
 # Cleanup: kill dev server and stop Docker container on exit
 # shellcheck disable=SC2317
 cleanup() {
-    if [ -n "$DEV_PID" ]; then kill "$DEV_PID" 2>/dev/null; fi
-    docker stop "$DOCKER_CONTAINER_APACHE" 2>/dev/null
-    docker stop "$DOCKER_CONTAINER_NGINX" 2>/dev/null
+    if [ -n "$DEV_PID" ]; then kill "$DEV_PID" 2>/dev/null || true; fi
+    docker stop "$DOCKER_CONTAINER_APACHE" 2>/dev/null || true
+    docker stop "$DOCKER_CONTAINER_NGINX" 2>/dev/null || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
