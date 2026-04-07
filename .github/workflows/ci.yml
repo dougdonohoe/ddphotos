@@ -49,5 +49,8 @@ jobs:
       - name: Run Apache routing tests
         run: make sample-photogen sample-build web-docker-build sample-test-apache
 
-      - name: Run Playwright e2e tests (all password variants)
+      - name: Run Playwright e2e tests (all password variants, apache)
         run: bin/test-all.sh --mode apache
+
+      - name: Run Playwright e2e tests (all password variants, nginx)
+        run: bin/test-all.sh --mode nginx

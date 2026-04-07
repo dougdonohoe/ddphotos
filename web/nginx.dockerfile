@@ -1,6 +1,8 @@
 FROM nginx:alpine
+
 # Replace the default config with our routing rules.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # nginx-entrypoint.sh calls setup-htdocs.sh to populate the document root with symlinks,
 # then hands off to nginx.
 COPY setup-htdocs.sh /setup-htdocs.sh

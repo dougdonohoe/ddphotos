@@ -1,4 +1,5 @@
 FROM httpd:2.4
+
 # Enable mod_rewrite, AllowOverride for .htaccess, FollowSymLinks for entrypoint symlinks.
 RUN sed -i 's/#LoadModule rewrite_module/LoadModule rewrite_module/' /usr/local/apache2/conf/httpd.conf \
     && sed -i 's/AllowOverride None/AllowOverride All/g' /usr/local/apache2/conf/httpd.conf \
