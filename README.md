@@ -279,7 +279,7 @@ These should pass against `sample`, but some will fail against your site,
 because values are hardcoded at the moment (i.e., the smoke/caption tests 
 reference specific album names - `antarctica` and `uganda`).
 
-You can also run some smoke tests as defined in `bin/test-photos-apache.sh`.
+You can also run some smoke tests as defined in `bin/test-photos-server.sh`.
 Assuming Docker/Apache is running:
 
 ```bash

@@ -6,16 +6,16 @@
 #   4. custom-css (sample/config/custom.css injected)
 #
 # Usage:
-#   bin/test-all.sh [--mode dev|apache|both]
+#   bin/test-all.sh [--mode dev|apache|nginx|both|all]
 #
-# Passes --mode through to bin/run-tests.sh (default: both).
+# Passes --mode through to bin/run-tests.sh (default: all).
 
 set -eo pipefail
 
-MODE="both"
+MODE="all"
 
 usage() {
-    echo "Usage: bin/test-all.sh [--mode dev|apache|both]"
+    echo "Usage: bin/test-all.sh [--mode dev|apache|nginx|both|all]"
     echo ""
     echo "Runs Playwright tests against all sample site variants:"
     echo "  1. No passwords (plain site)"
@@ -24,10 +24,12 @@ usage() {
     echo "  4. custom-css (sample/config/custom.css injected)"
     echo ""
     echo "Options:"
-    echo "  --mode <mode>  Server to test against: dev, apache, or both (default: both)."
+    echo "  --mode <mode>  Server to test against: dev, apache, nginx, both, or all (default: all)."
     echo "                   dev    — Vite dev server on port 5174"
     echo "                   apache — static build + Docker/Apache on port 8083"
+    echo "                   nginx  — static build + Docker/nginx on port 8084"
     echo "                   both   — dev first, then apache"
+    echo "                   all    — dev, apache, and nginx"
     echo "  --help, -?     Show this help message and exit."
 }
 

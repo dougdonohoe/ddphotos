@@ -106,9 +106,9 @@ The `site.env` variables are:
 | `VITE_COPYRIGHT_YEAR`   | Vite, Svelte                | Footer copyright start year                                                             |
 | `CLOUDFRONT_ID`         | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only)                         |
 | `RSYNC_DEST`            | `bin/deploy-photos.sh`      | Rsync destination path on the server (deploy only)                                      |
-| `TEST_ALBUM_LOCAL`      | `bin/test-photos-apache.sh` | Album slug used for local Apache tests                                                  |
-| `TEST_ALBUM_PROD`       | `bin/test-photos-apache.sh` | Album slug used for production tests                                                    |
-| `TEST_ALBUM_HYPHEN`     | `bin/test-photos-apache.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
+| `TEST_ALBUM_LOCAL`      | `bin/test-photos-server.sh` | Album slug used for local Apache tests                                                  |
+| `TEST_ALBUM_PROD`       | `bin/test-photos-server.sh` | Album slug used for production tests                                                    |
+| `TEST_ALBUM_HYPHEN`     | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
 
 The last five variables (`CLOUDFRONT_ID`, `RSYNC_DEST`, `TEST_ALBUM_*`) are only needed
 for deployment and Apache routing tests. For local development, only the `VITE_*` vars are required.
@@ -153,7 +153,7 @@ These variables are consumed by:
 - `vite.config.ts` — dev server middleware serves `/albums/**` from `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>/`
 - `web/svelte.config.js` — build output goes to `build/<DDPHOTOS_SITE_ID>/`; album slugs are read for pre-rendered entries
 - `web/hooks.server.ts` — intercepts fetch calls to `/albums/**` during `npm run build`
-- `web/entrypoint.sh` — symlinks `build/<DDPHOTOS_SITE_ID>/` into the Apache document root at container startup
+- `web/apache-entrypoint.sh` — symlinks `build/<DDPHOTOS_SITE_ID>/` into the Apache document root at container startup
 
 ## Makefile Targets
 
@@ -172,11 +172,14 @@ Common tasks are available via `make` from the repo root:
 | `web-npm-run-dev`            | Start Vite dev server and open browser                                             |
 | `web-npm-build`              | Build the static site into `build/<site-id>/`                                      |
 | `web-docker-build`           | Build the `photos-apache` Docker image                                             |
+| `web-docker-build-nginx`     | Build the `photos-nginx` Docker image                                              |
 | `web-docker-run`             | Run Apache on port 8080 (mounts `build/` and `albums/<site-id>/`)                  |
+| `web-docker-run-nginx`       | Run nginx on port 8080 (mounts `build/` and `albums/<site-id>/`)                   |
 | `web-docker-stop`            | Stop the running `photos-apache` container                                         |
-| `web-docker-test`            | Run `bin/test-photos-apache.sh` against `localhost:8080`                           |
+| `web-docker-test`            | Run `bin/test-photos-server.sh` against `localhost:8080`                           |
 | `web-playwright-install`     | One-time setup: install `@playwright/test` and Chromium binary                     |
-| `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker on port 8081, runs, stops)                 |
+| `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker/Apache on port 8083, runs, stops)          |
+| `web-playwright-test-nginx`  | Run Playwright e2e tests (starts Docker/nginx on port 8084, runs, stops)           |
 | `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                                 |
 | `web-playwright-test-all`    | Run `bin/test-all.sh` across all password/CSS variants                             |
 | `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                                     |
@@ -595,10 +598,10 @@ make web-docker-run
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
 
-### Automated Tests - Docker/Apache via Curl
+### Automated Tests - Docker via Curl
 
-If Docker/Apache is running, `make web-docker-test` runs 
-`bin/test-photos-apache.sh --local 8080`, which tests URL routing, redirects, 
+If Docker is running, `make web-docker-test` runs 
+`bin/test-photos-server.sh --local 8080`, which tests URL routing, redirects, 
 404 handling, photo permalink URLs, static asset accessibility,
 and verifies asset paths in HTML are absolute (required for photo permalink
 pages to render correctly).
@@ -610,9 +613,9 @@ make web-docker-test
 You can also run the script directly, against production or locally:
 
 ```bash
-bin/test-photos-apache.sh               # production ($VITE_SITE_URL)
-bin/test-photos-apache.sh --local       # local Docker on port 8080
-bin/test-photos-apache.sh --local 9090  # local Docker on custom port
+bin/test-photos-server.sh               # production ($VITE_SITE_URL)
+bin/test-photos-server.sh --local       # local Docker on port 8080
+bin/test-photos-server.sh --local 9090  # local Docker on custom port
 ```
 
 The deployment script runs this script automatically after deploying.
@@ -760,13 +763,13 @@ To deploy, I run `bin/deploy-photos.sh`, which:
 1. Runs `photogen` to resize images and generate JSON
 2. Builds the static site via `npm run build` into `build/<site-id>/`
 3. Starts the Docker/Apache container if not already running, runs
-   `bin/test-photos-apache.sh --local` to verify routing locally, then stops the container
+   `bin/test-photos-server.sh --local` to verify routing locally, then stops the container
 4. Runs Playwright tests against Docker/Apache
 5. Rsyncs `build/<site-id>/` to the `$RSYNC_DEST` directory on the EC2 server (`$AWS_APACHE`),
    using `--checksum` to reduce unnecessary re-copying since Vite resets timestamps.
    A second rsync pass syncs album data (`albums/<site-id>/`) independently.
 6. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
-7. Runs `bin/test-photos-apache.sh` to verify the deployment against production
+7. Runs `bin/test-photos-server.sh` to verify the deployment against production
 8. Runs Playwright tests against production (`$VITE_SITE_URL`)
 
 The script uses `set -eo pipefail` — any failure (including local tests) aborts before rsync.

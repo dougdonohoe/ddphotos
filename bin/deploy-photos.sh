@@ -122,7 +122,7 @@ else
     echo "Running local Apache tests..."
     TEST_ARGS=(--local 8080)
     [ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
-    "$SDIR/test-photos-apache.sh" "${TEST_ARGS[@]}"
+    "$SDIR/test-photos-server.sh" "${TEST_ARGS[@]}"
 fi
 
 if [ "$SKIP_PLAYWRIGHT" = true ]; then
@@ -175,7 +175,7 @@ else
         sleep 5
         PROD_ARGS=()
         [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
-        "$SDIR/test-photos-apache.sh" "${PROD_ARGS[@]}"
+        "$SDIR/test-photos-server.sh" "${PROD_ARGS[@]}"
     fi
 
     if [ "$SKIP_PLAYWRIGHT" = true ]; then

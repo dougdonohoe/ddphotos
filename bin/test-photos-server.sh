@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
 #
-# Verify Apache is serving the photos site correctly.
+# Verify the photos site is being served correctly.
 # Tests URL routing, redirects, and error handling.
+# Works against any web server (Apache or nginx).
 #
 # Usage:
-#   bin/test-photos-apache.sh                  # test production ($VITE_SITE_URL)
-#   bin/test-photos-apache.sh --local          # test local Docker on port 8080
-#   bin/test-photos-apache.sh --local 9090     # test local Docker on port 9090
+#   bin/test-photos-server.sh                  # test production ($VITE_SITE_URL)
+#   bin/test-photos-server.sh --local          # test local Docker on port 8080
+#   bin/test-photos-server.sh --local 9090     # test local Docker on port 9090
 #
 # Note: In production, Apache is behind CloudFront, so:
 #   - Redirect locations use http:// (Apache sees HTTP from CloudFront)

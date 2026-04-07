@@ -2,16 +2,18 @@
 # Run Playwright tests against one variant of the sample site.
 #
 # Usage:
-#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|both]
+#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|both|all]
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
 # --css        Path to a custom CSS file (e.g. sample/config/custom.css).
 #              Omit for the no-CSS variant.
-# --mode       Which server to test against: dev, apache, or both (default: both).
-#              dev   — Vite dev server on port 5174
+# --mode       Which server to test against: dev, apache, nginx, both, or all (default: both).
+#              dev    — Vite dev server on port 5174
 #              apache — static build + Docker/Apache on port 8083
-#              both  — dev first, then apache
+#              nginx  — static build + Docker/nginx on port 8084
+#              both   — dev first, then apache
+#              all    — dev, apache, and nginx
 
 set -eo pipefail
 
@@ -27,10 +29,12 @@ usage() {
     echo "                      Omit for the no-password variant."
     echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom.css)."
     echo "                      Omit for the no-CSS variant."
-    echo "  --mode <mode>       Server to test against: dev, apache, or both (default: both)."
+    echo "  --mode <mode>       Server to test against: dev, apache, nginx, both, or all (default: both)."
     echo "                        dev    — Vite dev server on port 5174"
     echo "                        apache — static build + Docker/Apache on port 8083"
+    echo "                        nginx  — static build + Docker/nginx on port 8084"
     echo "                        both   — dev first, then apache"
+    echo "                        all    — dev, apache, and nginx"
     echo "  --help, -?          Show this help message and exit."
 }
 
@@ -100,13 +104,17 @@ ALBUMS_DIR="$(pwd)/albums"
 SITE_ENV="$(pwd)/sample/config/site.env"
 DEV_PORT=5174
 DOCKER_PORT=8083
-DOCKER_CONTAINER="ddphotos-playwright-test"
+DOCKER_PORT_NGINX=8084
+DOCKER_CONTAINER_APACHE="ddphotos-playwright-test-apache"
+DOCKER_CONTAINER_NGINX="ddphotos-playwright-test-nginx"
 DEV_PID=""
 
 # Cleanup: kill dev server and stop Docker container on exit
+# shellcheck disable=SC2317
 cleanup() {
-    [ -n "$DEV_PID" ] && kill "$DEV_PID" 2>/dev/null || true
-    docker stop "$DOCKER_CONTAINER" 2>/dev/null || true
+    if [ -n "$DEV_PID" ]; then kill "$DEV_PID" 2>/dev/null; fi
+    docker stop "$DOCKER_CONTAINER_APACHE" 2>/dev/null
+    docker stop "$DOCKER_CONTAINER_NGINX" 2>/dev/null
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -176,7 +184,7 @@ run_apache() {
     "$SDIR/docker-check.sh" --build || return 1
 
     echo "=== [apache] Starting Apache on port $DOCKER_PORT ==="
-    docker run -d --rm --name "$DOCKER_CONTAINER" -p "$DOCKER_PORT:80" \
+    docker run -d --rm --name "$DOCKER_CONTAINER_APACHE" -p "$DOCKER_PORT:80" \
         -e DDPHOTOS_SITE_ID="$SITE_ID" \
         -v "$(pwd)/build":/build:ro \
         -v "$ALBUMS_DIR/$SITE_ID":/albums:ro \
@@ -187,7 +195,33 @@ run_apache() {
     local exit_code=0
     run_playwright "http://localhost:$DOCKER_PORT" || exit_code=$?
 
-    docker stop "$DOCKER_CONTAINER" 2>/dev/null || true
+    docker stop "$DOCKER_CONTAINER_APACHE" 2>/dev/null || true
+
+    return $exit_code
+}
+
+# --- nginx mode ---
+run_nginx() {
+    echo ""
+    echo "=== [nginx] Building static site ==="
+    (cd web && SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
+
+    # Build Docker image if missing or stale
+    "$SDIR/docker-check.sh" --server nginx --build || return 1
+
+    echo "=== [nginx] Starting nginx on port $DOCKER_PORT_NGINX ==="
+    docker run -d --rm --name "$DOCKER_CONTAINER_NGINX" -p "$DOCKER_PORT_NGINX:80" \
+        -e DDPHOTOS_SITE_ID="$SITE_ID" \
+        -v "$(pwd)/build":/build:ro \
+        -v "$ALBUMS_DIR/$SITE_ID":/albums:ro \
+        photos-nginx
+
+    wait_for_http "http://localhost:$DOCKER_PORT_NGINX" "nginx"
+
+    local exit_code=0
+    run_playwright "http://localhost:$DOCKER_PORT_NGINX" || exit_code=$?
+
+    docker stop "$DOCKER_CONTAINER_NGINX" 2>/dev/null || true
 
     return $exit_code
 }
@@ -195,12 +229,16 @@ run_apache() {
 # --- run selected modes ---
 OVERALL_EXIT=0
 
-if [[ "$MODE" == "dev" || "$MODE" == "both" ]]; then
+if [[ "$MODE" == "dev" || "$MODE" == "both" || "$MODE" == "all" ]]; then
     run_dev || OVERALL_EXIT=$?
 fi
 
-if [[ "$MODE" == "apache" || "$MODE" == "both" ]]; then
+if [[ "$MODE" == "apache" || "$MODE" == "both" || "$MODE" == "all" ]]; then
     run_apache || OVERALL_EXIT=$?
+fi
+
+if [[ "$MODE" == "nginx" || "$MODE" == "all" ]]; then
+    run_nginx || OVERALL_EXIT=$?
 fi
 
 exit $OVERALL_EXIT

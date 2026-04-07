@@ -5,9 +5,11 @@ RUN sed -i 's/#LoadModule rewrite_module/LoadModule rewrite_module/' /usr/local/
     && echo "ServerName localhost" >> /usr/local/apache2/conf/httpd.conf \
     && printf '\n<Directory "/usr/local/apache2/htdocs">\n    Options +FollowSymLinks\n</Directory>\n' >> /usr/local/apache2/conf/httpd.conf
 
-# entrypoint.sh populates /usr/local/apache2/htdocs with symlinks into /build/<site-id>
-# and /albums at container startup, then hands off to httpd-foreground.
-COPY entrypoint.sh /entrypoint.sh
+# apache-entrypoint.sh calls setup-htdocs.sh to populate the document root with symlinks,
+# then hands off to httpd-foreground.
+COPY setup-htdocs.sh /setup-htdocs.sh
+COPY apache-entrypoint.sh /entrypoint.sh
+RUN chmod +x /setup-htdocs.sh /entrypoint.sh
 CMD ["/entrypoint.sh"]
 
 # Mounts at runtime:
