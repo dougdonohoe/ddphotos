@@ -46,11 +46,17 @@ jobs:
       - name: Install Playwright system dependencies
         run: cd web && npx playwright install-deps chromium
 
-      - name: Run Apache routing tests
-        run: make sample-photogen sample-build web-docker-build sample-test-apache
+      - name: Photogen and build
+        run: make sample-photogen sample-build
 
-      - name: Run Playwright e2e tests (all password variants, apache)
+      - name: Run Apache routing tests
+        run: make web-docker-build-apache sample-test-apache
+
+      - name: Run nginx routing tests
+        run: make web-docker-build-nginx sample-test-nginx
+
+      - name: Run Apache Playwright e2e tests (all password variants)
         run: bin/test-all.sh --mode apache
 
-      - name: Run Playwright e2e tests (all password variants, nginx)
+      - name: Run nginx Playwright e2e tests (all password variants)
         run: bin/test-all.sh --mode nginx

@@ -111,7 +111,7 @@ The `site.env` variables are:
 | `TEST_ALBUM_HYPHEN`     | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
 
 The last five variables (`CLOUDFRONT_ID`, `RSYNC_DEST`, `TEST_ALBUM_*`) are only needed
-for deployment and Apache routing tests. For local development, only the `VITE_*` vars are required.
+for deployment and server routing tests. For local development, only the `VITE_*` vars are required.
 
 In the web app, `vite.config.ts` reads `config/site.env` at startup and injects `VITE_*` keys into `process.env`
 before Vite runs, so the values are available as `import.meta.env.VITE_*` in Svelte components.
@@ -171,9 +171,9 @@ Common tasks are available via `make` from the repo root:
 | `web-npm-install`            | Install npm dependencies in `web/`                                                 |
 | `web-npm-run-dev`            | Start Vite dev server and open browser                                             |
 | `web-npm-build`              | Build the static site into `build/<site-id>/`                                      |
-| `web-docker-build`           | Build the `photos-apache` Docker image                                             |
+| `web-docker-build-apache`    | Build the `photos-apache` Docker image                                             |
 | `web-docker-build-nginx`     | Build the `photos-nginx` Docker image                                              |
-| `web-docker-run`             | Run Apache on port 8080 (mounts `build/` and `albums/<site-id>/`)                  |
+| `web-docker-run-apache`      | Run Apache on port 8080 (mounts `build/` and `albums/<site-id>/`)                  |
 | `web-docker-run-nginx`       | Run nginx on port 8080 (mounts `build/` and `albums/<site-id>/`)                   |
 | `web-docker-stop`            | Stop the running `photos-apache` container                                         |
 | `web-docker-test`            | Run `bin/test-photos-server.sh` against `localhost:8080`                           |
@@ -190,7 +190,8 @@ Common tasks are available via `make` from the repo root:
 | `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server                       |
 | `sample-build`               | Build the static site using sample config                                          |
 | `sample-npm-run-dev`         | Run the Vite dev server using sample config                                        |
-| `sample-test-apache`         | Run Apache routing tests against Docker on port 8082                               |
+| `sample-test-apache`         | Run routing tests against Docker/Apache on port 8082                               |
+| `sample-test-nginx`          | Run routing tests against Docker/nginx on port 8082                                |
 | `web-screenshots`            | Capture screenshots (requires a running server on port 8080)                       |
 
 ## Generating Photos (`photogen`)
@@ -538,7 +539,7 @@ DDPHOTOS_SITE_ID=prod bin/search_cover.sh <url>
 
 There are three ways of testing the website:
 
-1. **Manual testing** in a browser, against the Vite dev server or a local static build (via Docker/Apache)
+1. **Manual testing** in a browser, against the Vite dev server or a local static build (via Docker)
 2. **Playwright e2e tests** that drive a headless Chromium browser to verify UI behavior
 3. **Apache routing tests** using `curl` to verify `.htaccess` URL routing, redirects, and 404 handling
 
@@ -578,22 +579,24 @@ make web-npm-build
 SITE_ENV=private/config/site.env make web-npm-build
 ```
 
-Once the site is built, you can serve it via Docker/Apache.
+Once the site is built, you can serve it via Docker (Apache/nginx).
 
-### Manual Testing - Build Served via Docker/Apache
+### Manual Testing - Build Served via Docker
 
-The Docker/Apache environment mirrors one possible production setup and applies
-`.htaccess` routing locally. The `build/` directory is mounted in the container (not
-`build/<site-id>/`) so that npm rebuilds (which delete and recreate `build/<site-id>/`)
-don't break the container's bind mount.
+The Docker environment mirrors one possible production setup and applies URL routing
+locally. The `build/` directory is mounted in the container (not `build/<site-id>/`)
+so that npm rebuilds (which delete and recreate `build/<site-id>/`) don't break the
+container's bind mount. Apache and nginx are both supported.
 
 ```bash
-# One-time: build the Docker image
-make web-docker-build
+# One-time: build the Docker image(s)
+make web-docker-build-apache # Apache
+make web-docker-build-nginx  # nginx
 
-# Start Apache on port 8080 (runs in foreground; Ctrl-C to stop) 
+# Start on port 8080 (runs in foreground; Ctrl-C to stop)
 # Site rebuilds do not require a restart
-make web-docker-run
+make web-docker-run-apache # Apache
+make web-docker-run-nginx  # nginx
 ```
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
@@ -622,17 +625,20 @@ The deployment script runs this script automatically after deploying.
 
 ### Automated Tests - Playwright E2E Tests
 
-Playwright runs a real headless Chromium browser against the Docker/Apache
-container, the dev server, or even a production server, testing JavaScript behavior 
-that static HTML checks can't cover - specifically lightbox caption rendering across 
+Playwright runs a real headless Chromium browser against a Docker container (Apache
+or nginx), the dev server, or even a production server, testing JavaScript behavior
+that static HTML checks can't cover - specifically lightbox caption rendering across
 the different open paths.
 
 ```bash
 # One-time setup (downloads ~100 MB Chromium binary)
 make web-playwright-install
 
-# starts a separate Docker/Apache on port 8081, runs tests, stops Docker
+# starts a separate Docker/Apache on port 8083, runs tests, stops Docker
 make web-playwright-test-apache
+
+# starts a separate Docker/nginx on port 8084, runs tests, stops Docker
+make web-playwright-test-nginx
 
 # runs against dev server (which must be running)
 make web-playwright-test-dev
@@ -672,14 +678,23 @@ Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants aut
 and `custom-css` (with `sample/config/custom.css` injected).
 
 ```bash
-# Run all 4 variants against Apache (recommended; mirrors CI)
+# Run all 4 variants against dev + Apache + nginx (default; recommended locally)
+bin/test-all.sh
+
+# Run all 4 variants against Apache only (mirrors CI)
 bin/test-all.sh --mode apache
 
-# Run all 4 variants against both dev server and Apache
-bin/test-all.sh --mode both
+# Run all 4 variants against nginx only
+bin/test-all.sh --mode nginx
+
+# Run all 4 variants against dev server, Apache, and nginx
+bin/test-all.sh --mode all
 
 # Run a single variant against Apache (no password)
 bin/run-tests.sh --mode apache
+
+# Run a single variant against nginx (no password)
+bin/run-tests.sh --mode nginx
 
 # Run pw-all variant against Apache
 bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
@@ -798,15 +813,17 @@ bin/deploy-photos.sh --no-photogen --no-rsync # build + local test, skip both ph
 
 ## CI (GitHub Actions)
 
-The workflow in `.github/workflows/ci.yml` runs on every pull request to `main`. It:
+The workflow in `.github/workflows/ci.yml` runs on every push or pull request to `main`. It:
 
 1. Installs `libvips-dev` and `pkg-config` via `apt-get`
 2. Sets up Go (version from `go.mod`) and Node (version from `web/.nvmrc`); installs dependencies
 3. Runs `make build test vet`
 4. Installs Playwright Chromium and its system dependencies
-5. Runs `make sample-photogen sample-build web-docker-build sample-test-apache` — photogens
-   the sample site, builds the static site and Docker image, and runs Apache routing tests
-6. Runs `bin/test-all.sh --mode apache` — Playwright e2e tests across all password/CSS variants
+5. Runs `make sample-photogen sample-build` — photogens the sample site and builds the static site
+6. Runs `make web-docker-build-apache sample-test-apache` — builds the Apache Docker image and runs routing tests
+7. Runs `make web-docker-build-nginx sample-test-nginx` — builds the nginx Docker image and runs routing tests
+8. Runs `bin/test-all.sh --mode apache` — Playwright e2e tests across all password/CSS variants against Apache
+9. Runs `bin/test-all.sh --mode nginx` — Playwright e2e tests across all password/CSS variants against nginx
 
 ### Testing CI Locally with `act`
 
@@ -815,7 +832,7 @@ It requires Docker. Before running, there is one key prerequisite and one import
 
 ```bash
 # Prerequisite: generate and build sample site before running `act`
-make web-docker-build sample-photogen sample-build
+make web-docker-build-apache web-docker-build-nginx sample-photogen sample-build
 
 # Run act to simulate GitHub
 act --reuse --pull=false -W .github/workflows/ci.yml

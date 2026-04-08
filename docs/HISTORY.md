@@ -1044,3 +1044,50 @@ Added a `default_theme` setting to `albums.yaml` that controls the site's initia
 **Theme store**: `theme.ts` previously hardcoded `'dark'` as the fallback when localStorage has no stored value. It now reads `document.documentElement.getAttribute('data-theme')` — the value already applied by the inline script — so the Svelte store initialises to match what's on screen. This prevents a flash on first visit when the configured default is `'light'`.
 
 **`?clear` improvement**: The `?clear` URL parameter (developer/testing tool that wipes stored passwords) now also removes the `'theme'` key from localStorage. The `logout()` function in `+layout.svelte` is intentionally left unchanged — it clears auth state only.
+
+### 56. nginx Docker POC
+
+Added nginx as an alternative to Apache for serving the static site, mirroring the existing Docker setup exactly. Also took the opportunity to clean up Dockerfile naming conventions.
+
+#### Dockerfile Renaming
+
+Renamed existing files to use a consistent `server-name.*` convention that JetBrains IDEs recognize via the `.dockerfile` extension:
+
+- `web/Dockerfile` → `web/apache.dockerfile`
+- `web/entrypoint.sh` → `web/apache-entrypoint.sh`
+- `bin/test-photos-apache.sh` → `bin/test-photos-server.sh` (server-agnostic routing tests)
+
+#### Shared Entrypoint Logic
+
+Extracted the common symlink setup logic from both entrypoints into a shared helper:
+
+- **`web/setup-htdocs.sh`** — takes `<htdocs-dir>` as an argument; symlinks everything from `/build/<site-id>/` into the document root (using `find` to include dotfiles like `.htaccess`), then populates `<htdocs>/albums/` with symlinks to pre-rendered HTML pages and photogen output.
+- **`web/apache-entrypoint.sh`** — sets `HTDOCS=/usr/local/apache2/htdocs`, calls `setup-htdocs.sh`, execs `httpd-foreground`.
+- **`web/nginx-entrypoint.sh`** — sets `HTDOCS=/usr/share/nginx/html`, calls `setup-htdocs.sh`, execs `nginx -g 'daemon off;'`.
+
+#### nginx Config
+
+**`web/nginx.conf`** replicates the `.htaccess` URL routing rules:
+
+- **Trailing slash removal** — `rewrite ^(.+)/$ $1 permanent` (301)
+- **Photo permalink** — `location ~ ^/albums/([^/]+)/\d+$` serves `/albums/$1.html` via `try_files`
+- **HTML extension mapping** — `try_files $uri $uri.html @spa_fallback` serves `/albums/slug` from `albums/slug.html`
+- **SPA fallback** — `location @spa_fallback` serves `index.html` for root-level single-segment paths; returns 404 for nested paths (e.g. `/albums/doesnotexist`)
+
+#### nginx Dockerfile
+
+**`web/nginx.dockerfile`** uses `nginx:alpine` as the base image, replaces `/etc/nginx/conf.d/default.conf` with the custom routing config, and copies both `setup-htdocs.sh` and `nginx-entrypoint.sh` into the image.
+
+#### `bin/docker-check.sh` Generalization
+
+Added `--server apache|nginx` flag (default: `apache`). All existing calls remain unchanged. Per-server differences:
+
+- Image tag: `photos-apache` vs `photos-nginx`
+- Dockerfile: `web/apache.dockerfile` vs `web/nginx.dockerfile`
+- Hash inputs: the relevant dockerfile + entrypoint(s) + `setup-htdocs.sh` (+ `nginx.conf` for nginx)
+
+#### Test Infrastructure
+
+- **`bin/run-tests.sh`** — added `--mode nginx` (port 8084) and `--mode all` (dev + apache + nginx). `both` retains its original meaning (dev + apache).
+- **`bin/test-all.sh`** — default mode changed from `both` to `all`, so CI-like runs now cover all three servers.
+- **Makefile** — added `web-docker-build-nginx`, `web-docker-run-nginx`, `web-playwright-test-nginx`, `sample-test-nginx`.

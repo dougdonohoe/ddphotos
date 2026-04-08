@@ -2,38 +2,36 @@
 # Run Playwright tests against one variant of the sample site.
 #
 # Usage:
-#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|both|all]
+#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|all]
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
 # --css        Path to a custom CSS file (e.g. sample/config/custom.css).
 #              Omit for the no-CSS variant.
-# --mode       Which server to test against: dev, apache, nginx, both, or all (default: both).
+# --mode       Which server to test against: dev, apache, nginx, or all (default: all).
 #              dev    — Vite dev server on port 5174
 #              apache — static build + Docker/Apache on port 8083
 #              nginx  — static build + Docker/nginx on port 8084
-#              both   — dev first, then apache
 #              all    — dev, apache, and nginx
 
 set -eo pipefail
 
 PASSWORDS_FILE=""
 CSS_FILE=""
-MODE="both"
+MODE="all"
 
 usage() {
-    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|both]"
+    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|all]"
     echo ""
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
     echo "                      Omit for the no-password variant."
     echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom.css)."
     echo "                      Omit for the no-CSS variant."
-    echo "  --mode <mode>       Server to test against: dev, apache, nginx, both, or all (default: both)."
+    echo "  --mode <mode>       Server to test against: dev, apache, nginx, or all (default: all)."
     echo "                        dev    — Vite dev server on port 5174"
     echo "                        apache — static build + Docker/Apache on port 8083"
     echo "                        nginx  — static build + Docker/nginx on port 8084"
-    echo "                        both   — dev first, then apache"
     echo "                        all    — dev, apache, and nginx"
     echo "  --help, -?          Show this help message and exit."
 }
@@ -119,7 +117,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
-# --- photogen + symlink (done once, shared by both dev and apache runs) ---
+# --- photogen + symlink (done once, shared across all modes) ---
 echo ""
 echo "=== Generating sample data (site-id: $SITE_ID) ==="
 # shellcheck disable=SC2086
@@ -229,11 +227,11 @@ run_nginx() {
 # --- run selected modes ---
 OVERALL_EXIT=0
 
-if [[ "$MODE" == "dev" || "$MODE" == "both" || "$MODE" == "all" ]]; then
+if [[ "$MODE" == "dev" || "$MODE" == "all" ]]; then
     run_dev || OVERALL_EXIT=$?
 fi
 
-if [[ "$MODE" == "apache" || "$MODE" == "both" || "$MODE" == "all" ]]; then
+if [[ "$MODE" == "apache" || "$MODE" == "all" ]]; then
     run_apache || OVERALL_EXIT=$?
 fi
 

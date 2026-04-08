@@ -143,7 +143,7 @@ make web-playwright-install  # installs Playwright + Chromium for e2e tests
 ```
 
 You may also want to install [Docker](https://www.docker.com/get-started/) if
-you don't have it, as it is required for testing site behavior using Apache.
+you don't have it, as it is required for testing site behavior using Apache or nginx.
 
 ## Sample App
 
@@ -178,13 +178,13 @@ assumes `photogen` has been run).
 
 ```bash
 # Build docker image (one time)
-make web-docker-build
+make web-docker-build-apache
 
 # Build sample site
 make sample-build
 
 # Run it in Docker/Apache
-make web-docker-run 
+make web-docker-run-apache 
 ```
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
@@ -248,7 +248,7 @@ dev server.
 make web-npm-run-dev
 ```
 
-### Build and Test Apache
+### Build and Test with Docker
 
 To test the build process:
 
@@ -259,10 +259,11 @@ make web-npm-build
 This deletes and recreates the `build/<site-id>` directory, which will have all
 the files needed to run the site, including copies of your resized photos.
 
-To run it using the Docker/Apache image:
+To run it using Docker, choose Apache or nginx:
 
 ```bash
-make web-docker-run
+make web-docker-run-apache # Apache
+make web-docker-run-nginx  # nginx
 ```
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
@@ -280,17 +281,18 @@ because values are hardcoded at the moment (i.e., the smoke/caption tests
 reference specific album names - `antarctica` and `uganda`).
 
 You can also run some smoke tests as defined in `bin/test-photos-server.sh`.
-Assuming Docker/Apache is running:
+Assuming Docker is running on port 8080:
 
 ```bash
 make web-docker-test
 ```
 
-If Docker/Apache isn't running, you can auto-start and stop it to
-run these tests against sample site:
+If Docker isn't running, you can auto-start and stop it to
+run these tests against the sample site:
 
 ```bash
-make sample-test-apache
+make sample-test-apache  # Apache
+make sample-test-nginx   # nginx
 ```
 
 ## Developer Information

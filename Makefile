@@ -107,9 +107,9 @@ web-npm-run-dev-https:
 web-npm-build:
 	$(NODE_INIT) cd web && SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run build
 
-.PHONY: web-docker-build
-## web-docker-build: build the photos Apache Docker image
-web-docker-build:
+.PHONY: web-docker-build-apache
+## web-docker-build-apache: build the photos Apache Docker image
+web-docker-build-apache:
 	bin/docker-check.sh --force
 
 .PHONY: web-docker-build-nginx
@@ -117,17 +117,17 @@ web-docker-build:
 web-docker-build-nginx:
 	bin/docker-check.sh --server nginx --force
 
-.PHONY: _check-docker-schema
-_check-docker-schema:
-	bin/docker-check.sh
+.PHONY: _check-docker-schema-apache
+_check-docker-schema-apache:
+	bin/docker-check.sh --server apache
 
 .PHONY: _check-docker-schema-nginx
 _check-docker-schema-nginx:
 	bin/docker-check.sh --server nginx
 
-.PHONY: web-docker-run
-## web-docker-run: run the photos Apache Docker container on port 8080
-web-docker-run: _check-docker-schema
+.PHONY: web-docker-run-apache
+## web-docker-run-apache: run the photos Apache Docker container on port 8080
+web-docker-run-apache: _check-docker-schema-apache
 	docker run --rm -p 8080:80 \
 		-e DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) \
 		-v $(PWD)/build:/build:ro \
@@ -176,7 +176,7 @@ web-playwright-test-all:
 .PHONY: web-screenshots
 ## web-screenshots: capture screenshots and regenerate composite — requires a running server on port 8080
 web-screenshots:
-	# run `make sample-photogen sample-build web-docker-run` to start docker/apache for this script
+	# run `make sample-photogen sample-build web-docker-run-apache` to start docker/apache for this script
 	$(NODE_INIT) cd web && node scripts/screenshots.mjs --album antarctica --photo 4
 	.venv/bin/python3 bin/generate-screenshot-composite.py
 
@@ -217,7 +217,7 @@ sample-build:
 
 .PHONY: sample-test-apache
 ## sample-test-apache: run routing tests against local Apache Docker container on port 8082 (starts/stops Docker automatically)
-sample-test-apache: _check-docker-schema
+sample-test-apache: _check-docker-schema-apache
 	@test -d build/$(DDPHOTOS_SITE_ID) || { echo "Error: build/$(DDPHOTOS_SITE_ID) not found. Run 'make web-npm-build' first."; exit 1; }
 	docker run -d --rm --name sample-test-apache -p 8082:80 \
 		-e DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) \

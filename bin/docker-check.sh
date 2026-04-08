@@ -71,7 +71,7 @@ if [ "$MODE" = build ]; then
 else
     echo "ERROR: $IMAGE image is stale or missing."
     if [ "$SERVER" = "apache" ]; then
-        echo "Run: make web-docker-build"
+        echo "Run: make web-docker-build-apache"
     else
         echo "Run: make web-docker-build-nginx"
     fi
