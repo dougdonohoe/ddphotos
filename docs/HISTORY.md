@@ -1091,3 +1091,45 @@ Added `--server apache|nginx` flag (default: `apache`). All existing calls remai
 - **`bin/run-tests.sh`** — added `--mode nginx` (port 8084) and `--mode all` (dev + apache + nginx). `both` retains its original meaning (dev + apache).
 - **`bin/test-all.sh`** — default mode changed from `both` to `all`, so CI-like runs now cover all three servers.
 - **Makefile** — added `web-docker-build-nginx`, `web-docker-run-nginx`, `web-playwright-test-nginx`, `sample-test-nginx`.
+
+### 57. Lightbox Grid Scroll Tracking
+
+When navigating photos in the PhotoSwipe lightbox, closing it always returned the user to wherever the grid happened to be scrolled — typically the photo they originally clicked on, not the one they last viewed. The goal: when the lightbox closes, the underlying grid should be scrolled so the current photo is vertically centered on screen.
+
+#### Why This Was Tricky
+
+Three compounding problems, each hiding the next:
+
+**1. Two separate scroll resets, not one.**
+`history.go(-1)` (called on close to pop the pushState photo-URL entry) triggers SvelteKit's popstate handler, which resets scroll synchronously within ~2 frames to the position saved when `pushState` was called. A double-`requestAnimationFrame` handles that. But SvelteKit *also* re-runs the album page's load function (a network fetch) and restores scroll again when it completes — ~300–500ms later. This second reset was invisible in early debugging because probes only went to 200ms.
+
+**2. `afterNavigate` doesn't fire for shallow pushState pops.**
+SvelteKit's `pushState` creates a "shallow" history entry. When popped via `history.go(-1)`, SvelteKit processes it without firing full navigation lifecycle hooks — so `afterNavigate` (the idiomatic SvelteKit override point) never fires. This burned two rounds of investigation before console logging confirmed it.
+
+**3. Live scrolling during the lightbox caused mobile glitches.**
+An early iteration also scrolled the grid *live* while navigating (in the `change` event handler), so the close animation could animate back to a visible thumbnail. On desktop this was invisible under the opaque overlay. On iOS Safari, calling `scrollTo` while a `position: fixed` element is on screen causes the fixed element to momentarily mis-render — a visible flash. Removing the live scroll and relying purely on the on-close guard fixed both platforms.
+
+#### Solution
+
+On the PhotoSwipe `change` event, compute and store the target scroll position (`pendingScrollY`) that would vertically center the current photo:
+
+```js
+const galleryTop = container.getBoundingClientRect().top + window.scrollY;
+const photoCenterY = galleryTop + box.top + box.height / 2;
+pendingScrollY = photoCenterY - window.innerHeight / 2;
+```
+
+On `close`, capture the target and start a `requestAnimationFrame` guard loop that runs every frame for 700ms, re-applying the target whenever SvelteKit resets it:
+
+```js
+const deadline = performance.now() + 700;
+const guard = () => {
+    if (Math.abs(window.scrollY - target) > 1) {
+        window.scrollTo({ top: target, behavior: 'instant' });
+    }
+    if (performance.now() < deadline) requestAnimationFrame(guard);
+};
+requestAnimationFrame(guard);
+```
+
+Any individual flash caused by a SvelteKit reset is at most one frame (~16ms) — imperceptible at 60fps. The guard covers both the immediate synchronous reset and the async one at ~400ms. All changes are in `web/src/routes/albums/[slug]/[[index]]/+page.svelte`.

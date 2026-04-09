@@ -67,6 +67,9 @@
 	// Stored so onMount cleanup can remove it when navigating away via a link while the
 	// lightbox is open (component unmounts before the close event fires).
 	let activePopstateHandler: (() => void) | null = null;
+	// Scroll target set as user navigates in the lightbox; applied on close.
+	let pendingScrollY: number | null = null;
+
 	// Image fade-in state. Populated by the $effect below, which re-runs on album change.
 	let imageSrcs = $state<string[]>([]); // src per image; empty string = not yet assigned
 	let imageLoaded = $state<boolean[]>([]); // true once the browser fires the load event
@@ -205,16 +208,29 @@
 			lightboxOpen = false;
 			lightboxClosedAt = Date.now();
 			if (!closedByBackNav) {
+				const target = pendingScrollY !== null ? Math.max(0, pendingScrollY) : null;
+				pendingScrollY = null;
+
 				if (pushedHistoryEntry) {
-					// Pop our native push entry so the album URL is restored and history
-					// is clean (subsequent back goes to the page before the album, not
-					// back to the photo URL).  Fires a popstate that SvelteKit handles
-					// as a normal navigation to /albums/slug.
 					history.go(-1);
 				} else {
-					// Permalink open (animate=false, no native push): update URL from
-					// /albums/slug/N back to /albums/slug via SvelteKit's shallow replace.
 					replaceState(`/albums/${data.slug}`, {});
+				}
+
+				if (target !== null) {
+					// SvelteKit resets scroll twice after history.go(-1):
+					//   1. Synchronous (~2 frames): handled by the first rAF iteration
+					//   2. Async (~300-500ms, after load fn completes): handled by subsequent iterations
+					// Run every frame for 700ms; re-apply target whenever a reset is detected.
+					// Any visible flash is at most one frame (~16ms).
+					const deadline = performance.now() + 700;
+					const guard = () => {
+						if (Math.abs(window.scrollY - target) > 1) {
+								window.scrollTo({ top: target, behavior: 'instant' });
+						}
+						if (performance.now() < deadline) requestAnimationFrame(guard);
+					};
+					requestAnimationFrame(guard);
 				}
 			}
 			// closedByBackNav: back button already navigated to the correct URL; nothing to do.
@@ -243,6 +259,16 @@
 			// Uses replaceState (not pushState) so every photo doesn't add a history entry
 			// — back always jumps directly to the album rather than stepping photo-by-photo.
 			replaceState(`/albums/${data.slug}/${pswp.currIndex + 1}`, {});
+			// Store the target scroll so the current photo will be centered when the
+			// lightbox closes. Applied via afterNavigate (history.go(-1) case) or directly
+			// in the close handler (replaceState case) — both fire after SvelteKit's own
+			// scroll restoration, ensuring we override it.
+			if (container) {
+				const box = layout().boxes[pswp.currIndex];
+				const galleryTop = container.getBoundingClientRect().top + window.scrollY;
+				const photoCenterY = galleryTop + box.top + box.height / 2;
+				pendingScrollY = photoCenterY - window.innerHeight / 2;
+			}
 		});
 
 		// Inject a copy-link button into PhotoSwipe's top bar (left of the close button).
