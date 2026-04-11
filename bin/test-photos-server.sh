@@ -23,6 +23,7 @@ SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 LOCAL=0
 PORT=8080
 CONFIG_DIR=""
+S3_MODE=0
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -36,6 +37,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
+        --s3)           S3_MODE=1; shift ;;
         *) shift ;;
     esac
 done
@@ -54,9 +56,13 @@ if [ "$LOCAL" -eq 1 ]; then
     ALBUM="${TEST_ALBUM_LOCAL:-antarctica}"
 else
     BASE="$VITE_SITE_URL"
-    # Apache returns http:// in redirect Location headers since CloudFront
-    # terminates SSL and forwards HTTP to the origin.
-    REDIRECT_BASE="$(echo "$VITE_SITE_URL" | sed 's|^https://|http://|')"
+    if [ "$S3_MODE" -eq 1 ]; then
+        # S3+CloudFront: redirects come from CloudFront Functions and use https://
+        REDIRECT_BASE="$VITE_SITE_URL"
+    else
+        # Apache behind CloudFront: Apache sees HTTP and returns http:// in Location headers
+        REDIRECT_BASE="$(echo "$VITE_SITE_URL" | sed 's|^https://|http://|')"
+    fi
     ALBUM="${TEST_ALBUM_PROD:-patagonia}"
 fi
 
@@ -154,7 +160,7 @@ echo "Static assets (expect 200):"
 check_status "$BASE/favicon.ico"                  200 "Favicon"
 check_status "$BASE/robots.txt"                   200 "Robots.txt"
 check_status "$BASE/albums/config.json"           200 "Config JSON"
-check_status "$BASE/sitemap.xml"                  200 "Sitemap"
+check_status "$BASE/albums/sitemap.xml"            200 "Sitemap"
 
 echo ""
 echo "Trailing slash redirects (expect 301 -> no slash):"

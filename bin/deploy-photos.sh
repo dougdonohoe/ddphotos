@@ -8,6 +8,7 @@ SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
 SKIP_APACHE_TEST=false
 DRY_RUN=false
+S3_MODE=false
 CONFIG_DIR=""
 SITE_ENV_ARG=""
 while [[ $# -gt 0 ]]; do
@@ -17,6 +18,7 @@ while [[ $# -gt 0 ]]; do
         --no-playwright) SKIP_PLAYWRIGHT=true; shift ;;
         --no-apache-test) SKIP_APACHE_TEST=true; shift ;;
         --dry-run)      DRY_RUN=true; shift ;;
+        --s3)           S3_MODE=true; shift ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
         --site-env)     SITE_ENV_ARG="$2"; shift 2 ;;
@@ -62,14 +64,18 @@ fi
 
 # These must be set in site.env — guard early so a missing value can't
 # cause rsync --delete to target the wrong (or empty) remote path.
-[ -n "$AWS_APACHE" ]      || { echo "Error: AWS_APACHE not set in $SITE_ENV"; exit 1; }
-[ -n "$RSYNC_DEST" ]      || { echo "Error: RSYNC_DEST not set in $SITE_ENV"; exit 1; }
 [ -n "$CLOUDFRONT_ID" ]   || { echo "Error: CLOUDFRONT_ID not set in $SITE_ENV"; exit 1; }
 [ -n "$VITE_SITE_URL" ]   || { echo "Error: VITE_SITE_URL not set in $SITE_ENV"; exit 1; }
 
-# Ensure RSYNC_DEST ends with / so rsync targets an explicit directory path,
-# never a bare or empty string that could default to the remote home directory.
-[[ "$RSYNC_DEST" == */ ]] || RSYNC_DEST="${RSYNC_DEST}/"
+if [ "$S3_MODE" = true ]; then
+    [ -n "$S3_BUCKET" ] || { echo "Error: S3_BUCKET not set in $SITE_ENV"; exit 1; }
+else
+    [ -n "$AWS_APACHE" ]  || { echo "Error: AWS_APACHE not set in $SITE_ENV"; exit 1; }
+    [ -n "$RSYNC_DEST" ]  || { echo "Error: RSYNC_DEST not set in $SITE_ENV"; exit 1; }
+    # Ensure RSYNC_DEST ends with / so rsync targets an explicit directory path,
+    # never a bare or empty string that could default to the remote home directory.
+    [[ "$RSYNC_DEST" == */ ]] || RSYNC_DEST="${RSYNC_DEST}/"
+fi
 
 # Resolve DDPHOTOS_ALBUMS_DIR to absolute path
 DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
@@ -89,8 +95,7 @@ cd web
 source "$HOME/.nvm/nvm.sh"
 SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
 
-# Local Apache test before deploying.
-# Start Docker container if not already running on port 8080, and stop it on exit.
+# Local Apache test before deploying (rsync mode only — not applicable for S3).
 DOCKER_STARTED=false
 _docker_cleanup() {
     if [ "$DOCKER_STARTED" = true ]; then
@@ -99,7 +104,9 @@ _docker_cleanup() {
     fi
 }
 trap _docker_cleanup EXIT
-if [ "$SKIP_APACHE_TEST" = true ]; then
+if [ "$S3_MODE" = true ]; then
+    echo "Skipping pre-deploy local tests (--s3 mode)"
+elif [ "$SKIP_APACHE_TEST" = true ]; then
     echo "Skipping local Apache tests (--no-apache-test)"
 else
     # Verify Docker image is current before running
@@ -123,23 +130,72 @@ else
     TEST_ARGS=(--local 8080)
     [ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
     "$SDIR/test-photos-server.sh" "${TEST_ARGS[@]}"
-fi
 
-if [ "$SKIP_PLAYWRIGHT" = true ]; then
-    echo "Skipping Playwright tests (--no-playwright)"
-else
-    echo "Running Playwright e2e tests..."
-    npx playwright test
+    if [ "$SKIP_PLAYWRIGHT" = true ]; then
+        echo "Skipping pre-deploy Playwright tests (--no-playwright)"
+    else
+        echo "Running pre-deploy Playwright e2e tests..."
+        npx playwright test
+    fi
 fi
-
-RSYNC_OPTS="-avz --checksum --delete"
-RSYNC_OPTS_ALBUMS="-avz --delete"
-[ "$DRY_RUN" = true ] && RSYNC_OPTS="$RSYNC_OPTS --dry-run"
-[ "$DRY_RUN" = true ] && RSYNC_OPTS_ALBUMS="$RSYNC_OPTS_ALBUMS --dry-run"
 
 if [ "$SKIP_RSYNC" = true ]; then
-    echo "Skipping rsync, CloudFront invalidation, and post-deploy test (--no-rsync)"
+    echo "Skipping deploy, CloudFront invalidation, and post-deploy tests (--no-rsync)"
+elif [ "$S3_MODE" = true ]; then
+    [ "$DRY_RUN" = true ] && echo "=== DRY RUN: aws s3 sync will not transfer any files ==="
+
+    S3_SYNC_OPTS="--delete"
+    [ "$DRY_RUN" = true ] && S3_SYNC_OPTS="$S3_SYNC_OPTS --dryrun"
+
+    # Deploy app files + pre-rendered album HTML/JSON.
+    # Pass 1: sync web build, protecting albums/ image/JSON data (managed by Pass 2 below).
+    # --exclude "albums/*" prevents uploading or deleting album images/JSON from S3.
+    # --include "albums/*.html" re-includes pre-rendered SvelteKit album pages (last rule wins).
+    # shellcheck disable=SC2086
+    aws s3 sync "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/" \
+        $S3_SYNC_OPTS --exclude "albums/*" --include "albums/*.html"
+
+    # Deploy album data (images + JSON) independently.
+    # --size-only: photogen preserves timestamps, so size alone is a reliable change signal.
+    # --exclude=*.html: don't delete pre-rendered .html pages synced above.
+    # shellcheck disable=SC2086
+    aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
+        $S3_SYNC_OPTS --size-only --exclude "*.html"
+
+    # Clear cache (skipped in dry-run mode)
+    if [ "$DRY_RUN" = true ]; then
+        echo "DRY RUN: skipping CloudFront invalidation"
+    else
+        aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*" \
+            --query 'Invalidation.Id' --output text
+    fi
+
+    if [ "$SKIP_APACHE_TEST" = true ]; then
+        echo "Skipping post-deploy server tests (--no-apache-test)"
+    elif [ "$DRY_RUN" = true ]; then
+        echo "DRY RUN: skipping post-deploy server tests"
+    else
+        echo "Sleeping 5 to allow cache to clear..."
+        sleep 5
+        PROD_ARGS=(--s3)
+        [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
+        "$SDIR/test-photos-server.sh" "${PROD_ARGS[@]}"
+    fi
+
+    if [ "$SKIP_PLAYWRIGHT" = true ]; then
+        echo "Skipping Playwright tests against production (--no-playwright)"
+    elif [ "$DRY_RUN" = true ]; then
+        echo "DRY RUN: skipping Playwright tests against production"
+    else
+        echo "Running Playwright e2e tests against production..."
+        PLAYWRIGHT_BASE_URL="$VITE_SITE_URL" npx playwright test
+    fi
 else
+    RSYNC_OPTS="-avz --checksum --delete"
+    RSYNC_OPTS_ALBUMS="-avz --delete"
+    [ "$DRY_RUN" = true ] && RSYNC_OPTS="$RSYNC_OPTS --dry-run"
+    [ "$DRY_RUN" = true ] && RSYNC_OPTS_ALBUMS="$RSYNC_OPTS_ALBUMS --dry-run"
+
     [ "$DRY_RUN" = true ] && echo "=== DRY RUN: rsync will not transfer any files ==="
 
     # Deploy app files + pre-rendered album HTML/JSON.
