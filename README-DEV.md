@@ -107,7 +107,7 @@ The `site.env` variables are:
 | `CLOUDFRONT_ID`         | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only)                         |
 | `S3_BUCKET`             | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3` flag)                      |
 | `RSYNC_DEST`            | `bin/deploy-photos.sh`      | Rsync destination path on the server (EC2/rsync mode only)                              |
-| `TEST_ALBUM_LOCAL`      | `bin/test-photos-server.sh` | Album slug used for local Apache tests                                                  |
+| `TEST_ALBUM_LOCAL`      | `bin/test-photos-server.sh` | Album slug used for local server tests                                                  |
 | `TEST_ALBUM_PROD`       | `bin/test-photos-server.sh` | Album slug used for production tests                                                    |
 | `TEST_ALBUM_HYPHEN`     | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
 
@@ -881,7 +881,7 @@ The script uses `set -eo pipefail` — any failure aborts before deployment.
 | `--dry-run`        | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests                      |
 | `--no-photogen`    | Skip photo generation step                                                                                                      |
 | `--no-rsync`       | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                           |
-| `--no-apache-test` | Skip both the local and post-deploy Apache routing tests                                                                        |
+| `--no-server-test` | Skip both the local and post-deploy server routing tests                                                                        |
 | `--no-playwright`  | Skip Playwright tests (both local and production)                                                                               |
 | `--config-dir`     | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                             |
 | `--site-env`       | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                                 |

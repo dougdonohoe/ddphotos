@@ -6,7 +6,7 @@ set -eo pipefail
 SKIP_PHOTOGEN=${NO_PHOTOGEN:+true}; SKIP_PHOTOGEN=${SKIP_PHOTOGEN:-false}
 SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
-SKIP_APACHE_TEST=false
+SKIP_SERVER_TEST=false
 DRY_RUN=false
 S3_MODE=false
 CONFIG_DIR=""
@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
         --no-photogen)  SKIP_PHOTOGEN=true; shift ;;
         --no-rsync)     SKIP_RSYNC=true; shift ;;
         --no-playwright) SKIP_PLAYWRIGHT=true; shift ;;
-        --no-apache-test) SKIP_APACHE_TEST=true; shift ;;
+        --no-server-test) SKIP_SERVER_TEST=true; shift ;;
         --dry-run)      DRY_RUN=true; shift ;;
         --s3)           S3_MODE=true; shift ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
@@ -95,7 +95,7 @@ cd web
 source "$HOME/.nvm/nvm.sh"
 SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
 
-# Local Apache test before deploying (rsync mode only — not applicable for S3).
+# Local server test before deploying (rsync mode only — not applicable for S3).
 DOCKER_STARTED=false
 _docker_cleanup() {
     if [ "$DOCKER_STARTED" = true ]; then
@@ -106,8 +106,8 @@ _docker_cleanup() {
 trap _docker_cleanup EXIT
 if [ "$S3_MODE" = true ]; then
     echo "Skipping pre-deploy local tests (--s3 mode)"
-elif [ "$SKIP_APACHE_TEST" = true ]; then
-    echo "Skipping local Apache tests (--no-apache-test)"
+elif [ "$SKIP_SERVER_TEST" = true ]; then
+    echo "Skipping local server tests (--no-server-test)"
 else
     # Verify Docker image is current before running
     "$SDIR/docker-check.sh"
@@ -126,7 +126,7 @@ else
         sleep 1
     fi
 
-    echo "Running local Apache tests..."
+    echo "Running local server tests..."
     TEST_ARGS=(--local 8080)
     [ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
     "$SDIR/test-photos-server.sh" "${TEST_ARGS[@]}"
@@ -170,8 +170,8 @@ elif [ "$S3_MODE" = true ]; then
             --query 'Invalidation.Id' --output text
     fi
 
-    if [ "$SKIP_APACHE_TEST" = true ]; then
-        echo "Skipping post-deploy server tests (--no-apache-test)"
+    if [ "$SKIP_SERVER_TEST" = true ]; then
+        echo "Skipping post-deploy server tests (--no-server-test)"
     elif [ "$DRY_RUN" = true ]; then
         echo "DRY RUN: skipping post-deploy server tests"
     else
@@ -226,10 +226,10 @@ else
         aws cloudfront create-invalidation --distribution-id "$CLOUDFRONT_ID" --paths "/*"
     fi
 
-    if [ "$SKIP_APACHE_TEST" = true ]; then
-        echo "Skipping post-deploy Apache tests (--no-apache-test)"
+    if [ "$SKIP_SERVER_TEST" = true ]; then
+        echo "Skipping post-deploy server tests (--no-server-test)"
     elif [ "$DRY_RUN" = true ]; then
-        echo "DRY RUN: skipping post-deploy Apache tests"
+        echo "DRY RUN: skipping post-deploy server tests"
     else
         # Wait, run test
         echo "Sleeping 5 to allow cache to clear..."
