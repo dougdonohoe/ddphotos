@@ -105,12 +105,13 @@ The `site.env` variables are:
 | `VITE_COPYRIGHT_OWNER`  | Vite, Svelte                | Footer copyright name                                                                   |
 | `VITE_COPYRIGHT_YEAR`   | Vite, Svelte                | Footer copyright start year                                                             |
 | `CLOUDFRONT_ID`         | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only)                         |
-| `RSYNC_DEST`            | `bin/deploy-photos.sh`      | Rsync destination path on the server (deploy only)                                      |
+| `S3_BUCKET`             | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3` flag)                      |
+| `RSYNC_DEST`            | `bin/deploy-photos.sh`      | Rsync destination path on the server (EC2/rsync mode only)                              |
 | `TEST_ALBUM_LOCAL`      | `bin/test-photos-server.sh` | Album slug used for local Apache tests                                                  |
 | `TEST_ALBUM_PROD`       | `bin/test-photos-server.sh` | Album slug used for production tests                                                    |
 | `TEST_ALBUM_HYPHEN`     | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
 
-The last five variables (`CLOUDFRONT_ID`, `RSYNC_DEST`, `TEST_ALBUM_*`) are only needed
+The last six variables (`CLOUDFRONT_ID`, `S3_BUCKET`, `RSYNC_DEST`, `TEST_ALBUM_*`) are only needed
 for deployment and server routing tests. For local development, only the `VITE_*` vars are required.
 
 In the web app, `vite.config.ts` reads `config/site.env` at startup and injects `VITE_*` keys into `process.env`
@@ -738,12 +739,14 @@ The `.htaccess` file (`web/static/.htaccess`) configures URL routing:
 
 ## Deployment
 
-DD Photos was originally built to serve my personal photo albums.  I happened
-to have my own EC2 instance with Apache for my other websites, so it was easy
-to add another one.
+DD Photos was originally built to serve my personal photo albums.  My first deployment
+re-used an existing EC2 instance with Apache which served my other websites.  The
+second (and current) deployment uses S3 as the backing store.  Both are described below.
 
-Traffic to [photos.donohoe.info](https://photos.donohoe.info) is handled by CloudFront, which filters 
-requests through a WAFv2 web ACL before forwarding clean traffic to the Apache 
+### EC2/Apache
+
+In this scenario, traffic is handled by CloudFront, which filters 
+requests through a WAFv2 web ACL before forwarding clean traffic to an Apache 
 origin on EC2.
 
 ```mermaid
@@ -757,7 +760,7 @@ The WAF (Web Application Firewall) inspects every incoming request and blocks
 suspicious or malicious traffic (things like bots or known bad IP addresses)
 before it ever reaches my server.
 
-The CDN (Content Delivery Network) caches my content at edge locations around 
+The CDN (Content Delivery Network) caches content at edge locations around 
 the world so visitors get fast load times regardless of where they are,
 and my origin server handles far less traffic.
 
@@ -766,49 +769,137 @@ my EC2 instance behind CloudFront.  It is specific to my setup, but it is
 parameterized via `site.env` so that others with a similar setup can re-use it.
 It can also be extended or changed to suit your needs.
 
+### S3 + CloudFront
+
+An alternative to EC2 is to serve the site entirely from S3 and CloudFront — no server
+required. Site files live in a private S3 bucket; CloudFront serves them using a
+signed-request mechanism called OAC (Origin Access Control).
+
+```mermaid
+flowchart LR
+    User -->|HTTPS| WAF["WAFv2 Web ACL (optional)"]
+    WAF --> CF["CloudFront CDN\n+ CloudFront Function"]
+    CF -->|SigV4| S3["S3 Bucket (private)"]
+```
+
+#### AWS Components
+
+Several AWS components are needed to serve an S3-based site:
+
+| Component                       | Purpose                                                                                                                               |
+|---------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| **S3 bucket**                   | Stores all site files. Must be private — no public access block overrides.                                                            |
+| **Origin Access Control (OAC)** | Lets CloudFront sign requests to S3 using SigV4. Required because the bucket is private.                                              |
+| **S3 bucket policy**            | Grants the OAC principal `s3:GetObject` on the bucket. Without this, CloudFront gets a `403` even with OAC.                           |
+| **ACM certificate**             | TLS certificate for your domain. Must be provisioned in `us-east-1` — CloudFront requires this regardless of where your bucket lives. |
+| **CloudFront distribution**     | CDN that serves from S3 via OAC. Requires custom error responses (see below).                                                         |
+| **CloudFront Function**         | Lightweight JavaScript function (viewer-request stage) that handles URL routing. See below.                                           |
+| **DNS**                         | CNAME or alias record pointing your domain to the CloudFront distribution domain name.                                                |
+| **WAFv2 Web ACL**               | *(optional)* Blocks bots and malicious traffic before requests reach CloudFront.                                                      |
+
+**Custom error responses:** A private S3 bucket returns `403 Forbidden` (not `404`) for keys that
+don't exist — returning `404` would confirm the key's absence and enable bucket enumeration.
+Your CloudFront distribution must map both `403` and `404` to `/404.html` with a `404` response code,
+or users will see a raw XML error from S3 instead of your custom 404 page.
+
+#### CloudFront Function
+
+CloudFront Functions are lightweight JavaScript functions that run at the edge on every request.
+Attaching one at the **viewer-request** stage lets you rewrite and redirect URLs before S3 is ever
+contacted — no round-trip cost.
+
+For a SvelteKit `adapter-static` site like DD Photos, a function is **required** to handle:
+
+- **URL routing** — extensionless paths like `/albums/patagonia` map to `patagonia.html`; the root
+  `/` maps to `index.html`; unknown root-level paths fall back to `index.html` (SPA fallback)
+- **Photo permalinks** — `/albums/slug/42` maps to `/albums/slug.html` so the album page can open
+  the lightbox to photo 42 via the URL hash
+- **Domain redirects** — apex-to-www (`example.com` → `www.example.com`) and any other domain consolidation
+
+The function effectively replicates the Apache `.htaccess` rules. 
+Here is a minimal function for a SvelteKit-based photo site:
+
+```javascript
+function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+
+    // Root
+    if (uri === '/') {
+        request.uri = '/index.html';
+        return request;
+    }
+
+    // Photo permalink: /albums/slug/42 → /albums/slug.html
+    var photoPermalink = uri.match(/^\/albums\/([^\/]+)\/\d+$/);
+    if (photoPermalink) {
+        request.uri = '/albums/' + photoPermalink[1] + '.html';
+        return request;
+    }
+
+    // Extensionless paths
+    if (!uri.includes('.')) {
+        if (uri.indexOf('/', 1) === -1) {
+            // Root-level single-segment (/about, /unknown-page) → SPA fallback
+            request.uri = '/index.html';
+        } else {
+            // Deeper path (/albums/slug) → pre-rendered .html page
+            request.uri = uri + '.html';
+        }
+        return request;
+    }
+
+    return request;
+}
+```
+
 ### Deploy Script
 
-The included deployment script assumes the site is running from an EC2
-server with `ssh` access and is using a CloudFront CDN.  It uses the `CLOUDFRONT_ID`,
-`RSYNC_DEST` and `VITE_SITE_URL` variables from `site.env`.  It also
-assumes `AWS_APACHE` is in the environment and specifies an accessible IP to your EC2 instance.
-
-To deploy, I run `bin/deploy-photos.sh`, which:
+`bin/deploy-photos.sh` handles both S3 and EC2/rsync modes. Add `--s3` for S3 mode.
 
 1. Runs `photogen` to resize images and generate JSON
 2. Builds the static site via `npm run build` into `build/<site-id>/`
-3. Starts the Docker/Apache container if not already running, runs
-   `bin/test-photos-server.sh --local` to verify routing locally, then stops the container
-4. Runs Playwright tests against Docker/Apache
-5. Rsyncs `build/<site-id>/` to the `$RSYNC_DEST` directory on the EC2 server (`$AWS_APACHE`),
-   using `--checksum` to reduce unnecessary re-copying since Vite resets timestamps.
-   A second rsync pass syncs album data (`albums/<site-id>/`) independently.
-6. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
-7. Runs `bin/test-photos-server.sh` to verify the deployment against production
-8. Runs Playwright tests against production (`$VITE_SITE_URL`)
+3. *(EC2 only)* Starts Docker/Apache, runs `bin/test-photos-server.sh --local` to verify routing
+   locally, runs Playwright tests against Docker/Apache, then stops the container
+4. Deploys the site:
+   - **S3**: two-pass `aws s3 sync` — pass 1 syncs the build output (excluding `albums/*` but
+     re-including `albums/*.html`); pass 2 syncs album images and JSON (`--size-only`, excluding
+     `*.html`). The two-pass approach keeps app files and photo data independent.
+   - **EC2**: two-pass `rsync` — pass 1 uses `--checksum` (Vite resets timestamps on every build);
+     pass 2 syncs album data independently.
+5. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
+6. Runs `bin/test-photos-server.sh` to verify the deployment against production
+7. Runs Playwright tests against production (`$VITE_SITE_URL`)
 
-The script uses `set -eo pipefail` — any failure (including local tests) aborts before rsync.
+The script uses `set -eo pipefail` — any failure aborts before deployment.
 
 ### Flags
 
-| Flag               | Description                                                                                                                                       |
-|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--dry-run`        | Pass `--dry-run` to both rsync calls (shows what would transfer without touching the server); skips CloudFront invalidation and post-deploy tests |
-| `--no-photogen`    | Skip photo generation step                                                                                                                        |
-| `--no-rsync`       | Skip rsync, CloudFront invalidation, and post-deploy tests (build + local test only)                                                              |
-| `--no-apache-test` | Skip both the local and post-deploy Apache routing tests                                                                                          |
-| `--no-playwright`  | Skip Playwright tests (both local and production)                                                                                                 |
-| `--config-dir`     | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                                               |
-| `--site-env`       | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                                                   |
+| Flag               | Description                                                                                                                     |
+|--------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `--s3`             | Deploy to S3 instead of EC2 via rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests) |
+| `--dry-run`        | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests                      |
+| `--no-photogen`    | Skip photo generation step                                                                                                      |
+| `--no-rsync`       | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                           |
+| `--no-apache-test` | Skip both the local and post-deploy Apache routing tests                                                                        |
+| `--no-playwright`  | Skip Playwright tests (both local and production)                                                                               |
+| `--config-dir`     | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                             |
+| `--site-env`       | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                                 |
 
 Examples:
 
 ```bash
-bin/deploy-photos.sh                          # full deploy
-bin/deploy-photos.sh --dry-run                # preview what rsync would transfer, no changes made
-bin/deploy-photos.sh --no-photogen            # skip photo generation
-bin/deploy-photos.sh --no-rsync               # build + local test only (safe on a dev machine)
-bin/deploy-photos.sh --no-photogen --no-rsync # build + local test, skip both photogen and rsync
+# S3 mode
+bin/deploy-photos.sh --s3                          # full S3 deploy
+bin/deploy-photos.sh --s3 --dry-run                # preview what s3 sync would transfer, no changes made
+bin/deploy-photos.sh --s3 --no-photogen            # skip photo generation
+
+# EC2/rsync mode
+bin/deploy-photos.sh                               # full deploy
+bin/deploy-photos.sh --dry-run                     # preview what rsync would transfer, no changes made
+bin/deploy-photos.sh --no-photogen                 # skip photo generation
+bin/deploy-photos.sh --no-rsync                    # build + local test only (safe on a dev machine)
+bin/deploy-photos.sh --no-photogen --no-rsync      # build + local test, skip both photogen and rsync
 ```
 
 ## CI (GitHub Actions)

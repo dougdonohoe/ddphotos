@@ -50,8 +50,8 @@ the web app uses.
 That's it.  Now, you can easily view your photo albums on your machine using the dev server.
 
 Finally, there is a build step which creates a static site that can easily be
-deployed to a machine that has a web server (like Apache) or theoretically
-something like AWS S3.  No code runs on a server.  No database is needed.
+deployed to a machine that has a web server (like Apache) or to AWS S3.
+No code runs on a server.  No database is needed.
 It's just HTML, CSS, JavaScript and your (resized) photos.
 
 ## Key Features
@@ -109,12 +109,11 @@ There are many ways to deploy a static site like this. It is somewhat outside th
 of this project to tackle all the various deployment strategies, but I may add more
 options in the future if there is interest.
 
-That said, I happen to already run an Apache server on an AWS EC2 instance that is fronted 
-by CloudFront.  Deployment for me is an `rsync` to this server, and I've included the 
-script which does this.  My actual AWS setup is maintained in Terraform files in a
-private repo, but I provide some details in the [README-DEV](README-DEV.md)
-for those that are curious.  Part of what makes my photos site fast is the use of the CDN
-and the fact that the site is entirely static.
+That said, I provide two deployment options out of the box: EC2/Apache via `rsync`, and
+S3+CloudFront using `aws s3 sync`. Both use the same `bin/deploy-photos.sh` script, with
+`--s3` selecting S3 mode. My personal site ([photos.donohoe.info](https://photos.donohoe.info))
+runs on S3+CloudFront. Part of what makes the site fast is the CDN and the fact that
+the site is entirely static. See [README-DEV](README-DEV.md) for AWS setup details.
 
 ## Prerequisites
 
