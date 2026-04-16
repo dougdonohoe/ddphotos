@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>Error - {import.meta.env.VITE_SITE_NAME}</title>
+	<title>Error - DD Photos</title>
 </svelte:head>
 
 <main>

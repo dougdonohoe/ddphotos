@@ -6,9 +6,9 @@
 # Works against any web server (Apache or nginx).
 #
 # Usage:
-#   bin/test-photos-server.sh                  # test production ($VITE_SITE_URL)
-#   bin/test-photos-server.sh --local          # test local Docker on port 8080
-#   bin/test-photos-server.sh --local 9090     # test local Docker on port 9090
+#   bin/test-photos-server.sh --local              # test local Docker on port 8080
+#   bin/test-photos-server.sh --local 9090         # test local Docker on port 9090
+#   bin/test-photos-server.sh --remote URL         # test a remote site at URL
 #
 # Note: In production, Apache is behind CloudFront, so:
 #   - Redirect locations use http:// (Apache sees HTTP from CloudFront)
@@ -22,6 +22,7 @@ SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
 LOCAL=0
 PORT=8080
+REMOTE_URL=""
 CONFIG_DIR=""
 S3_MODE=0
 
@@ -35,6 +36,8 @@ while [[ $# -gt 0 ]]; do
             fi
             shift
             ;;
+        --remote)       REMOTE_URL="$2"; shift 2 ;;
+        --remote=*)     REMOTE_URL="${1#*=}"; shift ;;
         --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
         --s3)           S3_MODE=1; shift ;;
@@ -55,13 +58,14 @@ if [ "$LOCAL" -eq 1 ]; then
     REDIRECT_BASE="http://localhost:$PORT"
     ALBUM="${TEST_ALBUM_LOCAL:-antarctica}"
 else
-    BASE="$VITE_SITE_URL"
+    [ -n "$REMOTE_URL" ] || { echo "Error: --remote URL is required when not using --local"; exit 1; }
+    BASE="$REMOTE_URL"
     if [ "$S3_MODE" -eq 1 ]; then
         # S3+CloudFront: redirects come from CloudFront Functions and use https://
-        REDIRECT_BASE="$VITE_SITE_URL"
+        REDIRECT_BASE="$REMOTE_URL"
     else
         # Apache behind CloudFront: Apache sees HTTP and returns http:// in Location headers
-        REDIRECT_BASE="$(echo "$VITE_SITE_URL" | sed 's|^https://|http://|')"
+        REDIRECT_BASE="$(echo "$REMOTE_URL" | sed 's|^https://|http://|')"
     fi
     ALBUM="${TEST_ALBUM_PROD:-patagonia}"
 fi

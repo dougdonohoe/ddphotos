@@ -102,31 +102,39 @@ LOG_REQUESTS=1 make sample-npm-run-dev
 
 ## Environment Variables
 
-The `site.env` variables are:
+### Site Identity (`albums.yaml`)
 
-| Variable                | Used by                     | Description                                                                             |
-|-------------------------|-----------------------------|-----------------------------------------------------------------------------------------|
-| `VITE_ALLOW_CRAWLING`   | Vite, Svelte                | Set to `true` to allow crawling and include `Sitemap:` in robots.txt (default: `false`) |
-| `VITE_SITE_NAME`        | Vite, Svelte                | Site title shown in browser and OG tags                                                 |
-| `VITE_SITE_URL`         | Vite, Svelte, bin/          | Canonical base URL (e.g. `https://photos.example.com`)                                  |
-| `VITE_SITE_DESCRIPTION` | Vite, Svelte                | Meta description and OG description                                                     |
-| `VITE_COPYRIGHT_OWNER`  | Vite, Svelte                | Footer copyright name                                                                   |
-| `VITE_COPYRIGHT_YEAR`   | Vite, Svelte                | Footer copyright start year                                                             |
-| `CLOUDFRONT_ID`         | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only)                         |
-| `S3_BUCKET`             | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3` flag)                      |
-| `RSYNC_DEST`            | `bin/deploy-photos.sh`      | Rsync destination path on the server (EC2/rsync mode only)                              |
-| `TEST_ALBUM_LOCAL`      | `bin/test-photos-server.sh` | Album slug used for local server tests                                                  |
-| `TEST_ALBUM_PROD`       | `bin/test-photos-server.sh` | Album slug used for production tests                                                    |
-| `TEST_ALBUM_HYPHEN`     | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                                  |
+Site identity settings live in the `settings:` block of `albums.yaml` and are written
+into `config.json` by `photogen`. The frontend reads them at runtime via `fetch('/albums/config.json')` —
+no build-time injection needed.
 
-The last six variables (`CLOUDFRONT_ID`, `S3_BUCKET`, `RSYNC_DEST`, `TEST_ALBUM_*`) are only needed
-for deployment and server routing tests. For local development, only the `VITE_*` vars are required.
+| Setting            | Required | Description                                                                                       |
+|--------------------|----------|---------------------------------------------------------------------------------------------------|
+| `site_name`        | yes      | Site title shown in the browser tab and OG tags                                                   |
+| `site_url`         | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags               |
+| `site_description` | yes      | Meta description and OG description for the home page                                             |
+| `copyright_owner`  | yes      | Name shown in the footer copyright line                                                           |
+| `copyright_year`   | yes      | Start year shown in the footer copyright line                                                     |
+| `allow_crawling`   | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`) |
 
-In the web app, `vite.config.ts` reads `config/site.env` at startup and injects `VITE_*` keys into `process.env`
-before Vite runs, so the values are available as `import.meta.env.VITE_*` in Svelte components.
-Multi-word values must be quoted (e.g. `VITE_SITE_NAME="My Photo Albums"`).
+`photogen`'s `Config.Validate()` enforces all required fields before any files are written.
 
-The `bin` scripts `source` the file directly.
+### Deploy and Test Variables (`site.env`)
+
+The `site.env` file holds variables used only by deployment scripts and tests — nothing
+that affects the built site itself.
+
+| Variable            | Used by                     | Description                                                     |
+|---------------------|-----------------------------|-----------------------------------------------------------------|
+| `CLOUDFRONT_ID`     | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only) |
+| `S3_BUCKET`         | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3`)   |
+| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (EC2/rsync mode only)      |
+| `TEST_ALBUM_LOCAL`  | `bin/test-photos-server.sh` | Album slug used for local server tests                          |
+| `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                            |
+| `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)          |
+
+The `bin` scripts `source` this file directly. For local development, these variables
+are not needed — only `albums.yaml` settings are required.
 
 The `SITE_ENV` environment variable overrides which `site.env` file is loaded. This is useful
 when your config lives outside the repo (e.g. in a private config repo):
@@ -207,7 +215,21 @@ Common tasks are available via `make` from the repo root:
 
 To resize photos and generate the JSON indexes, run `photogen`. Albums are
 defined in a YAML config file (default: `config/albums.yaml`). See
-[config/albums.example.yaml](config/albums.example.yaml) for the format.  
+[config/albums.example.yaml](config/albums.example.yaml) for the full format.
+
+The `settings:` block at the top of `albums.yaml` has several required fields that are
+validated before any files are written:
+
+```yaml
+settings:
+  id: my-site                                    # required; names the output directory
+  site_name: "My Photo Albums"                   # required
+  site_url: https://photos.example.com           # required
+  site_description: "A collection of photos"     # required
+  copyright_owner: "Your Name"                   # required
+  copyright_year: 2020                           # required
+  # allow_crawling: false                        # optional; default false
+```
 
 Album descriptions are in a TXT file (default: `config/descriptions.txt`).
 See [config/descriptions.example.txt](config/descriptions.example.txt)
@@ -625,9 +647,9 @@ make web-docker-test
 You can also run the script directly, against production or locally:
 
 ```bash
-bin/test-photos-server.sh               # production ($VITE_SITE_URL)
-bin/test-photos-server.sh --local       # local Docker on port 8080
-bin/test-photos-server.sh --local 9090  # local Docker on custom port
+bin/test-photos-server.sh --remote https://photos.example.com   # remote site
+bin/test-photos-server.sh --local                               # local Docker on port 8080
+bin/test-photos-server.sh --local 9090                          # local Docker on custom port
 ```
 
 The deployment script runs this script automatically after deploying.
@@ -875,7 +897,7 @@ function handler(event) {
      pass 2 syncs album data independently.
 5. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
 6. Runs `bin/test-photos-server.sh` to verify the deployment against production
-7. Runs Playwright tests against production (`$VITE_SITE_URL`)
+7. Runs Playwright tests against production (URL read from `config.json`)
 
 The script uses `set -eo pipefail` — any failure aborts before deployment.
 

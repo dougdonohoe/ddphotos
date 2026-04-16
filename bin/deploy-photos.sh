@@ -65,7 +65,6 @@ fi
 # These must be set in site.env — guard early so a missing value can't
 # cause rsync --delete to target the wrong (or empty) remote path.
 [ -n "$CLOUDFRONT_ID" ]   || { echo "Error: CLOUDFRONT_ID not set in $SITE_ENV"; exit 1; }
-[ -n "$VITE_SITE_URL" ]   || { echo "Error: VITE_SITE_URL not set in $SITE_ENV"; exit 1; }
 
 if [ "$S3_MODE" = true ]; then
     [ -n "$S3_BUCKET" ] || { echo "Error: S3_BUCKET not set in $SITE_ENV"; exit 1; }
@@ -89,6 +88,12 @@ else
     # shellcheck disable=SC2086
     go run ./cmd/photogen $PHOTOGEN_ARGS
 fi
+
+# Read site URL from config.json (written by photogen)
+CONFIG_JSON="$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/config.json"
+[ -f "$CONFIG_JSON" ] || { echo "Error: $CONFIG_JSON not found — run photogen first"; exit 1; }
+SITE_URL=$(python3 -c "import json; print(json.load(open('$CONFIG_JSON'))['siteUrl'])")
+[ -n "$SITE_URL" ] || { echo "Error: siteUrl not found in $CONFIG_JSON"; exit 1; }
 
 # Build static site
 cd web
@@ -177,7 +182,7 @@ elif [ "$S3_MODE" = true ]; then
     else
         echo "Sleeping 5 to allow cache to clear..."
         sleep 5
-        PROD_ARGS=(--s3)
+        PROD_ARGS=(--s3 --remote "$SITE_URL")
         [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
         "$SDIR/test-photos-server.sh" "${PROD_ARGS[@]}"
     fi
@@ -188,7 +193,7 @@ elif [ "$S3_MODE" = true ]; then
         echo "DRY RUN: skipping Playwright tests against production"
     else
         echo "Running Playwright e2e tests against production..."
-        PLAYWRIGHT_BASE_URL="$VITE_SITE_URL" npx playwright test
+        PLAYWRIGHT_BASE_URL="$SITE_URL" npx playwright test
     fi
 else
     RSYNC_OPTS="-avz --checksum --delete"
@@ -234,7 +239,7 @@ else
         # Wait, run test
         echo "Sleeping 5 to allow cache to clear..."
         sleep 5
-        PROD_ARGS=()
+        PROD_ARGS=(--remote "$SITE_URL")
         [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
         "$SDIR/test-photos-server.sh" "${PROD_ARGS[@]}"
     fi
@@ -245,6 +250,6 @@ else
         echo "DRY RUN: skipping Playwright tests against production"
     else
         echo "Running Playwright e2e tests against production..."
-        PLAYWRIGHT_BASE_URL="$VITE_SITE_URL" npx playwright test
+        PLAYWRIGHT_BASE_URL="$SITE_URL" npx playwright test
     fi
 fi

@@ -16,8 +16,22 @@ settings:
   # Lowercase letters, digits, and hyphens only (e.g. "prod", "my-site").
   id: my-site
 
-  # Base URL used when generating sitemap.xml
+  # Site title displayed in the browser tab and social sharing cards
+  site_name: "Your Photo Albums"
+
+  # Base URL used when generating sitemap.xml, OG/social sharing tags, and canonical links
   site_url: https://photos.example.com
+
+  # Site description shown in search results and social sharing cards
+  site_description: "A collection of photo albums"
+
+  # Footer copyright line: "Copyright © {copyright_year}-{current_year}. {copyright_owner}."
+  copyright_owner: "Your Name"
+  copyright_year: 2000
+
+  # Allow search engine crawling (default: false).
+  # When true, robots.txt allows all bots and includes the sitemap URL.
+  # allow_crawling: false
 
   # Descriptions file (relative to this config dir). Each line:
   #   slug<whitespace>description

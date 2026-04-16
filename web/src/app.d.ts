@@ -11,13 +11,7 @@ declare global {
 }
 
 interface ImportMetaEnv {
-	readonly VITE_SITE_NAME: string;
-	readonly VITE_SITE_URL: string;
-	readonly VITE_SITE_DESCRIPTION: string;
-	readonly VITE_COPYRIGHT_OWNER: string;
-	readonly VITE_COPYRIGHT_YEAR: string;
 	readonly VITE_BUILD_TIME: string;
-	readonly VITE_ALLOW_CRAWLING: string;
 }
 
 // Augments Vite's built-in ImportMeta interface to add type-safe access to

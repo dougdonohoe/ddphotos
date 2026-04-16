@@ -42,6 +42,12 @@ export interface AlbumSummary {
 export interface SiteConfig {
 	siteId: string;
 	albumsFile: string;
+	siteName: string;
+	siteUrl: string;
+	siteDescription: string;
+	copyrightOwner: string;
+	copyrightYear: number;
+	allowCrawling?: boolean;
 	siteHint?: string;
 	albumHints?: Record<string, string>;
 	encrypted?: boolean;

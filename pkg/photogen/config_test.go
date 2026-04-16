@@ -59,12 +59,32 @@ func TestConfigValidate(t *testing.T) {
 			wantErr: "settings.id",
 		},
 		{
+			name:    "missing site name",
+			config:  Config{OutputRoot: "/tmp/out", SiteID: "my-site"},
+			wantErr: "settings.site_name",
+		},
+		{
+			name:    "missing site description",
+			config:  Config{OutputRoot: "/tmp/out", SiteID: "my-site", SiteName: "My Site"},
+			wantErr: "settings.site_description",
+		},
+		{
+			name:    "missing copyright owner",
+			config:  Config{OutputRoot: "/tmp/out", SiteID: "my-site", SiteName: "My Site", SiteDescription: "Desc"},
+			wantErr: "settings.copyright_owner",
+		},
+		{
+			name:    "missing copyright year",
+			config:  Config{OutputRoot: "/tmp/out", SiteID: "my-site", SiteName: "My Site", SiteDescription: "Desc", CopyrightOwner: "Me"},
+			wantErr: "settings.copyright_year",
+		},
+		{
 			name:   "valid config",
-			config: Config{OutputRoot: "/tmp/out", SiteID: "my-site"},
+			config: Config{OutputRoot: "/tmp/out", SiteID: "my-site", SiteName: "My Site", SiteDescription: "Desc", CopyrightOwner: "Me", CopyrightYear: 2020},
 		},
 		{
 			name:   "valid config single char id",
-			config: Config{OutputRoot: "/tmp/out", SiteID: "x"},
+			config: Config{OutputRoot: "/tmp/out", SiteID: "x", SiteName: "My Site", SiteDescription: "Desc", CopyrightOwner: "Me", CopyrightYear: 2020},
 		},
 	}
 

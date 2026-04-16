@@ -18,13 +18,18 @@ type AlbumsFile struct {
 
 // AlbumsSettings holds site-level configuration from the YAML settings block.
 type AlbumsSettings struct {
-	ID           string     `yaml:"id"` // site identifier; output goes to {DDPHOTOS_ALBUMS_DIR}/{id}/
-	SiteURL      string     `yaml:"site_url"`
-	Descriptions string     `yaml:"descriptions"`  // filename relative to config dir
-	Passwords    string     `yaml:"passwords"`     // filename relative to config dir; enables encryption
-	CustomCSS    string     `yaml:"css"`           // filename relative to config dir; copied to output
-	DefaultTheme string     `yaml:"default_theme"` // "light" or "dark" (default: "dark")
-	Hero         *HeroEntry `yaml:"hero"`
+	ID              string     `yaml:"id"`               // site identifier; output goes to {DDPHOTOS_ALBUMS_DIR}/{id}/
+	SiteName        string     `yaml:"site_name"`        // displayed in page title and OG tags
+	SiteURL         string     `yaml:"site_url"`         // base URL for sitemap and OG tags
+	SiteDescription string     `yaml:"site_description"` // meta description and OG description
+	CopyrightOwner  string     `yaml:"copyright_owner"`  // name shown in footer copyright
+	CopyrightYear   int        `yaml:"copyright_year"`   // start year shown in footer copyright
+	AllowCrawling   bool       `yaml:"allow_crawling"`   // controls robots.txt (default: false)
+	Descriptions    string     `yaml:"descriptions"`     // filename relative to config dir
+	Passwords       string     `yaml:"passwords"`        // filename relative to config dir; enables encryption
+	CustomCSS       string     `yaml:"css"`              // filename relative to config dir; copied to output
+	DefaultTheme    string     `yaml:"default_theme"`    // "light" or "dark" (default: "dark")
+	Hero            *HeroEntry `yaml:"hero"`
 
 	// Resolved paths (populated by ToAlbumConfigs; not from YAML).
 	HeroImagePath string `yaml:"-"`

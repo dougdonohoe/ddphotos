@@ -111,19 +111,24 @@ func main() {
 
 	warn := &photogen.WarnCollector{}
 	cfg := &photogen.Config{
-		OutputRoot:   filepath.Clean(resolvedAlbumsDir),
-		SiteID:       resolvedSiteID,
-		DryRun:       !(*doit),
-		SkipVariant:  true,
-		Limit:        *limit,
-		Force:        *force,
-		Resize:       *resize,
-		Index:        *index,
-		SiteURL:      resolvedSiteURL,
-		NumWorkers:   *numWorkers,
-		Warn:         warn,
-		CustomCSS:    resolvedCSSPath,
-		DefaultTheme: settings.DefaultTheme,
+		OutputRoot:      filepath.Clean(resolvedAlbumsDir),
+		SiteID:          resolvedSiteID,
+		DryRun:          !(*doit),
+		SkipVariant:     true,
+		Limit:           *limit,
+		Force:           *force,
+		Resize:          *resize,
+		Index:           *index,
+		SiteName:        settings.SiteName,
+		SiteURL:         resolvedSiteURL,
+		SiteDescription: settings.SiteDescription,
+		CopyrightOwner:  settings.CopyrightOwner,
+		CopyrightYear:   settings.CopyrightYear,
+		AllowCrawling:   settings.AllowCrawling,
+		NumWorkers:      *numWorkers,
+		Warn:            warn,
+		CustomCSS:       resolvedCSSPath,
+		DefaultTheme:    settings.DefaultTheme,
 	}
 
 	// -passwords overrides settings.passwords; fall back to YAML setting if flag not provided

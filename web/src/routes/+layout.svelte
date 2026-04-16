@@ -103,7 +103,7 @@
 	</div>
 	{@render children()}
 	<footer class:ready={!page.data.encryptedBlob || $footerReady}>
-		<div>Copyright © {import.meta.env.VITE_COPYRIGHT_YEAR}-{new Date().getFullYear()}. {import.meta.env.VITE_COPYRIGHT_OWNER}.</div>
+		<div>Copyright © {data.siteConfig?.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.</div>
 		<div class="built-with">Built {builtOn} with <button class="about-btn" onclick={openAbout}>DD Photos</button>.</div>
 	</footer>
 

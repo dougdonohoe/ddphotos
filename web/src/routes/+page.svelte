@@ -71,9 +71,9 @@
 		}
 	});
 
-	const siteName = import.meta.env.VITE_SITE_NAME;
-	const siteUrl = import.meta.env.VITE_SITE_URL;
-	const siteDesc = import.meta.env.VITE_SITE_DESCRIPTION;
+	const siteName = $derived(data.siteConfig.siteName);
+	const siteUrl = $derived(data.siteConfig.siteUrl);
+	const siteDesc = $derived(data.siteConfig.siteDescription);
 
 	// Client-decrypted albums list (null until decryption succeeds).
 	let decryptedAlbums = $state<AlbumSummary[] | null>(null);
@@ -213,7 +213,7 @@
 	}
 </script>
 
-<OpenGraph title={siteName} description={siteDesc} url={siteUrl} image={ogImage} />
+<OpenGraph title={siteName} description={siteDesc} url={siteUrl} {siteName} image={ogImage} />
 
 {#if !data.encryptedBlob || albums}
 	{#if data.siteConfig?.heroImage}

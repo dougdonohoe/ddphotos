@@ -25,7 +25,7 @@ function loadEnvFile(path: string) {
 	}
 }
 
-// Load the site-specific env file containing VITE_* variables (site URL, IDs, etc.).
+// Load the site-specific env file containing deploy and test variables.
 // Resolution order:
 //   1. $SITE_ENV (explicit override)
 //   2. config/site.env (real config, not committed)

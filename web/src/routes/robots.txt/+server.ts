@@ -1,9 +1,14 @@
 export const prerender = true;
 
-export function GET() {
-	const allow = import.meta.env.VITE_ALLOW_CRAWLING === 'true';
+import type { RequestHandler } from '@sveltejs/kit';
+import type { SiteConfig } from '$lib/types';
+
+export const GET: RequestHandler = async ({ fetch }) => {
+	const res = await fetch('/albums/config.json');
+	const config: SiteConfig = await res.json();
+	const allow = config.allowCrawling === true;
 	const body = allow
-		? `User-agent: *\nAllow: /\nSitemap: ${import.meta.env.VITE_SITE_URL}/albums/sitemap.xml\n`
+		? `User-agent: *\nAllow: /\nSitemap: ${config.siteUrl}/albums/sitemap.xml\n`
 		: `User-agent: *\nDisallow: /\n`;
 
 	return new Response(body, {

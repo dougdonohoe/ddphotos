@@ -504,8 +504,9 @@
 		(album
 			? `${album.photos.length} photos from the '${albumTitle}' album`
 			: albumTitle)}
-	url="{import.meta.env.VITE_SITE_URL}/albums/{data.slug}"
-	image={album ? `${import.meta.env.VITE_SITE_URL}/albums/${data.slug}/cover.jpg` : undefined}
+	url="{data.siteConfig.siteUrl}/albums/{data.slug}"
+	siteName={data.siteConfig.siteName}
+	image={album ? `${data.siteConfig.siteUrl}/albums/${data.slug}/cover.jpg` : undefined}
 />
 
 {#if album}

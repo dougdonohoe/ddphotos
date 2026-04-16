@@ -274,14 +274,20 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 
 // SiteConfig is the structure for config.json (always unencrypted).
 type SiteConfig struct {
-	SiteID       string            `json:"siteId"`
-	AlbumsFile   string            `json:"albumsFile"`
-	SiteHint     string            `json:"siteHint,omitempty"`
-	AlbumHints   map[string]string `json:"albumHints,omitempty"`
-	Encrypted    bool              `json:"encrypted,omitempty"`    // true if any encryption is configured
-	HeroImage    string            `json:"heroImage,omitempty"`    // "hero.jpg" if a hero image is configured
-	CustomCSS    string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
-	DefaultTheme string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
+	SiteID          string            `json:"siteId"`
+	AlbumsFile      string            `json:"albumsFile"`
+	SiteName        string            `json:"siteName"`
+	SiteURL         string            `json:"siteUrl"`
+	SiteDescription string            `json:"siteDescription"`
+	CopyrightOwner  string            `json:"copyrightOwner"`
+	CopyrightYear   int               `json:"copyrightYear"`
+	AllowCrawling   bool              `json:"allowCrawling,omitempty"`
+	SiteHint        string            `json:"siteHint,omitempty"`
+	AlbumHints      map[string]string `json:"albumHints,omitempty"`
+	Encrypted       bool              `json:"encrypted,omitempty"`    // true if any encryption is configured
+	HeroImage       string            `json:"heroImage,omitempty"`    // "hero.jpg" if a hero image is configured
+	CustomCSS       string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
+	DefaultTheme    string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
 }
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
@@ -297,7 +303,16 @@ func (c *Config) WriteConfigJSON() error {
 		c.TrackFile(outputPath)
 		return nil
 	}
-	cfg := SiteConfig{SiteID: c.SiteID, AlbumsFile: albumsFile}
+	cfg := SiteConfig{
+		SiteID:          c.SiteID,
+		AlbumsFile:      albumsFile,
+		SiteName:        c.SiteName,
+		SiteURL:         c.SiteURL,
+		SiteDescription: c.SiteDescription,
+		CopyrightOwner:  c.CopyrightOwner,
+		CopyrightYear:   c.CopyrightYear,
+		AllowCrawling:   c.AllowCrawling,
+	}
 	if c.Encrypt != nil {
 		cfg.Encrypted = true
 		cfg.SiteHint = c.Encrypt.SiteHint

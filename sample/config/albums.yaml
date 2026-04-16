@@ -1,6 +1,11 @@
 settings:
   id: sample
+  site_name: "Sample Photo Albums"
   site_url: https://sample.donohoe.info
+  site_description: "Photo albums from our travels and adventures"
+  copyright_owner: "Doug and Cindy Donohoe"
+  copyright_year: 2001
+  allow_crawling: true
   descriptions: descriptions.txt
   hero:
     image: theway/2024-The-Way-13.jpg

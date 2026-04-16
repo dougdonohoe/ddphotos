@@ -3,10 +3,11 @@
 		title: string;
 		description: string;
 		url: string;
+		siteName: string;
 		image?: string;
 	}
 
-	let { title, description, url, image }: Props = $props();
+	let { title, description, url, siteName, image }: Props = $props();
 </script>
 
 <svelte:head>
@@ -22,6 +23,6 @@
 	{:else}
 		<meta name="twitter:card" content="summary" />
 	{/if}
-	<meta property="og:site_name" content={import.meta.env.VITE_SITE_NAME} />
+	<meta property="og:site_name" content={siteName} />
 	<link rel="canonical" href={url} />
 </svelte:head>

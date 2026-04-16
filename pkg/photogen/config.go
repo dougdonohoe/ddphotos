@@ -34,8 +34,18 @@ type Config struct {
 	Resize bool
 	// Index enables generating JSON index files (albums.json and per-album index.json).
 	Index bool
-	// SiteURL is the base URL for sitemap generation (e.g., "https://photos.example.com").
+	// SiteName is the site title displayed in the browser and OG tags.
+	SiteName string
+	// SiteURL is the base URL for sitemap and OG tag generation (e.g., "https://photos.example.com").
 	SiteURL string
+	// SiteDescription is the meta description and OG description for the home page.
+	SiteDescription string
+	// CopyrightOwner is the name shown in the footer copyright line.
+	CopyrightOwner string
+	// CopyrightYear is the start year shown in the footer copyright line.
+	CopyrightYear int
+	// AllowCrawling controls robots.txt: true = allow all; false = disallow all.
+	AllowCrawling bool
 	// NumWorkers is the number of concurrent resize workers (0 = auto-detect based on CPU count).
 	NumWorkers int
 	// Warn collects warnings for re-display at the end of the run.
@@ -84,6 +94,18 @@ func (c *Config) Validate() error {
 	}
 	if !validSiteID.MatchString(c.SiteID) {
 		return fmt.Errorf("settings.id %q must contain only lowercase letters, digits, and hyphens", c.SiteID)
+	}
+	if c.SiteName == "" {
+		return fmt.Errorf("settings.site_name is required")
+	}
+	if c.SiteDescription == "" {
+		return fmt.Errorf("settings.site_description is required")
+	}
+	if c.CopyrightOwner == "" {
+		return fmt.Errorf("settings.copyright_owner is required")
+	}
+	if c.CopyrightYear == 0 {
+		return fmt.Errorf("settings.copyright_year is required")
 	}
 	if c.Encrypt != nil {
 		if err := c.Encrypt.Validate(); err != nil {
