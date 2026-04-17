@@ -60,6 +60,12 @@ type Config struct {
 	CustomCSS string
 	// DefaultTheme is the site's default color theme: "light" or "dark". Empty means "dark".
 	DefaultTheme string
+	// SiteTitleHTML is HTML for the site title displayed on the home page. Falls back to SiteName.
+	SiteTitleHTML string
+	// SiteSubtitleHTML is HTML shown below the site title on the home page.
+	SiteSubtitleHTML string
+	// SiteOverviewHTML is HTML shown above the album cards on the home page.
+	SiteOverviewHTML string
 	// expectedFiles tracks files generated in this run (for --clean).
 	expectedFiles map[string]bool
 }

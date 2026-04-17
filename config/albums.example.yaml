@@ -33,6 +33,18 @@ settings:
   # When true, robots.txt allows all bots and includes the sitemap URL.
   # allow_crawling: false
 
+  # Optional HTML for the site title displayed on the home page.
+  # Falls back to site_name when omitted. Useful for adding links or emphasis.
+  # Use YAML block scalar (>-) for multi-word values with special characters.
+  # site_title_html: >-
+  #   <a href="https://github.com/you/repo">My Photos</a>
+
+  # Optional HTML rendered below the site title in a smaller font.
+  # site_subtitle_html: "Travel photos from around the world"
+
+  # Optional HTML rendered above the album cards.
+  # site_overview_html: "Browse our adventures below."
+
   # Descriptions file (relative to this config dir). Each line:
   #   slug<whitespace>description
   # Blank lines and lines starting with # are ignored.

@@ -276,21 +276,24 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 
 // SiteConfig is the structure for config.json (always unencrypted).
 type SiteConfig struct {
-	SiteID          string            `json:"siteId"`
-	AlbumsFile      string            `json:"albumsFile"`
-	SiteName        string            `json:"siteName"`
-	SiteURL         string            `json:"siteUrl"`
-	SiteDescription string            `json:"siteDescription"`
-	CopyrightOwner  string            `json:"copyrightOwner"`
-	CopyrightYear   int               `json:"copyrightYear"`
-	AllowCrawling   bool              `json:"allowCrawling,omitempty"`
-	KeyID           string            `json:"keyId,omitempty"` // short fingerprint of the HMAC key; changes when the key changes
-	SiteHint        string            `json:"siteHint,omitempty"`
-	AlbumHints      map[string]string `json:"albumHints,omitempty"`
-	Encrypted       bool              `json:"encrypted,omitempty"`    // true if any encryption is configured
-	HeroImage       string            `json:"heroImage,omitempty"`    // "hero.jpg" if a hero image is configured
-	CustomCSS       string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
-	DefaultTheme    string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
+	SiteID           string            `json:"siteId"`
+	AlbumsFile       string            `json:"albumsFile"`
+	SiteName         string            `json:"siteName"`
+	SiteURL          string            `json:"siteUrl"`
+	SiteDescription  string            `json:"siteDescription"`
+	CopyrightOwner   string            `json:"copyrightOwner"`
+	CopyrightYear    int               `json:"copyrightYear"`
+	AllowCrawling    bool              `json:"allowCrawling,omitempty"`
+	KeyID            string            `json:"keyId,omitempty"` // short fingerprint of the HMAC key; changes when the key changes
+	SiteHint         string            `json:"siteHint,omitempty"`
+	AlbumHints       map[string]string `json:"albumHints,omitempty"`
+	Encrypted        bool              `json:"encrypted,omitempty"`        // true if any encryption is configured
+	HeroImage        string            `json:"heroImage,omitempty"`        // "hero.jpg" if a hero image is configured
+	CustomCSS        string            `json:"customCss,omitempty"`        // "custom.css" if a CSS override is configured
+	DefaultTheme     string            `json:"defaultTheme,omitempty"`     // "light" or "dark"; omitted when dark (the built-in default)
+	SiteTitleHTML    string            `json:"siteTitleHtml,omitempty"`    // HTML for site title; falls back to siteName
+	SiteSubtitleHTML string            `json:"siteSubtitleHtml,omitempty"` // HTML shown below site title
+	SiteOverviewHTML string            `json:"siteOverviewHtml,omitempty"` // HTML shown above album cards
 }
 
 // hmacKeyID returns an 8-hex-char fingerprint of the HMAC key.
@@ -341,6 +344,9 @@ func (c *Config) WriteConfigJSON() error {
 		cfg.CustomCSS = "custom.css"
 	}
 	cfg.DefaultTheme = c.DefaultTheme
+	cfg.SiteTitleHTML = c.SiteTitleHTML
+	cfg.SiteSubtitleHTML = c.SiteSubtitleHTML
+	cfg.SiteOverviewHTML = c.SiteOverviewHTML
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}

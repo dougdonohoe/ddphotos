@@ -72,6 +72,7 @@
 	});
 
 	const siteName = $derived(data.siteConfig.siteName);
+	const siteTitleHtml = $derived(data.siteConfig.siteTitleHtml ?? siteName);
 	const siteUrl = $derived(data.siteConfig.siteUrl);
 	const siteDesc = $derived(data.siteConfig.siteDescription);
 
@@ -220,21 +221,32 @@
 		<div class="hero">
 			<img src="/albums/{data.siteConfig.heroImage}" alt={siteName} />
 			<div class="hero-overlay">
-				<h1>{siteName}</h1>
+				<h1>{@html siteTitleHtml}</h1>
+				{#if data.siteConfig.siteSubtitleHtml}
+					<p class="site-subtitle">{@html data.siteConfig.siteSubtitleHtml}</p>
+				{/if}
 			</div>
 		</div>
 	{:else}
 		<header>
-			<h1>{siteName}</h1>
+			<h1>{@html siteTitleHtml}</h1>
+			{#if data.siteConfig.siteSubtitleHtml}
+				<p class="site-subtitle">{@html data.siteConfig.siteSubtitleHtml}</p>
+			{/if}
 		</header>
 	{/if}
 {/if}
 
 {#if albums}
 	<main class:fade-in={decryptedAlbums !== null}>
+		{#if data.siteConfig.siteOverviewHtml}
+			<div class="site-overview">{@html data.siteConfig.siteOverviewHtml}</div>
+		{/if}
 		<div class="albums">
 			{#each albums as album (album.slug)}
-				<a href={resolve(`/albums/${album.slug}`)} class="album-card">
+				<a href={resolve(`/albums/${album.slug}`)} class="album-card"
+					onkeydown={(e) => { if (e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
+				>
 					{#if album.cover}
 						<img src="/albums/{album.cover}" alt={album.title} />
 					{:else}
@@ -367,6 +379,25 @@
 		text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 	}
 
+	.hero-overlay h1 :global(a) {
+		color: inherit;
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 5px;
+	}
+
+	.hero-overlay h1 :global(a:hover) {
+		opacity: 0.85;
+	}
+
+	.hero-overlay .site-subtitle {
+		margin: 0.4rem 0 0;
+		font-size: 1.15rem;
+		font-style: italic;
+		color: rgba(255, 255, 255, 0.88);
+		text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+	}
+
 	@media (max-width: 480px) {
 		.hero {
 			height: 140px;
@@ -374,6 +405,10 @@
 
 		.hero-overlay h1 {
 			font-size: 1.7rem;
+		}
+
+		.hero-overlay .site-subtitle {
+			font-size: 0.95rem;
 		}
 	}
 
@@ -386,10 +421,48 @@
 		font-size: 2.4rem;
 	}
 
+	header h1 :global(a) {
+		color: inherit;
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+	}
+
+	header h1 :global(a:hover) {
+		opacity: 0.85;
+	}
+
+	header .site-subtitle {
+		margin: 0.4rem 0 0;
+		font-size: 1.15rem;
+		font-style: italic;
+		color: var(--text-muted);
+	}
+
 	@media (max-width: 480px) {
 		h1 {
 			font-size: 1.7rem;
 		}
+
+		header .site-subtitle {
+			font-size: 0.95rem;
+		}
+	}
+
+	.site-overview {
+		font-size: 1.1rem;
+		color: var(--text-color);
+		margin-bottom: 1.5rem;
+		line-height: 1.2;
+	}
+
+	.site-overview :global(a) {
+		color: var(--link-color);
+		text-decoration: none;
+	}
+
+	.site-overview :global(a:hover) {
+		text-decoration: underline;
 	}
 
 	main {

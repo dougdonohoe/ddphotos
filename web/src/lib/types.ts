@@ -55,4 +55,7 @@ export interface SiteConfig {
 	heroImage?: string;
 	customCss?: string;
 	defaultTheme?: string;
+	siteTitleHtml?: string;
+	siteSubtitleHtml?: string;
+	siteOverviewHtml?: string;
 }
