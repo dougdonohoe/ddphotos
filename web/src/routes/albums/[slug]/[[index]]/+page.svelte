@@ -451,7 +451,7 @@
 	});
 
 	onMount(() => {
-		syncSiteId(data.siteId);
+		syncSiteId(data.siteId, data.siteConfig?.keyId);
 
 		const updateWidth = () => {
 			if (container) {

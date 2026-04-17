@@ -48,6 +48,7 @@ export interface SiteConfig {
 	copyrightOwner: string;
 	copyrightYear: number;
 	allowCrawling?: boolean;
+	keyId?: string;
 	siteHint?: string;
 	albumHints?: Record<string, string>;
 	encrypted?: boolean;

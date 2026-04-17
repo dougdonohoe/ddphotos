@@ -2,6 +2,8 @@ package photogen
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -282,12 +284,21 @@ type SiteConfig struct {
 	CopyrightOwner  string            `json:"copyrightOwner"`
 	CopyrightYear   int               `json:"copyrightYear"`
 	AllowCrawling   bool              `json:"allowCrawling,omitempty"`
+	KeyID           string            `json:"keyId,omitempty"` // short fingerprint of the HMAC key; changes when the key changes
 	SiteHint        string            `json:"siteHint,omitempty"`
 	AlbumHints      map[string]string `json:"albumHints,omitempty"`
 	Encrypted       bool              `json:"encrypted,omitempty"`    // true if any encryption is configured
 	HeroImage       string            `json:"heroImage,omitempty"`    // "hero.jpg" if a hero image is configured
 	CustomCSS       string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
 	DefaultTheme    string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
+}
+
+// hmacKeyID returns an 8-hex-char fingerprint of the HMAC key.
+// Used in config.json so the frontend can detect when the key (and therefore all image
+// filenames) has changed, and clear stale cover URLs from localStorage.
+func hmacKeyID(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])[:8]
 }
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
@@ -318,6 +329,9 @@ func (c *Config) WriteConfigJSON() error {
 		cfg.SiteHint = c.Encrypt.SiteHint
 		if len(c.Encrypt.AlbumHints) > 0 {
 			cfg.AlbumHints = c.Encrypt.AlbumHints
+		}
+		if c.Encrypt.HMACKey != "" {
+			cfg.KeyID = hmacKeyID(c.Encrypt.HMACKey)
 		}
 	}
 	if c.Hero != nil {

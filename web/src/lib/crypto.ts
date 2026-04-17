@@ -115,13 +115,15 @@ export function getAlbumCover(siteId: string, slug: string): string | null {
 	}
 }
 
-// Call once per page load with the siteId from config.json. If the siteId has changed
-// (i.e. the user switched to a different build), clears all stale per-site entries
-// (covers, passwords) so they don't leak across builds.
-export function syncSiteId(siteId: string): void {
+// Call once per page load with the siteId and optional keyId from config.json.
+// Clears all stale per-site entries (covers, passwords) when either value changes:
+// siteId change = user switched to a different build; keyId change = HMAC key rotated,
+// which renames all image files and makes cached cover URLs invalid.
+export function syncSiteId(siteId: string, keyId?: string): void {
 	try {
+		const token = keyId ? `${siteId}:${keyId}` : siteId;
 		const stored = localStorage.getItem(SITE_ID_KEY);
-		if (stored === siteId) return;
+		if (stored === token) return;
 		const toRemove: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {
 			const k = localStorage.key(i);
@@ -130,7 +132,7 @@ export function syncSiteId(siteId: string): void {
 			}
 		}
 		toRemove.forEach((k) => localStorage.removeItem(k));
-		localStorage.setItem(SITE_ID_KEY, siteId);
+		localStorage.setItem(SITE_ID_KEY, token);
 	} catch {
 		// localStorage not available
 	}
