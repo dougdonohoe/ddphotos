@@ -1172,3 +1172,39 @@ const guard = () => {
 The `document.activeElement !== focusBtn` check avoids redundant focus events — `focus()` is only called when something has actually stolen focus. `preventScroll: true` ensures the focus call doesn't fight the scroll guard. The guard fires on the first frame (beating PhotoSwipe's restoration) and continues through the 700ms window (beating SvelteKit's async reset).
 
 Why not configure SvelteKit to skip scroll/focus restoration instead? SvelteKit's `noscroll` and `keepfocus` options apply to `goto()` calls, not to popstate navigations from `history.go(-1)`. And replacing `history.go(-1)` with `goto({ replaceState: true })` would leave a duplicate `/albums/slug` entry in the history stack — the user would need an extra back press to leave the album. Clean history is worth the guard loop.
+
+### 59. Home Page HTML Fields and Footer Redesign
+
+#### New `albums.yaml` Settings: `site_title_html`, `site_subtitle_html`, `site_overview_html`
+
+Added three optional site-level settings to `albums.yaml`:
+
+- **`site_title_html`** — HTML for the home page title (in the hero overlay or page header). Falls back to `site_name` when omitted. Allows links, emphasis, or any inline HTML.
+- **`site_subtitle_html`** — HTML rendered below the title in a smaller font.
+- **`site_overview_html`** — HTML rendered above the album cards, in a slightly larger font than album descriptions, using the primary text color.
+
+The pipeline change touched the usual four places: `AlbumsSettings` (YAML parsing in `albums_config.go`), `Config` (runtime build config in `config.go`), `SiteConfig` (JSON output in `json.go` / `WriteConfigJSON`), and the TypeScript `SiteConfig` interface in `web/src/lib/types.ts`.
+
+Frontend changes in `+page.svelte`:
+- Both hero and non-hero title paths use `{@html siteTitleHtml}` with fallback to `siteName`.
+- Subtitle rendered beneath the title in both paths.
+- Overview `<div>` rendered above the `.albums` grid.
+- All three use `:global()` CSS selectors to reach `<a>` tags injected via `{@html}` (Svelte's scoped CSS cannot see dynamically injected elements).
+- Links in the hero title: `color: inherit` (white), 1px underline offset 3px, slight opacity on hover.
+- Links in the overview: `color: var(--link-color)` (theme-aware blue), no underline at rest, underline on hover — matching the footer link convention.
+
+`sample/config/albums.yaml` updated with example values pointing to the DD Photos GitHub repo; `config/albums.example.yaml` and `README-DEV.md` updated to document the new fields.
+
+#### Footer Redesign
+
+Changed the footer "Built … with DD Photos" line to:
+
+```
+Built with joy by DD Photos on {date}  ⓘ
+```
+
+- **"DD Photos"** is now an `<a>` linking directly to `https://github.com/dougdonohoe/ddphotos` (opening in a new tab).
+- **ⓘ** is a 16px Feather-style info SVG button that opens the existing About dialog.
+- The info icon uses the same blue as the "DD Photos" link (`#5a8ec0` dark / `--link-color` light), with opacity fade on hover.
+- `margin-left: 0.5rem` on the icon button separates it visually from the date.
+- Space bar now activates album cards (keyboard accessibility): `onkeydown` handler on each `<a>` card calls `e.preventDefault()` + `e.currentTarget.click()` when Space is pressed.
