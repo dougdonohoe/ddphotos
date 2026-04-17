@@ -34,6 +34,7 @@
 	// (needed for site-encrypted sites where albums.enc.json is not fetched server-side).
 	let albumTitle = $derived(album?.title ?? data.albumTitle);
 	let description = $derived(data.description || album?.description || '');
+	let plainDescription = $derived(description.replace(/<[^>]*>/g, ''));
 	let dateSpan = $derived(data.dateSpan || album?.dateSpan || '');
 	// True while we're silently trying stored passwords so we don't flash the prompt.
 	// $effect.pre runs synchronously before Svelte's first DOM commit in the browser,
@@ -500,7 +501,7 @@
 
 <OpenGraph
 	title={albumTitle}
-	description={description ||
+	description={plainDescription ||
 		(album
 			? `${album.photos.length} photos from the '${albumTitle}' album`
 			: albumTitle)}
