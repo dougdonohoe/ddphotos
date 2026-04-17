@@ -160,12 +160,27 @@ elif [ "$S3_MODE" = true ]; then
     aws s3 sync "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/" \
         $S3_SYNC_OPTS --exclude "albums/*" --include "albums/*.html"
 
-    # Deploy album data (images + JSON) independently.
+    # Deploy album data — two passes to set different Cache-Control headers.
     # --size-only: photogen preserves timestamps, so size alone is a reliable change signal.
+    #
+    # Pass 2a: JSON, XML, JPEG covers — must revalidate on every request (content can change
+    #   in-place, e.g. cover.jpg or index.enc.json when the encryption key changes).
+    # No --size-only: JSON files always get a fresh timestamp when photogen runs, so
+    #   default size+timestamp comparison reliably detects changes. --size-only would
+    #   silently skip re-encrypted JSON files since AES-GCM output size is key-independent.
     # --exclude=*.html: don't delete pre-rendered .html pages synced above.
     # shellcheck disable=SC2086
     aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
-        $S3_SYNC_OPTS --size-only --exclude "*.html"
+        $S3_SYNC_OPTS --exclude "*.html" --exclude "*.webp" \
+        --cache-control "no-cache"
+
+    # Pass 2b: WebP photos — immutable; photogen gives them a content-derived UUID name,
+    #   so a changed photo gets a new name rather than overwriting the old file.
+    # shellcheck disable=SC2086
+    aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
+        $S3_SYNC_OPTS --size-only \
+        --exclude "*" --include "*.webp" \
+        --cache-control "max-age=31536000,immutable"
 
     # Clear cache (skipped in dry-run mode)
     if [ "$DRY_RUN" = true ]; then
