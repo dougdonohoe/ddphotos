@@ -104,7 +104,7 @@
 	{@render children()}
 	<footer class:ready={!page.data.encryptedBlob || $footerReady}>
 		<div>Copyright © {data.siteConfig?.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.</div>
-		<div class="built-with">Built {builtOn} with <button class="about-btn" onclick={openAbout}>DD Photos</button>.</div>
+		<div class="built-with">Built with joy by <a class="footer-link" href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a> on {builtOn} <button class="about-btn" onclick={openAbout} aria-label="About this site"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></button></div>
 	</footer>
 
 	{#if showAbout}
@@ -248,14 +248,29 @@
 		margin-top: 0.35rem;
 	}
 
+	.footer-link {
+		color: #5a8ec0;
+		text-decoration: none;
+	}
+
+	:global(:root[data-theme='light']) .footer-link {
+		color: var(--link-color);
+	}
+
+	.footer-link:hover {
+		text-decoration: underline;
+	}
+
 	.about-btn {
 		background: none;
 		border: none;
 		padding: 0;
+		margin-left: .5rem;
 		cursor: pointer;
-		font-size: inherit;
-		font-family: inherit;
 		color: #5a8ec0;
+		display: inline-flex;
+		align-items: center;
+		vertical-align: -2px;
 	}
 
 	:global(:root[data-theme='light']) .about-btn {
@@ -263,7 +278,7 @@
 	}
 
 	.about-btn:hover {
-		text-decoration: underline;
+		opacity: 0.75;
 	}
 
 	.modal-overlay {
