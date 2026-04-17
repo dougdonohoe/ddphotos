@@ -174,11 +174,13 @@ elif [ "$S3_MODE" = true ]; then
         $S3_SYNC_OPTS --exclude "*.html" --exclude "*.webp" \
         --cache-control "no-cache"
 
-    # Pass 2b: WebP photos — immutable; photogen gives them a content-derived UUID name,
-    #   so a changed photo gets a new name rather than overwriting the old file.
+    # Pass 2b: WebP photos — immutable; photogen gives them a deterministic UUID name
+    #   derived from HMAC(key, filename), so key rotation renames all files.
+    #   photogen skips existing WebP files (preserving timestamp), so unchanged files are
+    #   never re-uploaded. Regenerated files (after manual delete) get a new timestamp.
     # shellcheck disable=SC2086
     aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
-        $S3_SYNC_OPTS --size-only \
+        $S3_SYNC_OPTS \
         --exclude "*" --include "*.webp" \
         --cache-control "max-age=31536000,immutable"
 
