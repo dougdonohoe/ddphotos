@@ -55,6 +55,11 @@ export interface SiteConfig {
 	heroImage?: string;
 	customCss?: string;
 	defaultTheme?: string;
+	htmlFile?: string; // "html.json" or "html.enc.json" when HTML fields are configured
+}
+
+// Mirrors Go's SiteHTMLContent in pkg/photogen/json.go.
+export interface SiteHtmlContent {
 	siteTitleHtml?: string;
 	siteSubtitleHtml?: string;
 	siteOverviewHtml?: string;

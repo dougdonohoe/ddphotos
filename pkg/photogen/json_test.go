@@ -245,10 +245,22 @@ func TestWriteAlbumsIndex(t *testing.T) {
 	})
 }
 
+func makeSiteCfgWithHTML(dir string, encrypt *EncryptConfig) *Config {
+	return &Config{
+		OutputRoot:       dir,
+		SiteID:           "testsite",
+		Encrypt:          encrypt,
+		Warn:             &WarnCollector{},
+		SiteTitleHTML:    "<b>Title</b>",
+		SiteSubtitleHTML: "<i>Subtitle</i>",
+		SiteOverviewHTML: "<p>Overview</p>",
+	}
+}
+
 func TestWriteConfigJSON(t *testing.T) {
 	t.Parallel()
 
-	t.Run("unencrypted references albums.json", func(t *testing.T) {
+	t.Run("unencrypted references albums.json, no htmlFile when no HTML fields", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 		require.NoError(t, makeSiteCfg(dir, nil).WriteConfigJSON())
@@ -257,9 +269,10 @@ func TestWriteConfigJSON(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"siteId": "testsite"`)
 		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
+		assert.NotContains(t, string(data), `"htmlFile"`)
 	})
 
-	t.Run("encrypted references albums.enc.json", func(t *testing.T) {
+	t.Run("encrypted references albums.enc.json, no htmlFile when no HTML fields", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 		encrypt := &EncryptConfig{SitePassword: "passw0rd"}
@@ -269,6 +282,87 @@ func TestWriteConfigJSON(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"siteId": "testsite"`)
 		assert.Contains(t, string(data), `"albumsFile": "albums.enc.json"`)
+		assert.NotContains(t, string(data), `"htmlFile"`)
+	})
+
+	t.Run("unencrypted with HTML fields references html.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeSiteCfgWithHTML(dir, nil).WriteConfigJSON())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"htmlFile": "html.json"`)
+		assert.NotContains(t, string(data), `"siteTitleHtml"`, "HTML fields must not appear in config.json")
+	})
+
+	t.Run("encrypted with HTML fields references html.enc.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{SitePassword: "passw0rd"}
+		require.NoError(t, makeSiteCfgWithHTML(dir, encrypt).WriteConfigJSON())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"htmlFile": "html.enc.json"`)
+		assert.NotContains(t, string(data), `"siteTitleHtml"`, "HTML fields must not appear in config.json")
+	})
+}
+
+func TestWriteHTMLFile(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no-op when no HTML fields set", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeSiteCfg(dir, nil).WriteHTMLFile())
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "html.json"))
+	})
+
+	t.Run("unencrypted writes html.json with plaintext content", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeSiteCfgWithHTML(dir, nil).WriteHTMLFile())
+
+		outPath := filepath.Join(dir, "testsite", "html.json")
+		assert.FileExists(t, outPath)
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "html.enc.json"))
+
+		data, err := os.ReadFile(outPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"siteTitleHtml"`)
+		assert.Contains(t, string(data), "Title") // HTML is JSON-escaped (\u003cb\u003e) but content is present
+	})
+
+	t.Run("encrypted writes html.enc.json with unreadable content", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{SitePassword: "passw0rd"}
+		require.NoError(t, makeSiteCfgWithHTML(dir, encrypt).WriteHTMLFile())
+
+		encPath := filepath.Join(dir, "testsite", "html.enc.json")
+		assert.FileExists(t, encPath)
+		assert.NoFileExists(t, filepath.Join(dir, "testsite", "html.json"))
+
+		data, err := os.ReadFile(encPath)
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), "siteTitleHtml", "encrypted file must not contain plaintext field name")
+		assert.NotContains(t, string(data), "Title", "encrypted file must not contain plaintext content")
+	})
+
+	t.Run("switching to unencrypted removes stale html.enc.json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		siteDir := filepath.Join(dir, "testsite")
+		require.NoError(t, os.MkdirAll(siteDir, 0o755))
+
+		staleEnc := filepath.Join(siteDir, "html.enc.json")
+		require.NoError(t, os.WriteFile(staleEnc, []byte("stale"), 0o644))
+
+		require.NoError(t, makeSiteCfgWithHTML(dir, nil).WriteHTMLFile())
+
+		assert.FileExists(t, filepath.Join(siteDir, "html.json"))
+		assert.NoFileExists(t, staleEnc)
 	})
 }
 

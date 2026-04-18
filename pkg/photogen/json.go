@@ -276,24 +276,29 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 
 // SiteConfig is the structure for config.json (always unencrypted).
 type SiteConfig struct {
-	SiteID           string            `json:"siteId"`
-	AlbumsFile       string            `json:"albumsFile"`
-	SiteName         string            `json:"siteName"`
-	SiteURL          string            `json:"siteUrl"`
-	SiteDescription  string            `json:"siteDescription"`
-	CopyrightOwner   string            `json:"copyrightOwner"`
-	CopyrightYear    int               `json:"copyrightYear"`
-	AllowCrawling    bool              `json:"allowCrawling,omitempty"`
-	KeyID            string            `json:"keyId,omitempty"` // short fingerprint of the HMAC key; changes when the key changes
-	SiteHint         string            `json:"siteHint,omitempty"`
-	AlbumHints       map[string]string `json:"albumHints,omitempty"`
-	Encrypted        bool              `json:"encrypted,omitempty"`        // true if any encryption is configured
-	HeroImage        string            `json:"heroImage,omitempty"`        // "hero.jpg" if a hero image is configured
-	CustomCSS        string            `json:"customCss,omitempty"`        // "custom.css" if a CSS override is configured
-	DefaultTheme     string            `json:"defaultTheme,omitempty"`     // "light" or "dark"; omitted when dark (the built-in default)
-	SiteTitleHTML    string            `json:"siteTitleHtml,omitempty"`    // HTML for site title; falls back to siteName
-	SiteSubtitleHTML string            `json:"siteSubtitleHtml,omitempty"` // HTML shown below site title
-	SiteOverviewHTML string            `json:"siteOverviewHtml,omitempty"` // HTML shown above album cards
+	SiteID          string            `json:"siteId"`
+	AlbumsFile      string            `json:"albumsFile"`
+	SiteName        string            `json:"siteName"`
+	SiteURL         string            `json:"siteUrl"`
+	SiteDescription string            `json:"siteDescription"`
+	CopyrightOwner  string            `json:"copyrightOwner"`
+	CopyrightYear   int               `json:"copyrightYear"`
+	AllowCrawling   bool              `json:"allowCrawling,omitempty"`
+	KeyID           string            `json:"keyId,omitempty"` // short fingerprint of the HMAC key; changes when the key changes
+	SiteHint        string            `json:"siteHint,omitempty"`
+	AlbumHints      map[string]string `json:"albumHints,omitempty"`
+	Encrypted       bool              `json:"encrypted,omitempty"`    // true if any encryption is configured
+	HeroImage       string            `json:"heroImage,omitempty"`    // "hero.jpg" if a hero image is configured
+	CustomCSS       string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
+	DefaultTheme    string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
+	HTMLFile        string            `json:"htmlFile,omitempty"`     // "html.json" or "html.enc.json" when HTML fields are configured
+}
+
+// SiteHTMLContent is the structure for html.json / html.enc.json.
+type SiteHTMLContent struct {
+	SiteTitleHTML    string `json:"siteTitleHtml,omitempty"`    // HTML for site title; falls back to siteName
+	SiteSubtitleHTML string `json:"siteSubtitleHtml,omitempty"` // HTML shown below site title
+	SiteOverviewHTML string `json:"siteOverviewHtml,omitempty"` // HTML shown above album cards
 }
 
 // hmacKeyID returns an 8-hex-char fingerprint of the HMAC key.
@@ -344,12 +349,67 @@ func (c *Config) WriteConfigJSON() error {
 		cfg.CustomCSS = "custom.css"
 	}
 	cfg.DefaultTheme = c.DefaultTheme
-	cfg.SiteTitleHTML = c.SiteTitleHTML
-	cfg.SiteSubtitleHTML = c.SiteSubtitleHTML
-	cfg.SiteOverviewHTML = c.SiteOverviewHTML
+	if c.SiteTitleHTML != "" || c.SiteSubtitleHTML != "" || c.SiteOverviewHTML != "" {
+		if siteEncrypted {
+			cfg.HTMLFile = "html.enc.json"
+		} else {
+			cfg.HTMLFile = "html.json"
+		}
+	}
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}
+	c.TrackFile(outputPath)
+	return nil
+}
+
+// WriteHTMLFile writes html.json (or html.enc.json if the site is encrypted) into the site output dir.
+// No-op if all three HTML fields are empty.
+func (c *Config) WriteHTMLFile() error {
+	if c.SiteTitleHTML == "" && c.SiteSubtitleHTML == "" && c.SiteOverviewHTML == "" {
+		return nil
+	}
+	siteEncrypted := c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
+	outputName := "html.json"
+	counterpart := "html.enc.json"
+	if siteEncrypted {
+		outputName = "html.enc.json"
+		counterpart = "html.json"
+	}
+	outputPath := c.SiteOutputPath(outputName)
+
+	if c.DryRun {
+		action := "write"
+		if siteEncrypted {
+			action = "encrypt+write"
+		}
+		fmt.Printf("DRYRUN: would %s %s\n", action, outputPath)
+		c.TrackFile(outputPath)
+		return nil
+	}
+
+	content := SiteHTMLContent{
+		SiteTitleHTML:    c.SiteTitleHTML,
+		SiteSubtitleHTML: c.SiteSubtitleHTML,
+		SiteOverviewHTML: c.SiteOverviewHTML,
+	}
+	b, err := json.MarshalIndent(content, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal html content: %w", err)
+	}
+	b = append(b, '\n')
+
+	if siteEncrypted {
+		b, err = EncryptJSON(b, c.Encrypt.SitePassword, c.Encrypt.PwFile)
+		if err != nil {
+			return fmt.Errorf("encrypt html content: %w", err)
+		}
+	}
+
+	if err := writeBytes(outputPath, b); err != nil {
+		return err
+	}
+	removeIfExists(c.SiteOutputPath(counterpart))
 	c.TrackFile(outputPath)
 	return nil
 }

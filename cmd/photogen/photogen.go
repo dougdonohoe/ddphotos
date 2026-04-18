@@ -261,6 +261,9 @@ func main() {
 		if err := cfg.WriteConfigJSON(); err != nil {
 			fmt.Printf("Error writing config.json: %s\n", err)
 		}
+		if err := cfg.WriteHTMLFile(); err != nil {
+			fmt.Printf("Error writing html file: %s\n", err)
+		}
 		if err := cfg.WriteSitemap(summaries); err != nil {
 			fmt.Printf("Error writing sitemap.xml: %s\n", err)
 		}

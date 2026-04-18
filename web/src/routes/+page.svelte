@@ -12,7 +12,7 @@
 	import BackToTop from '$lib/components/BackToTop.svelte';
 	import OpenGraph from '$lib/components/OpenGraph.svelte';
 	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
-	import type { AlbumSummary } from '$lib/types';
+	import type { AlbumSummary, SiteHtmlContent } from '$lib/types';
 	import {
 		siteKey,
 		getStoredPassword,
@@ -75,9 +75,16 @@
 	});
 
 	const siteName = $derived(data.siteConfig.siteName);
-	const siteTitleHtml = $derived(data.siteConfig.siteTitleHtml ?? siteName);
 	const siteUrl = $derived(data.siteConfig.siteUrl);
 	const siteDesc = $derived(data.siteConfig.siteDescription);
+
+	// HTML content from html.json or html.enc.json; null until decrypted (encrypted sites).
+	let decryptedSiteHtml = $state<SiteHtmlContent | null>(null);
+	// Effective HTML content: decrypted takes precedence over statically loaded (unencrypted sites).
+	const effectiveSiteHtml = $derived(decryptedSiteHtml ?? data.siteHtml);
+	const siteTitleHtml = $derived(effectiveSiteHtml?.siteTitleHtml ?? siteName);
+	const siteSubtitleHtml = $derived(effectiveSiteHtml?.siteSubtitleHtml);
+	const siteOverviewHtml = $derived(effectiveSiteHtml?.siteOverviewHtml);
 
 	// Client-decrypted albums list (null until decryption succeeds).
 	let decryptedAlbums = $state<AlbumSummary[] | null>(null);
@@ -185,9 +192,14 @@
 		// Try the site-wide stored password first.
 		const sitePw = getStoredPassword(siteKey(data.siteId));
 		if (sitePw) {
-			const result = await tryDecrypt(data.encryptedBlob, sitePw);
-			if (result) {
-				decryptedAlbums = result as AlbumSummary[];
+			const [albumResult, htmlResult] = await Promise.all([
+				tryDecrypt(data.encryptedBlob, sitePw),
+				data.encryptedHtmlBlob ? tryDecrypt(data.encryptedHtmlBlob, sitePw) : Promise.resolve(null)
+			]);
+			if (albumResult) {
+				// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
+				if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
+				decryptedAlbums = albumResult as AlbumSummary[];
 				unlocking = false;
 				return;
 			}
@@ -196,6 +208,11 @@
 		// Fall back to any stored per-album password (user may have visited an album first).
 		const match = await tryStoredAlbumPasswords(data.encryptedBlob, data.siteId);
 		if (match) {
+			const htmlResult = data.encryptedHtmlBlob
+				? await tryDecrypt(data.encryptedHtmlBlob, match.password)
+				: null;
+			// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
+			if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
 			decryptedAlbums = match.result as AlbumSummary[];
 			storePassword(siteKey(data.siteId), match.password);
 			unlocking = false;
@@ -207,9 +224,14 @@
 
 	async function handleUnlock(password: string) {
 		if (!data.encryptedBlob) return;
-		const result = await tryDecrypt(data.encryptedBlob, password);
-		if (result) {
-			decryptedAlbums = result as AlbumSummary[];
+		const [albumResult, htmlResult] = await Promise.all([
+			tryDecrypt(data.encryptedBlob, password),
+			data.encryptedHtmlBlob ? tryDecrypt(data.encryptedHtmlBlob, password) : Promise.resolve(null)
+		]);
+		if (albumResult) {
+			// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
+			if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
+			decryptedAlbums = albumResult as AlbumSummary[];
 			storePassword(siteKey(data.siteId), password);
 		} else {
 			shakeCount++;
@@ -225,16 +247,16 @@
 			<img src="/albums/{data.siteConfig.heroImage}" alt={siteName} />
 			<div class="hero-overlay">
 				<h1>{@html siteTitleHtml}</h1>
-				{#if data.siteConfig.siteSubtitleHtml}
-					<p class="site-subtitle">{@html data.siteConfig.siteSubtitleHtml}</p>
+				{#if siteSubtitleHtml}
+					<p class="site-subtitle">{@html siteSubtitleHtml}</p>
 				{/if}
 			</div>
 		</div>
 	{:else}
 		<header>
 			<h1>{@html siteTitleHtml}</h1>
-			{#if data.siteConfig.siteSubtitleHtml}
-				<p class="site-subtitle">{@html data.siteConfig.siteSubtitleHtml}</p>
+			{#if siteSubtitleHtml}
+				<p class="site-subtitle">{@html siteSubtitleHtml}</p>
 			{/if}
 		</header>
 	{/if}
@@ -242,8 +264,8 @@
 
 {#if albums}
 	<main class:fade-in={decryptedAlbums !== null}>
-		{#if data.siteConfig.siteOverviewHtml}
-			<div class="site-overview">{@html data.siteConfig.siteOverviewHtml}</div>
+		{#if siteOverviewHtml}
+			<div class="site-overview">{@html siteOverviewHtml}</div>
 		{/if}
 		<div class="albums">
 			{#each albums as album (album.slug)}
