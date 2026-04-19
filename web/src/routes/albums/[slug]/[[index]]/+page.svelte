@@ -775,11 +775,29 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		position: relative;
+		overflow: visible;
 	}
 
 	:global(.pswp__button--copy-link.copied) {
 		opacity: 1;
 		color: #6ddb6d;
+	}
+
+	:global(.pswp__button--copy-link.copied::after) {
+		content: 'Link copied.';
+		position: absolute;
+		top: 40px;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.75);
+		color: white;
+		font-size: 12px;
+		font-style: italic;
+		white-space: nowrap;
+		padding: 3px 8px;
+		border-radius: 4px;
+		pointer-events: none;
 	}
 
 	/* Lightbox caption — bottom set dynamically in JS to align with photo bottom edge */
