@@ -6,16 +6,17 @@
 #   4. custom-css (sample/config/custom.css injected)
 #
 # Usage:
-#   bin/test-all.sh [--mode dev|apache|nginx|all]
+#   bin/test-all.sh [--mode dev|apache|nginx|all] [--ci]
 #
-# Passes --mode through to bin/run-tests.sh (default: all).
+# Passes --mode and --ci through to bin/run-tests.sh (default: all).
 
 set -eo pipefail
 
 MODE="all"
+CI_FLAG=""
 
 usage() {
-    echo "Usage: bin/test-all.sh [--mode dev|apache|nginx|all]"
+    echo "Usage: bin/test-all.sh [--mode dev|apache|nginx|all] [--ci]"
     echo ""
     echo "Runs Playwright tests against all sample site variants:"
     echo "  1. No passwords (plain site)"
@@ -29,6 +30,7 @@ usage() {
     echo "                   apache — static build + Docker/Apache on port 8083"
     echo "                   nginx  — static build + Docker/nginx on port 8084"
     echo "                   all    — dev, apache, and nginx"
+    echo "  --ci           Skip photogen if albums/<site-id> exists; skip npm build if build/ exists."
     echo "  --help, -?     Show this help message and exit."
 }
 
@@ -36,6 +38,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --mode)        MODE="$2"; shift 2 ;;
         --mode=*)      MODE="${1#*=}"; shift ;;
+        --ci)          CI_FLAG="--ci"; shift ;;
         --help|-\?)    usage; exit 0 ;;
         *) echo "Unknown flag: $1" >&2; exit 1 ;;
     esac
@@ -53,7 +56,7 @@ run_variant() {
     echo "###############################################################"
     echo "# Variant: $label"
     echo "###############################################################"
-    bin/run-tests.sh "$@" --mode "$MODE"
+    bin/run-tests.sh "$@" --mode "$MODE" $CI_FLAG
 }
 
 run_variant "no passwords"

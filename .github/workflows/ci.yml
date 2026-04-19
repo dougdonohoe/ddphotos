@@ -56,7 +56,7 @@ jobs:
         run: make web-docker-build-nginx sample-test-nginx
 
       - name: Run Apache Playwright e2e tests (all password variants)
-        run: bin/test-all.sh --mode apache
+        run: bin/test-all.sh --mode apache --ci
 
       - name: Run nginx Playwright e2e tests (all password variants)
-        run: bin/test-all.sh --mode nginx
+        run: bin/test-all.sh --mode nginx --ci
