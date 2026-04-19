@@ -94,10 +94,36 @@ https://photos.example.com/albums/your-album?slow
 
 ## Logging Dev Server Requests
 
-To see each request to the dev server (useful in debugging) set `LOG_REQUESTS=1`:
+To see each request to the dev server (useful in debugging) set `VITE_LOG_REQUESTS=1`:
 
 ```bash
-LOG_REQUESTS=1 make sample-npm-run-dev
+VITE_LOG_REQUESTS=1 make sample-npm-run-dev
+```
+
+## Debugging
+
+To enable the `debug` library, where `debug()` calls are logged in the JavaScript
+Console, and also logged in the dev server, set `VITE_DEBUG=1`:
+
+```bash
+VITE_DEBUG=1 make sample-npm-run-dev
+```
+
+Usage examples:
+
+```ts
+import { debug } from '$lib/debug';
+
+// Simple message
+debug("I'm here")
+
+// Pretty-print an object as JSON
+const siteConfig: SiteConfig = await res.json();
+debug('siteConfig', siteConfig);
+
+// Avoid SvelteKit warnings about state
+let { data } = $props();
+$effect(() => { debug("In home page svelte, got $props()", data) });
 ```
 
 ## Environment Variables

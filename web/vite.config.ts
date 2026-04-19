@@ -113,15 +113,32 @@ export default defineConfig({
 		{
 			name: 'albums-dev-server',
 			configureServer(server) {
-				// Log every HTTP request when LOG_REQUESTS=1 (useful for diagnosing
+				// Log every HTTP request when VITE_LOG_REQUESTS=1 (useful for diagnosing
 				// full-page-reload vs. client-side navigation on mobile).
-				if (process.env.LOG_REQUESTS) {
+				if (process.env.VITE_LOG_REQUESTS) {
 					server.middlewares.use((req, _res, next) => {
 						const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
 						console.log(`[${ts}] ${req.method} ${req.url}`);
 						next();
 					});
 				}
+
+				// Debug logging endpoint: receives messages from debug() in src/lib/debug.ts
+				// and prints them to the terminal. Active when VITE_DEBUG=1.
+				server.middlewares.use('/api/debug', (req, res, next) => {
+					if (req.method !== 'POST') return next();
+					let body = '';
+					req.on('data', (chunk: Buffer) => (body += chunk));
+					req.on('end', () => {
+						try {
+							const { message } = JSON.parse(body);
+							const ts = new Date().toISOString().slice(11, 23);
+							console.log(`[${ts}] [debug] ${message}`);
+						} catch {}
+						res.writeHead(200, { 'Content-Type': 'application/json' });
+						res.end('{"ok":true}');
+					});
+				});
 
 				// Serve DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID at /albums/** during dev.
 				server.middlewares.use('/albums', (req, res, next) => {
