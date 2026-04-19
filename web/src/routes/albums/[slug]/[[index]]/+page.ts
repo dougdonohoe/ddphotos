@@ -25,7 +25,8 @@ export async function load({ params, fetch }) {
 	let albumMeta: AlbumSummary | null = null;
 
 	if (siteEncrypted) {
-		// Every album index is encrypted with the site password; index.enc.json exists.
+		// Site-wide encryption is active: all album indexes are in index.enc.json,
+		// unlocked by either the site password or a per-album password.
 		const indexRes = await fetch(`/albums/${params.slug}/index.enc.json`);
 		if (!indexRes.ok) error(404, `Album "${params.slug}" not found`);
 		encryptedBlob = await indexRes.text();
@@ -38,13 +39,11 @@ export async function load({ params, fetch }) {
 			albumMeta = albumsData.find((a) => a.slug === params.slug) ?? null;
 		}
 
-		const indexUrl = albumMeta?.encrypted
-			? `/albums/${params.slug}/index.enc.json`
-			: `/albums/${params.slug}/index.json`;
-		const indexRes = await fetch(indexUrl);
+		const indexEncrypted = albumMeta?.encrypted ?? false;
+		const indexRes = await fetch(`/albums/${params.slug}/${indexEncrypted ? 'index.enc.json' : 'index.json'}`);
 		if (!indexRes.ok) error(404, `Album "${params.slug}" not found`);
 
-		if (albumMeta?.encrypted) {
+		if (indexEncrypted) {
 			encryptedBlob = await indexRes.text();
 		} else {
 			album = (await indexRes.json()) as AlbumIndex;
