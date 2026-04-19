@@ -127,7 +127,7 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 		}
 		// Cover JPEG is only used for OG images; skip for encrypted albums since
 		// CoverJpeg is omitted from the summary and the file would be guessable.
-		encrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsAlbumEncrypted(ap.AlbumConfig.Slug)
+		encrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
 		if !encrypted {
 			if err := ap.WriteCoverJPEG(); err != nil {
 				fmt.Printf("Error writing cover JPEG: %v\n", err)

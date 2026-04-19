@@ -168,8 +168,8 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		Count: len(ap.Photos),
 	}
 
-	encrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsAlbumEncrypted(ap.AlbumConfig.Slug)
-	summary.Encrypted = encrypted
+	albumEncrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
+	summary.Encrypted = albumEncrypted
 
 	if cover := ap.coverPhoto(); cover != nil {
 		// Include the WebP cover URL only when it is accessible without an album-specific
@@ -177,14 +177,12 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		// and the album has no per-album password (cover is safe behind the site password).
 		// If the album has its own per-album password, omit the cover even when the site is
 		// encrypted — the per-album password provides stronger protection than the site password.
-		siteEncrypted := ap.Config.Encrypt != nil && ap.Config.Encrypt.IsSiteEncrypted()
-		hasPerAlbumPw := ap.Config.Encrypt != nil && ap.Config.Encrypt.HasPerAlbumPassword(ap.AlbumConfig.Slug)
-		if !encrypted || (siteEncrypted && !hasPerAlbumPw) {
+		if !albumEncrypted || (ap.Config.IsSiteEncrypted() && !ap.Config.HasPerAlbumPassword(ap.AlbumConfig.Slug)) {
 			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
 		}
 		// CoverJpeg is used for OG/crawler meta tags — only set for unencrypted albums so
 		// search engines cannot index content that requires a password.
-		if !encrypted {
+		if !albumEncrypted {
 			summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, "cover.jpg")
 		}
 		summary.DateSpan = ap.computeDateSpan()
@@ -228,14 +226,12 @@ func (ap *AlbumProcessor) computeDateSpan() string {
 
 // WriteAlbumsIndex writes albums.json (or albums.enc.json if encrypted) into the site output dir.
 func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
-	siteDir := c.SiteOutputPath()
-	encrypted := c.IsSiteEncrypted()
 	outputName, counterpart := c.JsonNames("albums")
-	outputPath := filepath.Join(siteDir, outputName)
+	outputPath := c.SiteOutputPath(outputName)
 
 	if c.DryRun {
 		action := "write"
-		if encrypted {
+		if c.IsSiteEncrypted() {
 			action = "encrypt+write"
 		}
 		fmt.Printf("DRYRUN: would %s %s (%d albums)\n", action, outputPath, len(summaries))
@@ -249,7 +245,7 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 	}
 	b = append(b, '\n')
 
-	if encrypted {
+	if c.IsSiteEncrypted() {
 		b, err = EncryptJSON(b, c.Encrypt.SitePassword, c.Encrypt.PwFile)
 		if err != nil {
 			return fmt.Errorf("encrypt albums: %w", err)
@@ -259,7 +255,7 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 	if err := writeBytes(outputPath, b); err != nil {
 		return err
 	}
-	removeIfExists(filepath.Join(siteDir, counterpart))
+	removeIfExists(c.SiteOutputPath(counterpart))
 	c.TrackFile(outputPath)
 	return nil
 }
@@ -351,13 +347,12 @@ func (c *Config) WriteHTMLFile() error {
 	if c.SiteTitleHTML == "" && c.SiteSubtitleHTML == "" && c.SiteOverviewHTML == "" {
 		return nil
 	}
-	encrypted := c.IsSiteEncrypted()
 	outputName, counterpart := c.JsonNames("html")
 	outputPath := c.SiteOutputPath(outputName)
 
 	if c.DryRun {
 		action := "write"
-		if encrypted {
+		if c.IsSiteEncrypted() {
 			action = "encrypt+write"
 		}
 		fmt.Printf("DRYRUN: would %s %s\n", action, outputPath)
@@ -376,7 +371,7 @@ func (c *Config) WriteHTMLFile() error {
 	}
 	b = append(b, '\n')
 
-	if encrypted {
+	if c.IsSiteEncrypted() {
 		b, err = EncryptJSON(b, c.Encrypt.SitePassword, c.Encrypt.PwFile)
 		if err != nil {
 			return fmt.Errorf("encrypt html content: %w", err)

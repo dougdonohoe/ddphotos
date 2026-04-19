@@ -134,7 +134,7 @@ func (c *Config) SiteOutputPath(parts ...string) string {
 // UUID-format names are only used when the album has an effective password;
 // public albums always use the original WebP filename.
 func (c *Config) PhotoWebPName(slug, filename string) string {
-	if c.Encrypt != nil && c.Encrypt.IsAlbumEncrypted(slug) {
+	if c.IsAlbumEncrypted(slug) {
 		return c.Encrypt.PhotoWebPName(filename)
 	}
 	return WebPFileName(filename)
@@ -143,6 +143,16 @@ func (c *Config) PhotoWebPName(slug, filename string) string {
 // IsSiteEncrypted reports whether the site-wide password is configured.
 func (c *Config) IsSiteEncrypted() bool {
 	return c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
+}
+
+// IsAlbumEncrypted reports whether the given album has a password.
+func (c *Config) IsAlbumEncrypted(slug string) bool {
+	return c.Encrypt != nil && c.Encrypt.IsAlbumEncrypted(slug)
+}
+
+// HasPerAlbumPassword reports whether the album has its own dedicated password.
+func (c *Config) HasPerAlbumPassword(slug string) bool {
+	return c.Encrypt != nil && c.Encrypt.HasPerAlbumPassword(slug)
 }
 
 // JsonNames returns the output filename and its counterpart for a JSON artifact.
