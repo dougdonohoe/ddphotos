@@ -64,3 +64,16 @@ export interface SiteHtmlContent {
 	siteSubtitleHtml?: string;
 	siteOverviewHtml?: string;
 }
+
+// Wraps a value that may arrive encrypted or already decoded.
+// Discriminate on the `encrypted` field to access the appropriate variant.
+export type MaybeEncrypted<T> =
+	| { encrypted: false; data: T }
+	| { encrypted: true; blob: string; hint?: string };
+
+// Data loaded by the home page load function.
+export interface SiteData {
+	siteId: string;
+	albums: MaybeEncrypted<AlbumSummary[]>;
+	html: MaybeEncrypted<SiteHtmlContent> | null;
+}

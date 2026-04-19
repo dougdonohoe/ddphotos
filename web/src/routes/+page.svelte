@@ -29,6 +29,16 @@
 
 	let { data } = $props();
 
+	// Unpack siteData into flat reactive locals so the rest of this component reads cleanly.
+	const siteId = $derived(data.siteData.siteId);
+	const albumsEncrypted = $derived(data.siteData.albums.encrypted);
+	const encryptedAlbumsBlob = $derived(data.siteData.albums.encrypted ? data.siteData.albums.blob : null);
+	const loadedAlbums = $derived(data.siteData.albums.encrypted ? null : data.siteData.albums.data);
+	const siteHint = $derived(data.siteData.albums.encrypted ? data.siteData.albums.hint : undefined);
+	const _html = $derived(data.siteData.html);
+	const encryptedHtmlBlob = $derived(_html !== null && _html.encrypted ? _html.blob : null);
+	const staticHtml = $derived(_html !== null && !_html.encrypted ? _html.data : null);
+
 	// ── Scroll restoration ──────────────────────────────────────────────────────────────
 	// Problem: when navigating back to home from an album, the albums grid renders
 	// asynchronously *after* afterNavigate fires (SvelteKit's commit_promise + two tick()s
@@ -81,7 +91,7 @@
 	// HTML content from html.json or html.enc.json; null until decrypted (encrypted sites).
 	let decryptedSiteHtml = $state<SiteHtmlContent | null>(null);
 	// Effective HTML content: decrypted takes precedence over statically loaded (unencrypted sites).
-	const effectiveSiteHtml = $derived(decryptedSiteHtml ?? data.siteHtml);
+	const effectiveSiteHtml = $derived(decryptedSiteHtml ?? staticHtml);
 	const siteTitleHtml = $derived(effectiveSiteHtml?.siteTitleHtml ?? siteName);
 	const siteSubtitleHtml = $derived(effectiveSiteHtml?.siteSubtitleHtml);
 	const siteOverviewHtml = $derived(effectiveSiteHtml?.siteOverviewHtml);
@@ -89,7 +99,7 @@
 	// Client-decrypted albums list (null until decryption succeeds).
 	let decryptedAlbums = $state<AlbumSummary[] | null>(null);
 	// Effective list: server-provided (unencrypted) takes precedence, else client-decrypted.
-	let albums = $derived(data.albums ?? decryptedAlbums);
+	let albums = $derived(loadedAlbums ?? decryptedAlbums);
 	// True while we're silently trying stored passwords so we don't flash the prompt.
 	// $effect.pre runs synchronously before Svelte's first DOM commit in the browser,
 	// so if a stored password exists we set unlocking=true before the prompt ever renders.
@@ -97,13 +107,13 @@
 	// static HTML — this is fine since JS will correct it immediately on hydration.)
 	let unlocking = $state(false);
 	$effect.pre(() => {
-		if (data.encryptedBlob && getStoredPassword(siteKey(data.siteId))) {
+		if (albumsEncrypted && getStoredPassword(siteKey(siteId))) {
 			unlocking = true;
 		}
 	});
 	// Hide footer until albums are ready on encrypted sites, preventing a layout jump.
 	$effect.pre(() => {
-		if (data.encryptedBlob) {
+		if (albumsEncrypted) {
 			footerReady.set(albums !== null);
 		}
 	});
@@ -111,27 +121,27 @@
 
 	// Cover URLs for per-album encrypted albums, loaded from localStorage.
 	//
-	// We initialize synchronously from localStorage when data.albums is already available
+	// We initialize synchronously from localStorage when loadedAlbums is already available
 	// (per-album encrypted, non-site-encrypted pages). This means albumCovers is populated
 	// before the first render on the client, so the img element is in the DOM from the start
 	// and the browser can display it without an intermediate placeholder flash.
 	//
 	// coversLoaded stays false during SSR (effects don't run server-side), preventing the
 	// lock icon SVG from being baked into the static HTML. On the client it's true immediately
-	// (when data.albums is available) or set by $effect.pre after decryption (site-encrypted).
+	// (when loadedAlbums is available) or set by $effect.pre after decryption (site-encrypted).
 	function readStoredCovers(albumList: AlbumSummary[]): Record<string, string> {
 		const covers: Record<string, string> = {};
 		for (const a of albumList) {
 			if (a.encrypted && !a.cover) {
-				const url = getAlbumCover(data.siteId, a.slug);
+				const url = getAlbumCover(siteId, a.slug);
 				if (url) covers[a.slug] = url;
 			}
 		}
 		return covers;
 	}
-	// Capture once — data.albums is static (set at load time, never changes at runtime).
+	// Capture once — loadedAlbums is static (set at load time, never changes at runtime).
 	// untrack tells Svelte we intentionally want the initial value, not a reactive binding.
-	const initialAlbums = untrack(() => data.albums);
+	const initialAlbums = untrack(() => loadedAlbums);
 	let albumCovers = $state<Record<string, string>>(
 		browser && initialAlbums ? readStoredCovers(initialAlbums) : {}
 	);
@@ -165,9 +175,8 @@
 			setTimeout(() => { document.documentElement.style.visibility = ''; }, 2000);
 		}
 
-
 		// Clear stale cover cache if the siteId or keyId changed (key rotation renames all image files).
-		syncSiteId(data.siteId, data.siteConfig?.keyId);
+		syncSiteId(siteId, data.siteConfig?.keyId);
 
 		// ?clear removes all stored ddp_* passwords and reloads the page without the param.
 		if (new URLSearchParams(window.location.search).has('clear')) {
@@ -186,15 +195,15 @@
 			return;
 		}
 
-		if (!data.encryptedBlob) return;
+		if (!albumsEncrypted) return;
 		unlocking = true;
 
 		// Try the site-wide stored password first.
-		const sitePw = getStoredPassword(siteKey(data.siteId));
+		const sitePw = getStoredPassword(siteKey(siteId));
 		if (sitePw) {
 			const [albumResult, htmlResult] = await Promise.all([
-				tryDecrypt(data.encryptedBlob, sitePw),
-				data.encryptedHtmlBlob ? tryDecrypt(data.encryptedHtmlBlob, sitePw) : Promise.resolve(null)
+				tryDecrypt(encryptedAlbumsBlob!, sitePw),
+				encryptedHtmlBlob ? tryDecrypt(encryptedHtmlBlob, sitePw) : Promise.resolve(null)
 			]);
 			if (albumResult) {
 				// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
@@ -206,15 +215,15 @@
 		}
 
 		// Fall back to any stored per-album password (user may have visited an album first).
-		const match = await tryStoredAlbumPasswords(data.encryptedBlob, data.siteId);
+		const match = await tryStoredAlbumPasswords(encryptedAlbumsBlob!, siteId);
 		if (match) {
-			const htmlResult = data.encryptedHtmlBlob
-				? await tryDecrypt(data.encryptedHtmlBlob, match.password)
+			const htmlResult = encryptedHtmlBlob
+				? await tryDecrypt(encryptedHtmlBlob, match.password)
 				: null;
 			// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
 			if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
 			decryptedAlbums = match.result as AlbumSummary[];
-			storePassword(siteKey(data.siteId), match.password);
+			storePassword(siteKey(siteId), match.password);
 			unlocking = false;
 			return;
 		}
@@ -223,16 +232,16 @@
 	});
 
 	async function handleUnlock(password: string) {
-		if (!data.encryptedBlob) return;
+		if (!albumsEncrypted) return;
 		const [albumResult, htmlResult] = await Promise.all([
-			tryDecrypt(data.encryptedBlob, password),
-			data.encryptedHtmlBlob ? tryDecrypt(data.encryptedHtmlBlob, password) : Promise.resolve(null)
+			tryDecrypt(encryptedAlbumsBlob!, password),
+			encryptedHtmlBlob ? tryDecrypt(encryptedHtmlBlob, password) : Promise.resolve(null)
 		]);
 		if (albumResult) {
 			// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
 			if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
 			decryptedAlbums = albumResult as AlbumSummary[];
-			storePassword(siteKey(data.siteId), password);
+			storePassword(siteKey(siteId), password);
 		} else {
 			shakeCount++;
 		}
@@ -241,7 +250,7 @@
 
 <OpenGraph title={siteName} description={siteDesc} url={siteUrl} {siteName} image={ogImage} />
 
-{#if !data.encryptedBlob || albums}
+{#if !albumsEncrypted || albums}
 	{#if data.siteConfig?.heroImage}
 		<div class="hero">
 			<img src="/albums/{data.siteConfig.heroImage}" alt={siteName} />
@@ -318,11 +327,11 @@
 	<main class="loading-page"></main>
 {/if}
 
-{#if browser && data.encryptedBlob && !albums && !unlocking}
+{#if browser && albumsEncrypted && !albums && !unlocking}
 	<div class="fullscreen-overlay">
 		<PasswordPrompt
 			name={siteName}
-			hint={data.siteHint}
+			hint={siteHint}
 			{shakeCount}
 			onunlock={handleUnlock}
 		/>

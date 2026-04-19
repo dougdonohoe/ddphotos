@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { AlbumSummary, SiteHtmlContent } from '$lib/types';
+import type { AlbumSummary, SiteHtmlContent, MaybeEncrypted, SiteData } from '$lib/types';
 
 export async function load({ fetch, parent }) {
 	const { siteConfig } = await parent();
@@ -9,28 +9,25 @@ export async function load({ fetch, parent }) {
 		error(albumsRes.status, 'Failed to load albums');
 	}
 
-	const siteId = siteConfig.siteId;
-	const siteHint = siteConfig.siteHint;
-
-	// Load the HTML content file (html.json or html.enc.json) if configured.
-	let siteHtml: SiteHtmlContent | null = null;
-	let encryptedHtmlBlob: string | null = null;
+	let html: MaybeEncrypted<SiteHtmlContent> | null = null;
 	if (siteConfig.htmlFile) {
 		const htmlRes = await fetch(`/albums/${siteConfig.htmlFile}`);
 		if (htmlRes.ok) {
 			if (siteConfig.htmlFile.endsWith('.enc.json')) {
-				encryptedHtmlBlob = await htmlRes.text();
+				html = { encrypted: true, blob: await htmlRes.text() };
 			} else {
-				siteHtml = await htmlRes.json();
+				html = { encrypted: false, data: await htmlRes.json() as SiteHtmlContent };
 			}
 		}
 	}
 
+	let albums: MaybeEncrypted<AlbumSummary[]>;
 	if (siteConfig.albumsFile.endsWith('.enc.json')) {
-		const encryptedBlob = await albumsRes.text();
-		return { albums: null as AlbumSummary[] | null, encryptedBlob, siteId, siteHint, siteHtml, encryptedHtmlBlob };
+		albums = { encrypted: true, blob: await albumsRes.text(), hint: siteConfig.siteHint };
+	} else {
+		albums = { encrypted: false, data: await albumsRes.json() as AlbumSummary[] };
 	}
 
-	const albums: AlbumSummary[] = await albumsRes.json();
-	return { albums, encryptedBlob: null as string | null, siteId, siteHint, siteHtml, encryptedHtmlBlob };
+	const siteData: SiteData = { siteId: siteConfig.siteId, albums, html };
+	return { siteData };
 }
