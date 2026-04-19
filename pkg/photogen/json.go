@@ -122,12 +122,7 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 		password = ap.Config.Encrypt.AlbumPassword(ap.AlbumConfig.Slug)
 	}
 
-	outputName := "index.json"
-	counterpart := "index.enc.json"
-	if password != "" {
-		outputName = "index.enc.json"
-		counterpart = "index.json"
-	}
+	outputName, counterpart := jsonNames("index", password != "")
 	outputPath := ap.OutputPath(outputName)
 	ap.Config.TrackFile(outputPath)
 
@@ -234,13 +229,8 @@ func (ap *AlbumProcessor) computeDateSpan() string {
 // WriteAlbumsIndex writes albums.json (or albums.enc.json if encrypted) into the site output dir.
 func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 	siteDir := c.SiteOutputPath()
-	encrypted := c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
-	outputName := "albums.json"
-	counterpart := "albums.enc.json"
-	if encrypted {
-		outputName = "albums.enc.json"
-		counterpart = "albums.json"
-	}
+	encrypted := c.IsSiteEncrypted()
+	outputName, counterpart := c.JsonNames("albums")
 	outputPath := filepath.Join(siteDir, outputName)
 
 	if c.DryRun {
@@ -311,11 +301,7 @@ func hmacKeyID(key string) string {
 
 // WriteConfigJSON writes config.json indicating which albums file to load.
 func (c *Config) WriteConfigJSON() error {
-	siteEncrypted := c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
-	albumsFile := "albums.json"
-	if siteEncrypted {
-		albumsFile = "albums.enc.json"
-	}
+	albumsFile, _ := c.JsonNames("albums")
 	outputPath := c.SiteOutputPath("config.json")
 	if c.DryRun {
 		fmt.Printf("DRYRUN: would write %s\n", outputPath)
@@ -350,11 +336,7 @@ func (c *Config) WriteConfigJSON() error {
 	}
 	cfg.DefaultTheme = c.DefaultTheme
 	if c.SiteTitleHTML != "" || c.SiteSubtitleHTML != "" || c.SiteOverviewHTML != "" {
-		if siteEncrypted {
-			cfg.HTMLFile = "html.enc.json"
-		} else {
-			cfg.HTMLFile = "html.json"
-		}
+		cfg.HTMLFile, _ = c.JsonNames("html")
 	}
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
@@ -369,18 +351,13 @@ func (c *Config) WriteHTMLFile() error {
 	if c.SiteTitleHTML == "" && c.SiteSubtitleHTML == "" && c.SiteOverviewHTML == "" {
 		return nil
 	}
-	siteEncrypted := c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
-	outputName := "html.json"
-	counterpart := "html.enc.json"
-	if siteEncrypted {
-		outputName = "html.enc.json"
-		counterpart = "html.json"
-	}
+	encrypted := c.IsSiteEncrypted()
+	outputName, counterpart := c.JsonNames("html")
 	outputPath := c.SiteOutputPath(outputName)
 
 	if c.DryRun {
 		action := "write"
-		if siteEncrypted {
+		if encrypted {
 			action = "encrypt+write"
 		}
 		fmt.Printf("DRYRUN: would %s %s\n", action, outputPath)
@@ -399,7 +376,7 @@ func (c *Config) WriteHTMLFile() error {
 	}
 	b = append(b, '\n')
 
-	if siteEncrypted {
+	if encrypted {
 		b, err = EncryptJSON(b, c.Encrypt.SitePassword, c.Encrypt.PwFile)
 		if err != nil {
 			return fmt.Errorf("encrypt html content: %w", err)
@@ -521,6 +498,17 @@ func writeJSON(path string, data any) error {
 		return fmt.Errorf("encode JSON: %w", err)
 	}
 	return writeBytes(path, append(b, '\n'))
+}
+
+// jsonNames returns the primary output filename and its stale counterpart for a JSON artifact.
+// When encrypted, the primary file gets the ".enc.json" suffix.
+func jsonNames(base string, encrypted bool) (output, counterpart string) {
+	enc := base + ".enc.json"
+	reg := base + ".json"
+	if encrypted {
+		return enc, reg
+	}
+	return reg, enc
 }
 
 // removeIfExists deletes path if it exists, silently ignoring not-found errors.

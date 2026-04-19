@@ -140,6 +140,17 @@ func (c *Config) PhotoWebPName(slug, filename string) string {
 	return WebPFileName(filename)
 }
 
+// IsSiteEncrypted reports whether the site-wide password is configured.
+func (c *Config) IsSiteEncrypted() bool {
+	return c.Encrypt != nil && c.Encrypt.IsSiteEncrypted()
+}
+
+// JsonNames returns the output filename and its counterpart for a JSON artifact.
+// When the site is encrypted, the primary file gets the ".enc.json" suffix.
+func (c *Config) JsonNames(base string) (output, counterpart string) {
+	return jsonNames(base, c.IsSiteEncrypted())
+}
+
 // TrackFile registers path as a file generated in this run (for --clean).
 // No-op if InitClean has not been called.
 func (c *Config) TrackFile(path string) {
