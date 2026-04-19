@@ -135,6 +135,35 @@ func TestAlbumPassword(t *testing.T) {
 	assert.True(t, ec.IsAlbumEncrypted("antarctica"))
 }
 
+func TestEncryptConfigPredicates(t *testing.T) {
+	t.Parallel()
+
+	ec := &EncryptConfig{
+		SitePassword:   "site-pass",
+		AlbumPasswords: map[string]string{"uganda": "uganda-pass"},
+	}
+
+	t.Run("IsSiteEncrypted", func(t *testing.T) {
+		t.Parallel()
+		assert.True(t, ec.IsSiteEncrypted())
+		assert.False(t, (&EncryptConfig{}).IsSiteEncrypted())
+	})
+
+	t.Run("IsAlbumEncrypted", func(t *testing.T) {
+		t.Parallel()
+		assert.True(t, ec.IsAlbumEncrypted("uganda"))                  // per-album password
+		assert.True(t, ec.IsAlbumEncrypted("antarctica"))              // falls back to site password
+		assert.False(t, (&EncryptConfig{}).IsAlbumEncrypted("uganda")) // no passwords at all
+	})
+
+	t.Run("HasPerAlbumPassword", func(t *testing.T) {
+		t.Parallel()
+		assert.True(t, ec.HasPerAlbumPassword("uganda"))      // has its own password
+		assert.False(t, ec.HasPerAlbumPassword("antarctica")) // only site password
+		assert.False(t, ec.HasPerAlbumPassword("unknown"))    // not configured at all
+	})
+}
+
 func TestPhotoWebPName_WithKey(t *testing.T) {
 	t.Parallel()
 
