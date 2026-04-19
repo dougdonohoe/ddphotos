@@ -1208,3 +1208,37 @@ Built with joy by DD Photos on {date}  ⓘ
 - The info icon uses the same blue as the "DD Photos" link (`#5a8ec0` dark / `--link-color` light), with opacity fade on hover.
 - `margin-left: 0.5rem` on the icon button separates it visually from the date.
 - Space bar now activates album cards (keyboard accessibility): `onkeydown` handler on each `<a>` card calls `e.preventDefault()` + `e.currentTarget.click()` when Space is pressed.
+
+### 60. Encrypt Custom HTML Fields via `html.json` / `html.enc.json`
+
+#### Motivation
+
+The three home page HTML fields (`site_title_html`, `site_subtitle_html`, `site_overview_html`) can contain private information — links to private spreadsheets, email addresses, internal notes. Previously they were written into `config.json`, which is always served publicly. This change moves them out of `config.json` into a dedicated file that is encrypted when a site password is configured.
+
+#### New File: `html.json` / `html.enc.json`
+
+Follows the exact same pattern as `albums.json` / `albums.enc.json`:
+
+- **No site password**: `html.json` (plaintext JSON) is written; `config.json` includes `"htmlFile": "html.json"`.
+- **Site password**: `html.enc.json` (AES-256-GCM encrypted, same key derivation as albums) is written; `config.json` includes `"htmlFile": "html.enc.json"`.
+- **No HTML fields configured**: neither file is written; `htmlFile` is omitted from `config.json`.
+
+`photogen` writes the file in `WriteHTMLFile()` (called alongside `WriteConfigJSON()` in the index phase). The three HTML fields were removed from `SiteConfig` / `config.json`; the new `SiteHTMLContent` Go struct holds them.
+
+#### Go changes
+
+- `pkg/photogen/json.go`: removed `SiteTitleHTML`, `SiteSubtitleHTML`, `SiteOverviewHTML` from `SiteConfig`; added `HTMLFile string`; added `SiteHTMLContent` struct; added `WriteHTMLFile()` method.
+- `cmd/photogen/photogen.go`: added `cfg.WriteHTMLFile()` call in the index phase.
+- `pkg/photogen/json_test.go`: updated `TestWriteConfigJSON` for the new `htmlFile` behavior; added `TestWriteHTMLFile` covering no-op, plaintext, encrypted, and stale-file-removal cases.
+
+#### Frontend changes
+
+- `web/src/lib/types.ts`: removed HTML fields from `SiteConfig`; added `htmlFile?`; added `SiteHtmlContent` interface.
+- `web/src/routes/+page.ts`: fetches `html.json` or `html.enc.json` when `htmlFile` is set; returns `siteHtml` (plaintext) or `encryptedHtmlBlob` (raw text for later decryption).
+- `web/src/routes/+page.svelte`:
+  - Added `decryptedSiteHtml` state; derives `effectiveSiteHtml`, `siteTitleHtml`, `siteSubtitleHtml`, `siteOverviewHtml` from decrypted or static content.
+  - All three decryption paths (`handleUnlock`, stored site password, stored album password fallback) use `Promise.all` to decrypt `albums.enc.json` and `html.enc.json` in parallel, then assign `decryptedSiteHtml` before `decryptedAlbums` in a single synchronous block. Svelte 5 batches both state assignments into one DOM commit, preventing any flash of missing HTML content over the hero image.
+
+#### Documentation
+
+`README-DEV.md` updated: passwords section explains the new `html.json`/`html.enc.json` files; site settings table annotates the three HTML fields; frontend behavior section describes the parallel decryption; decode table adds `html.enc.json`.

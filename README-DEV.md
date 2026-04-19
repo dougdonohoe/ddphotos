@@ -108,17 +108,17 @@ Site identity settings live in the `settings:` block of `albums.yaml` and are wr
 into `config.json` by `photogen`. The frontend reads them at runtime via `fetch('/albums/config.json')` —
 no build-time injection needed.
 
-| Setting              | Required | Description                                                                                                    |
-|----------------------|----------|----------------------------------------------------------------------------------------------------------------|
-| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                                |
-| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags                            |
-| `site_description`   | yes      | Meta description and OG description for the home page                                                          |
-| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                                        |
-| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                                  |
-| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)              |
-| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted. Allows links, emphasis, etc. |
-| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font                                                           |
-| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions)                                  |
+| Setting              | Required | Description                                                                                                                                                                 |
+|----------------------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                                                                                             |
+| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags                                                                                         |
+| `site_description`   | yes      | Meta description and OG description for the home page                                                                                                                       |
+| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                                                                                                     |
+| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                                                                                               |
+| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)                                                                           |
+| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted. Allows links, emphasis, etc. Written to `html.json` / `html.enc.json`, not `config.json`. |
+| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font. Written to `html.json` / `html.enc.json`.                                                                             |
+| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions). Written to `html.json` / `html.enc.json`.                                                    |
 
 `photogen`'s `Config.Validate()` enforces all required fields before any files are written.
 
@@ -414,6 +414,14 @@ are written as `.enc.json` alongside their plaintext counterparts. `config.json`
 always written in plaintext — it contains only non-sensitive metadata (site ID, hints,
 hero/CSS filenames) needed to bootstrap the frontend before any password is entered.
 
+Custom HTML fields (`site_title_html`, `site_subtitle_html`, `site_overview_html`) can
+contain private information such as links to private documents or contact details. When
+a site password is configured, these fields are written to `html.enc.json` (encrypted)
+rather than `config.json`. On unencrypted sites they are written to `html.json`
+(plaintext). If none of the three fields are set, neither file is written. The frontend
+fetches and decrypts `html.enc.json` as part of the same unlock step as `albums.enc.json`,
+so there is no additional password prompt.
+
 Decryption happens entirely in-browser using the Web Crypto API. Passwords are never
 sent to a server.
 
@@ -463,12 +471,15 @@ git-ignored directory (e.g. `.secrets/`).
 When the frontend loads an encrypted page, it:
 
 1. Reads `config.json` (always plaintext) to get the `siteId`, hints, and which albums
-   file to load (`albums.json` vs `albums.enc.json`).
+   file to load (`albums.json` vs `albums.enc.json`). If `htmlFile` is set, also fetches
+   `html.json` (plaintext) or holds `html.enc.json` as a raw blob for later decryption.
 2. Checks localStorage for a stored password scoped to the current `siteId`.
-3. If a stored password decrypts successfully, the page renders normally with no prompt.
+3. If a stored password decrypts successfully, both `albums.enc.json` and `html.enc.json`
+   are decrypted in parallel — the page renders with all content in a single DOM update,
+   with no flash.
 4. If no stored password works, a full-screen `PasswordPrompt` overlay appears with a
    lock icon, a password input, and an optional hint. A wrong password triggers a shake
-   animation; a correct one stores the password in localStorage and decrypts the content.
+   animation; a correct one stores the password in localStorage and decrypts all content.
 
 **Stored passwords and auto-unlock:** After a successful unlock, the password is saved
 to localStorage so subsequent visits auto-decrypt without prompting. Append `?clear` to
@@ -528,6 +539,7 @@ The correct password is selected automatically from the filename:
 | File              | Password used                                    |
 |-------------------|--------------------------------------------------|
 | `albums.enc.json` | Site-wide password (`site.password`)             |
+| `html.enc.json`   | Site-wide password (`site.password`)             |
 | `index.enc.json`  | Per-album password for the parent directory slug |
 
 ## Finding a Cover Photo (`search_cover.sh`)
