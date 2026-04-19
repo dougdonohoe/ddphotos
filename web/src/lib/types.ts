@@ -77,3 +77,14 @@ export interface SiteData {
 	albums: MaybeEncrypted<AlbumSummary[]>;
 	html: MaybeEncrypted<SiteHtmlContent> | null;
 }
+
+// Data loaded by the album page load function.
+export interface AlbumData {
+	siteId: string;
+	slug: string;
+	albumTitle: string;
+	dateSpan: string;
+	description: string;
+	photoIndex: number | null;
+	album: MaybeEncrypted<AlbumIndex>;
+}

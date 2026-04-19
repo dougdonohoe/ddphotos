@@ -26,16 +26,25 @@
 
 	let { data } = $props();
 
+	// Unpack albumData into flat reactive locals so the rest of this component reads cleanly.
+	const siteId         = $derived(data.albumData.siteId);
+	const slug           = $derived(data.albumData.slug);
+	const photoIndex     = $derived(data.albumData.photoIndex);
+	const albumEncrypted    = $derived(data.albumData.album.encrypted);
+	const encryptedAlbumBlob = $derived(data.albumData.album.encrypted ? data.albumData.album.blob : null);
+	const loadedAlbum    = $derived(data.albumData.album.encrypted ? null : data.albumData.album.data);
+	const albumHint      = $derived(data.albumData.album.encrypted ? data.albumData.album.hint : undefined);
+
 	// Client-decrypted album (null until the user's stored password or manual entry works).
 	let decryptedAlbum = $state<AlbumIndex | null>(null);
 	// Effective album: server-provided (unencrypted) takes precedence, else client-decrypted.
-	let album = $derived(data.album ?? decryptedAlbum);
+	let album = $derived(loadedAlbum ?? decryptedAlbum);
 	// Metadata: prefer server-loaded values; fall back to fields embedded in the decrypted index
 	// (needed for site-encrypted sites where albums.enc.json is not fetched server-side).
-	let albumTitle = $derived(album?.title ?? data.albumTitle);
-	let description = $derived(data.description || album?.description || '');
+	let albumTitle = $derived(album?.title ?? data.albumData.albumTitle);
+	let description = $derived(data.albumData.description || album?.description || '');
 	let plainDescription = $derived(description.replace(/<[^>]*>/g, ''));
-	let dateSpan = $derived(data.dateSpan || album?.dateSpan || '');
+	let dateSpan = $derived(data.albumData.dateSpan || album?.dateSpan || '');
 	// True while we're silently trying stored passwords so we don't flash the prompt.
 	// $effect.pre runs synchronously before Svelte's first DOM commit in the browser,
 	// so if a stored password exists we set unlocking=true before the prompt ever renders.
@@ -43,13 +52,13 @@
 	// static HTML — this is fine since JS will correct it immediately on hydration.)
 	let unlocking = $state(false);
 	$effect.pre(() => {
-		if (data.encryptedBlob && (getStoredPassword(albumKey(data.siteId, data.slug)) || getStoredPassword(siteKey(data.siteId)))) {
+		if (albumEncrypted && (getStoredPassword(albumKey(siteId, slug)) || getStoredPassword(siteKey(siteId)))) {
 			unlocking = true;
 		}
 	});
 	// Hide footer until album is ready on encrypted pages, preventing a layout jump.
 	$effect.pre(() => {
-		if (data.encryptedBlob) {
+		if (albumEncrypted) {
 			footerReady.set(album !== null);
 		}
 	});
@@ -83,9 +92,9 @@
 	// 1-based photo number for display when the route index is out of range; null otherwise.
 	let invalidPhotoIndex = $derived(
 		album !== null &&
-			data.photoIndex !== null &&
-			(data.photoIndex < 0 || data.photoIndex >= album.photos.length)
-			? data.photoIndex + 1
+			photoIndex !== null &&
+			(photoIndex < 0 || photoIndex >= album.photos.length)
+			? photoIndex + 1
 			: null
 	);
 
@@ -103,35 +112,35 @@
 	// Build PhotoSwipe data source
 	let photoswipeItems = $derived(
 		(album?.photos ?? []).map((photo) => ({
-			src: `/albums/${data.slug}/${photo.src.full}`,
+			src: `/albums/${slug}/${photo.src.full}`,
 			w: photo.width,
 			h: photo.height,
-			msrc: `/albums/${data.slug}/${photo.src.grid}`, // thumbnail for loading
+			msrc: `/albums/${slug}/${photo.src.grid}`, // thumbnail for loading
 			alt: photo.description || photo.fileName,
 			caption: photo.description || ''
 		}))
 	);
 
 	async function tryDecryptAlbum() {
-		if (!data.encryptedBlob) return;
+		if (!albumEncrypted) return;
 		unlocking = true;
 
 		// Try per-album stored password first, then site-wide.
-		for (const key of [albumKey(data.siteId, data.slug), siteKey(data.siteId)]) {
+		for (const key of [albumKey(siteId, slug), siteKey(siteId)]) {
 			const pw = getStoredPassword(key);
 			if (pw) {
-				const result = await tryDecrypt(data.encryptedBlob, pw);
+				const result = await tryDecrypt(encryptedAlbumBlob!, pw);
 				if (result) {
 					decryptedAlbum = result as AlbumIndex;
-					storePassword(albumKey(data.siteId, data.slug), pw);
+					storePassword(albumKey(siteId, slug), pw);
 					const cover = decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid;
-					if (cover) storeAlbumCover(data.siteId, data.slug, `/albums/${data.slug}/${cover}`);
+					if (cover) storeAlbumCover(siteId, slug, `/albums/${slug}/${cover}`);
 					unlocking = false;
 					// Wait for Svelte to recompute photoswipeItems from the decrypted album,
 					// then auto-open the lightbox if this is a permalink URL.
 					await tick();
-					if (data.photoIndex !== null && invalidPhotoIndex === null) {
-						openLightbox(data.photoIndex, false);
+					if (photoIndex !== null && invalidPhotoIndex === null) {
+						openLightbox(photoIndex, false);
 					}
 					return;
 				}
@@ -142,13 +151,13 @@
 	}
 
 	async function handleUnlock(password: string) {
-		if (!data.encryptedBlob) return;
-		const result = await tryDecrypt(data.encryptedBlob, password);
+		if (!albumEncrypted) return;
+		const result = await tryDecrypt(encryptedAlbumBlob!, password);
 		if (result) {
 			decryptedAlbum = result as AlbumIndex;
-			storePassword(albumKey(data.siteId, data.slug), password);
+			storePassword(albumKey(siteId, slug), password);
 			const cover = decryptedAlbum.cover ?? decryptedAlbum.photos[0]?.src.grid;
-			if (cover) storeAlbumCover(data.siteId, data.slug, `/albums/${data.slug}/${cover}`);
+			if (cover) storeAlbumCover(siteId, slug, `/albums/${slug}/${cover}`);
 		} else {
 			shakeCount++;
 		}
@@ -218,7 +227,7 @@
 				if (pushedHistoryEntry) {
 					history.go(-1);
 				} else {
-					replaceState(`/albums/${data.slug}`, {});
+					replaceState(`/albums/${slug}`, {});
 				}
 
 				const focusIdx = pendingFocusIndex;
@@ -293,14 +302,14 @@
 		//
 		// Skip for animate=false (permalink open): URL already has the photo index.
 		if (animate) {
-			pushState(`/albums/${data.slug}/${index + 1}`, {});
+			pushState(`/albums/${slug}/${index + 1}`, {});
 			pushedHistoryEntry = true;
 		}
 		pswp.on('change', () => {
 			// SvelteKit's replaceState keeps the photo URL current as the user navigates.
 			// Uses replaceState (not pushState) so every photo doesn't add a history entry
 			// — back always jumps directly to the album rather than stepping photo-by-photo.
-			replaceState(`/albums/${data.slug}/${pswp.currIndex + 1}`, {});
+			replaceState(`/albums/${slug}/${pswp.currIndex + 1}`, {});
 			// Store the target scroll so the current photo will be centered when the
 			// lightbox closes. Applied via afterNavigate (history.go(-1) case) or directly
 			// in the close handler (replaceState case) — both fire after SvelteKit's own
@@ -411,10 +420,10 @@
 		// became available after decryption (photo count was 0 while encrypted).
 		// Uses non-reactive lastEffectPhotosLen (like lastEffectSlug) to avoid creating
 		// a reactive dependency on imageLoaded, which would cause an infinite effect loop.
-		const slugChanged = data.slug !== lastEffectSlug;
+		const slugChanged = slug !== lastEffectSlug;
 		const albumJustLoaded = album !== null && photos.length !== lastEffectPhotosLen;
 		if (slugChanged || albumJustLoaded) {
-			lastEffectSlug = data.slug;
+			lastEffectSlug = slug;
 			lastEffectPhotosLen = photos.length;
 			imageLoaded = photos.map(() => false);
 		}
@@ -429,7 +438,7 @@
 			// to avoid unpredictable interaction with programmatic src assignment.
 			imageSrcs = photos.map(() => '');
 			const timeouts = photos.map((photo: any, i: number) => {
-				const src = `/albums/${data.slug}/${photo.src.grid}`;
+				const src = `/albums/${slug}/${photo.src.grid}`;
 				const delay = 500 + Math.random() * 2000;
 				return setTimeout(() => {
 					imageSrcs[i] = src;
@@ -443,13 +452,13 @@
 			// inside the effect (which would create a dependency and cause an
 			// infinite update loop when the assignment then triggers a re-run).
 			imageSrcs = photos.map(
-				(photo: any) => `/albums/${data.slug}/${photo.src.grid}`
+				(photo: any) => `/albums/${slug}/${photo.src.grid}`
 			);
 		}
 	});
 
 	onMount(() => {
-		syncSiteId(data.siteId, data.siteConfig?.keyId);
+		syncSiteId(siteId, data.siteConfig?.keyId);
 
 		const updateWidth = () => {
 			if (container) {
@@ -465,7 +474,7 @@
 		updateWidth();
 		layoutReady = true;
 
-		if (data.encryptedBlob) {
+		if (albumEncrypted) {
 			// Silently try stored passwords (fire and forget — resolves async).
 			// On success, tryDecryptAlbum also handles auto-opening a permalink.
 			tryDecryptAlbum();
@@ -473,8 +482,8 @@
 			// Open lightbox at the photo specified in the route (e.g. /albums/antarctica/15).
 			// Skip the opening animation so it appears instantly rather than fading/zooming in.
 			// invalidPhotoIndex (derived) handles the out-of-range case in the template.
-			if (data.photoIndex !== null && invalidPhotoIndex === null) {
-				openLightbox(data.photoIndex, false);
+			if (photoIndex !== null && invalidPhotoIndex === null) {
+				openLightbox(photoIndex, false);
 			}
 		}
 
@@ -503,9 +512,9 @@
 		(album
 			? `${album.photos.length} photos from the '${albumTitle}' album`
 			: albumTitle)}
-	url="{data.siteConfig.siteUrl}/albums/{data.slug}"
+	url="{data.siteConfig.siteUrl}/albums/{slug}"
 	siteName={data.siteConfig.siteName}
-	image={album ? `${data.siteConfig.siteUrl}/albums/${data.slug}/cover.jpg` : undefined}
+	image={album ? `${data.siteConfig.siteUrl}/albums/${slug}/cover.jpg` : undefined}
 />
 
 {#if album}
@@ -524,7 +533,7 @@
 		{#if invalidPhotoIndex !== null}
 			<div class="not-found">
 				<p>No photo #{invalidPhotoIndex} in '{album.title}'.</p>
-				<a href="/albums/{data.slug}">Back to the album</a>
+				<a href="/albums/{slug}">Back to the album</a>
 			</div>
 		{/if}
 
@@ -573,7 +582,7 @@
 	</main>
 {:else}
 	<main class="loading-page">
-		{#if !data.encryptedBlob}
+		{#if !albumEncrypted}
 			<header>
 				<a href="/">← Albums</a>
 				<h1>{albumTitle}</h1>
@@ -582,12 +591,12 @@
 	</main>
 {/if}
 
-{#if browser && data.encryptedBlob && !album && !unlocking}
+{#if browser && albumEncrypted && !album && !unlocking}
 	<div class="fullscreen-overlay">
 		<PasswordPrompt
 			prefix="Album"
 			name={albumTitle}
-			hint={data.albumHint}
+			hint={albumHint}
 			{shakeCount}
 			onunlock={handleUnlock}
 		/>

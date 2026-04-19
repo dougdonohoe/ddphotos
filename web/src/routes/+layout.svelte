@@ -15,7 +15,7 @@
 	// True when the current page has encrypted content not yet decrypted.
 	// Home page uses siteData (post-refactor); album page still uses encryptedBlob directly.
 	const pageEncrypted = $derived(
-		!!(page.data.siteData?.albums?.encrypted || page.data.encryptedBlob)
+		!!(page.data.siteData?.albums?.encrypted || page.data.albumData?.album?.encrypted)
 	);
 
 	onMount(() => {

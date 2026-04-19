@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { AlbumIndex, AlbumSummary, SiteConfig } from '$lib/types';
+import type { AlbumIndex, AlbumSummary, AlbumData, MaybeEncrypted, SiteConfig } from '$lib/types';
 
 export async function load({ params, fetch }) {
 	// Consult config.json first to determine which files exist before fetching them.
@@ -20,16 +20,15 @@ export async function load({ params, fetch }) {
 	const config = (await configRes.json()) as SiteConfig;
 	const siteEncrypted = config.albumsFile.endsWith('.enc.json');
 
-	let album: AlbumIndex | null = null;
-	let encryptedBlob: string | null = null;
 	let albumMeta: AlbumSummary | null = null;
+	let album: MaybeEncrypted<AlbumIndex>;
 
 	if (siteEncrypted) {
 		// Site-wide encryption is active: all album indexes are in index.enc.json,
 		// unlocked by either the site password or a per-album password.
 		const indexRes = await fetch(`/albums/${params.slug}/index.enc.json`);
 		if (!indexRes.ok) error(404, `Album "${params.slug}" not found`);
-		encryptedBlob = await indexRes.text();
+		album = { encrypted: true, blob: await indexRes.text(), hint: config.albumHints?.[params.slug] };
 	} else {
 		// albums.json is plain; check the encrypted flag for this album before deciding
 		// which index file to fetch (index.json vs index.enc.json).
@@ -44,22 +43,20 @@ export async function load({ params, fetch }) {
 		if (!indexRes.ok) error(404, `Album "${params.slug}" not found`);
 
 		if (indexEncrypted) {
-			encryptedBlob = await indexRes.text();
+			album = { encrypted: true, blob: await indexRes.text(), hint: config.albumHints?.[params.slug] };
 		} else {
-			album = (await indexRes.json()) as AlbumIndex;
+			album = { encrypted: false, data: await indexRes.json() as AlbumIndex };
 		}
 	}
 
-	const photoIndex = params.index ? parseInt(params.index) - 1 : null;
-	return {
-		album,
-		encryptedBlob,
-		slug: params.slug,
+	const albumData: AlbumData = {
 		siteId: config.siteId,
+		slug: params.slug,
 		albumTitle: albumMeta?.title ?? params.slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
 		dateSpan: albumMeta?.dateSpan ?? '',
 		description: albumMeta?.description ?? '',
-		photoIndex,
-		albumHint: config.albumHints?.[params.slug]
+		photoIndex: params.index ? parseInt(params.index) - 1 : null,
+		album,
 	};
+	return { albumData };
 }
