@@ -198,31 +198,16 @@
 		if (!albumsEncrypted) return;
 		unlocking = true;
 
-		// Try the site-wide stored password first.
 		const sitePw = getStoredPassword(siteKey(siteId));
-		if (sitePw) {
-			const [albumResult, htmlResult] = await Promise.all([
-				tryDecrypt(encryptedAlbumsBlob!, sitePw),
-				encryptedHtmlBlob ? tryDecrypt(encryptedHtmlBlob, sitePw) : Promise.resolve(null)
-			]);
-			if (albumResult) {
-				// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
-				if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
-				decryptedAlbums = albumResult as AlbumSummary[];
-				unlocking = false;
-				return;
-			}
+		if (sitePw && await applyDecrypted(sitePw)) {
+			unlocking = false;
+			return;
 		}
 
 		// Fall back to any stored per-album password (user may have visited an album first).
 		const match = await tryStoredAlbumPasswords(encryptedAlbumsBlob!, siteId);
 		if (match) {
-			const htmlResult = encryptedHtmlBlob
-				? await tryDecrypt(encryptedHtmlBlob, match.password)
-				: null;
-			// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
-			if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
-			decryptedAlbums = match.result as AlbumSummary[];
+			await applyDecrypted(match.password);
 			storePassword(siteKey(siteId), match.password);
 			unlocking = false;
 			return;
@@ -231,16 +216,23 @@
 		unlocking = false;
 	});
 
-	async function handleUnlock(password: string) {
-		if (!albumsEncrypted) return;
+	// Decrypt both album and html blobs with the given password.
+	// Applies results to reactive state and returns true on success.
+	async function applyDecrypted(password: string): Promise<boolean> {
 		const [albumResult, htmlResult] = await Promise.all([
 			tryDecrypt(encryptedAlbumsBlob!, password),
 			encryptedHtmlBlob ? tryDecrypt(encryptedHtmlBlob, password) : Promise.resolve(null)
 		]);
-		if (albumResult) {
-			// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
-			if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
-			decryptedAlbums = albumResult as AlbumSummary[];
+		if (!albumResult) return false;
+		// Set siteHtml before albums so both are ready in the same Svelte DOM commit.
+		if (htmlResult) decryptedSiteHtml = htmlResult as SiteHtmlContent;
+		decryptedAlbums = albumResult as AlbumSummary[];
+		return true;
+	}
+
+	async function handleUnlock(password: string) {
+		if (!albumsEncrypted) return;
+		if (await applyDecrypted(password)) {
 			storePassword(siteKey(siteId), password);
 		} else {
 			shakeCount++;

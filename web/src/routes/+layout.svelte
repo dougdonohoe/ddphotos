@@ -12,6 +12,11 @@
 
 	const hasHero = $derived(!!data.siteConfig?.heroImage && page.url.pathname === '/');
 	const hasEncryption = $derived(!!data.siteConfig?.encrypted);
+	// True when the current page has encrypted content not yet decrypted.
+	// Home page uses siteData (post-refactor); album page still uses encryptedBlob directly.
+	const pageEncrypted = $derived(
+		!!(page.data.siteData?.albums?.encrypted || page.data.encryptedBlob)
+	);
 
 	onMount(() => {
 		// Set initial theme on mount
@@ -79,7 +84,7 @@
 	{/if}
 	<div
 		class="top-controls"
-		class:ready={!page.data.encryptedBlob || $footerReady}
+		class:ready={!pageEncrypted || $footerReady}
 		class:over-hero={hasHero}
 	>
 		{#if hasEncryption}
@@ -90,7 +95,7 @@
 		<ThemeToggle />
 	</div>
 	{@render children()}
-	<footer class:ready={!page.data.encryptedBlob || $footerReady}>
+	<footer class:ready={!pageEncrypted || $footerReady}>
 		<div>Copyright © {data.siteConfig?.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.</div>
 		<div class="built-with">
 			<button class="about-btn" onclick={openAbout} aria-label="About this site"><Info size={16} aria-hidden="true" /></button>
