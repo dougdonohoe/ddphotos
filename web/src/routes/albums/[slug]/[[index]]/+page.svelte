@@ -248,6 +248,36 @@
 			// closedByBackNav: back button already navigated to the correct URL; nothing to do.
 		});
 
+		// Add copy-link button to the PhotoSwipe top bar, just left of the close button (order 20).
+		// Copies window.location.href, kept current by the replaceState calls in the change handler.
+		// Must use the uiRegister event: pswp.ui doesn't exist until inside pswp.init().
+		const linkSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+		const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>`;
+		pswp.on('uiRegister', () => {
+			pswp.ui?.registerElement({
+				name: 'copy-link',
+				order: 19,
+				isButton: true,
+				title: 'Copy link',
+				html: linkSVG,
+				onClick: (event, el) => {
+					navigator.clipboard
+						.writeText(window.location.href)
+						.then(() => {
+							el.innerHTML = checkSVG;
+							el.classList.add('copied');
+							setTimeout(() => {
+								el.innerHTML = linkSVG;
+								el.classList.remove('copied');
+							}, 1500);
+						})
+						.catch(() => {
+							// Clipboard not available (old browser or denied permission) — silently ignore
+						});
+				}
+			});
+		});
+
 		pswp.init();
 		pswpInstance = pswp;
 
@@ -283,38 +313,6 @@
 				pendingScrollY = photoCenterY - window.innerHeight / 2;
 			}
 		});
-
-		// Inject a copy-link button into PhotoSwipe's top bar (left of the close button).
-		// Copies window.location.href, which is kept current by the replaceState calls above.
-		const topBar = pswp.element?.querySelector('.pswp__top-bar');
-		if (topBar) {
-			const linkSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-			const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>`;
-
-			const copyBtn = document.createElement('button');
-			copyBtn.className = 'pswp__button pswp-copy-link';
-			copyBtn.title = 'Copy link';
-			copyBtn.innerHTML = linkSVG;
-
-			copyBtn.onclick = () => {
-				navigator.clipboard
-					.writeText(window.location.href)
-					.then(() => {
-						copyBtn.innerHTML = checkSVG;
-						copyBtn.classList.add('copied');
-						setTimeout(() => {
-							copyBtn.innerHTML = linkSVG;
-							copyBtn.classList.remove('copied');
-						}, 1500);
-					})
-					.catch(() => {
-						// Clipboard not available (old browser or denied permission) — silently ignore
-					});
-			};
-
-			// Insert just before the close button (last child of top bar)
-			topBar.insertBefore(copyBtn, topBar.lastElementChild);
-		}
 
 		// Inject a caption into each of PhotoSwipe's 3-slide holder elements (prev,
 		// current, next) so captions swipe with their photo rather than staying fixed.
@@ -772,20 +770,14 @@
 	}
 
 	/* Copy-link button in the PhotoSwipe top bar */
-	:global(.pswp-copy-link) {
-		opacity: 0.6;
-		transition: opacity 0.2s, color 0.2s;
+	:global(.pswp__button--copy-link) {
 		color: white;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 
-	:global(.pswp-copy-link:hover) {
-		opacity: 1;
-	}
-
-	:global(.pswp-copy-link.copied) {
+	:global(.pswp__button--copy-link.copied) {
 		opacity: 1;
 		color: #6ddb6d;
 	}
