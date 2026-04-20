@@ -264,7 +264,7 @@
 {/if}
 
 {#if albums}
-	<main class:fade-in={decryptedAlbums !== null}>
+	<main>
 		{#if siteOverviewHtml}
 			<div class="site-overview">{@html siteOverviewHtml}</div>
 		{/if}
@@ -550,15 +550,5 @@
 		align-items: center;
 		justify-content: center;
 		z-index: 100;
-	}
-
-	/* Fade in real albums after decryption */
-	@keyframes fade-in {
-		from { opacity: 0; }
-		to { opacity: 1; }
-	}
-
-	main.fade-in {
-		animation: fade-in 400ms ease-out forwards;
 	}
 </style>
