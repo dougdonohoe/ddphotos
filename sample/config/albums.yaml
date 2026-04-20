@@ -9,7 +9,6 @@ settings:
   descriptions: descriptions.txt
   site_title_html: >-
     <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>
-    Sample Albums
   site_subtitle_html: >-
     A super-fast open-source static photo gallery. Self-host your memories, no database required.
   site_overview_html: >-
