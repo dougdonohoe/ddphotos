@@ -9,6 +9,8 @@ import { browser } from '$app/environment';
 
 const enabled = import.meta.env.DEV && !!import.meta.env.VITE_DEBUG;
 
+let seq = 0;
+
 function format(arg: unknown): string {
 	if (typeof arg === 'object' && arg !== null) return JSON.stringify(arg, null, 2);
 	return String(arg);
@@ -16,8 +18,9 @@ function format(arg: unknown): string {
 
 export function debug(...args: unknown[]): void {
 	if (!enabled) return;
+	const n = ++seq;
 	const ctx = browser ? 'browser' : 'ssr';
-	const message = `[${ctx}] ${args.map(format).join(' ')}`;
+	const message = `[${ctx}][${n}] ${args.map(format).join(' ')}`;
 	console.log(`[debug] ${message}`);
 	if (!browser) return;
 	navigator.sendBeacon('/api/debug', new Blob([JSON.stringify({ message })], { type: 'application/json' }));
