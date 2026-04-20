@@ -237,12 +237,12 @@
 					? (container.querySelectorAll<HTMLElement>('.photo')[focusIdx] ?? null)
 					: null;
 
-				// Run a guard loop for 1000ms to fight both PhotoSwipe's built-in focus
+				// Run a guard loop for 750ms to fight both PhotoSwipe's built-in focus
 				// restoration (fires first frame) and SvelteKit's async focus reset (fires
 				// ~300-500ms in, same as its scroll reset). Re-apply only when focus has
 				// moved elsewhere to avoid redundant focus events.
-				// Also re-applies scroll if SvelteKit resets it (same as before).
-				const deadline = performance.now() + 1000;
+				// Also re-applies scroll if SvelteKit resets it.
+				const deadline = performance.now() + 750;
 				const guard = () => {
 					if (target !== null && Math.abs(window.scrollY - target) > 1) {
 						window.scrollTo({ top: target, behavior: 'instant' });
@@ -547,6 +547,7 @@
 				{@const box = layout().boxes[i]}
 				<button
 					class="photo"
+					data-index={i}
 					style="
 						position: absolute;
 						left: {box.left}px;
@@ -722,6 +723,15 @@
 
 	.photo:hover img.loaded {
 		opacity: 1;
+	}
+
+	/* Explicit :focus (not :focus-visible) so the outline appears on iOS after closing
+	   the lightbox via the X button. Tapping X is a touch interaction, which switches iOS
+	   to pointer modality and suppresses the default :focus-visible outline even when focus
+	   is set programmatically. */
+	.photo:focus {
+		outline: 2px solid var(--focus-color, Highlight);
+		outline-offset: 2px;
 	}
 
 	/* Hover caption overlay — slides up from bottom on hover */
