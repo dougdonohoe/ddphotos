@@ -727,9 +727,10 @@ Smoke and caption tests assume the presence of albums in the sample website (`an
 Navigation tests are fully dynamic - they read album names from the page at runtime and
 work against any site without hardcoding album names.
 
-The `baseURL` defaults to `http://localhost:8080` (used by `deploy-photos.sh`)
-and can be overridden via `PLAYWRIGHT_BASE_URL` - the Makefile target passes
-`http://localhost:8081` to avoid port conflicts.
+The `baseURL` is set via `PLAYWRIGHT_BASE_URL`. `bin/run-tests.sh` sets it automatically
+to the port for the selected mode (5174 for dev, 8083 for Apache, 8084 for nginx).
+The `playwright.config.ts` default of `http://localhost:8080` is only used when running
+Playwright directly (e.g. via `deploy-photos.sh`).
 
 Password and CSS tests are gated by environment variables so they only run against
 the appropriate site variant:

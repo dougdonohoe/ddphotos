@@ -2,9 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
 	testDir: './tests',
-	// No webServer — tests run against the Docker Apache container.
-	// deploy-photos.sh uses port 8080; make photos-playwright-test uses 8081 to avoid
-	// conflicts. Override via PLAYWRIGHT_BASE_URL env var if needed.
+	// No webServer — bin/run-tests.sh sets PLAYWRIGHT_BASE_URL to the appropriate port
+	// (5174 dev, 8083 Apache, 8084 nginx). Default 8080 is used by deploy-photos.sh.
 	timeout: 15_000,      // per-test timeout (default is 30s; 15s surfaces failures faster)
 	reporter: 'list',     // print each result as it completes rather than buffering to the end
 	use: {

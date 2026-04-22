@@ -9,7 +9,7 @@ social media distractions.
 
 I just want to share my photos with friends and family.  I want it fast, easy, mobile
 friendly, and distraction free. Focus on the photos. So I built DD Photos, and it is what 
-is behind[photos.donohoe.info](https://photos.donohoe.info).
+is behind [photos.donohoe.info](https://photos.donohoe.info).
 It's actually pretty good, wicked fast, and meets my needs.  Maybe it will meet yours
 too, which is why I've open-sourced it.
 
