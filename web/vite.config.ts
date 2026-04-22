@@ -25,33 +25,7 @@ function loadEnvFile(path: string) {
 	}
 }
 
-// Load the site-specific env file containing deploy and test variables.
-// Resolution order:
-//   1. $SITE_ENV (explicit override)
-//   2. config/site.env (real config, not committed)
-//   3. sample/config/site.env (fallback for out-of-the-box dev/tooling, with a warning)
-function loadSiteEnv() {
-	let path: string;
-	if (process.env.SITE_ENV) {
-		path = resolve(process.env.SITE_ENV);
-	} else {
-		const defaultPath = resolve(__dirname, '../config/site.env');
-		const samplePath = resolve(__dirname, '../sample/config/site.env');
-		if (existsSync(defaultPath)) {
-			path = defaultPath;
-		} else if (existsSync(samplePath)) {
-			console.warn(`Warning: config/site.env not found, falling back to sample/config/site.env`);
-			path = samplePath;
-		} else {
-			console.error(`Error: config/site.env not found. Set SITE_ENV=/path/to/site.env or copy config/site.example.env.`);
-			process.exit(1);
-		}
-	}
-	loadEnvFile(path);
-}
-loadSiteEnv();
-
-// Load repo-wide defaults (lower priority than site.env — only fills gaps left by loadSiteEnv).
+// Load repo-wide defaults
 function loadDefaultsEnv() {
 	const path = resolve(__dirname, '..', 'config', 'defaults.env');
 	if (!existsSync(path)) return;

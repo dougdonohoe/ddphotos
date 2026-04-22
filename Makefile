@@ -19,11 +19,6 @@ $(warning run: 'rm web/static/sitemap.xml')
 $(error ERROR)
 endif
 
-# Path to site.env - override if your config lives elsewhere, e.g.:
-#   make web-npm-run-dev SITE_ENV=~/work/my-photos/config/site.env
-SITE_ENV ?= config/site.env
-override SITE_ENV := $(abspath $(patsubst ~/%,$(HOME)/%,$(SITE_ENV)))
-
 # Albums directory and site ID — defaults read from config/defaults.env.
 # ?= means env vars and command-line assignments take precedence over the file defaults.
 # Override on the command line, e.g.: make sample-build DDPHOTOS_SITE_ID=sample-css
@@ -95,17 +90,17 @@ web-playwright-install:
 .PHONY: web-npm-run-dev
 ## web-npm-run-dev: run npm dev server in web, opening a browser window to the site
 web-npm-run-dev:
-	$(NODE_INIT) cd web && SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run dev -- --open
+	$(NODE_INIT) cd web && DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run dev -- --open
 
 .PHONY: web-npm-run-dev-https
 ## web-npm-run-dev-https: run npm dev server over HTTPS (for mobile testing via LAN IP — crypto.subtle requires a secure context)
 web-npm-run-dev-https:
-	$(NODE_INIT) cd web && VITE_HTTPS=1 SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run dev
+	$(NODE_INIT) cd web && VITE_HTTPS=1 DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run dev
 
 .PHONY: web-npm-build
 ## web-npm-build: build web app
 web-npm-build:
-	$(NODE_INIT) cd web && SITE_ENV=$(SITE_ENV) DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run build
+	$(NODE_INIT) cd web && DDPHOTOS_ALBUMS_DIR=$(DDPHOTOS_ALBUMS_DIR) DDPHOTOS_SITE_ID=$(DDPHOTOS_SITE_ID) npm run build
 
 .PHONY: web-docker-build-apache
 ## web-docker-build-apache: build the photos Apache Docker image
@@ -208,12 +203,12 @@ sample-photogen-demo:
 .PHONY: sample-demo
 ## sample-demo: one-step demo with custom CSS + password protection — photogens and runs dev server
 sample-demo: sample-photogen-demo
-	SITE_ENV=sample/config/site.env DDPHOTOS_SITE_ID=sample-demo $(MAKE) web-npm-run-dev
+	DDPHOTOS_SITE_ID=sample-demo $(MAKE) web-npm-run-dev
 
 .PHONY: sample-build
 ## sample-build: build web app using sample config
 sample-build:
-	SITE_ENV=sample/config/site.env $(MAKE) web-npm-build
+	$(MAKE) web-npm-build
 
 .PHONY: sample-test-apache
 ## sample-test-apache: run routing tests against local Apache Docker container on port 8082 (starts/stops Docker automatically)
@@ -246,9 +241,9 @@ sample-test-nginx: _check-docker-schema-nginx
 .PHONY: sample-npm-run-dev
 ## sample-npm-run-dev: run npm dev server using sample config
 sample-npm-run-dev:
-	SITE_ENV=sample/config/site.env $(MAKE) web-npm-run-dev
+	$(MAKE) web-npm-run-dev
 
 .PHONY: sample-npm-run-dev-css
 ## sample-npm-run-dev-css: run npm dev server using sample config with custom CSS
 sample-npm-run-dev-css:
-	SITE_ENV=sample/config/site.env DDPHOTOS_SITE_ID=sample-css $(MAKE) web-npm-run-dev
+	DDPHOTOS_SITE_ID=sample-css $(MAKE) web-npm-run-dev
