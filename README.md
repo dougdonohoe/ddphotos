@@ -8,10 +8,9 @@ irritations like cumbersome UIs, advertising, hawking of photo paraphernalia and
 social media distractions.
 
 I just want to share my photos with friends and family.  I want it fast, easy, mobile
-friendly, and distraction free. Focus on the photos. So I built this,
-with help from Claude Code, and it is what is behind
-[photos.donohoe.info](https://photos.donohoe.info).
-It's pretty good and meets my needs.  Maybe it will meet yours
+friendly, and distraction free. Focus on the photos. So I built DD Photos, and it is what 
+is behind[photos.donohoe.info](https://photos.donohoe.info).
+It's actually pretty good, wicked fast, and meets my needs.  Maybe it will meet yours
 too, which is why I've open-sourced it.
 
 **P.S.** _I wrote about building DD Photos in [this Medium article](https://medium.com/@DougDonohoe/3b48fdd1350c?source=friends_link&sk=4094f33198de93f5488da6539c9981ee)._
@@ -47,10 +46,10 @@ Once you have defined where your photos live, you run the `photogen` tool,
 which resizes the photos for web viewing and generates index files that
 the web app uses.
 
-That's it.  Now, you can easily view your photo albums on your machine using the dev server.
+That's it.  You can now view your photo albums on your machine using the dev server.
 
 Finally, there is a build step which creates a static site that can easily be
-deployed to a machine that has a web server (like Apache) or to AWS S3.
+deployed to a machine that has a web server (like Apache or nginx) or to AWS S3.
 No code runs on a server.  No database is needed.
 It's just HTML, CSS, JavaScript and your (resized) photos.
 
@@ -60,16 +59,17 @@ Website features:
 
 - Concise album cards with description, number of photos, date range and
   your choice of cover photo.
-- Album page has a nicely justified photo grid layout with PhotoSwipe lightbox that
+- An album's page has a nicely justified photo grid layout with PhotoSwipe lightbox that
   adjusts well to any screen size.
 - Keyboard support: arrow keys navigate in lightbox, ESC key exits
   lightbox and returns to home page from album page.
-- Optional per-photo descriptions via `photogen.txt`: used as image "alt" text, grid
+- Optional per-photo descriptions via `photogen.txt`: used as image `alt` text, grid
   mouse-hover caption (desktop), always-visible caption (mobile), and lightbox caption.
 - Each album has a human-readable URL (e.g., `/albums/antarctica`).
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Optional hero image: a full-width banner at the top of the home page, specified in
   `albums.yaml` with a configurable crop position (top/center/bottom).
+- Optional `HTML` title, subtitle, and site overview.
 - Optional password protection: encrypt individual albums or the entire site. Passwords
   are never stored server-side, decryption happens in-browser using the Web Crypto API.
   Optional hints can be shown in the password dialog. A logout button clears stored
@@ -172,18 +172,20 @@ override applied, then launches the dev server. The password for the sample site
 `penguin`.  The CSS changes the font color
 to cyan and rounds the album card corners a bit more.
 
-You can also build the static site and test it in Apache (requires Docker and
+You can also build the static site and test it in Apache/nginx (requires Docker and
 assumes `photogen` has been run).
 
 ```bash
 # Build docker image (one time)
 make web-docker-build-apache
+make web-docker-build-nginx
 
 # Build sample site
 make sample-build
 
-# Run it in Docker/Apache
-make web-docker-run-apache 
+# Run it in Docker w/ Apache/nginx
+make web-docker-run-apache
+make web-docker-run-nginx  
 ```
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
@@ -196,23 +198,21 @@ works.
 
 ## Configuration
 
-There are three configuration files one needs to build a site:
+There are three primary configuration files involved in creating a site:
 
-* `albums.yaml` - Defines your list of albums, an id for the site (useful if
+* [`albums.yaml`](config/albums.example.yaml) - **Required** - Defines your list of albums, an id for the site (useful if
   you have multiple sites), and the locations of your photos.
-* `descriptions.txt` - The description of the album that you see. This
+* [`descriptions.txt`](config/descriptions.example.txt) - **Optional** - The description of the album that you see. This
   is in a separate file to allow sharing of albums across sites (useful in development), 
   and also enables localization in the future.
-* `site.env` - Global values for deployment and testing.
+* [`site.env`](config/site.example.env) - **Optional** - Environment variables for deployment and testing.
 
-The `config` directory contains examples of each, and serves as detailed
-documentation of each parameter.  The `sample/config` files are a working 
-example that drives our "Sample Photo Album".
+The `config` directory contains an example of each file which serves as its
+detailed documentation.  The `sample/config` files are a working 
+example that drives our sample photo album seen at [sample.donohoe.info](https://sample.donohoe.info).
 
-The `config` directory is the default, so feel free to put your config
-files there (just copy the examples and edit them).  Or edit the sample
-app.  Or create your own config directory and use the `--config-dir`
-option.
+The `config` directory is the default assumed by many commands, so feel free to put 
+your config files there. Just copy the examples and edit them:
 
 ```bash
 cp config/albums.example.yaml config/albums.yaml
@@ -220,22 +220,30 @@ cp config/descriptions.example.txt config/descriptions.txt
 cp config/site.example.env config/site.env
 ```
 
+**NOTE**: The `settings.id` value in `albums.yaml` is referred to as `<site-id>` below.
+Make sure you change it to something that reflects your actual site, like `vacations` or 
+`memories`.
+
+Another option is to get yourself started is to edit the config files for the sample app.  
+Or create your own config directory and use the `--config-dir` option.
+
 ## Commands
 
-The `Makefile` is a good reference for the commands (you used them to run the sample site).
-Assuming you put your config files in `config`, these commands are useful:
+The `Makefile` is a good reference for the various DD Photos commands 
+(you used them to run the sample site). Assuming you put your config files 
+in `config`, these commands are useful:
 
 ### Resize and Index
 
 ```bash
 # Dry run of indexing and resizing
-go run cmd/photogen/photogen.go -resize -index
+go run cmd/photogen/photogen.go -resize -index -clean
 
 # Do it for real
-go run cmd/photogen/photogen.go -resize -index -doit
+go run cmd/photogen/photogen.go -resize -index -clean -doit
 ```
 
-**NOTE**: output goes to `albums/[ID]` at the repo root by default. For example,
+**NOTE**: output goes to `albums/<site-id>` at the repo root by default. For example,
 the sample site is in `albums/sample`.
 
 ### Run Site
@@ -244,7 +252,7 @@ Once `photogen` has been successfully run, you can run the
 dev server.
 
 ```bash
-make web-npm-run-dev
+DDPHOTOS_SITE_ID=<site-id> make web-npm-run-dev
 ```
 
 ### Build and Test with Docker
@@ -252,62 +260,38 @@ make web-npm-run-dev
 To test the build process:
 
 ```bash
-make web-npm-build
+DDPHOTOS_SITE_ID=<site-id> make web-npm-build
 ```
 
 This deletes and recreates the `build/<site-id>` directory, which will have all
-the files needed to run the site, including copies of your resized photos.
+the files needed to run the site.
 
-To run it using Docker, choose Apache or nginx:
+To run the built site using Docker, choose Apache or nginx:
 
 ```bash
-make web-docker-run-apache # Apache
-make web-docker-run-nginx  # nginx
+DDPHOTOS_SITE_ID=<site-id> make web-docker-run-apache # Apache
+DDPHOTOS_SITE_ID=<site-id> make web-docker-run-nginx  # nginx
 ```
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
 
 ### Test Site
 
-Assuming the dev server is running, you can run the playwright tests:
-
-```bash
-make web-playwright-test-dev
-```
-
-These should pass against `sample`, but some will fail against your site,
-because values are hardcoded at the moment (i.e., the smoke/caption tests 
-reference specific album names - `antarctica` and `uganda`).
-
-You can also run some smoke tests as defined in `bin/test-photos-server.sh`.
-Assuming Docker is running on port 8080:
+Assuming an Apache or nginx server is running, you can run the 
+routing smoke tests:
 
 ```bash
 make web-docker-test
 ```
 
-If Docker isn't running, you can auto-start and stop it to
-run these tests against the sample site:
-
-```bash
-make sample-test-apache  # Apache
-make sample-test-nginx   # nginx
-```
+These should pass against your site assuming you setup the `TEST_*`
+variables in `site.env` to match your site.
 
 ## Developer Information
 
-See [README-DEV](README-DEV.md) for more details about `photogen`, the
-SvelteKit site, deployment and other technical details.
-
-## Project History
-
-Much of this project was built with Claude Code. See [HISTORY.md](docs/HISTORY.md)
-for a detailed session log covering WebP conversion, concurrent image resizing,
-static site setup, Apache URL routing and Docker test environment, photo
-descriptions and captions, photo permalinks, Open Graph and social sharing tags,
-SvelteKit client-side navigation, Playwright E2E tests, YAML-based album
-configuration, deploy scripts, open-source prep, encryption and password
-protection, recursive album support, hero images, custom CSS, and more.
+This page has the basics to get you started. See [README-DEV](README-DEV.md) for 
+complete details about `photogen`, the SvelteKit site, testing, 
+deployment and other technical information.
 
 ## License
 

@@ -6,7 +6,7 @@ This page covers the technical details of DD Photos for developers and those
 who want to understand how the pieces fit together. Topics include the SvelteKit
 frontend, environment configuration, all Makefile targets, `photogen` CLI flags
 and output layout, photo descriptions and sort order, encryption and password
-protection, deployment, Apache routing, and development tips.
+protection, deployment, Apache/nginx routing, and development tips.
 
 ## SvelteKit
 
@@ -103,7 +103,7 @@ VITE_LOG_REQUESTS=1 make sample-npm-run-dev
 ## Debugging
 
 To enable the `debug` library, where `debug()` calls are logged in the JavaScript
-Console, and also logged in the dev server, set `VITE_DEBUG=1`:
+console, and also logged in the dev server, set `VITE_DEBUG=1`:
 
 ```bash
 VITE_DEBUG=1 make sample-npm-run-dev
@@ -131,20 +131,20 @@ $effect(() => { debug("In home page svelte, got $props()", data) });
 ### Site Identity (`albums.yaml`)
 
 Site identity settings live in the `settings:` block of `albums.yaml` and are written
-into `config.json` by `photogen`. The frontend reads them at runtime via `fetch('/albums/config.json')` —
-no build-time injection needed.
+into either `config.json` or `html.json` by `photogen`. The frontend reads them at 
+runtime via `fetch('/albums/[config|html].json')` — no build-time injection needed.
 
-| Setting              | Required | Description                                                                                                                                                                 |
-|----------------------|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                                                                                             |
-| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags                                                                                         |
-| `site_description`   | yes      | Meta description and OG description for the home page                                                                                                                       |
-| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                                                                                                     |
-| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                                                                                               |
-| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)                                                                           |
-| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted. Allows links, emphasis, etc. Written to `html.json` / `html.enc.json`, not `config.json`. |
-| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font. Written to `html.json` / `html.enc.json`.                                                                             |
-| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions). Written to `html.json` / `html.enc.json`.                                                    |
+| Setting              | Required | Description                                                                                                                                              |
+|----------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                                                                          |
+| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags                                                                      |
+| `site_description`   | yes      | Meta description and OG description for the home page                                                                                                    |
+| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                                                                                  |
+| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                                                                            |
+| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)                                                        |
+| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted. Allows links, emphasis, etc. Written to `html.json` / `html.enc.json`. |
+| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font. Written to `html.json` / `html.enc.json`.                                                          |
+| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions). Written to `html.json` / `html.enc.json`.                                 |
 
 `photogen`'s `Config.Validate()` enforces all required fields before any files are written.
 
@@ -162,24 +162,16 @@ that affects the built site itself.
 | `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                            |
 | `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)          |
 
-The `bin` scripts `source` this file directly. For local development, these variables
-are not needed — only `albums.yaml` settings are required.
-
-The `SITE_ENV` environment variable overrides which `site.env` file is loaded. This is useful
-when your config lives outside the repo (e.g. in a private config repo):
-
-```bash
-SITE_ENV=~/work/my-config/site.env make web-npm-run-dev
-```
+The `bin` scripts `source` this file directly.
 
 ### Album Location Variables
 
 Two variables tell the dev server, build, and Docker container where to find album data:
 
-| Variable              | Default  | Description                                                                     |
-|-----------------------|----------|---------------------------------------------------------------------------------|
-| `DDPHOTOS_ALBUMS_DIR` | `albums` | Path to the root albums directory (absolute or repo-root-relative)              |
-| `DDPHOTOS_SITE_ID`    | `sample` | Site ID — selects `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>` as the active site |
+| Variable              | Default  | Description                                                                                                                     |
+|-----------------------|----------|---------------------------------------------------------------------------------------------------------------------------------|
+| `DDPHOTOS_ALBUMS_DIR` | `albums` | Path to the root albums directory (absolute or repo-root-relative)                                                              |
+| `DDPHOTOS_SITE_ID`    | `sample` | Site ID — selects `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>` as the active site. Also used to choose active build under `build` |
 
 Defaults are defined in `config/defaults.env` and are automatically picked up by the Makefile
 and `vite.config.ts`. Override them on the command line as needed:
@@ -190,9 +182,6 @@ DDPHOTOS_SITE_ID=prod make web-npm-run-dev
 
 # Albums directory outside the repo
 DDPHOTOS_ALBUMS_DIR=~/photos/albums DDPHOTOS_SITE_ID=mySite make web-npm-build
-
-# Both via SITE_ENV and album vars together
-SITE_ENV=~/work/my-config/site.env DDPHOTOS_ALBUMS_DIR=~/photos/albums DDPHOTOS_SITE_ID=prod make web-npm-build
 ```
 
 These variables are consumed by:
@@ -627,10 +616,8 @@ any of the SvelteKit files change or even when `photogen` is re-run.
 # Sample site
 make sample-npm-run-dev
 
-make web-npm-run-dev
-
-# Uses custom site.env
-SITE_ENV=private/config/site.env make web-npm-run-dev
+# Named site
+DDPHOTOS_SITE_ID=<site-id> make web-npm-run-dev
 ```
 
 You should see a `VITE` message and a browser window should
@@ -644,11 +631,11 @@ As seen in the [README](README.md), the site has a build step:
 # Sample site
 make sample-build
 
-# Uses default config/site.env
+# Uses default site (specified in config/defaults.env)
 make web-npm-build
 
-# Uses custom site.env
-SITE_ENV=private/config/site.env make web-npm-build
+# Uses named site
+DDPHOTOS_SITE_ID=<site-id> make web-npm-build
 ```
 
 Once the site is built, you can serve it via Docker (Apache/nginx).
@@ -1033,3 +1020,9 @@ uv pip install -r requirements.txt
 
 The `.venv/` directory is git-ignored. The `make web-screenshots` target calls
 `.venv/bin/python3` directly, so no manual activation is needed.
+
+## Project History
+
+Much of this project was built with Claude Code. See [HISTORY.md](docs/HISTORY.md)
+for a detailed session log.
+
