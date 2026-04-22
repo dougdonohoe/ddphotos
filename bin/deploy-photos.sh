@@ -4,6 +4,7 @@ set -eo pipefail
 
 # Parse flags
 SKIP_PHOTOGEN=${NO_PHOTOGEN:+true}; SKIP_PHOTOGEN=${SKIP_PHOTOGEN:-false}
+SKIP_PRE_DEPLOY=false
 SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
 SKIP_SERVER_TEST=false
@@ -13,16 +14,17 @@ CONFIG_DIR=""
 SITE_ENV_ARG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-photogen)  SKIP_PHOTOGEN=true; shift ;;
-        --no-rsync)     SKIP_RSYNC=true; shift ;;
-        --no-playwright) SKIP_PLAYWRIGHT=true; shift ;;
-        --no-server-test) SKIP_SERVER_TEST=true; shift ;;
-        --dry-run)      DRY_RUN=true; shift ;;
-        --s3)           S3_MODE=true; shift ;;
-        --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
-        --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
-        --site-env)     SITE_ENV_ARG="$2"; shift 2 ;;
-        --site-env=*)   SITE_ENV_ARG="${1#*=}"; shift ;;
+        --no-photogen)       SKIP_PHOTOGEN=true; shift ;;
+        --no-pre-deploy-tests) SKIP_PRE_DEPLOY=true; shift ;;
+        --no-rsync)          SKIP_RSYNC=true; shift ;;
+        --no-playwright)     SKIP_PLAYWRIGHT=true; shift ;;
+        --no-server-test)    SKIP_SERVER_TEST=true; shift ;;
+        --dry-run)           DRY_RUN=true; shift ;;
+        --s3)                S3_MODE=true; shift ;;
+        --config-dir)        CONFIG_DIR="$2"; shift 2 ;;
+        --config-dir=*)      CONFIG_DIR="${1#*=}"; shift ;;
+        --site-env)          SITE_ENV_ARG="$2"; shift 2 ;;
+        --site-env=*)        SITE_ENV_ARG="${1#*=}"; shift ;;
         *) echo "Unknown flag: $1"; exit 1 ;;
     esac
 done
@@ -112,6 +114,8 @@ trap _docker_cleanup EXIT
 _pre_deploy() {
     if [ "$S3_MODE" = true ]; then
         echo "Skipping pre-deploy local tests (--s3 mode)"
+    elif [ "$SKIP_PRE_DEPLOY" = true ]; then
+        echo "Skipping pre-deploy tests (--no-pre-deploy-tests)"
     elif [ "$SKIP_SERVER_TEST" = true ]; then
         echo "Skipping local server tests (--no-server-test)"
     else
@@ -166,8 +170,10 @@ _post_deploy() {
     elif [ "$DRY_RUN" = true ]; then
         echo "DRY RUN: skipping post-deploy server tests"
     else
-        echo "Sleeping 5 to allow cache to clear..."
-        sleep 5
+        if [ -n "$CLOUDFRONT_ID" ]; then
+            echo "Sleeping 5 to allow CloudFront cache to clear..."
+            sleep 5
+        fi
         PROD_ARGS=(--remote "$SITE_URL")
         [ "$mode" = "s3" ] && PROD_ARGS=(--s3 "${PROD_ARGS[@]}")
         [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")

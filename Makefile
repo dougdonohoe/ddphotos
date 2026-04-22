@@ -112,6 +112,11 @@ web-docker-build-apache:
 web-docker-build-nginx:
 	bin/docker-check.sh --server nginx --force
 
+.PHONY: web-docker-build-apache-ssh
+## web-docker-build-apache-ssh: build the Apache+SSH Docker image used for rsync testing
+web-docker-build-apache-ssh:
+	docker build -t photos-apache-ssh -f web/apache-ssh.dockerfile web/
+
 .PHONY: _check-docker-schema-apache
 _check-docker-schema-apache:
 	bin/docker-check.sh --server apache
@@ -243,6 +248,11 @@ sample-test-nginx: _check-docker-schema-nginx
 	until curl -s -o /dev/null http://localhost:8082; do sleep 1; done
 	bin/test-photos-server.sh --config-dir sample/config --local 8082; \
 	EXIT=$$?; docker stop sample-test-nginx 2>/dev/null || true; exit $$EXIT
+
+.PHONY: sample-rsync-test
+## sample-rsync-test: test deploy-photos.sh rsync path by rsyncing into a fresh Docker container (starts/stops automatically)
+sample-rsync-test:
+	bin/rsync-test.sh
 
 .PHONY: sample-npm-run-dev
 ## sample-npm-run-dev: run npm dev server using sample config
