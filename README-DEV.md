@@ -839,6 +839,42 @@ DD Photos was originally built to serve my personal photo albums.  My first depl
 re-used an existing EC2 instance with Apache which served my other websites.  The
 second (and current) deployment uses S3 as the backing store.  Both are described below.
 
+### Syncing Logic
+
+The web root is assembled from two independent sources:
+
+| Source              | Contents                                                                         | Maps to             |
+|---------------------|----------------------------------------------------------------------------------|---------------------|
+| `build/<site-id>/`  | SvelteKit output: HTML shell, JS/CSS bundles, pre-rendered `albums/*.html` pages | web root `/`        |
+| `albums/<site-id>/` | photogen output: WebP images, JSON indexes, hero images, `sitemap.xml`           | web root `/albums/` |
+
+```mermaid
+flowchart LR
+    build["build/&lt;site-id&gt;/\nindex.html, _app/\nalbums/antarctica.html"]
+    albumsdir["albums/&lt;site-id&gt;/\nalbums.json, config.json\nantarctica/index.json\nantarctica/uuid.webp"]
+    root["Web root /\nindex.html\nalbums/antarctica.html  ← build\nalbums/index.json      ← album data\nalbums/uuid.webp       ← album data"]
+
+    build -->|"Pass 1: sync → /"| root
+    albumsdir -->|"Pass 2: sync → /albums/"| root
+```
+
+Both sources contribute files under `/albums/` — `build/` provides the pre-rendered `.html` pages
+and `albums/` provides images and JSON — so a two-pass sync is required to prevent each pass from
+deleting the other's files:
+
+- **Pass 1** (build → `/`): syncs app files; skips or protects existing `albums/` data so images
+  and JSON are not deleted
+- **Pass 2** (album data → `/albums/`): syncs images and JSON; skips `*.html` so pre-rendered
+  album pages are not deleted
+
+Both rsync and S3 implement this pattern, with minor differences:
+
+|                      | EC2 / rsync                                                                                                                             | S3                                                                                                             |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| **Pass 1**           | `--filter='protect albums/**'` preserves album data on the server                                                                       | `--exclude "albums/*" --include "albums/*.html"` uploads only `.html` from `albums/`                           |
+| **Pass 2**           | `--exclude=*.html` skips pre-rendered pages                                                                                             | Two sub-passes: one for JSON/XML/covers (`Cache-Control: no-cache`), one for WebP (`Cache-Control: immutable`) |
+| **Change detection** | Pass 1 uses `--checksum` (Vite resets timestamps every build); Pass 2 uses size+time (photogen preserves timestamps on unchanged files) | Size+time only (no checksum option in `aws s3 sync`)                                                           |
+
 ### EC2/Apache
 
 In this scenario, traffic is handled by CloudFront, which filters 
