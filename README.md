@@ -109,7 +109,7 @@ There are many ways to deploy a static site like this. It is somewhat outside th
 of this project to tackle all the various deployment strategies, but I may add more
 options in the future if there is interest.
 
-That said, I provide two deployment options out of the box: EC2/Apache via `rsync`, and
+That said, I provide two deployment options out of the box: Apache via `rsync`, and
 S3+CloudFront using `aws s3 sync`. Both use the same `bin/deploy-photos.sh` script, with
 `--s3` selecting S3 mode. My personal site ([photos.donohoe.info](https://photos.donohoe.info))
 runs on S3+CloudFront. Part of what makes the site fast is the CDN and the fact that

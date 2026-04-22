@@ -157,7 +157,7 @@ that affects the built site itself.
 |---------------------|-----------------------------|-----------------------------------------------------------------|
 | `CLOUDFRONT_ID`     | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only) |
 | `S3_BUCKET`         | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3`)   |
-| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (EC2/rsync mode only)      |
+| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (rsync mode only)          |
 | `TEST_ALBUM_LOCAL`  | `bin/test-photos-server.sh` | Album slug used for local server tests                          |
 | `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                            |
 | `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)          |
@@ -869,41 +869,41 @@ deleting the other's files:
 
 Both rsync and S3 implement this pattern, with minor differences:
 
-|                      | EC2 / rsync                                                                                                                             | S3                                                                                                             |
+|                      | rsync                                                                                                                                   | S3                                                                                                             |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
 | **Pass 1**           | `--filter='protect albums/**'` preserves album data on the server                                                                       | `--exclude "albums/*" --include "albums/*.html"` uploads only `.html` from `albums/`                           |
 | **Pass 2**           | `--exclude=*.html` skips pre-rendered pages                                                                                             | Two sub-passes: one for JSON/XML/covers (`Cache-Control: no-cache`), one for WebP (`Cache-Control: immutable`) |
 | **Change detection** | Pass 1 uses `--checksum` (Vite resets timestamps every build); Pass 2 uses size+time (photogen preserves timestamps on unchanged files) | Size+time only (no checksum option in `aws s3 sync`)                                                           |
 
-### EC2/Apache
+### Apache + rsync
 
-In this scenario, traffic is handled by CloudFront, which filters 
-requests through a WAFv2 web ACL before forwarding clean traffic to an Apache 
-origin on EC2.
+In this scenario, traffic is handled by CloudFront, which filters
+requests through a WAFv2 web ACL before forwarding clean traffic to an Apache
+origin on any SSH-accessible server.
 
 ```mermaid
 flowchart LR
     User -->|HTTPS| WAF["WAFv2 Web ACL"]
     WAF --> CF["CloudFront CDN"]
-    CF -->|HTTP| Apache["EC2 / Apache"]
+    CF -->|HTTP| Apache["Server / Apache"]
 ```
 
-The WAF (Web Application Firewall) inspects every incoming request and blocks 
+The WAF (Web Application Firewall) inspects every incoming request and blocks
 suspicious or malicious traffic (things like bots or known bad IP addresses)
 before it ever reaches my server.
 
-The CDN (Content Delivery Network) caches content at edge locations around 
+The CDN (Content Delivery Network) caches content at edge locations around
 the world so visitors get fast load times regardless of where they are,
 and my origin server handles far less traffic.
 
-The deployment script (described below) builds the static site and rsyncs it to 
-my EC2 instance behind CloudFront.  It is specific to my setup, but it is
+The deployment script (described below) builds the static site and rsyncs it to
+a server behind CloudFront. It is specific to my setup, but it is
 parameterized via `site.env` so that others with a similar setup can re-use it.
 It can also be extended or changed to suit your needs.
 
 ### S3 + CloudFront
 
-An alternative to EC2 is to serve the site entirely from S3 and CloudFront — no server
+An alternative is to serve the site entirely from S3 and CloudFront — no server
 required. Site files live in a private S3 bucket; CloudFront serves them using a
 signed-request mechanism called OAC (Origin Access Control).
 
@@ -985,17 +985,17 @@ function handler(event) {
 
 ### Deploy Script
 
-`bin/deploy-photos.sh` handles both S3 and EC2/rsync modes. Add `--s3` for S3 mode.
+`bin/deploy-photos.sh` handles both S3 and rsync modes. Add `--s3` for S3 mode.
 
 1. Runs `photogen` to resize images and generate JSON
 2. Builds the static site via `npm run build` into `build/<site-id>/`
-3. *(EC2 only)* Starts Docker/Apache, runs `bin/test-photos-server.sh --local` to verify routing
-   locally, runs Playwright tests against Docker/Apache, then stops the container
+3. *(rsync mode only)* Starts Docker/Apache, runs `bin/test-photos-server.sh --local` to verify
+   routing locally, runs Playwright tests against Docker/Apache, then stops the container
 4. Deploys the site:
    - **S3**: two-pass `aws s3 sync` — pass 1 syncs the build output (excluding `albums/*` but
      re-including `albums/*.html`); pass 2 syncs album images and JSON (`--size-only`, excluding
      `*.html`). The two-pass approach keeps app files and photo data independent.
-   - **EC2**: two-pass `rsync` — pass 1 uses `--checksum` (Vite resets timestamps on every build);
+   - **rsync**: two-pass `rsync` — pass 1 uses `--checksum` (Vite resets timestamps on every build);
      pass 2 syncs album data independently.
 5. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
 6. Runs `bin/test-photos-server.sh` to verify the deployment against production
@@ -1007,7 +1007,7 @@ The script uses `set -eo pipefail` — any failure aborts before deployment.
 
 | Flag               | Description                                                                                                                     |
 |--------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `--s3`             | Deploy to S3 instead of EC2 via rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests) |
+| `--s3`             | Deploy to S3 instead of rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests)         |
 | `--dry-run`        | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests                      |
 | `--no-photogen`    | Skip photo generation step                                                                                                      |
 | `--no-rsync`       | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                           |
@@ -1024,7 +1024,7 @@ bin/deploy-photos.sh --s3                          # full S3 deploy
 bin/deploy-photos.sh --s3 --dry-run                # preview what s3 sync would transfer, no changes made
 bin/deploy-photos.sh --s3 --no-photogen            # skip photo generation
 
-# EC2/rsync mode
+# rsync mode
 bin/deploy-photos.sh                               # full deploy
 bin/deploy-photos.sh --dry-run                     # preview what rsync would transfer, no changes made
 bin/deploy-photos.sh --no-photogen                 # skip photo generation
