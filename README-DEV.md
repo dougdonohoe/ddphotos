@@ -153,14 +153,14 @@ runtime via `fetch('/albums/[config|html].json')` — no build-time injection ne
 The `site.env` file holds variables used only by deployment scripts and tests — nothing
 that affects the built site itself.
 
-| Variable            | Used by                     | Description                                                     |
-|---------------------|-----------------------------|-----------------------------------------------------------------|
-| `CLOUDFRONT_ID`     | `bin/deploy-photos.sh`      | CloudFront distribution ID for cache invalidation (deploy only) |
-| `S3_BUCKET`         | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3`)   |
-| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (rsync mode only)          |
-| `TEST_ALBUM_LOCAL`  | `bin/test-photos-server.sh` | Album slug used for local server tests                          |
-| `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                            |
-| `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)          |
+| Variable            | Used by                     | Description                                                           |
+|---------------------|-----------------------------|-----------------------------------------------------------------------|
+| `CLOUDFRONT_ID`     | `bin/deploy-photos.sh`      | CloudFront distribution ID; if set, cache is invalidated after deploy |
+| `S3_BUCKET`         | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3`)         |
+| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (rsync mode only)                |
+| `TEST_ALBUM_LOCAL`  | `bin/test-photos-server.sh` | Album slug used for local server tests                                |
+| `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                                  |
+| `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                |
 
 The `bin` scripts `source` this file directly.
 
@@ -997,7 +997,7 @@ function handler(event) {
      `*.html`). The two-pass approach keeps app files and photo data independent.
    - **rsync**: two-pass `rsync` — pass 1 uses `--checksum` (Vite resets timestamps on every build);
      pass 2 syncs album data independently.
-5. Invalidates the CloudFront cache (`$CLOUDFRONT_ID`)
+5. Invalidates the CloudFront cache via `$CLOUDFRONT_ID` (skipped if not set)
 6. Runs `bin/test-photos-server.sh` to verify the deployment against production
 7. Runs Playwright tests against production (URL read from `config.json`)
 
