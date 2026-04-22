@@ -1242,3 +1242,34 @@ Follows the exact same pattern as `albums.json` / `albums.enc.json`:
 #### Documentation
 
 `README-DEV.md` updated: passwords section explains the new `html.json`/`html.enc.json` files; site settings table annotates the three HTML fields; frontend behavior section describes the parallel decryption; decode table adds `html.enc.json`.
+
+### 61. 04/22/2026 - rsync Deploy Testing via Docker
+
+#### Motivation
+
+The production deploy path (rsync to EC2) was previously untested in CI. After migrating to S3, the EC2 server was decommissioned, leaving no way to test the rsync path. This session adds a self-contained Docker-based test that exercises the full photogen → build → rsync → verify cycle without a live server.
+
+#### Approach
+
+A new `photos-apache-ssh` Docker image (`httpd:2.4` + `openssh-server` + `rsync`) starts with an empty document root. `bin/rsync-test.sh` builds a temporary config dir with `site_url` patched to `http://localhost:8083`, then calls `deploy-photos.sh --no-pre-deploy-tests` with `RSYNC_RSH` set to route rsync through the container's SSH port (2222). After the rsync, `deploy-photos.sh` runs its normal post-deploy flow — server routing tests and Playwright — against the rsynced container. No volume mounts; rsync fills the server from scratch, proving the deploy commands work correctly.
+
+A committed ed25519 key pair in `web/testdata/` (no passphrase) is baked into the image as `authorized_keys`. `RSYNC_RSH` points rsync at the private key and custom port, so `~/.ssh` is never touched. The private key is intentionally committed: it only unlocks a local throwaway container.
+
+#### New files
+
+- `web/apache-ssh.dockerfile` — `httpd:2.4` + `openssh-server` + `rsync`; bakes in test public key for root login; same Apache config as `apache.dockerfile`
+- `web/apache-ssh-entrypoint.sh` — starts `sshd` then hands off to `httpd-foreground`
+- `web/testdata/rsync-test-key` / `rsync-test-key.pub` — committed test-only SSH key pair
+- `bin/rsync-test.sh` — orchestrates the full test: build image if missing, create temp config (patch `site_url`, write `site.env`), start container, export `RSYNC_RSH`, run `deploy-photos.sh`, clean up on exit
+
+#### Changes to `bin/deploy-photos.sh`
+
+- `--no-pre-deploy-tests` flag: skips `_pre_deploy` (the volume-mount Docker dance and pre-deploy server/Playwright tests) without affecting post-deploy tests. Needed because the rsync test supplies its own already-running container.
+- `sleep 5` in `_post_deploy` made conditional on `CLOUDFRONT_ID` being set — eliminates a pointless 5-second wait when there is no CloudFront cache to invalidate.
+
+#### Makefile and CI
+
+- `web-docker-build-apache-ssh` target builds the new image.
+- `sample-rsync-test` target is a one-liner calling `bin/rsync-test.sh` (previously a large inline recipe).
+- `README-DEV.md` Makefile table updated with both new targets.
+- CI gains a final step: `make sample-rsync-test`.

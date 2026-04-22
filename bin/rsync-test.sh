@@ -18,6 +18,8 @@ SSH_PORT=2222
 IMAGE=photos-apache-ssh
 CONTAINER=rsync-test
 TEST_KEY="$(pwd)/web/testdata/rsync-test-key"
+# SSH refuses keys that are world-readable; git checkouts default to 0644.
+chmod 600 "$TEST_KEY"
 TEMP_CONFIG=$(mktemp -d /tmp/rsync-config.XXXXXX)
 
 cleanup() {
