@@ -45,7 +45,8 @@ define the JSON schema consumed by the frontend. Their TypeScript counterparts l
 ```bash
 make build test vet          # Go build, unit tests, static analysis
 make sample-build            # build static site with sample data
-make web-playwright-test-apache  # Playwright e2e tests (Docker)
+make web-sanity-test         # Playwright e2e tests: Apache, no-passwords + all-passwords (quick comprehensive web check)
+make web-playwright-test-apache  # Playwright e2e tests, Apache, no-passwords only
 ```
 
 System dependency required: `brew install vips pkg-config`
@@ -54,4 +55,5 @@ System dependency required: `brew install vips pkg-config`
 
 - **Reproducing frontend bugs**: write a failing Playwright test that demonstrates the bug before fixing it
 - **New UI features**: add a Playwright test covering the new behavior — tests live in `web/tests/`
-- Playwright tests run against Docker/Apache (`make web-playwright-test-apache`) or the dev server (`make web-playwright-test-dev`)
+- After any UI changes, run `make web-sanity-test` (Apache, no-passwords + all-passwords) as the standard web check
+- Full coverage: `make web-playwright-test-all` (all password/CSS variants, dev + apache + nginx)

@@ -192,42 +192,48 @@ These variables are consumed by:
 
 ## Makefile Targets
 
-Common tasks are available via `make` from the repo root:
+Common tasks are available via `make` from the repo root.
 
-| Target                       | Description                                                                        |
-|------------------------------|------------------------------------------------------------------------------------|
-| `help`                       | Show all available make targets (default when running `make`)                      |
-| `build`                      | Compile all Go binaries                                                            |
-| `test`                       | Run Go unit tests                                                                  |
-| `mod-tidy`                   | Run `go mod tidy` to clean up imports                                              |
-| `clean-cache`                | Run `go clean -cache` (useful after a vips library upgrade)                        |
-| `vet`                        | Run `go vet` static analysis                                                       |
-| `web-nvm-install`            | Install the Node version specified in `web/.nvmrc`                                 |
-| `web-npm-install`            | Install npm dependencies in `web/`                                                 |
-| `web-npm-run-dev`            | Start Vite dev server and open browser                                             |
-| `web-npm-build`              | Build the static site into `build/<site-id>/`                                      |
-| `web-docker-build-apache`    | Build the `photos-apache` Docker image                                             |
-| `web-docker-build-nginx`     | Build the `photos-nginx` Docker image                                              |
-| `web-docker-run-apache`      | Run Apache on port 8080 (mounts `build/` and `albums/<site-id>/`)                  |
-| `web-docker-run-nginx`       | Run nginx on port 8080 (mounts `build/` and `albums/<site-id>/`)                   |
-| `web-docker-stop`            | Stop the running `photos-apache` container                                         |
-| `web-docker-test`            | Run `bin/test-photos-server.sh` against `localhost:8080`                           |
-| `web-playwright-install`     | One-time setup: install `@playwright/test` and Chromium binary                     |
-| `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker/Apache on port 8083, runs, stops)          |
-| `web-playwright-test-nginx`  | Run Playwright e2e tests (starts Docker/nginx on port 8084, runs, stops)           |
-| `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                                 |
-| `web-playwright-test-all`    | Run `bin/test-all.sh` across all password/CSS variants                             |
-| `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                                     |
-| `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected                    |
-| `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected                  |
-| `sample-photogen-css`        | Run photogen using sample config with custom CSS injected                          |
-| `sample-photogen-demo`       | Run photogen using sample config with custom CSS and all albums password-protected |
-| `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server                       |
-| `sample-build`               | Build the static site using sample config                                          |
-| `sample-npm-run-dev`         | Run the Vite dev server using sample config                                        |
-| `sample-test-apache`         | Run routing tests against Docker/Apache on port 8082                               |
-| `sample-test-nginx`          | Run routing tests against Docker/nginx on port 8082                                |
-| `web-screenshots`            | Capture screenshots (requires a running server on port 8080)                       |
+**NOTE**: Most targets use `$DDPHOTOS_SITE_ID` to choose which site to operate on.  This defaults to `sample`,
+as defined in `config/defaults.env`.
+
+| Target                       | Description                                                                                   |
+|------------------------------|-----------------------------------------------------------------------------------------------|
+| `help`                       | Show all available make targets (default when running `make`)                                 |
+| `build`                      | Compile all Go binaries                                                                       |
+| `test`                       | Run Go unit tests                                                                             |
+| `mod-tidy`                   | Run `go mod tidy` to clean up imports                                                         |
+| `clean-cache`                | Run `go clean -cache` (useful after a vips library upgrade)                                   |
+| `vet`                        | Run `go vet` static analysis                                                                  |
+| `web-nvm-install`            | Install the Node version specified in `web/.nvmrc`                                            |
+| `web-npm-install`            | Install npm dependencies in `web/`                                                            |
+| `web-npm-run-dev`            | Start Vite dev server and open browser                                                        |
+| `web-npm-run-dev-https`      | Start Vite dev server over HTTPS (required for `crypto.subtle` on mobile/LAN)                 |
+| `web-npm-build`              | Build the static site into `build/$DDPHOTOS_SITE_ID/`                                         |
+| `web-docker-build-apache`    | Build the `photos-apache` Docker image                                                        |
+| `web-docker-build-nginx`     | Build the `photos-nginx` Docker image                                                         |
+| `web-docker-run-apache`      | Run Apache on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                     |
+| `web-docker-run-nginx`       | Run nginx on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                      |
+| `web-docker-stop`            | Stop the container running on port 8080                                                       |
+| `web-docker-test`            | Run `bin/test-photos-server.sh` against `localhost:8080`                                      |
+| `web-playwright-install`     | One-time setup: install `@playwright/test` and Chromium binary                                |
+| `web-playwright-test-apache` | Run Playwright e2e tests (starts Docker/Apache on port 8083, runs, stops)                     |
+| `web-playwright-test-nginx`  | Run Playwright e2e tests (starts Docker/nginx on port 8084, runs, stops)                      |
+| `web-playwright-test-dev`    | Run Playwright e2e tests (against Vite dev server)                                            |
+| `web-playwright-test-all`    | Run `bin/test-all.sh` across all password/CSS variants                                        |
+| `web-sanity-test`            | Quick sanity check: Apache, no-passwords + all-passwords (companion to `make build test vet`) |
+| `sample-photogen`            | Run photogen using `sample/config/albums.yaml`                                                |
+| `sample-photogen-pw-all`     | Run photogen using sample config, all albums password-protected                               |
+| `sample-photogen-pw-uganda`  | Run photogen using sample config, Uganda album password-protected                             |
+| `sample-photogen-css`        | Run photogen using sample config with custom CSS injected                                     |
+| `sample-photogen-demo`       | Run photogen using sample config with custom CSS and all albums password-protected            |
+| `sample-demo`                | One-step demo: photogen (CSS + passwords) and run dev server                                  |
+| `sample-build`               | Build the static site using sample config                                                     |
+| `sample-npm-run-dev`         | Run the Vite dev server using sample config                                                   |
+| `sample-npm-run-dev-css`     | Run the Vite dev server using sample config with custom CSS                                   |
+| `sample-test-apache`         | Run routing tests against Docker/Apache on port 8082                                          |
+| `sample-test-nginx`          | Run routing tests against Docker/nginx on port 8082                                           |
+| `web-screenshots`            | Capture screenshots (requires a running server on port 8080)                                  |
 
 ## Generating Photos (`photogen`)
 
@@ -252,6 +258,27 @@ settings:
 Album descriptions are in a TXT file (default: `config/descriptions.txt`).
 See [config/descriptions.example.txt](config/descriptions.example.txt)
 for the format.
+
+The `settings.id` field is required and determines the output directory name (e.g. `id: prod`
+produces `albums/prod`). It must contain only lowercase letters, digits, and hyphens.
+The `-site-id` flag overrides this, which is useful when generating an encrypted variant
+alongside the standard output from the same config.
+
+Output goes to `$DDPHOTOS_ALBUMS_DIR}/{id}` (git-ignored). `DDPHOTOS_ALBUMS_DIR` defaults
+to `albums` at the repo root (from `config/defaults.env`). Override with the `-out` flag
+or by setting `DDPHOTOS_ALBUMS_DIR` in the environment.
+
+To run with defaults:
+
+```bash
+go run cmd/photogen/photogen.go -resize -index -clean -doit
+```
+
+To use a different albums file (e.g., a development subset):
+
+```bash
+go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -clean -doit
+```
 
 ### Hero Image
 
@@ -292,16 +319,6 @@ built-in styles, so any rules inside it take effect as normal cascade overrides.
 Redefining CSS custom properties (e.g. `--bg-color`, `--text-color-2nd`) is the
 cleanest approach — no specificity battles needed.
 
-```bash
-go run cmd/photogen/photogen.go -resize -index -doit
-```
-
-To use a different albums file (e.g., a development subset):
-
-```bash
-go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
-```
-
 ### CLI Flags
 
 | Flag          | Default       | Description                                                                                    |
@@ -323,15 +340,6 @@ go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -doit
 | `-clean`      | `false`       | Remove stale files from processed album directories after a run (requires `-resize`)           |
 | `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation           |
 
-`settings.id` is required and determines the output directory name (e.g. `id: prod`
-produces `albums/prod`). It must contain only lowercase letters, digits, and hyphens.
-The `-site-id` flag overrides this, which is useful when generating an encrypted variant
-alongside the standard output from the same config.
-
-Output goes to `{DDPHOTOS_ALBUMS_DIR}/{id}` (git-ignored). `DDPHOTOS_ALBUMS_DIR` defaults
-to `albums` at the repo root (from `config/defaults.env`). Override with the `-out` flag
-or by setting `DDPHOTOS_ALBUMS_DIR` in the environment.
-
 ### Photo Descriptions (`photogen.txt`)
 
 To add per-photo descriptions, create a `photogen.txt` file in the album's
@@ -343,6 +351,7 @@ filename_without_extension Description text here.
 ```
 
 Example:
+
 ```
 Patagonia-042 First view of Torres del Paine at sunrise.
 Patagonia-107 Crossing the John Gardner Pass in the wind.
@@ -431,8 +440,8 @@ hero/CSS filenames) needed to bootstrap the frontend before any password is ente
 
 Custom HTML fields (`site_title_html`, `site_subtitle_html`, `site_overview_html`) can
 contain private information such as links to private documents or contact details. When
-a site password is configured, these fields are written to `html.enc.json` (encrypted)
-rather than `config.json`. On unencrypted sites they are written to `html.json`
+a site password is configured, these fields are written to `html.enc.json` (encrypted). 
+On unencrypted sites they are written to `html.json`
 (plaintext). If none of the three fields are set, neither file is written. The frontend
 fetches and decrypts `html.enc.json` as part of the same unlock step as `albums.enc.json`,
 so there is no additional password prompt.
@@ -567,23 +576,6 @@ to right-click the photo, copy the image URL, and pass it to `bin/search_cover.s
 bin/search_cover.sh <url>
 ```
 
-Example:
-
-```bash
-bin/search_cover.sh http://localhost:5173/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
-```
-
-Output:
-
-```
-Album:  banff-2002
-Index:  albums/sample/banff-2002/index.json
-src:    full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
-
-fileName:   banff-2002-original-name.webp
-id:         banff-2002-original-name
-```
-
 The script parses the album slug and image path from the URL, locates the album's
 `index.json` (or `index.enc.json` for encrypted albums — decoded automatically via
 `cmd/decode`), and searches for the matching `src` entry to print the `fileName`, `id`,
@@ -593,7 +585,19 @@ The search is scoped to `DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID` (defaults from
 `config/defaults.env`). Override to search a different site:
 
 ```bash
-DDPHOTOS_SITE_ID=prod bin/search_cover.sh <url>
+DDPHOTOS_SITE_ID=sample-pw-all bin/search_cover.sh http://localhost:5173/albums/uganda/full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp```
+```
+
+Output:
+
+```
+Album:  uganda
+Index:  /Users/donohoe/work/ddphotos/albums/sample-pw-all/uganda/index.enc.json
+src:    full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp
+
+fileName: subfolder_img_840_d.jpg
+id:       subfolder_img_840_d
+sourcePath: uganda/subfolder/img_840_d.jpg
 ```
 
 ## Testing
@@ -656,6 +660,9 @@ make web-docker-build-nginx  # nginx
 # Site rebuilds do not require a restart
 make web-docker-run-apache # Apache
 make web-docker-run-nginx  # nginx
+
+# Uses named site
+DDPHOTOS_SITE_ID=<site-id> make web-docker-run-apache
 ```
 
 You should be able to see the site at [localhost:8080](http://localhost:8080).
@@ -693,13 +700,13 @@ the different open paths.
 # One-time setup (downloads ~100 MB Chromium binary)
 make web-playwright-install
 
-# starts a separate Docker/Apache on port 8083, runs tests, stops Docker
+# starts a separate Docker/Apache on port 8083, runs no-passwords tests, stops Docker
 make web-playwright-test-apache
 
-# starts a separate Docker/nginx on port 8084, runs tests, stops Docker
+# starts a separate Docker/nginx on port 8084, runs no-passwords tests, stops Docker
 make web-playwright-test-nginx
 
-# runs against dev server (which must be running)
+# starts a separate dev server on port 5174, runs no-passwords tests, stops Docker
 make web-playwright-test-dev
 ```
 
@@ -760,6 +767,16 @@ bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
 
 # Run custom CSS variant against dev server
 bin/run-tests.sh --css sample/config/custom.css --mode dev
+```
+
+**Sanity Check**
+
+A good sanity check verifies against Apache (which requires a build), and tests
+both password and no-password sites.  It's quicker than running all 4 variants against
+dev, Apache and nginx:
+
+```bash
+make web-sanity-test
 ```
 
 The `bin/deploy-photos.sh` script runs Playwright automatically: locally before rsync,

@@ -168,6 +168,12 @@ web-playwright-test-dev:
 web-playwright-test-all:
 	bin/test-all.sh
 
+.PHONY: web-sanity-test
+## web-sanity-test: quick sanity check — Playwright e2e tests against Apache, no-passwords + all-passwords variants
+web-sanity-test:
+	bin/run-tests.sh --mode apache
+	bin/run-tests.sh --mode apache --passwords sample/config/passwords-all.yaml
+
 .PHONY: web-screenshots
 ## web-screenshots: capture screenshots and regenerate composite — requires a running server on port 8080
 web-screenshots:
