@@ -98,7 +98,7 @@ SITE_URL=$(python3 -c "import json; print(json.load(open('$CONFIG_JSON'))['siteU
 # Build static site
 cd web
 source "$HOME/.nvm/nvm.sh"
-SITE_ENV="$SITE_ENV" DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
+DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
 
 # Docker cleanup (used in tests)
 DOCKER_STARTED=false

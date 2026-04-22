@@ -51,6 +51,7 @@ else
     CONFIG="$SDIR/../config/site.env"
 fi
 [ -f "$CONFIG" ] || { echo "Error: $CONFIG not found"; exit 1; }
+echo "Loading environment variables from $CONFIG ..."
 source "$CONFIG"
 
 if [ "$LOCAL" -eq 1 ]; then
