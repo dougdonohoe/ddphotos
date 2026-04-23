@@ -917,6 +917,10 @@ Both rsync and S3 implement this pattern, with minor differences:
 | **Pass 2**           | `--exclude=*.html` skips pre-rendered pages                                                                                             | Two sub-passes: one for JSON/XML/covers (`Cache-Control: no-cache`), one for WebP (`Cache-Control: immutable`) |
 | **Change detection** | Pass 1 uses `--checksum` (Vite resets timestamps every build); Pass 2 uses size+time (photogen preserves timestamps on unchanged files) | Size+time only (no checksum option in `aws s3 sync`)                                                           |
 
+The local Docker testing environment uses the same separation: `web/setup-htdocs.sh` symlinks
+build output into `htdocs/` and album data into `htdocs/albums/` from separate bind mounts,
+mirroring the two-source structure without transferring any files.
+
 ### Apache + rsync
 
 In this scenario, traffic is handled by CloudFront, which filters
