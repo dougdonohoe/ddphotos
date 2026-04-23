@@ -902,7 +902,7 @@ The symlink-based approach for serving album data (`web/static/albums` → `web/
 
 **`bin/run-tests.sh`** — removed symlink step; Docker run updated to mount `$(pwd)/build:/build:ro` and pass `-e DDPHOTOS_SITE_ID`; removed `mkdir -p web/build/albums`.
 
-**`bin/deploy-photos.sh`** — added `--site-env` flag (separate from `--config-dir`) for specifying `site.env` location independently; added `--dry-run` flag that passes `--dry-run` to both rsync calls and skips CloudFront invalidation and post-deploy tests; added early guards for `AWS_APACHE`, `RSYNC_DEST`, `CLOUDFRONT_ID`, `VITE_SITE_URL` (prevents rsync `--delete` targeting wrong path if a var is unset); enforces trailing `/` on `RSYNC_DEST`; stored `REPO_ROOT` before `cd web`; Docker run updated to new mount strategy; removed `find build/albums -type l -delete` (no longer needed); rsync source changed from `build/` to `$REPO_ROOT/build/$DDPHOTOS_SITE_ID/`.
+**`bin/deploy-photos.sh`** — added `--site-env` flag (separate from `--config-dir`) for specifying `site.env` location independently; added `--dry-run` flag that passes `--dry-run` to both rsync calls and skips CloudFront invalidation and post-deploy tests; added early guards for `RSYNC_HOST`, `RSYNC_DEST`, `CLOUDFRONT_ID`, `VITE_SITE_URL` (prevents rsync `--delete` targeting wrong path if a var is unset); enforces trailing `/` on `RSYNC_DEST`; stored `REPO_ROOT` before `cd web`; Docker run updated to new mount strategy; removed `find build/albums -type l -delete` (no longer needed); rsync source changed from `build/` to `$REPO_ROOT/build/$DDPHOTOS_SITE_ID/`.
 
 **`infra/Makefile`** — added `DDPHOTOS_ALBUMS`; removed all `ddphotos-use-*` targets; all deploy targets pass `DDPHOTOS_ALBUMS_DIR` and `DDPHOTOS_SITE_ID` inline.
 

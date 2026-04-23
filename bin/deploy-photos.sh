@@ -69,7 +69,7 @@ fi
 if [ "$S3_MODE" = true ]; then
     [ -n "$S3_BUCKET" ] || { echo "Error: S3_BUCKET not set in $SITE_ENV"; exit 1; }
 else
-    [ -n "$AWS_APACHE" ]  || { echo "Error: AWS_APACHE not set in $SITE_ENV"; exit 1; }
+    [ -n "$RSYNC_HOST" ]  || { echo "Error: RSYNC_HOST not set in $SITE_ENV"; exit 1; }
     [ -n "$RSYNC_DEST" ]  || { echo "Error: RSYNC_DEST not set in $SITE_ENV"; exit 1; }
     # Ensure RSYNC_DEST ends with / so rsync targets an explicit directory path,
     # never a bare or empty string that could default to the remote home directory.
@@ -185,7 +185,7 @@ _post_deploy() {
     elif [ "$DRY_RUN" = true ]; then
         echo "DRY RUN: skipping Playwright tests against production"
     else
-        echo "Running Playwright e2e tests against production..."
+        echo "Running Playwright e2e tests against production $SITE_URL..."
         PLAYWRIGHT_BASE_URL="$SITE_URL" npx playwright test
     fi
 }
@@ -253,7 +253,7 @@ else
     # shellcheck disable=SC2086
     rsync $RSYNC_OPTS \
         --filter='protect albums/**' \
-        "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "$AWS_APACHE":"$RSYNC_DEST"
+        "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "$RSYNC_HOST":"$RSYNC_DEST"
 
     # Deploy album data (images + JSON) independently.
     # No --checksum: photogen preserves timestamps on existing files, so size+time is a
@@ -263,7 +263,7 @@ else
     rsync $RSYNC_OPTS_ALBUMS \
         --exclude=*.html \
         "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" \
-        "$AWS_APACHE":"${RSYNC_DEST}albums/"
+        "$RSYNC_HOST":"${RSYNC_DEST}albums/"
 
     _post_deploy
 fi

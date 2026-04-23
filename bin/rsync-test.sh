@@ -41,7 +41,7 @@ awk '/site_url:/{print "  site_url: http://localhost:'"$HTTP_PORT"'"; next} {pri
     sample/config/albums.yaml > "$TEMP_CONFIG/albums.yaml"
 /bin/cp sample/config/descriptions.txt "$TEMP_CONFIG/descriptions.txt"
 cat > "$TEMP_CONFIG/site.env" <<EOF
-AWS_APACHE=root@localhost
+RSYNC_HOST=root@localhost
 RSYNC_DEST=/usr/local/apache2/htdocs/
 TEST_ALBUM_LOCAL=antarctica
 TEST_ALBUM_PROD=antarctica

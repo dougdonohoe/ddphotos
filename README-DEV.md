@@ -1074,6 +1074,12 @@ bin/deploy-photos.sh --no-rsync                    # build + local test only (sa
 bin/deploy-photos.sh --no-photogen --no-rsync      # build + local test, skip both photogen and rsync
 ```
 
+The `rsync` functionality is validated by the `rsync-test.sh` script:
+
+```bash
+make sample-rsync-test
+```
+
 ## CI (GitHub Actions)
 
 The workflow in `.github/workflows/ci.yml` runs on every push or pull request to `main`. It:
