@@ -235,6 +235,7 @@ as defined in `config/defaults.env`.
 | `sample-test-apache`          | Run routing tests against Docker/Apache on port 8082                                          |
 | `sample-test-nginx`           | Run routing tests against Docker/nginx on port 8082                                           |
 | `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Docker container, verify      |
+| `sample-s3-test`              | Test the S3 deploy path against MinIO: verifies file placement and Cache-Control headers       |
 | `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                  |
 
 ## Generating Photos (`photogen`)
@@ -1051,16 +1052,17 @@ The script uses `set -eo pipefail` — any failure aborts before deployment.
 
 ### Flags
 
-| Flag               | Description                                                                                                                     |
-|--------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| `--s3`             | Deploy to S3 instead of rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests)         |
-| `--dry-run`        | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests                      |
-| `--no-photogen`    | Skip photo generation step                                                                                                      |
-| `--no-rsync`       | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                           |
-| `--no-server-test` | Skip both the local and post-deploy server routing tests                                                                        |
-| `--no-playwright`  | Skip Playwright tests (both local and production)                                                                               |
-| `--config-dir`     | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                             |
-| `--site-env`       | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                                 |
+| Flag                    | Description                                                                                                             |
+|-------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `--s3`                  | Deploy to S3 instead of rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests) |
+| `--dry-run`             | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests              |
+| `--no-photogen`         | Skip photo generation step                                                                                              |
+| `--no-rsync`            | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                   |
+| `--no-pre-deploy-tests` | Skip pre-deploy Docker/Apache test and Playwright (rsync mode only); post-deploy tests still run                        |
+| `--no-server-test`      | Skip both the local and post-deploy server routing tests                                                                |
+| `--no-playwright`       | Skip Playwright tests (both local and production)                                                                       |
+| `--config-dir`          | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                     |
+| `--site-env`            | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                         |
 
 Examples:
 
@@ -1078,10 +1080,15 @@ bin/deploy-photos.sh --no-rsync                    # build + local test only (sa
 bin/deploy-photos.sh --no-photogen --no-rsync      # build + local test, skip both photogen and rsync
 ```
 
-The `rsync` functionality is validated by the `rsync-test.sh` script:
+The deploy paths are validated by local test scripts:
 
 ```bash
+# rsync path — rsyncs into a local Docker container; runs server routing tests and Playwright
 make sample-rsync-test
+
+# S3 path — syncs against MinIO; verifies file placement and Cache-Control headers
+# (post-deploy server and Playwright tests are skipped: MinIO serves S3 API only, not HTTP)
+make sample-s3-test
 ```
 
 ## CI (GitHub Actions)

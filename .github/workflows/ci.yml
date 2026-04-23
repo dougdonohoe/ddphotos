@@ -63,3 +63,6 @@ jobs:
 
       - name: Run rsync deploy test
         run: make sample-rsync-test
+
+      - name: Run S3 deploy test
+        run: make sample-s3-test

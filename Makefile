@@ -254,6 +254,11 @@ sample-test-nginx: _check-docker-schema-nginx
 sample-rsync-test:
 	bin/rsync-test.sh
 
+.PHONY: sample-s3-test
+## sample-s3-test: test deploy-photos.sh S3 path against LocalStack; verifies file placement and Cache-Control headers
+sample-s3-test:
+	bin/s3-test.sh
+
 .PHONY: sample-npm-run-dev
 ## sample-npm-run-dev: run npm dev server using sample config
 sample-npm-run-dev:
