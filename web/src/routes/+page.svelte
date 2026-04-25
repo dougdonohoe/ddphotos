@@ -343,7 +343,7 @@
 						{#if album.description}
 							<p class="description">{@html album.description}</p>
 						{/if}
-						<p class="meta">{album.count} photos{album.dateSpan ? ` · ${album.dateSpan}` : ''}</p>
+						<p class="meta">{album.count} {album.count === 1 ? 'photo' : 'photos'}{album.dateSpan ? ` · ${album.dateSpan}` : ''}</p>
 					</div>
 				</a>
 			{/each}

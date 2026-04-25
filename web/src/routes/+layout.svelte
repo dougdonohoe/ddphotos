@@ -88,7 +88,11 @@
 	</div>
 	{@render children()}
 	<footer class:ready={!pageEncrypted || $footerReady}>
-		<div>Copyright © {data.siteConfig?.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.</div>
+		<div>{#if data.siteConfig?.copyrightYear && data.siteConfig.copyrightYear < new Date().getFullYear()}
+				Copyright © {data.siteConfig.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.
+			{:else}
+				Copyright © {new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.
+			{/if}</div>
 		<div class="built-with">
 			<button class="about-btn" onclick={openAbout} aria-label="About this site"><Info size={16} aria-hidden="true" /></button>
 			Built with joy by <a class="footer-link" href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>.
