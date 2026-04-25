@@ -4,6 +4,7 @@ set -eo pipefail
 
 # Parse flags
 SKIP_PHOTOGEN=${NO_PHOTOGEN:+true}; SKIP_PHOTOGEN=${SKIP_PHOTOGEN:-false}
+SKIP_BUILD=false
 SKIP_PRE_DEPLOY=false
 SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
@@ -15,6 +16,7 @@ SITE_ENV_ARG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-photogen)       SKIP_PHOTOGEN=true; shift ;;
+        --no-build)          SKIP_BUILD=true; shift ;;
         --no-pre-deploy-tests) SKIP_PRE_DEPLOY=true; shift ;;
         --no-rsync)          SKIP_RSYNC=true; shift ;;
         --no-playwright)     SKIP_PLAYWRIGHT=true; shift ;;
@@ -96,9 +98,18 @@ SITE_URL=$(python3 -c "import json; print(json.load(open('$CONFIG_JSON'))['siteU
 [ -n "$SITE_URL" ] || { echo "Error: siteUrl not found in $CONFIG_JSON"; exit 1; }
 
 # Build static site
-cd web
-source "$HOME/.nvm/nvm.sh"
-DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
+if [ "$SKIP_BUILD" = true ]; then
+    echo "Skipping build (--no-build)"
+else
+    cd web
+    NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
+    if ! command -v node &>/dev/null; then
+        # shellcheck source=/dev/null
+        source "$NVM_SH"
+    fi
+    DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
+    cd "$REPO_ROOT"
+fi
 
 # Docker cleanup (used in tests)
 DOCKER_STARTED=false
