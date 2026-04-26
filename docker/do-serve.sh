@@ -9,7 +9,10 @@ if [ ! -d "/ddphotos/build/$SITE_ID" ]; then
     exit 1
 fi
 
-/docker/setup-htdocs.sh /htdocs "$SITE_ID"
+BUILD_ROOT=/ddphotos/build \
+ALBUMS_DIR=/ddphotos/albums/$SITE_ID \
+DDPHOTOS_SITE_ID=$SITE_ID \
+/docker/setup-htdocs.sh /htdocs
 
 echo ""
 echo "  Local:   http://localhost:${SERVE_PORT}"

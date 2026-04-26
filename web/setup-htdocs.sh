@@ -3,15 +3,16 @@
 #
 # Usage: setup-htdocs.sh <htdocs-dir>
 #
-# Mounts:
-#   /build        — <root>/build  (all site builds)
-#   /albums       — <root>/albums/<site-id>  (photogen output: image dirs + JSON)
+# Environment variables (with defaults for the web/test container use case):
+#   DDPHOTOS_SITE_ID  — site ID (default: sample)
+#   BUILD_ROOT        — directory containing per-site build dirs (default: /build)
+#   ALBUMS_DIR        — directory containing album data for the active site (default: /albums)
 #
 # Strategy:
-#   1. Symlink everything from /build/<site-id>/ into <htdocs>/, except albums/.
+#   1. Symlink everything from $BUILD_ROOT/<site-id>/ into <htdocs>/, except albums/.
 #   2. Create <htdocs>/albums/ as a real directory, then populate it with:
-#        - symlinks to *.html files from /build/<site-id>/albums/  (pre-rendered pages)
-#        - symlinks to everything in /albums/                       (image dirs, JSON, etc.)
+#        - symlinks to *.html files from $BUILD_ROOT/<site-id>/albums/  (pre-rendered pages)
+#        - symlinks to everything in $ALBUMS_DIR/                        (image dirs, JSON, etc.)
 #
 # All symlinks live inside the container — nothing dangling is left on the host.
 
@@ -24,7 +25,9 @@ if [ -z "$HTDOCS" ]; then
 fi
 
 SITE_ID="${DDPHOTOS_SITE_ID:-sample}"
-BUILD_SITE="/build/$SITE_ID"
+BUILD_ROOT="${BUILD_ROOT:-/build}"
+ALBUMS_DIR="${ALBUMS_DIR:-/albums}"
+BUILD_SITE="$BUILD_ROOT/$SITE_ID"
 
 # 1. Symlink build output into htdocs/ (skip albums/ — handled separately below).
 # Use find rather than glob so dotfiles like .htaccess are included.
@@ -44,7 +47,7 @@ for item in "$BUILD_SITE/albums"/*.html; do
 done
 
 # Album data (image dirs, albums.json, sitemap.xml, etc.) from the photogen mount
-for item in /albums/*; do
+for item in "$ALBUMS_DIR"/*; do
     [ -e "$item" ] || continue
     ln -sf "$item" "$HTDOCS/albums/$(basename "$item")"
 done
