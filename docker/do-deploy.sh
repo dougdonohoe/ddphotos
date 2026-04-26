@@ -47,6 +47,11 @@ export REPO_ROOT="/ddphotos"
 export DDPHOTOS_ALBUMS_DIR="/ddphotos/albums"
 export DDPHOTOS_SITE_ID="$SITE_ID"
 
+echo "Deploying: $SITE_ID"
+echo "  Config:   $CONFIG_DIR"
+echo "  Site env: $SITE_ENV"
+echo ""
+
 exec /docker/deploy-photos.sh \
     --no-photogen \
     --no-build \

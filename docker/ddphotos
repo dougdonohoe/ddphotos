@@ -23,9 +23,16 @@ shift 2>/dev/null || true
 # DDPHOTOS_ALBUM_DIR: directory mounted as /ddphotos; defaults to script location
 DDPHOTOS_ALBUM_DIR="${DDPHOTOS_ALBUM_DIR:-$SCRIPT_DIR}"
 
-# DDPHOTOS_SITE_ID: read from albums.yaml settings.id if not set via env or flag
+# CONFIG_HOST_DIR: host path to config directory (normalized)
+if [ -n "$OPT_CONFIG_DIR" ]; then
+    CONFIG_HOST_DIR="$(cd "$OPT_CONFIG_DIR" && pwd)"
+else
+    CONFIG_HOST_DIR="$DDPHOTOS_ALBUM_DIR/config"
+fi
+
+# DDPHOTOS_SITE_ID: read from config dir's albums.yaml settings.id if not set via env or flag
 if [ -z "$DDPHOTOS_SITE_ID" ]; then
-    ALBUMS_YAML="$DDPHOTOS_ALBUM_DIR/config/albums.yaml"
+    ALBUMS_YAML="$CONFIG_HOST_DIR/albums.yaml"
     if [ -f "$ALBUMS_YAML" ]; then
         DDPHOTOS_SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$ALBUMS_YAML")
     fi
@@ -38,13 +45,12 @@ EXTRA_MOUNT_ARGS=()
 DDPHOTOS_CONFIG_DIR=""
 CONFIG_DIR_EXTRA_SRC=""  # set only when an extra mount is needed (for display)
 if [ -n "$OPT_CONFIG_DIR" ]; then
-    OPT_CONFIG_DIR="$(cd "$OPT_CONFIG_DIR" && pwd)"
-    if [[ "$OPT_CONFIG_DIR" == "$DDPHOTOS_ALBUM_DIR"/* ]] || [[ "$OPT_CONFIG_DIR" == "$DDPHOTOS_ALBUM_DIR" ]]; then
-        DDPHOTOS_CONFIG_DIR="/ddphotos${OPT_CONFIG_DIR#$DDPHOTOS_ALBUM_DIR}"
+    if [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_ALBUM_DIR"/* ]] || [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_ALBUM_DIR" ]]; then
+        DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#$DDPHOTOS_ALBUM_DIR}"
     else
-        EXTRA_MOUNT_ARGS+=(-v "$OPT_CONFIG_DIR":/ddphotos-config:ro)
+        EXTRA_MOUNT_ARGS+=(-v "$CONFIG_HOST_DIR":/ddphotos-config:ro)
         DDPHOTOS_CONFIG_DIR="/ddphotos-config"
-        CONFIG_DIR_EXTRA_SRC="$OPT_CONFIG_DIR"
+        CONFIG_DIR_EXTRA_SRC="$CONFIG_HOST_DIR"
     fi
 fi
 
@@ -60,7 +66,7 @@ fi
 # Paths already inside DDPHOTOS_ALBUM_DIR are skipped (covered by the main /ddphotos mount).
 # Populates MOUNT_ARGS (for docker run), MOUNT_PATHS and MOUNT_DESTS (for display).
 build_mount_args() {
-    local config="$DDPHOTOS_ALBUM_DIR/config/albums.yaml"
+    local config="$CONFIG_HOST_DIR/albums.yaml"
     [ -f "$config" ] || return
     local in_bases=false
     while IFS= read -r line; do
@@ -108,12 +114,18 @@ case "$cmd" in
         MOUNT_ARGS=()
         MOUNT_PATHS=()
         MOUNT_DESTS=()
+        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
+            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
+            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
+        fi
         build_mount_args
         print_mounts
+        PHOTOGEN_ARGS=("${EXTRA_MOUNT_ARGS[@]}" "${MOUNT_ARGS[@]}")
+        [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ARGS+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
-            "${MOUNT_ARGS[@]}" \
+            "${PHOTOGEN_ARGS[@]}" \
             "$IMAGE" photogen "$@"
         ;;
     build)
@@ -206,7 +218,7 @@ case "$cmd" in
         echo "  upgrade   Update this script to match the current image"
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
-        echo "  ./ddphotos photogen -- -hero-only"
+        echo "  ./ddphotos photogen -- -config-dir /custom -resize"
         exit 1
         ;;
 esac
