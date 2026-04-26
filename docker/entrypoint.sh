@@ -4,6 +4,15 @@ set -e
 cmd="${1:-help}"
 shift 2>/dev/null || true
 
+# Verify the mounted ddphotos script matches the image (skip for init/upgrade)
+if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ]; then
+    if [ -f /ddphotos/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos/ddphotos > /dev/null 2>&1; then
+        echo "Error: local ddphotos script does not match the image."
+        echo "Run: ./ddphotos upgrade"
+        exit 1
+    fi
+fi
+
 case "$cmd" in
     init)     exec /docker/do-init.sh "$@" ;;
     photogen) exec /docker/do-photogen.sh "$@" ;;
