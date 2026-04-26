@@ -108,7 +108,6 @@ else
         source "$NVM_SH"
     fi
     DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
-    cd "$REPO_ROOT"
 fi
 
 # Docker cleanup (used in tests)
