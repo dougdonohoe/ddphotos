@@ -53,8 +53,8 @@ COPY --from=node-builder /app/web/node_modules /app/web/node_modules
 
 # Docker scripts
 COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
-     docker/do-build.sh docker/do-serve.sh docker/do-deploy.sh \
-     web/setup-htdocs.sh bin/deploy-photos.sh /docker/
+     docker/do-build.sh docker/do-serve.sh docker/do-run.sh docker/do-deploy.sh \
+     docker/ddphotos web/setup-htdocs.sh bin/deploy-photos.sh /docker/
 RUN chmod +x /docker/*.sh
 
 # Init templates and placeholder album directory

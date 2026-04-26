@@ -15,7 +15,7 @@ DDPHOTOS_SITE_ID=$SITE_ID \
 /docker/setup-htdocs.sh /htdocs
 
 echo ""
-echo "  Local:   http://localhost:${SERVE_PORT}"
+echo "  Serving $SITE_ID at:   http://localhost:${SERVE_PORT}"
 echo ""
 
 . /etc/apache2/envvars

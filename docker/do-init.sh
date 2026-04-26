@@ -17,11 +17,20 @@ mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build
 
 cp /docker/init/albums.yaml "$CONFIG/albums.yaml"
 cp /docker/init/description.txt "$CONFIG/description.txt"
+cp /docker/ddphotos /ddphotos/ddphotos
+chmod +x /ddphotos/ddphotos
 
-echo "Initialized $CONFIG"
+echo "Initialized ~/my-ddphotos"
 echo ""
-echo "Next steps:"
-echo "  1. Edit ~/my-ddphotos/config/albums.yaml to define your albums"
-echo "  2. Run: docker run -v ~/photos:/photos:ro -v ~/my-ddphotos:/ddphotos ddphotos photogen"
-echo "  3. Run: docker run -v ~/my-ddphotos:/ddphotos ddphotos build"
-echo "  4. Run: docker run -v ~/my-ddphotos:/ddphotos -p 8000:80 ddphotos serve"
+echo "Next steps - generate, run, build and serve the example site:"
+echo ""
+echo "  1. cd ~/my-ddphotos"
+echo "  2. ./ddphotos photogen"
+echo "  3. ./ddphotos run"
+echo "  4. ./ddphotos build"
+echo "  5. ./ddphotos serve"
+echo ""
+echo "Then build your site:"
+echo ""
+echo "  1. Edit ~/my-ddphotos/config/albums.yaml to define your own albums"
+echo "  2. Repeat photogen, run, build, serve"

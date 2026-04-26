@@ -268,3 +268,13 @@ sample-npm-run-dev:
 ## sample-npm-run-dev-css: run npm dev server using sample config with custom CSS
 sample-npm-run-dev-css:
 	DDPHOTOS_SITE_ID=sample-css $(MAKE) web-npm-run-dev
+
+#
+# ── ddphotos Docker image ─────────────────────────────────────────────────────
+#
+DDPHOTOS_IMAGE  ?= ddphotos
+
+.PHONY: docker-build
+## docker-build: build the ddphotos Docker image
+docker-build:
+	docker build -t $(DDPHOTOS_IMAGE) -f docker/Dockerfile .

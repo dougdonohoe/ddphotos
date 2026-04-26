@@ -1,31 +1,31 @@
 # ddphotos configuration
 # See https://github.com/dougdonohoe/ddphotos for full documentation.
 #
-# Quick start:
-#   1. Mount your photos read-only: -v ~/photos:/photos:ro
-#   2. Define a base pointing to /photos, then add your albums:
+# Define bases pointing to where your source photos live. The ddphotos wrapper
+# script reads these paths and mounts them automatically into Docker.
 #
-#      bases:
-#        photos: /photos
-#
-#      albums:
-#        - slug: hawaii-2024
-#          title: Hawaii 2024
-#          base: photos
-#          source: hawaii-2024   # subfolder of ~/photos
-#
-# Multiple photo locations:
-#   -v ~/hawaii:/photos1:ro -v ~/europe:/photos2:ro
+# Examples:
 #
 #   bases:
-#     hawaii: /photos1
-#     europe: /photos2
+#     dropbox: /Users/anseladams/Dropbox/Vacations   # Dropbox or iCloud folder
+#     t7: /T7/Photos                                 # external drive
+#
+# Then reference a base in each album:
+#
+#   albums:
+#     - slug: hawaii-2024
+#       title: Hawaii 2024
+#       base: dropbox
+#       source: hawaii-2024   # subfolder under the base path
 #
 # Once you have edited this file, run:
-#   docker run -v ~/photos:/photos:ro -v ~/my-ddphotos:/ddphotos ddphotos photogen
-#   docker run -v ~/my-ddphotos:/ddphotos ddphotos build
+#   ./ddphotos photogen
+#   ./ddphotos run
+#   ./ddphotos build
+#   ./ddphotos serve
 
 settings:
+  id: my-photos
   site_name: My Photos
   site_description: My personal photo gallery
   copyright_owner: Your Name
@@ -40,6 +40,13 @@ settings:
   hero:
     image: /docker/hero.webp
     crop: center
+
+# Uncomment and edit bases to point to your photo directories.
+# Here are two examples:
+#
+#bases:
+#  dropbox: /Users/anseladams/Dropbox/Photos
+#  t7: /T7/Photos
 
 albums:
   - slug: temporary
