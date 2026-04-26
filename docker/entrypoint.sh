@@ -15,8 +15,9 @@ case "$cmd" in
         if diff -q /docker/ddphotos /ddphotos/ddphotos > /dev/null 2>&1; then
             echo "ddphotos is up to date."
         else
-            /bin/cp /docker/ddphotos /ddphotos/ddphotos
-            chmod +x /ddphotos/ddphotos
+            /bin/cp /docker/ddphotos /ddphotos/ddphotos.new
+            chmod +x /ddphotos/ddphotos.new
+            /bin/mv -f /ddphotos/ddphotos.new /ddphotos/ddphotos
             echo "ddphotos script upgraded."
         fi
         ;;

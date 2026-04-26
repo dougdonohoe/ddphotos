@@ -31,10 +31,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# cd to root of repo
+# cd to root of repo (REPO_ROOT may be pre-set by caller, e.g. docker/do-deploy.sh)
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
-cd "$SDIR/.."
-REPO_ROOT="$(pwd)"
+if [ -z "$REPO_ROOT" ]; then
+    cd "$SDIR/.."
+    REPO_ROOT="$(pwd)"
+fi
+cd "$REPO_ROOT"
 
 # Resolve CONFIG_DIR and SITE_ENV_ARG to absolute paths (relative paths break after subsequent cd's)
 [ -n "$CONFIG_DIR" ]    && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"

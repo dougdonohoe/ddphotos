@@ -28,10 +28,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips \
     ca-certificates \
     curl \
+    unzip \
     apache2 \
     rsync \
     openssh-client \
     && rm -rf /var/lib/apt/lists/*
+
+# AWS CLI v2
+RUN ARCH=$(uname -m) \
+    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o /tmp/awscliv2.zip \
+    && unzip -q /tmp/awscliv2.zip -d /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/aws /tmp/awscliv2.zip
 
 # Node 22 via NodeSource
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
@@ -54,7 +62,7 @@ COPY --from=node-builder /app/web/node_modules /app/web/node_modules
 # Docker scripts
 COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
      docker/do-build.sh docker/do-serve.sh docker/do-run.sh docker/do-deploy.sh \
-     docker/ddphotos web/setup-htdocs.sh bin/deploy-photos.sh /docker/
+     docker/ddphotos web/setup-htdocs.sh bin/deploy-photos.sh bin/test-photos-server.sh /docker/
 RUN chmod +x /docker/*.sh
 
 # Init templates and placeholder album directory

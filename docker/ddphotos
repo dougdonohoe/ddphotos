@@ -124,12 +124,25 @@ case "$cmd" in
         ;;
     deploy)
         check_version
-        MOUNT_PATHS=("$HOME/.ssh")
+        MOUNT_PATHS=()
+        DEPLOY_ARGS=()
+        if [ -d "$HOME/.ssh" ]; then
+            DEPLOY_ARGS+=(-v "$HOME/.ssh":/root/.ssh:ro)
+            MOUNT_PATHS+=("$HOME/.ssh")
+        fi
+        if [ -d "$HOME/.aws" ]; then
+            DEPLOY_ARGS+=(-v "$HOME/.aws":/root/.aws:ro)
+            MOUNT_PATHS+=("$HOME/.aws")
+        fi
+        for var in AWS_PROFILE AWS_DEFAULT_PROFILE AWS_DEFAULT_REGION AWS_REGION \
+                   AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+            [ -n "${!var}" ] && DEPLOY_ARGS+=(-e "$var=${!var}")
+        done
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -v "$SCRIPT_DIR":/ddphotos \
-            -v "$HOME/.ssh":/root/.ssh:ro \
+            "${DEPLOY_ARGS[@]}" \
             "$IMAGE" deploy "$@"
         ;;
     upgrade)
