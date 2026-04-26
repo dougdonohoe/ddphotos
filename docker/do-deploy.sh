@@ -27,8 +27,12 @@ if [ ! -f "$BUILD_INDEX" ]; then
     exit 1
 fi
 
-if [ -f "$ALBUMS_CONFIG" ] && [ -n "$(find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null)" ]; then
-    echo "Error: album data is newer than build output. Run 'build' before 'deploy'."
+stale=$(
+    find /ddphotos/config -maxdepth 1 -newer "$BUILD_INDEX" ! -name "site.env" 2>/dev/null
+    [ -f "$ALBUMS_CONFIG" ] && find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null || true
+)
+if [ -n "$stale" ]; then
+    echo "Error: config or album data is newer than build output. Run 'build' before 'deploy'."
     exit 1
 fi
 

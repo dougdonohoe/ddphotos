@@ -4,23 +4,35 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="ddphotos"
 
+# Parse --album-dir and --site-id flags before the command
+while [[ "${1:-}" == --?* ]]; do
+    case "$1" in
+        --album-dir) DDPHOTOS_ALBUM_DIR="$2"; shift 2 ;;
+        --site-id)   DDPHOTOS_SITE_ID="$2";   shift 2 ;;
+        *)           break ;;
+    esac
+done
+
 cmd="${1:-help}"
 shift 2>/dev/null || true
 
-# Read DDPHOTOS_SITE_ID from env, then config/defaults.env, then fall back to default
+# DDPHOTOS_ALBUM_DIR: directory mounted as /ddphotos; defaults to script location
+DDPHOTOS_ALBUM_DIR="${DDPHOTOS_ALBUM_DIR:-$SCRIPT_DIR}"
+
+# DDPHOTOS_SITE_ID: read from albums.yaml settings.id if not set via env or flag
 if [ -z "$DDPHOTOS_SITE_ID" ]; then
-    DEFAULTS_ENV="$SCRIPT_DIR/config/defaults.env"
-    if [ -f "$DEFAULTS_ENV" ]; then
-        DDPHOTOS_SITE_ID=$(sed -n 's/^DDPHOTOS_SITE_ID=//p' "$DEFAULTS_ENV")
+    ALBUMS_YAML="$DDPHOTOS_ALBUM_DIR/config/albums.yaml"
+    if [ -f "$ALBUMS_YAML" ]; then
+        DDPHOTOS_SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$ALBUMS_YAML")
     fi
 fi
 DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
 
 # Parse bases: section from albums.yaml and emit -v flags for external photo dirs.
-# Paths already inside SCRIPT_DIR are skipped (covered by the main /ddphotos mount).
+# Paths already inside DDPHOTOS_ALBUM_DIR are skipped (covered by the main /ddphotos mount).
 # Populates MOUNT_ARGS (for docker run), MOUNT_PATHS and MOUNT_DESTS (for display).
 build_mount_args() {
-    local config="$SCRIPT_DIR/config/albums.yaml"
+    local config="$DDPHOTOS_ALBUM_DIR/config/albums.yaml"
     [ -f "$config" ] || return
     local in_bases=false
     while IFS= read -r line; do
@@ -34,7 +46,7 @@ build_mount_args() {
             local path
             path=$(echo "$line" | sed 's/^[[:space:]]*[^:]*:[[:space:]]*//')
             path="${path/#\~/$HOME}"
-            if [[ "$path" == /* ]] && [[ "$path" != "$SCRIPT_DIR"* ]]; then
+            if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_ALBUM_DIR"* ]]; then
                 MOUNT_ARGS+=(-v "$path:$path:ro")
                 MOUNT_PATHS+=("$path")
                 MOUNT_DESTS+=("$path")
@@ -46,7 +58,7 @@ build_mount_args() {
 # Print all Docker volume mounts for the current command.
 print_mounts() {
     echo "Mounting:"
-    echo "  $SCRIPT_DIR -> /ddphotos"
+    echo "  $DDPHOTOS_ALBUM_DIR -> /ddphotos"
     local i=0
     while [ $i -lt ${#MOUNT_PATHS[@]} ]; do
         echo "  ${MOUNT_PATHS[$i]} -> ${MOUNT_DESTS[$i]} (read-only)"
@@ -61,7 +73,7 @@ RUN_PORT="${RUN_PORT:-5173}"
 case "$cmd" in
     init)
         docker run --rm \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             "$IMAGE" init "$@"
         ;;
     photogen)
@@ -72,7 +84,7 @@ case "$cmd" in
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             "${MOUNT_ARGS[@]}" \
             "$IMAGE" photogen "$@"
         ;;
@@ -82,7 +94,7 @@ case "$cmd" in
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             "$IMAGE" build "$@"
         ;;
     serve)
@@ -92,7 +104,7 @@ case "$cmd" in
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             -p "$SERVE_PORT":80 \
             "$IMAGE" serve "$@"
         ;;
@@ -103,7 +115,7 @@ case "$cmd" in
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             -p "$RUN_PORT":5173 \
             "$IMAGE" run "$@"
         ;;
@@ -128,17 +140,21 @@ case "$cmd" in
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             "${DEPLOY_ARGS[@]}" \
             "$IMAGE" deploy "$@"
         ;;
     upgrade)
         docker run --rm \
-            -v "$SCRIPT_DIR":/ddphotos \
+            -v "$DDPHOTOS_ALBUM_DIR":/ddphotos \
             "$IMAGE" upgrade
         ;;
     *)
-        echo "Usage: ./ddphotos {init|photogen|build|serve|run|deploy|upgrade} [args]"
+        echo "Usage: ./ddphotos [--album-dir DIR] [--site-id ID] {init|photogen|build|serve|run|deploy|upgrade} [args]"
+        echo ""
+        echo "Options (before command):"
+        echo "  --album-dir DIR   Album directory to mount (default: script location)"
+        echo "  --site-id ID      Site ID override (default: settings.id from albums.yaml)"
         echo ""
         echo "Commands:"
         echo "  init      Re-initialize config scaffold"
