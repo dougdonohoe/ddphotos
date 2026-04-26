@@ -1,0 +1,1 @@
+temporary Edit config/albums.yaml to replace this placeholder with your own albums (and update the site settings), then run photogen again.

@@ -1,0 +1,13 @@
+.git
+albums/
+build/
+config/
+docs/
+images/
+memory/
+requirements.txt
+sample/
+!sample/source/theway/2024-The-Way-14.jpg
+web/node_modules
+web/test-results
+web/build

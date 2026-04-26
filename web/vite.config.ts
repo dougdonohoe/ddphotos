@@ -53,8 +53,8 @@ function gitInfo(cmd: string): string {
 		return 'unknown';
 	}
 }
-process.env.VITE_GIT_DESCRIBE = gitInfo('git describe --tags --long --dirty --always');
-process.env.VITE_GIT_BRANCH = gitInfo('git rev-parse --abbrev-ref HEAD');
+process.env.VITE_GIT_DESCRIBE ??= gitInfo('git describe --tags --long --dirty --always');
+process.env.VITE_GIT_BRANCH ??= gitInfo('git rev-parse --abbrev-ref HEAD');
 
 // Parse git remote URL into { slug: "owner/repo", url: "https://github.com/owner/repo" }.
 // Handles both https://github.com/owner/repo[.git] and git@github.com:owner/repo[.git].
@@ -66,9 +66,11 @@ function gitRemote(): { slug: string; url: string } {
 	const host = raw.includes('github.com') ? 'https://github.com' : 'https://' + (raw.match(/[@/]([^/:@]+\.com)/)?.[1] ?? 'github.com');
 	return { slug, url: `${host}/${slug}` };
 }
-const remote = gitRemote();
-process.env.VITE_GIT_REPO_SLUG = remote.slug;
-process.env.VITE_GIT_REPO_URL = remote.url;
+if (!process.env.VITE_GIT_REPO_SLUG) {
+	const remote = gitRemote();
+	process.env.VITE_GIT_REPO_SLUG = remote.slug;
+	process.env.VITE_GIT_REPO_URL = remote.url;
+}
 
 // When VITE_HTTPS=1, load @vitejs/plugin-basic-ssl to serve the dev server over HTTPS.
 // This is needed for mobile testing via LAN IP (crypto.subtle requires a secure context).

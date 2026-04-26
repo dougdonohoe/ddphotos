@@ -1,0 +1,47 @@
+# ddphotos configuration
+# See https://github.com/dougdonohoe/ddphotos for full documentation.
+#
+# Quick start:
+#   1. Mount your photos read-only: -v ~/photos:/photos:ro
+#   2. Define a base pointing to /photos, then add your albums:
+#
+#      bases:
+#        photos: /photos
+#
+#      albums:
+#        - slug: hawaii-2024
+#          title: Hawaii 2024
+#          base: photos
+#          source: hawaii-2024   # subfolder of ~/photos
+#
+# Multiple photo locations:
+#   -v ~/hawaii:/photos1:ro -v ~/europe:/photos2:ro
+#
+#   bases:
+#     hawaii: /photos1
+#     europe: /photos2
+#
+# Once you have edited this file, run:
+#   docker run -v ~/photos:/photos:ro -v ~/my-ddphotos:/ddphotos ddphotos photogen
+#   docker run -v ~/my-ddphotos:/ddphotos ddphotos build
+
+settings:
+  site_name: My Photos
+  site_description: My personal photo gallery
+  copyright_owner: Your Name
+  copyright_year: 2026
+  descriptions: description.txt
+  site_title_html: >-
+    My Photos
+  site_subtitle_html: >-
+    A personal photo gallery.
+  site_overview_html: >-
+    Welcome to my photo gallery.
+  hero:
+    image: /docker/hero.webp
+    crop: center
+
+albums:
+  - slug: temporary
+    name: Replace Me
+    source: /ddphotos-init
