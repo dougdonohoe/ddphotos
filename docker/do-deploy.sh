@@ -2,7 +2,8 @@
 set -e
 
 SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
-SITE_ENV="/ddphotos/config/site.env"
+CONFIG_DIR="${DDPHOTOS_CONFIG_DIR:-/ddphotos/config}"
+SITE_ENV="${DDPHOTOS_SITE_ENV:-$CONFIG_DIR/site.env}"
 
 if [ ! -f "$SITE_ENV" ]; then
     echo "Error: $SITE_ENV not found."
@@ -22,17 +23,23 @@ esac
 ALBUMS_CONFIG="/ddphotos/albums/$SITE_ID/config.json"
 BUILD_INDEX="/ddphotos/build/$SITE_ID/index.html"
 
-if [ ! -f "$BUILD_INDEX" ]; then
-    echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first."
+if [ ! -f "$ALBUMS_CONFIG" ]; then
+    echo "Error: album data not found at $ALBUMS_CONFIG. Run 'photogen' first."
     exit 1
 fi
 
-stale=$(
-    find /ddphotos/config -maxdepth 1 -newer "$BUILD_INDEX" ! -name "site.env" 2>/dev/null
-    [ -f "$ALBUMS_CONFIG" ] && find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null || true
-)
-if [ -n "$stale" ]; then
-    echo "Error: config or album data is newer than build output. Run 'build' before 'deploy'."
+if [ -n "$(find "$CONFIG_DIR" -maxdepth 1 -newer "$ALBUMS_CONFIG" ! -name "site.env" 2>/dev/null)" ]; then
+    echo "Error: config is newer than album data. Run 'photogen' before 'deploy'."
+    exit 1
+fi
+
+if [ ! -f "$BUILD_INDEX" ]; then
+    echo "Error: build output not found. Run 'build' first."
+    exit 1
+fi
+
+if [ -n "$(find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null)" ]; then
+    echo "Error: album data is newer than build output. Run 'build' before 'deploy'."
     exit 1
 fi
 
@@ -45,6 +52,6 @@ exec /docker/deploy-photos.sh \
     --no-build \
     --no-pre-deploy-tests \
     --no-playwright \
-    --config-dir /ddphotos/config \
+    --config-dir "$CONFIG_DIR" \
     --site-env "$SITE_ENV" \
     "$@"

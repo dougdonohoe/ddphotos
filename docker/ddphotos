@@ -4,12 +4,16 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="ddphotos"
 
-# Parse --album-dir and --site-id flags before the command
+# Parse --album-dir, --site-id, --config-dir, --site-env flags before the command
+OPT_CONFIG_DIR=""
+OPT_SITE_ENV=""
 while [[ "${1:-}" == --?* ]]; do
     case "$1" in
-        --album-dir) DDPHOTOS_ALBUM_DIR="$2"; shift 2 ;;
-        --site-id)   DDPHOTOS_SITE_ID="$2";   shift 2 ;;
-        *)           break ;;
+        --album-dir)  DDPHOTOS_ALBUM_DIR="$2"; shift 2 ;;
+        --site-id)    DDPHOTOS_SITE_ID="$2";   shift 2 ;;
+        --config-dir) OPT_CONFIG_DIR="$2";     shift 2 ;;
+        --site-env)   OPT_SITE_ENV="$2";       shift 2 ;;
+        *)            break ;;
     esac
 done
 
@@ -27,6 +31,30 @@ if [ -z "$DDPHOTOS_SITE_ID" ]; then
     fi
 fi
 DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
+
+# Resolve --config-dir to a container path.
+# If inside DDPHOTOS_ALBUM_DIR, translate directly; otherwise mount as /ddphotos-config.
+EXTRA_MOUNT_ARGS=()
+DDPHOTOS_CONFIG_DIR=""
+CONFIG_DIR_EXTRA_SRC=""  # set only when an extra mount is needed (for display)
+if [ -n "$OPT_CONFIG_DIR" ]; then
+    OPT_CONFIG_DIR="$(cd "$OPT_CONFIG_DIR" && pwd)"
+    if [[ "$OPT_CONFIG_DIR" == "$DDPHOTOS_ALBUM_DIR"/* ]] || [[ "$OPT_CONFIG_DIR" == "$DDPHOTOS_ALBUM_DIR" ]]; then
+        DDPHOTOS_CONFIG_DIR="/ddphotos${OPT_CONFIG_DIR#$DDPHOTOS_ALBUM_DIR}"
+    else
+        EXTRA_MOUNT_ARGS+=(-v "$OPT_CONFIG_DIR":/ddphotos-config:ro)
+        DDPHOTOS_CONFIG_DIR="/ddphotos-config"
+        CONFIG_DIR_EXTRA_SRC="$OPT_CONFIG_DIR"
+    fi
+fi
+
+# Resolve --site-env: always mount as an extra file at /ddphotos-site.env.
+DDPHOTOS_SITE_ENV=""
+if [ -n "$OPT_SITE_ENV" ]; then
+    OPT_SITE_ENV="$(cd "$(dirname "$OPT_SITE_ENV")" && pwd)/$(basename "$OPT_SITE_ENV")"
+    EXTRA_MOUNT_ARGS+=(-v "$OPT_SITE_ENV":/ddphotos-site.env:ro)
+    DDPHOTOS_SITE_ENV="/ddphotos-site.env"
+fi
 
 # Parse bases: section from albums.yaml and emit -v flags for external photo dirs.
 # Paths already inside DDPHOTOS_ALBUM_DIR are skipped (covered by the main /ddphotos mount).
@@ -122,7 +150,15 @@ case "$cmd" in
     deploy)
         MOUNT_PATHS=()
         MOUNT_DESTS=()
-        DEPLOY_ARGS=()
+        DEPLOY_ARGS=("${EXTRA_MOUNT_ARGS[@]}")
+        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
+            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
+            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
+        fi
+        if [ -n "$DDPHOTOS_SITE_ENV" ]; then
+            MOUNT_PATHS+=("$OPT_SITE_ENV")
+            MOUNT_DESTS+=("/ddphotos-site.env")
+        fi
         if [ -d "$HOME/.ssh" ]; then
             DEPLOY_ARGS+=(-v "$HOME/.ssh":/root/.ssh:ro)
             MOUNT_PATHS+=("$HOME/.ssh")
@@ -137,6 +173,8 @@ case "$cmd" in
                    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
             [ -n "${!var}" ] && DEPLOY_ARGS+=(-e "$var=${!var}")
         done
+        [ -n "$DDPHOTOS_CONFIG_DIR" ] && DEPLOY_ARGS+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
+        [ -n "$DDPHOTOS_SITE_ENV" ]   && DEPLOY_ARGS+=(-e "DDPHOTOS_SITE_ENV=$DDPHOTOS_SITE_ENV")
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -150,11 +188,13 @@ case "$cmd" in
             "$IMAGE" upgrade
         ;;
     *)
-        echo "Usage: ./ddphotos [--album-dir DIR] [--site-id ID] {init|photogen|build|serve|run|deploy|upgrade} [args]"
+        echo "Usage: ./ddphotos [OPTIONS] {init|photogen|build|serve|run|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
-        echo "  --album-dir DIR   Album directory to mount (default: script location)"
+        echo "  --album-dir DIR   Album directory to mount as /ddphotos (default: script location)"
         echo "  --site-id ID      Site ID override (default: settings.id from albums.yaml)"
+        echo "  --config-dir DIR  Config directory override (default: album-dir/config)"
+        echo "  --site-env FILE   Path to site.env for deploy (default: config-dir/site.env)"
         echo ""
         echo "Commands:"
         echo "  init      Re-initialize config scaffold"
@@ -166,7 +206,7 @@ case "$cmd" in
         echo "  upgrade   Update this script to match the current image"
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
-        echo "  ./ddphotos photogen -- -config-dir /custom -resize"
+        echo "  ./ddphotos photogen -- -hero-only"
         exit 1
         ;;
 esac
