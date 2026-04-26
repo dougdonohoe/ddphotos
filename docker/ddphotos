@@ -18,7 +18,7 @@ DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
 
 # Parse bases: section from albums.yaml and emit -v flags for external photo dirs.
 # Paths already inside SCRIPT_DIR are skipped (covered by the main /ddphotos mount).
-# Populates MOUNT_ARGS (for docker run) and MOUNT_PATHS (for display).
+# Populates MOUNT_ARGS (for docker run), MOUNT_PATHS and MOUNT_DESTS (for display).
 build_mount_args() {
     local config="$SCRIPT_DIR/config/albums.yaml"
     [ -f "$config" ] || return
@@ -37,6 +37,7 @@ build_mount_args() {
             if [[ "$path" == /* ]] && [[ "$path" != "$SCRIPT_DIR"* ]]; then
                 MOUNT_ARGS+=(-v "$path:$path:ro")
                 MOUNT_PATHS+=("$path")
+                MOUNT_DESTS+=("$path")
             fi
         fi
     done < "$config"
@@ -45,9 +46,11 @@ build_mount_args() {
 # Print all Docker volume mounts for the current command.
 print_mounts() {
     echo "Mounting:"
-    echo "  $SCRIPT_DIR"
-    for p in "${MOUNT_PATHS[@]+"${MOUNT_PATHS[@]}"}"; do
-        echo "  $p (read-only)"
+    echo "  $SCRIPT_DIR -> /ddphotos"
+    local i=0
+    while [ $i -lt ${#MOUNT_PATHS[@]} ]; do
+        echo "  ${MOUNT_PATHS[$i]} -> ${MOUNT_DESTS[$i]} (read-only)"
+        i=$((i + 1))
     done
     echo ""
 }
@@ -83,6 +86,7 @@ case "$cmd" in
         check_version
         MOUNT_ARGS=()
         MOUNT_PATHS=()
+        MOUNT_DESTS=()
         build_mount_args
         print_mounts
         docker run --rm \
@@ -94,6 +98,7 @@ case "$cmd" in
     build)
         check_version
         MOUNT_PATHS=()
+        MOUNT_DESTS=()
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -103,6 +108,7 @@ case "$cmd" in
     serve)
         check_version
         MOUNT_PATHS=()
+        MOUNT_DESTS=()
         print_mounts
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -114,6 +120,7 @@ case "$cmd" in
     run)
         check_version
         MOUNT_PATHS=()
+        MOUNT_DESTS=()
         print_mounts
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -125,14 +132,17 @@ case "$cmd" in
     deploy)
         check_version
         MOUNT_PATHS=()
+        MOUNT_DESTS=()
         DEPLOY_ARGS=()
         if [ -d "$HOME/.ssh" ]; then
             DEPLOY_ARGS+=(-v "$HOME/.ssh":/root/.ssh:ro)
             MOUNT_PATHS+=("$HOME/.ssh")
+            MOUNT_DESTS+=("/root/.ssh")
         fi
         if [ -d "$HOME/.aws" ]; then
             DEPLOY_ARGS+=(-v "$HOME/.aws":/root/.aws:ro)
             MOUNT_PATHS+=("$HOME/.aws")
+            MOUNT_DESTS+=("/root/.aws")
         fi
         for var in AWS_PROFILE AWS_DEFAULT_PROFILE AWS_DEFAULT_REGION AWS_REGION \
                    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do

@@ -27,9 +27,11 @@
 settings:
   id: my-photos
   site_name: My Photos
+  site_url: https://photos.yourdomain.com
   site_description: My personal photo gallery
   copyright_owner: Your Name
   copyright_year: 2026
+  allow_crawling: false
   descriptions: description.txt
   site_title_html: >-
     My Photos
