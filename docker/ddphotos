@@ -241,7 +241,7 @@ case "$cmd" in
         echo "Site ID:     $DDPHOTOS_SITE_ID"
         ;;
     *)
-        echo "Usage: ./ddphotos [OPTIONS] {init|photogen|build|serve|run|deploy|upgrade} [args]"
+        echo "Usage: ddphotos [OPTIONS] {init|photogen|build|serve|run|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
         echo "  --albums-dir DIR   Album directory to mount as /ddphotos (default: script location)"
@@ -261,7 +261,7 @@ case "$cmd" in
         echo "  version --image   Also query the image for its version and git info"
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
-        echo "  ./ddphotos photogen -- -hero-only"
+        echo "  ddphotos photogen -- -hero-only"
         exit 1
         ;;
 esac

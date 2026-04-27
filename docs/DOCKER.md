@@ -4,19 +4,10 @@ The easiest way to run ddphotos is via Docker — no Go, Node, or libvips instal
 
 ## Quick Start
 
-### 1. Install the `ddphotos` wrapper script
+### 1. Scaffolding
 
-The wrapper script handles all `docker run` invocations for you. Install it into a directory on your `PATH`:
-
-```bash
-# Into ~/.local/bin (common on Linux/Mac)
-docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos init --script-only
-
-# Or into ~/bin
-docker run --rm -v ~/bin:/ddphotos dougdonohoe/ddphotos init --script-only
-```
-
-Or initialize a dedicated working directory that contains both the script and your config:
+Initialize a dedicated working directory that contains both the script and
+a stater config:
 
 ```bash
 mkdir ~/my-ddphotos
@@ -24,7 +15,7 @@ docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
 cd ~/my-ddphotos
 ```
 
-### 2. Generate, run, build, and serve the example site
+### 2. Generate, run, build, and serve the starter site
 
 ```bash
 cd ~/my-ddphotos
@@ -47,7 +38,28 @@ Configure `config/site.env` for rsync or S3, then:
 ./ddphotos deploy
 ```
 
-See [Deployment](../README.md#deployment) for full setup details.
+See [Deployment](../README-DEV.md#deployment) for full setup details.
+
+### 5. Install the `ddphotos` wrapper script
+
+Advanced users can install just the wrapper script, which handles all `docker run` invocations 
+for you. Install it into a directory on your `PATH`:
+
+```bash
+# Into ~/.local/bin (common on Linux/Mac)
+docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos init --script-only
+
+# Or into ~/bin
+docker run --rm -v ~/bin:/ddphotos dougdonohoe/ddphotos init --script-only
+```
+
+If you have `ddphotos` on the path and the `ddphotos` repo checked out under `~/work`, you
+can use the script to generate and run the sample site:
+
+```bash
+ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
+ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config run
+```
 
 ---
 
@@ -91,7 +103,8 @@ Builds the static site output into `build/`.
 
 ### `serve`
 
-Serves the built static site via Apache at `http://localhost:8080`. Good for testing the final output before deploying.
+Serves the built static site via Apache at `http://localhost:8080`. 
+Good for testing the final output before deploying.
 
 ```bash
 ./ddphotos serve
@@ -99,11 +112,14 @@ Serves the built static site via Apache at `http://localhost:8080`. Good for tes
 
 ### `deploy`
 
-Syncs the built site and album data to a remote host via rsync or S3. Requires `config/site.env`.
+Syncs the built site and album data to a remote host via rsync or S3. 
+Requires `config/site.env`.
 
 ```bash
 ./ddphotos deploy
 ```
+
+See [Deployment](../README-DEV.md#deployment) for full setup details.
 
 ### `upgrade`
 
@@ -113,24 +129,58 @@ Updates the local `ddphotos` wrapper script to match the current Docker image.
 ./ddphotos upgrade
 ```
 
+### `version`
+
+Prints the script location, image tag, and config paths. Runs locally — no Docker required.
+
+```bash
+./ddphotos version
+```
+
+```
+Script:      /Users/you/.local/bin/ddphotos
+Image:       dougdonohoe/ddphotos:v1.2.0
+Albums dir:  /Users/you/my-ddphotos
+Config dir:  /Users/you/my-ddphotos/config
+Site ID:     my-photos
+```
+
+Add `--image` to also query the image for its build details:
+
+```bash
+./ddphotos version --image
+```
+
+```
+Script:      /Users/you/.local/bin/ddphotos
+Image:       dougdonohoe/ddphotos:v1.2.0
+               Version:  v1.2.0
+               Git:      v1.2.0-0-gabcdef1
+Albums dir:  /Users/you/my-ddphotos
+Config dir:  /Users/you/my-ddphotos/config
+Site ID:     my-photos
+```
+
+The `--albums-dir`, `--config-dir`, and `--site-id` pre-command flags also work with `version`, making it useful for confirming which config a given invocation would use.
+
 ---
 
 ## Pre-command Flags
 
 These flags go before the command name and apply to all commands that need them:
 
-| Flag | Description |
-|---|---|
+| Flag                  | Description                                                                                           |
+|-----------------------|-------------------------------------------------------------------------------------------------------|
 | `--albums-dir <path>` | Directory containing your config and albums output (default: same directory as the `ddphotos` script) |
-| `--config-dir <path>` | Path to a config directory other than `<albums-dir>/config` |
-| `--site-id <id>` | Override the site ID (normally read from `config/albums.yaml`) |
-| `--site-env <path>` | Path to a `site.env` file other than `<config-dir>/site.env` |
+| `--config-dir <path>` | Path to a config directory other than `<albums-dir>/config`                                           |
+| `--site-id <id>`      | Override the site ID (normally read from `config/albums.yaml`)                                        |
+| `--site-env <path>`   | Path to a `site.env` file other than `<config-dir>/site.env`                                          |
 
 Example — using a separate source repo as the albums dir:
 
 ```bash
-./ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
-./ddphotos --albums-dir ~/work/ddphotos --site-id sample build
+ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
+ddphotos --albums-dir ~/work/ddphotos --site-id sample build
 ```
 
 ---
@@ -160,7 +210,7 @@ Every command (except `init` and `upgrade`) checks that your local `ddphotos` sc
 
 ```
 Error: local ddphotos script does not match the image.
-Run: ./ddphotos upgrade
+Run: ddphotos upgrade
 ```
 
-Run `./ddphotos upgrade` to update the script in place.
+Run `ddphotos upgrade` to update the script in place.
