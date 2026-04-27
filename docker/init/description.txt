@@ -1,1 +1,2 @@
 temporary Edit config/albums.yaml to replace this placeholder with your own albums (also update the site settings), then run photogen again.
+empty This album doesn't have any photos in it.

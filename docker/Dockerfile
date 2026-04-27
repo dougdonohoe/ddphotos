@@ -69,6 +69,7 @@ RUN chmod +x /docker/*.sh
 COPY docker/init/ /docker/init/
 COPY docker/hero.webp /docker/hero.webp
 RUN mkdir -p /htdocs
+RUN mkdir -p /ddphotos-empty
 COPY sample/source/theway/2024-The-Way-14.jpg /ddphotos-init/
 
 ARG DDPHOTOS_VERSION=dev

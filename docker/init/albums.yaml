@@ -55,3 +55,7 @@ albums:
   - slug: temporary
     name: Replace Me
     source: /ddphotos-init
+
+  - slug: empty
+    name: Empty
+    source: /ddphotos-empty
