@@ -41,8 +41,7 @@ See [Deployment](../README-DEV.md#deployment) for full setup details.
 
 ### 5. Install the `ddphotos` wrapper script
 
-Advanced users can install just the wrapper script for you. Install it into a 
-directory on your `PATH`:
+Advanced users can install just the wrapper script into a directory on their `PATH`:
 
 ```bash
 # Into ~/.local/bin (common on Linux/Mac)
@@ -53,7 +52,7 @@ docker run --rm -v ~/bin:/ddphotos dougdonohoe/ddphotos init --script-only
 ```
 
 If you have `ddphotos` on the path and the `ddphotos` repo checked out under `~/work`, you
-can use the script to generate and run the sample site:
+can use the script to photogen and run the [sample site](https://ddphotos.donohoe.info/):
 
 ```bash
 ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
@@ -78,18 +77,28 @@ docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos init --script-onl
 
 ### `photogen`
 
-Resizes source photos to WebP and generates JSON index files. Must be run before `build`, `run`, or `deploy`.
+Resizes source photos to WebP and generates JSON index files. Must be run 
+before `build`, `run`, or `deploy`.
 
 ```bash
-./ddphotos photogen
+ddphotos photogen
 ```
+
+By default, this uses `-resize -index -clean -doit`.  To define your own
+flags, use `--`:
+
+```bash
+ddphotos photogen -- -hero-only
+```
+
+See [CLI Flags](../README-DEV.md#cli-flags) for all flags.
 
 ### `run`
 
 Starts a Vite dev server at `http://localhost:5173`. Live-reloads on template/CSS changes.
 
 ```bash
-./ddphotos run
+ddphotos run
 ```
 
 ### `build`
@@ -97,7 +106,7 @@ Starts a Vite dev server at `http://localhost:5173`. Live-reloads on template/CS
 Builds the static site output into `build/`.
 
 ```bash
-./ddphotos build
+ddphotos build
 ```
 
 ### `serve`
@@ -106,7 +115,7 @@ Serves the built static site via Apache at `http://localhost:8000`.
 Good for testing the final output before deploying.
 
 ```bash
-./ddphotos serve
+ddphotos serve
 ```
 
 ### `deploy`
@@ -115,7 +124,7 @@ Syncs the built site and album data to a remote host via rsync or S3.
 Requires `config/site.env`.
 
 ```bash
-./ddphotos deploy
+ddphotos deploy
 ```
 
 See [Deployment](../README-DEV.md#deployment) for full setup details.
@@ -125,7 +134,7 @@ See [Deployment](../README-DEV.md#deployment) for full setup details.
 Updates the local `ddphotos` wrapper script to match the current Docker image.
 
 ```bash
-./ddphotos upgrade
+ddphotos upgrade
 ```
 
 ### `version`
@@ -133,7 +142,7 @@ Updates the local `ddphotos` wrapper script to match the current Docker image.
 Prints the script location, image tag, and config paths. Runs locally — no Docker required.
 
 ```bash
-./ddphotos version
+ddphotos version
 ```
 
 ```
@@ -147,7 +156,7 @@ Site ID:     my-photos
 Add `--image` to also query the image for its build details:
 
 ```bash
-./ddphotos version --image
+ddphotos version --image
 ```
 
 ```
@@ -205,7 +214,7 @@ my-ddphotos/
 
 ## Version Check and Upgrade
 
-Every command (except `init` and `upgrade`) checks that your local `ddphotos` script matches the image. If they differ, you'll see:
+Every command (except `init`, `upgrade`, and `version`) checks that your local `ddphotos` script matches the image. If they differ, you'll see:
 
 ```
 Error: local ddphotos script does not match the image.

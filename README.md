@@ -139,6 +139,13 @@ S3+CloudFront using `aws s3 sync`. Both use the same `bin/deploy-photos.sh` scri
 runs on S3+CloudFront. Part of what makes the site fast is the CDN and the fact that
 the site is entirely static. See [README-DEV](README-DEV.md) for AWS setup details.
 
+---
+
+# Non-Docker Notes
+
+The following are aimed at developers who want to work directly from this repo,
+instead of using the [Docker](docs/DOCKER.md)-based `ddphotos` tool.
+
 ## Prerequisites
 
 The following setup instructions are Mac-centric (via [Homebrew](https://docs.brew.sh/Installation)). Linux should work with 

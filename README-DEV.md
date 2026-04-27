@@ -236,8 +236,10 @@ as defined in `config/defaults.env`.
 | `sample-test-apache`          | Run routing tests against Docker/Apache on port 8082                                          |
 | `sample-test-nginx`           | Run routing tests against Docker/nginx on port 8082                                           |
 | `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Docker container, verify      |
-| `sample-s3-test`              | Test the S3 deploy path against MinIO: verifies file placement and Cache-Control headers       |
+| `sample-s3-test`              | Test the S3 deploy path against MinIO: verifies file placement and Cache-Control headers      |
 | `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                  |
+| `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                       |
+| `docker-push`                 | Build multi-arch image and push to Docker Hub (`bin/docker-push.sh`)                          |
 
 ## Generating Photos (`photogen`)
 
