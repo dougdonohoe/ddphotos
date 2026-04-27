@@ -79,7 +79,6 @@ RUN echo "$DDPHOTOS_VERSION" > /docker/VERSION
 ARG DDPHOTOS_IMAGE=ddphotos
 RUN sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
 
-VOLUME /ddphotos
 EXPOSE 80
 
 ENTRYPOINT ["/docker/entrypoint.sh"]

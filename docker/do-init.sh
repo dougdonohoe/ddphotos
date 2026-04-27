@@ -12,14 +12,12 @@ chmod +x /ddphotos/ddphotos
 
 # --script-only: install just the ddphotos wrapper script, skip config scaffold
 if [ "${1:-}" = "--script-only" ]; then
-    echo "ddphotos script installed."
-    echo ""
+    echo "Standalone 'ddphotos' script installed."
+    echo
     echo "Usage with a separate albums directory:"
     echo
-    echo "  ddphotos --albums-dir ~/my-ddphotos photogen"
-    echo "  ddphotos --albums-dir ~/my-ddphotos run"
-    echo "  ddphotos --albums-dir ~/my-ddphotos build"
-    echo "  ddphotos --albums-dir ~/my-ddphotos serve"
+    echo "  ddphotos --albums-dir ~/my-ddphotos photogen|run|build|serve|upgrade"
+    echo
     exit 0
 fi
 
@@ -37,23 +35,24 @@ cp /docker/init/description.txt "$CONFIG/description.txt"
 cp /docker/init/custom.css "$CONFIG/custom.css"
 cp /docker/init/passwords.yaml "$CONFIG/passwords.yaml"
 
-echo "Initialized ~/my-ddphotos"
-echo ""
+echo "Initialized ddphotos!"
+echo
 echo "Next steps - generate, run, build and serve the example site:"
-echo ""
-echo "  1. cd ~/my-ddphotos"
-echo "  2. ./ddphotos photogen"
-echo "  3. ./ddphotos run"
-echo "  4. ./ddphotos build"
-echo "  5. ./ddphotos serve"
-echo ""
+echo
+echo "  1. cd [your-ddphotos-dir] # the same directory in your -v parameter to 'docker run'"
+echo "  2. ./ddphotos photogen    # to resize images and create index files"
+echo "  3. ./ddphotos run         # to run dev server"
+echo "  4. ./ddphotos build       # to build static site"
+echo "  5. ./ddphotos serve       # to serve static site via Apache"
+echo
 echo "Then build your site:"
-echo ""
-echo "  1. Edit ~/my-ddphotos/config/albums.yaml to define your own albums"
+echo
+echo "  1. Edit config/albums.yaml to define your own albums"
 echo "  2. Repeat photogen, run, build, serve"
-echo ""
-echo "When ready to deploy, configure your site.env for rsync or s3"
+echo
+echo "When ready to deploy, configure your   config/site.env for rsync or s3"
+echo
 echo "  1. ./ddphotos deploy"
-echo ""
+echo
 echo "Docs:  https://github.com/dougdonohoe/ddphotos"
-echo ""
+echo

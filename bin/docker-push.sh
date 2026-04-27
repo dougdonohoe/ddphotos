@@ -6,6 +6,11 @@ cd "$SDIR/.."
 
 REPO="dougdonohoe/ddphotos"
 
+DOIT=false
+for arg in "$@"; do
+    [ "$arg" = "--doit" ] && DOIT=true
+done
+
 # Determine version tag
 if ! git diff --quiet || ! git diff --cached --quiet; then
     VERSION="dev"
@@ -27,9 +32,11 @@ else
     echo "Pushing: $REPO:$VERSION  +  $REPO:latest"
 fi
 echo ""
-read -r -p "Continue? [y/N] " answer
-[[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
-echo ""
+if ! $DOIT; then
+    read -r -p "Continue? [y/N] " answer
+    [[ "$answer" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
+    echo ""
+fi
 
 # Ensure buildx builder exists
 if ! docker buildx inspect ddphotos-builder > /dev/null 2>&1; then
