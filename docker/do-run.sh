@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
@@ -22,4 +22,11 @@ echo ""
 export DDPHOTOS_ALBUMS_DIR=/ddphotos/albums
 export DDPHOTOS_SITE_ID="$SITE_ID"
 cd /app/web
-exec npm run dev -- --port "$RUN_PORT"
+
+# set -m puts background jobs in their own process group, so Ctrl-C (SIGINT) goes
+# only to this shell — not npm — letting us kill it cleanly without npm's error output.
+set -m
+npm run dev -- --port "$RUN_PORT" &
+NPM_PID=$!
+trap "kill -- -$NPM_PID 2>/dev/null; exit 0" INT TERM
+wait "$NPM_PID" || true
