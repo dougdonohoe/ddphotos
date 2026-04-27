@@ -230,7 +230,12 @@ case "$cmd" in
         ;;
     version)
         echo "Script:      $SCRIPT_DIR/ddphotos"
-        echo "Image:       $IMAGE"
+        if [ "${1:-}" = "--image" ]; then
+            echo "Image:       $IMAGE"
+            docker run --rm "$IMAGE" version | sed 's/^/               /'
+        else
+            echo "Image:       $IMAGE"
+        fi
         echo "Albums dir:  $DDPHOTOS_ALBUMS_DIR"
         echo "Config dir:  $CONFIG_HOST_DIR"
         echo "Site ID:     $DDPHOTOS_SITE_ID"
@@ -252,7 +257,8 @@ case "$cmd" in
         echo "  run       Preview the site via Vite dev server on port \$RUN_PORT (default 5173)"
         echo "  deploy    Deploy build and albums to remote host"
         echo "  upgrade   Update this script to match the current 'ddphotos' image"
-        echo "  version   Print script location, image, and config paths (no Docker required)"
+        echo "  version           Print script location, image, and config paths (no Docker required)"
+        echo "  version --image   Also query the image for its version and git info"
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
         echo "  ./ddphotos photogen -- -hero-only"

@@ -4,8 +4,8 @@ set -e
 cmd="${1:-help}"
 shift 2>/dev/null || true
 
-# Verify the mounted ddphotos script matches the image (skip for init/upgrade)
-if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ]; then
+# Verify the mounted ddphotos script matches the image (skip for init/upgrade/version)
+if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ] && [ "$cmd" != "version" ]; then
     if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
         echo "Error: local ddphotos script does not match the image."
         echo "Run: ./ddphotos upgrade"
@@ -20,6 +20,10 @@ case "$cmd" in
     serve)    exec /docker/do-serve.sh "$@" ;;
     run)      exec /docker/do-run.sh "$@" ;;
     deploy)   exec /docker/do-deploy.sh "$@" ;;
+    version)
+        echo "Version:  $(cat /docker/VERSION 2>/dev/null || echo unknown)"
+        echo "Git:      $(cat /docker/GIT_DESCRIBE 2>/dev/null || echo unknown)"
+        ;;
     upgrade)
         SCRIPT=/ddphotos-script-dir/ddphotos
         VERSION=$(cat /docker/VERSION 2>/dev/null || echo "dev")
