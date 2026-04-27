@@ -28,7 +28,7 @@ if [ ! -f "$ALBUMS_CONFIG" ]; then
     exit 1
 fi
 
-if [ -n "$(find "$CONFIG_DIR" -maxdepth 1 -newer "$ALBUMS_CONFIG" ! -name "site.env" 2>/dev/null)" ]; then
+if [ -n "$(find "$CONFIG_DIR" -maxdepth 1 -type f -newer "$ALBUMS_CONFIG" ! -name "site.env" 2>/dev/null)" ]; then
     echo "Error: config is newer than album data. Run 'photogen' before 'deploy'."
     exit 1
 fi
