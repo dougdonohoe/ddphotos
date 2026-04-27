@@ -1300,3 +1300,77 @@ MinIO was chosen over LocalStack: LocalStack is ~1.1GB and hit a Docker 500 erro
 - `sample-s3-test` target calls `bin/s3-test.sh`.
 - `README-DEV.md` Makefile table and deploy testing snippet updated to document the new target.
 - CI gains a final step: `make sample-s3-test`.
+
+### 63. 04/27/2026 - Full Docker Workflow
+
+#### Motivation
+
+Running ddphotos locally requires Go, libvips, pkg-config, and Node — a non-trivial setup, especially on Linux or for non-developers. This session adds a complete Docker-based workflow so anyone can run the full pipeline (photo processing, dev server, static build, and deploy) with only Docker installed.
+
+#### Docker Image (`docker/Dockerfile`)
+
+Multi-stage build:
+
+- **Stage 1** (Go builder): compiles `photogen` with CGO against `libvips-dev`
+- **Stage 2** (Node builder): runs `npm ci` to pre-install `node_modules`
+- **Stage 3** (runtime): Debian slim with libvips, Node 22, Apache, rsync, openssh-client, and AWS CLI v2
+
+Three values are baked in at build time via `ARG` + `RUN echo`:
+- `/docker/VERSION` — short version tag (e.g., `dev` or `v1.2.0`)
+- `/docker/GIT_DESCRIBE` — full `git describe --tags --long --dirty --always` output
+- `/docker/IMAGE` — full image reference (e.g., `dougdonohoe/ddphotos:dev`); also patched into the wrapper script via `RUN sed -i`
+
+#### Wrapper Script (`docker/ddphotos`)
+
+A single `ddphotos` bash script that users install locally and invoke instead of `docker run` directly. It handles all volume mounts, port bindings, and environment variable forwarding. Key design decisions:
+
+- Pre-command flags parsed before the command name: `--albums-dir`, `--config-dir`, `--site-id`, `--site-env`
+- `DDPHOTOS_ALBUMS_DIR` (the `/ddphotos` mount) defaults to the script's own directory, so the script works whether it lives inside the album directory or somewhere on `$PATH`
+- `SCRIPT_DIR` is always mounted separately as `/ddphotos-script-dir` so the container can verify and upgrade the script regardless of what `DDPHOTOS_ALBUMS_DIR` points to
+- External `--config-dir` paths are mounted as `/ddphotos-config` when they fall outside `DDPHOTOS_ALBUMS_DIR`
+- `build_mount_args` parses `bases:` from `albums.yaml` and emits `-v` flags for external photo directories, resolving `~` and skipping paths already covered by the main mount
+- Pre-flight validation checks that `albums.yaml` exists before launching Docker for any command that needs it, with a helpful error message guiding PATH-installed users to pass `--albums-dir`
+
+#### Entrypoint and Commands (`docker/entrypoint.sh`, `docker/do-*.sh`)
+
+`entrypoint.sh` routes to the appropriate `do-*.sh` script. It also enforces a version check on every invocation (except `init`, `upgrade`, and `version`): if the mounted local `ddphotos` script differs from `/docker/ddphotos`, the user is told to run `upgrade`.
+
+Commands:
+
+- **`init`** — copies the wrapper script and config scaffold into the mounted directory; `--script-only` installs just the script for PATH-based use
+- **`photogen`** — runs `photogen` with `cd /ddphotos` so relative base paths in `albums.yaml` resolve correctly; respects `DDPHOTOS_CONFIG_DIR`
+- **`run`** — Vite dev server on port 5173; uses `set -m` bash job control so Ctrl-C goes to the shell only, killing the npm process group cleanly without printing npm's error output
+- **`build`** — `npm run build`; symlinks `/ddphotos/build` for the adapter-static output
+- **`serve`** — Apache on port 8000 (configurable via `$SERVE_PORT`)
+- **`deploy`** — mounts `~/.ssh` and `~/.aws`, forwards AWS env vars, enforces a three-level staleness check: config files must be older than photogen output, which must be older than the build
+- **`upgrade`** — atomically replaces the local script using a temp file + `/bin/mv -f` to avoid partial writes
+- **`version`** — prints script path, image tag, albums dir, config dir, and site ID locally without launching Docker; `--image` additionally runs `docker run ... version` to pull `VERSION` and `GIT_DESCRIBE` from inside the image, indented under the Image line
+
+#### Init Scaffolding (`docker/init/`)
+
+- `albums.yaml` — starter config with three example albums: a main album (two bundled sample photos), a password-protected `secret` album, and an empty album
+- `custom.css` — example CSS file with a light/dark `.accent` class, referenced in the starter `site_overview_html`
+- `passwords.yaml` — example password file with hints
+- `description.txt` — placeholder album descriptions
+
+#### Docker Hub Publishing (`bin/docker-push.sh`)
+
+Builds and pushes a multi-arch image (`linux/amd64` + `linux/arm64`) via `docker buildx`:
+- `:dev` tag for dirty or untagged builds; `:vX.Y.Z` + `:latest` for tagged releases
+- `--doit` flag skips the interactive confirmation prompt
+- Captures `git describe` and passes it as `DDPHOTOS_GIT_DESCRIBE` so the image carries its source provenance
+- `make docker-build` for local single-arch builds; `make docker-push` wraps the script
+
+#### About Dialog Version Info
+
+The web UI's About dialog gains a Docker-aware **Image** row:
+
+- In Docker builds, `do-build.sh` and `do-run.sh` export `VITE_GIT_DESCRIBE` (from `/docker/GIT_DESCRIBE`) and `VITE_DOCKER_IMAGE` (from `/docker/IMAGE`) before running npm
+- `VITE_DOCKER_IMAGE` is only set in Docker builds; in local dev it is empty and the Image row is hidden
+- In local dev builds, `vite.config.ts` continues to derive `VITE_GIT_DESCRIBE` from `git describe` as before
+
+#### Documentation
+
+- `README.md` — new **Docker Quick Start** section inserted before Motivation: eight-line quick start with link to the full reference
+- `docs/DOCKER.md` — new complete Docker reference covering quick start, all commands with example output, pre-command flags table, directory layout, and version check/upgrade behavior
+- `README-DEV.md` — `docker-build` and `docker-push` added to the Makefile targets table
