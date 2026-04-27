@@ -33,12 +33,13 @@ settings:
   copyright_year: 2026
   allow_crawling: false
   descriptions: description.txt
+  css: custom.css
   site_title_html: >-
     My Photos
   site_subtitle_html: >-
     A personal photo gallery.
   site_overview_html: >-
-    Welcome to my photo gallery.
+    Welcome to my <span class="accent">photo gallery</span>.
   hero:
     image: /docker/hero.webp
     crop: center

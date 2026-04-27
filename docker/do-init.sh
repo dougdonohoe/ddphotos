@@ -34,6 +34,7 @@ fi
 mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build
 cp /docker/init/albums.yaml "$CONFIG/albums.yaml"
 cp /docker/init/description.txt "$CONFIG/description.txt"
+cp /docker/init/custom.css "$CONFIG/custom.css"
 
 echo "Initialized ~/my-ddphotos"
 echo ""

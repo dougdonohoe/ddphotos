@@ -1,0 +1,17 @@
+/*
+ * custom.css — site-specific style overrides
+ *
+ * Dark mode:  [data-theme="dark"]  on <html>
+ * Light mode: [data-theme="light"] on <html>
+ *
+ * This example colors the .accent class differently per theme.
+ * Used in site_overview_html: Welcome to my <span class="accent">photo gallery</span>.
+ */
+
+[data-theme="light"] .accent {
+    color: #1a7f4b;
+}
+
+[data-theme="dark"] .accent {
+    color: #4ade80;
+}
