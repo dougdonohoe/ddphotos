@@ -34,6 +34,7 @@ settings:
   allow_crawling: false
   descriptions: description.txt
   css: custom.css
+  passwords: passwords.yaml
   site_title_html: >-
     My Photos
   site_subtitle_html: >-
@@ -55,6 +56,11 @@ albums:
   - slug: temporary
     name: Replace Me
     source: /ddphotos-init
+    cover: 2024-The-Way-14.jpg
+
+  - slug: secret
+    name: Secret
+    source: /ddphotos-secret
 
   - slug: empty
     name: Empty

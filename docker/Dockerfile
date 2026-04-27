@@ -68,9 +68,10 @@ RUN chmod +x /docker/*.sh
 # Init templates and placeholder album directory
 COPY docker/init/ /docker/init/
 COPY docker/hero.webp /docker/hero.webp
-RUN mkdir -p /htdocs
-RUN mkdir -p /ddphotos-empty
 COPY sample/source/theway/2024-The-Way-14.jpg /ddphotos-init/
+COPY sample/source/theway/2024-The-Way-21.jpg /ddphotos-secret/
+RUN mkdir -p /ddphotos-empty
+RUN mkdir -p /htdocs
 
 ARG DDPHOTOS_VERSION=dev
 RUN echo "$DDPHOTOS_VERSION" > /docker/VERSION

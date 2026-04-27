@@ -8,6 +8,7 @@ memory/
 requirements.txt
 sample/
 !sample/source/theway/2024-The-Way-14.jpg
+!sample/source/theway/2024-The-Way-21.jpg
 web/node_modules
 web/test-results
 web/build

@@ -1,2 +1,3 @@
-temporary Edit config/albums.yaml to replace this placeholder with your own albums (also update the site settings), then run photogen again.
+temporary Edit config/albums.yaml to replace this placeholder with your own albums (also update the site settings). Then run 'ddphotos photogen' and 'ddphotos run' again.
+secret This album has a password.
 empty This album doesn't have any photos in it.
