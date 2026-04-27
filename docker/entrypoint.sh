@@ -22,13 +22,14 @@ case "$cmd" in
     deploy)   exec /docker/do-deploy.sh "$@" ;;
     upgrade)
         SCRIPT=/ddphotos-script-dir/ddphotos
+        VERSION=$(cat /docker/VERSION 2>/dev/null || echo "dev")
         if diff -q /docker/ddphotos "$SCRIPT" > /dev/null 2>&1; then
-            echo "ddphotos is up to date."
+            echo "ddphotos is up to date ($VERSION)."
         else
             /bin/cp /docker/ddphotos "${SCRIPT}.new"
             chmod +x "${SCRIPT}.new"
             /bin/mv -f "${SCRIPT}.new" "$SCRIPT"
-            echo "ddphotos script upgraded."
+            echo "ddphotos script upgraded ($VERSION)."
         fi
         ;;
     *)

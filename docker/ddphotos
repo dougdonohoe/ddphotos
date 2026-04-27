@@ -9,10 +9,10 @@ OPT_CONFIG_DIR=""
 OPT_SITE_ENV=""
 while [[ "${1:-}" == --?* ]]; do
     case "$1" in
-        --albums-dir)  DDPHOTOS_ALBUMS_DIR="$2"; shift 2 ;;
-        --site-id)    DDPHOTOS_SITE_ID="$2";   shift 2 ;;
-        --config-dir) OPT_CONFIG_DIR="$2";     shift 2 ;;
-        --site-env)   OPT_SITE_ENV="$2";       shift 2 ;;
+        --albums-dir) DDPHOTOS_ALBUMS_DIR="$2"; shift 2 ;;
+        --site-id)    DDPHOTOS_SITE_ID="$2";    shift 2 ;;
+        --config-dir) OPT_CONFIG_DIR="$2";      shift 2 ;;
+        --site-env)   OPT_SITE_ENV="$2";        shift 2 ;;
         *)            break ;;
     esac
 done

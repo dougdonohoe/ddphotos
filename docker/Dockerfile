@@ -74,6 +74,9 @@ COPY sample/source/theway/2024-The-Way-14.jpg /ddphotos-init/
 ARG DDPHOTOS_VERSION=dev
 RUN echo "$DDPHOTOS_VERSION" > /docker/VERSION
 
+ARG DDPHOTOS_IMAGE=ddphotos
+RUN sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
+
 VOLUME /ddphotos
 EXPOSE 80
 
