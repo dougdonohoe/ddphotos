@@ -36,6 +36,7 @@
 	const builtOn = formatBuildTime(import.meta.env.VITE_BUILD_TIME);
 	const gitDescribe = import.meta.env.VITE_GIT_DESCRIBE as string;
 	const gitBranch = import.meta.env.VITE_GIT_BRANCH as string;
+	const dockerImage = import.meta.env.VITE_DOCKER_IMAGE;
 	const gitRepoSlug = import.meta.env.VITE_GIT_REPO_SLUG as string;
 	const gitRepoUrl = import.meta.env.VITE_GIT_REPO_URL as string;
 	const showBranch = gitBranch && gitBranch !== 'main';
@@ -109,6 +110,10 @@
 				<dl class="modal-body">
 					<dt>Built</dt>
 					<dd>{builtOn}</dd>
+					{#if dockerImage}
+						<dt>Image</dt>
+						<dd>{dockerImage}</dd>
+					{/if}
 					<dt>Version</dt>
 					<dd>{gitDescribe}</dd>
 					{#if showBranch}

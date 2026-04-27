@@ -55,6 +55,7 @@ function gitInfo(cmd: string): string {
 }
 process.env.VITE_GIT_DESCRIBE ??= gitInfo('git describe --tags --long --dirty --always');
 process.env.VITE_GIT_BRANCH ??= gitInfo('git rev-parse --abbrev-ref HEAD');
+process.env.VITE_DOCKER_IMAGE ??= '';
 
 // Parse git remote URL into { slug: "owner/repo", url: "https://github.com/owner/repo" }.
 // Handles both https://github.com/owner/repo[.git] and git@github.com:owner/repo[.git].

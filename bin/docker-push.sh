@@ -46,9 +46,12 @@ else
     docker buildx use ddphotos-builder
 fi
 
+GIT_DESCRIBE=$(git describe --tags --long --dirty --always 2>/dev/null || echo "unknown")
+
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
     --build-arg DDPHOTOS_VERSION="$VERSION" \
+    --build-arg DDPHOTOS_GIT_DESCRIBE="$GIT_DESCRIBE" \
     --build-arg DDPHOTOS_IMAGE="$IMAGE_TAG" \
     "${TAGS[@]}" \
     -f docker/Dockerfile \

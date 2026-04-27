@@ -111,7 +111,7 @@ SCRIPT_MOUNT=(-v "$SCRIPT_DIR":/ddphotos-script-dir)
 
 # For commands that need a config, validate albums.yaml exists before launching Docker.
 case "$cmd" in
-    init|upgrade|help) ;;
+    init|upgrade|help|version) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
@@ -228,6 +228,13 @@ case "$cmd" in
             "${SCRIPT_MOUNT[@]}" \
             "$IMAGE" upgrade
         ;;
+    version)
+        echo "Script:      $SCRIPT_DIR/ddphotos"
+        echo "Image:       $IMAGE"
+        echo "Albums dir:  $DDPHOTOS_ALBUMS_DIR"
+        echo "Config dir:  $CONFIG_HOST_DIR"
+        echo "Site ID:     $DDPHOTOS_SITE_ID"
+        ;;
     *)
         echo "Usage: ./ddphotos [OPTIONS] {init|photogen|build|serve|run|deploy|upgrade} [args]"
         echo ""
@@ -245,6 +252,7 @@ case "$cmd" in
         echo "  run       Preview the site via Vite dev server on port \$RUN_PORT (default 5173)"
         echo "  deploy    Deploy build and albums to remote host"
         echo "  upgrade   Update this script to match the current 'ddphotos' image"
+        echo "  version   Print script location, image, and config paths (no Docker required)"
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
         echo "  ./ddphotos photogen -- -hero-only"

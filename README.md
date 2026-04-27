@@ -4,6 +4,25 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Demo](https://img.shields.io/badge/Demo-ddphotos.donohoe.info-blue)](https://ddphotos.donohoe.info)
 
+## Docker Quick Start
+
+The easiest way to run DD Photos is via [Docker](https://www.docker.com/get-started/) — no Go, Node, or libvips required.
+
+```bash
+mkdir ~/my-ddphotos
+docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
+cd ~/my-ddphotos
+./ddphotos photogen   # resize images and create index files
+./ddphotos run        # dev server at http://localhost:5173
+./ddphotos build      # build static site
+./ddphotos serve      # serve static site via Apache at http://localhost:8080
+```
+
+Then edit `config/albums.yaml` to define your own albums and repeat.
+When ready to deploy, configure `config/site.env` and run `./ddphotos deploy`.
+
+See [docs/DOCKER.md](docs/DOCKER.md) for full details: all commands, flags, directory layout, and upgrade instructions.
+
 ## Motivation
 
 I was dissatisfied with photo sharing sites, especially Apple's iCloud shared albums,
@@ -21,7 +40,7 @@ too, which is why I've open-sourced it.
 
 ## Overview
 
-The site has a home page, with all of your albums and their description.
+A DD Photos site has a home page, with all of your albums and their description.
 You can easily switch between dark and light themes.  Click/touch an album and 
 you see a grid of all photos.  Click/touch a photo to see the full size version and
 a caption, if it has one. You can easily swipe between photos (or use

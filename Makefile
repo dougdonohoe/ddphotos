@@ -277,7 +277,9 @@ DDPHOTOS_IMAGE  ?= ddphotos
 .PHONY: docker-build
 ## docker-build: build the ddphotos Docker image
 docker-build:
-	docker build -t $(DDPHOTOS_IMAGE) -f docker/Dockerfile .
+	docker build -t $(DDPHOTOS_IMAGE) \
+		--build-arg DDPHOTOS_GIT_DESCRIBE="$$(git describe --tags --long --dirty --always 2>/dev/null || echo unknown)" \
+		-f docker/Dockerfile .
 
 .PHONY: docker-push
 ## docker-push: build multi-arch image and push to Docker Hub (tag: dev or vX.Y.Z+latest)

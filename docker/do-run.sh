@@ -9,7 +9,8 @@ if [ ! -d "/ddphotos/albums/$SITE_ID" ]; then
     exit 1
 fi
 
-export VITE_GIT_DESCRIBE=$(cat /docker/IMAGE 2>/dev/null || echo "ddphotos")
+export VITE_GIT_DESCRIBE=$(cat /docker/GIT_DESCRIBE 2>/dev/null || echo "unknown")
+export VITE_DOCKER_IMAGE=$(cat /docker/IMAGE 2>/dev/null || echo "")
 export VITE_GIT_BRANCH=""
 export VITE_GIT_REPO_SLUG="dougdonohoe/ddphotos"
 export VITE_GIT_REPO_URL="https://github.com/dougdonohoe/ddphotos"

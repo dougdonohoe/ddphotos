@@ -12,6 +12,7 @@ declare global {
 
 interface ImportMetaEnv {
 	readonly VITE_BUILD_TIME: string;
+	readonly VITE_DOCKER_IMAGE: string;
 }
 
 // Augments Vite's built-in ImportMeta interface to add type-safe access to
