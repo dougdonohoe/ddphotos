@@ -6,16 +6,17 @@
 
 ## Docker Quick Start
 
-The easiest way to run DD Photos is via [Docker](https://www.docker.com/get-started/) — no Go, Node, or libvips required.
+The easiest way to run DD Photos is via [Docker](https://www.docker.com/get-started/) — no Go, 
+Node, or libvips required.  Try the starter site:
 
 ```bash
 mkdir ~/my-ddphotos
 docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
 cd ~/my-ddphotos
 ./ddphotos photogen   # resize images and create index files
-./ddphotos run        # dev server at http://localhost:5173
+./ddphotos run        # run dev server at http://localhost:5173
 ./ddphotos build      # build static site
-./ddphotos serve      # serve static site via Apache at http://localhost:8080
+./ddphotos serve      # serve static site via Apache at http://localhost:8000
 ```
 
 Then edit `config/albums.yaml` to define your own albums and repeat.

@@ -4,15 +4,14 @@ The easiest way to run ddphotos is via Docker — no Go, Node, or libvips instal
 
 ## Quick Start
 
-### 1. Scaffolding
+### 1. Initialize Scaffolding
 
-Initialize a dedicated working directory that contains both the script and
-a stater config:
+Initialize a dedicated working directory that contains both the `ddphotos` script and
+a starter config:
 
 ```bash
 mkdir ~/my-ddphotos
 docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
-cd ~/my-ddphotos
 ```
 
 ### 2. Generate, run, build, and serve the starter site
@@ -20,9 +19,9 @@ cd ~/my-ddphotos
 ```bash
 cd ~/my-ddphotos
 ./ddphotos photogen   # resize images and create index files
-./ddphotos run        # dev server at http://localhost:5173
+./ddphotos run        # run dev server at http://localhost:5173
 ./ddphotos build      # build static site
-./ddphotos serve      # serve static site via Apache at http://localhost:8080
+./ddphotos serve      # serve static site via Apache at http://localhost:8000
 ```
 
 ### 3. Build your own site
@@ -42,8 +41,8 @@ See [Deployment](../README-DEV.md#deployment) for full setup details.
 
 ### 5. Install the `ddphotos` wrapper script
 
-Advanced users can install just the wrapper script, which handles all `docker run` invocations 
-for you. Install it into a directory on your `PATH`:
+Advanced users can install just the wrapper script for you. Install it into a 
+directory on your `PATH`:
 
 ```bash
 # Into ~/.local/bin (common on Linux/Mac)
@@ -103,7 +102,7 @@ Builds the static site output into `build/`.
 
 ### `serve`
 
-Serves the built static site via Apache at `http://localhost:8080`. 
+Serves the built static site via Apache at `http://localhost:8000`. 
 Good for testing the final output before deploying.
 
 ```bash
