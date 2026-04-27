@@ -6,7 +6,7 @@ shift 2>/dev/null || true
 
 # Verify the mounted ddphotos script matches the image (skip for init/upgrade)
 if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ]; then
-    if [ -f /ddphotos/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos/ddphotos > /dev/null 2>&1; then
+    if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
         echo "Error: local ddphotos script does not match the image."
         echo "Run: ./ddphotos upgrade"
         exit 1
@@ -21,12 +21,13 @@ case "$cmd" in
     run)      exec /docker/do-run.sh "$@" ;;
     deploy)   exec /docker/do-deploy.sh "$@" ;;
     upgrade)
-        if diff -q /docker/ddphotos /ddphotos/ddphotos > /dev/null 2>&1; then
+        SCRIPT=/ddphotos-script-dir/ddphotos
+        if diff -q /docker/ddphotos "$SCRIPT" > /dev/null 2>&1; then
             echo "ddphotos is up to date."
         else
-            /bin/cp /docker/ddphotos /ddphotos/ddphotos.new
-            chmod +x /ddphotos/ddphotos.new
-            /bin/mv -f /ddphotos/ddphotos.new /ddphotos/ddphotos
+            /bin/cp /docker/ddphotos "${SCRIPT}.new"
+            chmod +x "${SCRIPT}.new"
+            /bin/mv -f "${SCRIPT}.new" "$SCRIPT"
             echo "ddphotos script upgraded."
         fi
         ;;
@@ -34,7 +35,7 @@ case "$cmd" in
         echo "Usage: docker run ddphotos {init|photogen|build|serve|run|deploy|upgrade}"
         echo ""
         echo "Commands:"
-        echo "  init      Create ~/my-ddphotos config scaffold"
+        echo "  init      Create config scaffold (--script-only to install 'ddphotos' script only)"
         echo "  photogen  Process source photos into albums output"
         echo "  build     Build the static site"
         echo "  serve     Preview the site via Apache on port 80"
