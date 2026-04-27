@@ -9,8 +9,7 @@ if [ ! -d "/ddphotos/albums/$SITE_ID" ]; then
     exit 1
 fi
 
-DDPHOTOS_VERSION=$(cat /docker/VERSION 2>/dev/null || echo "dev")
-export VITE_GIT_DESCRIBE="docker-${DDPHOTOS_VERSION}"
+export VITE_GIT_DESCRIBE=$(cat /docker/IMAGE 2>/dev/null || echo "ddphotos")
 export VITE_GIT_BRANCH=""
 export VITE_GIT_REPO_SLUG="dougdonohoe/ddphotos"
 export VITE_GIT_REPO_URL="https://github.com/dougdonohoe/ddphotos"

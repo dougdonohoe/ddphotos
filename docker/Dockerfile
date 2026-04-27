@@ -77,7 +77,8 @@ ARG DDPHOTOS_VERSION=dev
 RUN echo "$DDPHOTOS_VERSION" > /docker/VERSION
 
 ARG DDPHOTOS_IMAGE=ddphotos
-RUN sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
+RUN echo "$DDPHOTOS_IMAGE" > /docker/IMAGE \
+    && sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
 
 EXPOSE 80
 
