@@ -1,25 +1,5 @@
 # Environment Variables
 
-## Site Identity (`albums.yaml`)
-
-Site identity settings live in the `settings:` block of `albums.yaml` and are written
-into either `config.json` or `html.json` by `photogen`. The frontend reads them at 
-runtime via `fetch('/albums/[config|html].json')` — no build-time injection needed.
-
-| Setting              | Required | Description                                                                                                                                              |
-|----------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                                                                          |
-| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags                                                                      |
-| `site_description`   | yes      | Meta description and OG description for the home page                                                                                                    |
-| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                                                                                  |
-| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                                                                            |
-| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)                                                        |
-| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted. Allows links, emphasis, etc. Written to `html.json` / `html.enc.json`. |
-| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font. Written to `html.json` / `html.enc.json`.                                                          |
-| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions). Written to `html.json` / `html.enc.json`.                                 |
-
-`photogen`'s `Config.Validate()` enforces all required fields before any files are written.
-
 ## Deploy Variables (`site.env`)
 
 The `site.env` file holds variables used by `bin/deploy-photos.sh` — nothing that affects the built site itself.
