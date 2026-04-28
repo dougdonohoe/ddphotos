@@ -104,8 +104,7 @@ The CDN (Content Delivery Network) caches content at edge locations around
 the world so visitors get fast load times regardless of where they are,
 and the origin server handles far less traffic.
 
-The deployment script (described below) builds the static site and rsyncs it to
-any SSH accessible server.
+The site is rsynced to the origin server; CloudFront caches and serves it to visitors.
 
 ## S3 + CloudFront
 
