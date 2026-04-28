@@ -230,7 +230,7 @@ for the format.
 ## site.env
 
 Holds deploy credentials — nothing that affects the built site itself.
-See [ENV.md](ENV.md) for the full variable reference.
+See [Deploy Variables](ENV.md#deploy-variables-siteenv) for the full variable reference.
 
 This file should never be committed. Store it outside the repo or in a git-ignored location.
 

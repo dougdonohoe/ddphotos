@@ -31,7 +31,7 @@ cd ~/my-ddphotos
 
 ### 4. Deploy
 
-Configure `config/site.env` for rsync or S3, then:
+Configure `config/site.env` for rsync or S3 (see [site.env](CONFIGURATION.md#siteenv)), then:
 
 ```bash
 ./ddphotos deploy

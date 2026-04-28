@@ -22,17 +22,16 @@ runtime via `fetch('/albums/[config|html].json')` — no build-time injection ne
 
 ## Deploy Variables (`site.env`)
 
-The `site.env` file holds variables used only by deployment scripts — nothing
-that affects the built site itself.
+The `site.env` file holds variables used by `bin/deploy-photos.sh` — nothing that affects the built site itself.
 
-| Variable        | Used by                | Description                                                                         |
-|-----------------|------------------------|-------------------------------------------------------------------------------------|
-| `CLOUDFRONT_ID` | `bin/deploy-photos.sh` | CloudFront distribution ID; if set, cache is invalidated after deploy via `aws` CLI |
-| `S3_BUCKET`     | `bin/deploy-photos.sh` | S3 bucket name for deployment (S3 mode only; requires `--s3`)                       |
-| `RSYNC_HOST`    | `bin/deploy-photos.sh` | Rsync target host, e.g. `user@your-server.example.com` (rsync mode only)            |
-| `RSYNC_DEST`    | `bin/deploy-photos.sh` | Rsync destination path on the server (rsync mode only)                              |
+| Variable        | Description                                                                         |
+|-----------------|-------------------------------------------------------------------------------------|
+| `CLOUDFRONT_ID` | CloudFront distribution ID; if set, cache is invalidated after deploy via `aws` CLI |
+| `S3_BUCKET`     | S3 bucket name for deployment (S3 mode only; requires `--s3`)                       |
+| `RSYNC_HOST`    | Rsync target host, e.g. `user@your-server.example.com` (rsync mode only)            |
+| `RSYNC_DEST`    | Rsync destination path on the server (rsync mode only)                              |
 
-The `bin` scripts `source` this file directly.
+See [site.env](CONFIGURATION.md#siteenv) in the Configuration docs for rsync and S3 examples.
 
 ## Album Location Variables
 
