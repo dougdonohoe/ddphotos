@@ -1374,3 +1374,40 @@ The web UI's About dialog gains a Docker-aware **Image** row:
 - `README.md` — new **Docker Quick Start** section inserted before Motivation: eight-line quick start with link to the full reference
 - `docs/DOCKER.md` — new complete Docker reference covering quick start, all commands with example output, pre-command flags table, directory layout, and version check/upgrade behavior
 - `README-DEV.md` — `docker-build` and `docker-push` added to the Makefile targets table
+
+### 64. 04/28/2026 - Documentation Reorganization
+
+#### Motivation
+
+`README.md` and `README-DEV.md` had grown into monolithic documents covering everything from quick start to deployment internals. With the addition of Docker mode as the preferred workflow, the two-mode distinction (Docker vs. Developer) needed to be explicit throughout the docs. This session splits the content into focused topic files, establishes consistent Docker/Developer framing, and cleans up accumulated stale references.
+
+#### Structure
+
+`README-DEV.md` deleted. Content distributed into 10 focused docs under `docs/`:
+
+- **`CONFIGURATION.md`** (new) — full config reference for `albums.yaml`, `descriptions.txt`, and `site.env`. Key addition: "How Config Reaches the Frontend" section explaining that `photogen` acts as a conduit — the browser never reads `albums.yaml` directly; instead `photogen` writes `config.json`, `html.json`, `albums.json`, per-album `index.json`, `sitemap.xml`, `hero.jpg`, and `custom.css`. Encryption details (AES-256-GCM, PBKDF2-SHA256, Web Crypto API, HMAC-SHA256 WebP filename obfuscation, localStorage SiteID scoping) consolidated here from their former home in PHOTOGEN.md.
+- **`INSTALL.md`** — renamed "Non-Docker Notes" → "Non-Docker Setup"; Configuration section removed and replaced with a link to CONFIGURATION.md; "Developer Tools on PATH" section added.
+- **`PHOTOGEN.md`** — all `go run cmd/photogen/photogen.go` replaced with `bin/photogen`; output location table added (Docker vs. Developer defaults); recursive album sort behavior corrected (global date sort, not per-group).
+- **`DEPLOY.md`** — "Deploying" section split into Docker mode (simple, prescriptive, auto-detects S3 from `site.env`, validates photogen/build freshness, no Playwright) and Developer mode (full pipeline with all flags). CloudFront Function moved to `DEPLOYMENT-SERVERS.md`.
+- **`DEPLOYMENT-SERVERS.md`** — intro paragraph explaining why URL rewriting is needed; CloudFront Function added as a third peer section alongside Apache and nginx.
+- **`TESTING.md`**, **`DEV.md`**, **`MAKEFILE.md`** — contributor-only note added.
+- `README.md` doc index reordered: user-facing docs first, contributor docs (Development, Testing, Makefile) last. `ENV.md` Site Identity section removed (duplicated CONFIGURATION.md).
+
+#### `bin/photogen` and `bin/decode`
+
+Two new shell wrapper scripts committed to `bin/`. Each uses `REPO_ROOT` detection and `exec go run ...` so they work from any directory without a build step. Docs now show `bin/photogen` and `bin/decode` consistently for developer mode.
+
+#### `TEST_ALBUM_*` Elimination
+
+`TEST_ALBUM_LOCAL`, `TEST_ALBUM_PROD`, and `TEST_ALBUM_HYPHEN` removed from `site.env`. `bin/test-photos-server.sh` now fetches `albums.json` dynamically after establishing `BASE`, parses the first album slug via `jq` (falling back to `python3`), and skips album-specific tests gracefully if the fetch fails (encrypted site or server down). The two `TEST_ALBUM_HYPHEN` test blocks dropped entirely. `bin/rsync-test.sh`, `sample/config/site.env`, `config/site.example.env`, `docs/ENV.md`, and `docs/CONFIGURATION.md` all cleaned up.
+
+#### `docker/init/description.txt` → `descriptions.txt`
+
+The init scaffolding file was misnamed. Renamed the file; updated `docker/do-init.sh` and `docker/init/albums.yaml` to match.
+
+#### Other Cleanup
+
+- `site.env` examples (rsync and S3+CloudFront) added to `CONFIGURATION.md` and `config/site.example.env`
+- `DEPLOY.md` personal-blog tone removed ("my server", "my origin server")
+- `ENV.md` Site Identity section removed — it duplicated CONFIGURATION.md and predated the days when settings were passed via environment variables
+- All `README-DEV.md` references eliminated across source files and docs
