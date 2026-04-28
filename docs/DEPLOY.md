@@ -105,9 +105,7 @@ the world so visitors get fast load times regardless of where they are,
 and my origin server handles far less traffic.
 
 The deployment script (described below) builds the static site and rsyncs it to
-a server behind CloudFront. It is specific to my setup, but it is
-parameterized via `site.env` so that others with a similar setup can re-use it.
-It can also be extended or changed to suit your needs.
+any SSH accessible server.
 
 ## S3 + CloudFront
 
