@@ -31,7 +31,7 @@ fi
 
 mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build
 cp /docker/init/albums.yaml "$CONFIG/albums.yaml"
-cp /docker/init/description.txt "$CONFIG/description.txt"
+cp /docker/init/descriptions.txt "$CONFIG/descriptions.txt"
 cp /docker/init/custom.css "$CONFIG/custom.css"
 cp /docker/init/passwords.yaml "$CONFIG/passwords.yaml"
 

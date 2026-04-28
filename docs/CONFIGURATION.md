@@ -7,7 +7,7 @@ use the same files — only the path conventions differ.
 |--------------------|----------|---------------------------------------------------------|
 | `albums.yaml`      | yes      | Albums, site settings, photo base paths                 |
 | `descriptions.txt` | no       | Per-album descriptions shown on the home page           |
-| `site.env`         | no       | Deploy credentials and test variables (never committed) |
+| `site.env`         | no       | Deploy credentials (never committed)                    |
 
 **Docker mode:** `ddphotos init` creates a `config/` directory with starter versions of
 all three files, ready to edit directly — no copying needed.

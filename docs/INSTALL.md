@@ -155,8 +155,7 @@ routing smoke tests:
 make web-docker-test
 ```
 
-These should pass against your site assuming you setup the `TEST_*`
-variables in `site.env` to match your site.
+These should pass against any non-password-protected site.
 
 ## Developer Information
 

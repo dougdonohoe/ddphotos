@@ -1351,7 +1351,7 @@ Commands:
 - `albums.yaml` — starter config with three example albums: a main album (two bundled sample photos), a password-protected `secret` album, and an empty album
 - `custom.css` — example CSS file with a light/dark `.accent` class, referenced in the starter `site_overview_html`
 - `passwords.yaml` — example password file with hints
-- `description.txt` — placeholder album descriptions
+- `descriptions.txt` — placeholder album descriptions
 
 #### Docker Hub Publishing (`bin/docker-push.sh`)
 

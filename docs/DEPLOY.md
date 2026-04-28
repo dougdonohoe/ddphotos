@@ -98,11 +98,11 @@ flowchart LR
 
 The WAF (Web Application Firewall) inspects every incoming request and blocks
 suspicious or malicious traffic (things like bots or known bad IP addresses)
-before it ever reaches my server.
+before it ever reaches the origin server.
 
 The CDN (Content Delivery Network) caches content at edge locations around
 the world so visitors get fast load times regardless of where they are,
-and my origin server handles far less traffic.
+and the origin server handles far less traffic.
 
 The deployment script (described below) builds the static site and rsyncs it to
 any SSH accessible server.

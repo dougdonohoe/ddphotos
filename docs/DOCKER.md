@@ -199,15 +199,15 @@ After `init`, your ddphotos directory looks like this:
 
 ```
 my-ddphotos/
-  ddphotos          ← wrapper script
+  ddphotos           ← wrapper script
   config/
-    albums.yaml     ← album definitions and site settings
-    description.txt ← per-album descriptions
-    custom.css      ← optional CSS overrides
-    passwords.yaml  ← optional password protection
-    site.env        ← deploy credentials (not committed to git)
-  albums/           ← photogen output (generated, not edited)
-  build/            ← static site output (generated, not edited)
+    albums.yaml      ← album definitions and site settings
+    descriptions.txt ← per-album descriptions
+    custom.css       ← optional CSS overrides
+    passwords.yaml   ← optional password protection
+    site.env         ← deploy credentials (not committed to git)
+  albums/            ← photogen output (generated, not edited)
+  build/             ← static site output (generated, not edited)
 ```
 
 ---

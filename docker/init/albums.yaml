@@ -32,7 +32,7 @@ settings:
   copyright_owner: Your Name
   copyright_year: 2026
   allow_crawling: false
-  descriptions: description.txt
+  descriptions: descriptions.txt
   css: custom.css
   passwords: passwords.yaml
   site_title_html: >-
