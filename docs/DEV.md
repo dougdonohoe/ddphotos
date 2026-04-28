@@ -1,5 +1,7 @@
 # Development
 
+**Note:** This page is for contributors developing DD Photos, not for users building their own sites with it.
+
 ## SvelteKit
 
 SvelteKit is two things bundled together:
