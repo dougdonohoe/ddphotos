@@ -2,6 +2,8 @@
 
 set -eo pipefail
 
+echo "Deploy starting with $* ..."
+
 # Parse flags
 SKIP_PHOTOGEN=${NO_PHOTOGEN:+true}; SKIP_PHOTOGEN=${SKIP_PHOTOGEN:-false}
 SKIP_BUILD=false
@@ -125,6 +127,10 @@ trap _docker_cleanup EXIT
 
 # Pre-deploy: run local Docker server tests and Playwright (rsync mode only; skipped for S3).
 _pre_deploy() {
+
+    echo
+    echo "Starting pre-deploy ..."
+
     if [ "$S3_MODE" = true ]; then
         echo "Skipping pre-deploy local tests (--s3 mode)"
     elif [ "$SKIP_PRE_DEPLOY" = true ]; then
@@ -167,6 +173,9 @@ _pre_deploy() {
 # Argument: "s3" to pass --s3 to test-photos-server.sh (S3 mode), empty for rsync mode.
 _post_deploy() {
     local mode="${1:-}"
+
+    echo
+    echo "Starting post-deploy ..."
 
     # Clear cache (skipped in dry-run mode or if CLOUDFRONT_ID is not set)
     if [ "$DRY_RUN" = true ]; then
@@ -280,3 +289,7 @@ else
 
     _post_deploy
 fi
+
+echo
+echo "Deploy done."
+echo

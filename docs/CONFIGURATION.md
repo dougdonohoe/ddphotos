@@ -229,9 +229,24 @@ for the format.
 
 ## site.env
 
-Holds deploy credentials and test variables — nothing that affects the built site itself.
+Holds deploy credentials — nothing that affects the built site itself.
 See [ENV.md](ENV.md) for the full variable reference.
 
 This file should never be committed. Store it outside the repo or in a git-ignored location.
 
-**TODO**: show example for rsync/s3 modes, but want to cleanup TEST_ALBUM_ stuff first
+**rsync deployment:**
+
+```bash
+RSYNC_HOST=user@your-server.example.com
+RSYNC_DEST=/path/to/your/web/root/
+CLOUDFRONT_ID=YOUR_CLOUDFRONT_DISTRIBUTION_ID   # optional; invalidates cache after deploy if you are using CloudFront
+```
+
+**S3 + CloudFront deployment:**
+
+```bash
+S3_BUCKET=your-s3-bucket
+CLOUDFRONT_ID=YOUR_CLOUDFRONT_DISTRIBUTION_ID   # optional; invalidates cache after deploy if you are using CloudFront
+```
+
+See [Deployment](DEPLOY.md) for full deploy details.

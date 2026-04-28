@@ -43,9 +43,6 @@ awk '/site_url:/{print "  site_url: http://localhost:'"$HTTP_PORT"'"; next} {pri
 cat > "$TEMP_CONFIG/site.env" <<EOF
 RSYNC_HOST=root@localhost
 RSYNC_DEST=/usr/local/apache2/htdocs/
-TEST_ALBUM_LOCAL=antarctica
-TEST_ALBUM_PROD=antarctica
-TEST_ALBUM_HYPHEN=the-way
 EOF
 
 # Start container (empty htdocs — rsync fills it)
