@@ -26,8 +26,10 @@ include docs changes.
 
 ## Development Setup
 
-See [README-DEV.md](README-DEV.md) for full setup instructions, environment
-configuration, Makefile targets, and the `photogen` CLI.
+- [docs/INSTALL.md](docs/INSTALL.md) — prerequisites and sample app setup
+- [docs/ENV.md](docs/ENV.md) — environment configuration
+- [docs/MAKEFILE.md](docs/MAKEFILE.md) — all Makefile targets
+- [docs/PHOTOGEN.md](docs/PHOTOGEN.md) — `photogen` CLI flags and configuration
 
 ## Testing
 

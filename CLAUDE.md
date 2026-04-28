@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-See [README-DEV.md](README-DEV.md) for full developer documentation (architecture, data flow, env vars,
+See the [docs/](docs/) directory for full developer documentation (architecture, data flow, env vars,
 Makefile targets, CLI flags, etc.).
 
 ## Type sync requirement

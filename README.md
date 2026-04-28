@@ -137,7 +137,7 @@ That said, I provide two deployment options out of the box: Apache via `rsync`, 
 S3+CloudFront using `aws s3 sync`. Both use the same `bin/deploy-photos.sh` script, with
 `--s3` selecting S3 mode. My personal site ([photos.donohoe.info](https://photos.donohoe.info))
 runs on S3+CloudFront. Part of what makes the site fast is the CDN and the fact that
-the site is entirely static. See [README-DEV](README-DEV.md) for AWS setup details.
+the site is entirely static. See [Deployment](docs/DEPLOY.md) for AWS setup details.
 
 ## Documentation
 

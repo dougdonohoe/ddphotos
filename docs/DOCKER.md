@@ -26,7 +26,7 @@ cd ~/my-ddphotos
 
 ### 3. Build your own site
 
-1. Edit `config/albums.yaml` to define your albums (see [Configuration](../README.md#configuration))
+1. Edit `config/albums.yaml` to define your albums (see [Configuration](INSTALL.md#configuration))
 2. Repeat: `photogen` → `run` / `build` → `serve`
 
 ### 4. Deploy
@@ -37,7 +37,7 @@ Configure `config/site.env` for rsync or S3, then:
 ./ddphotos deploy
 ```
 
-See [Deployment](../README-DEV.md#deployment) for full setup details.
+See [Deployment](DEPLOY.md) for full setup details.
 
 ### 5. Install the `ddphotos` wrapper script
 
@@ -91,7 +91,7 @@ flags, use `--`:
 ddphotos photogen -- -hero-only
 ```
 
-See [CLI Flags](../README-DEV.md#cli-flags) for all flags.
+See [CLI Flags](PHOTOGEN.md#cli-flags) for all flags.
 
 ### `run`
 
@@ -127,7 +127,7 @@ Requires `config/site.env`.
 ddphotos deploy
 ```
 
-See [Deployment](../README-DEV.md#deployment) for full setup details.
+See [Deployment](DEPLOY.md) for full setup details.
 
 ### `upgrade`
 

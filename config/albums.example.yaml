@@ -53,7 +53,7 @@ settings:
   # Passwords file (relative to this config dir). When set, enables encryption
   # of JSON index files. The -passwords CLI flag overrides this at run time.
   # Do not commit real passwords — store this file outside the repo or use
-  # a secrets manager. See README-DEV.md for the passwords file format.
+  # a secrets manager. See docs/PHOTOGEN.md for the passwords file format.
   # passwords: passwords.yaml
 
   # Optional hero image displayed as a full-width banner at the top of the home page.
