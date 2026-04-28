@@ -141,17 +141,18 @@ the site is entirely static. See [Deployment](docs/DEPLOY.md) for AWS setup deta
 
 ## Documentation
 
-| Document                                               | Description                                                                |
-|--------------------------------------------------------|----------------------------------------------------------------------------|
-| [Docker](docs/DOCKER.md)                               | Docker workflow: init, photogen, run, build, serve, deploy, upgrade        |
-| [Non-Docker Setup](docs/INSTALL.md)                    | Prerequisites, sample app, configuration, commands (developer mode)        |
-| [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, hero image, custom CSS, passwords, recursive albums |
-| [Environment Variables](docs/ENV.md)                   | All environment variables: site identity, deploy, album location           |
-| [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                     |
-| [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache `.htaccess` and nginx routing rules                                 |
-| [Makefile Targets](docs/MAKEFILE.md)                   | All `make` targets                                                         |
-| [Development](docs/DEV.md)                             | SvelteKit details, LAN access, debugging                                   |
-| [Testing](docs/TESTING.md)                             | Manual testing, Playwright e2e tests, CI                                   |
+| Document                                               | Description                                                                        |
+|--------------------------------------------------------|------------------------------------------------------------------------------------|
+| [Docker](docs/DOCKER.md)                               | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                |
+| [Non-Docker Setup](docs/INSTALL.md)                    | Prerequisites, sample app, commands (developer mode)                               |
+| [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `descriptions.txt`, `site.env`, and how config reaches the frontend |
+| [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, recursive albums                        |
+| [Environment Variables](docs/ENV.md)                   | All environment variables: site identity, deploy, album location                   |
+| [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                             |
+| [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache `.htaccess` and nginx routing rules                                         |
+| [Makefile Targets](docs/MAKEFILE.md)                   | All `make` targets                                                                 |
+| [Development](docs/DEV.md)                             | SvelteKit details, LAN access, debugging                                           |
+| [Testing](docs/TESTING.md)                             | Manual testing, Playwright e2e tests, CI                                           |
 
 ## Contributing
 

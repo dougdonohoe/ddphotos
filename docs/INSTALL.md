@@ -95,39 +95,8 @@ You should be able to see the site at [localhost:8080](http://localhost:8080).
 **Congratulations!**  Now that you've got the sample site working, you can
 work on your own albums.  You can start first by adding to the sample config
 in `sample/config/albums.yaml`.  Or you can start building your own using the
-examples in `config`.  The sections below provide details about how everything
-works.
-
-## Configuration
-
-There are three primary configuration files involved in creating a site:
-
-* [`albums.yaml`](../config/albums.example.yaml) - **Required** - Defines your list of albums, an id for the site (useful if
-  you have multiple sites), and the locations of your photos.
-* [`descriptions.txt`](../config/descriptions.example.txt) - **Optional** - The description of the album that you see. This
-  is in a separate file to allow sharing of albums across sites (useful in development), 
-  and also enables localization in the future.
-* [`site.env`](../config/site.example.env) - **Optional** - Environment variables for deployment and testing.
-
-The `config` directory contains an example of each file which serves as its
-detailed documentation.  The `sample/config` files are a working 
-example that drives our sample photo album seen at [ddphotos.donohoe.info](https://ddphotos.donohoe.info).
-
-The `config` directory is the default assumed by many commands, so feel free to put 
-your config files there. Just copy the examples and edit them:
-
-```bash
-cp config/albums.example.yaml config/albums.yaml
-cp config/descriptions.example.txt config/descriptions.txt
-cp config/site.example.env config/site.env
-```
-
-**NOTE**: The `settings.id` value in `albums.yaml` is referred to as `<site-id>` below.
-Make sure you change it to something that reflects your actual site, like `vacations` or 
-`memories`.
-
-Another option is to get yourself started is to edit the config files for the sample app.  
-Or create your own config directory and use the `--config-dir` option.
+examples in `config`.  See [CONFIGURATION.md](CONFIGURATION.md) for the full
+config reference.
 
 ## Commands
 

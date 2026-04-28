@@ -25,15 +25,15 @@ runtime via `fetch('/albums/[config|html].json')` — no build-time injection ne
 The `site.env` file holds variables used only by deployment scripts and tests — nothing
 that affects the built site itself.
 
-| Variable            | Used by                     | Description                                                              |
-|---------------------|-----------------------------|--------------------------------------------------------------------------|
-| `CLOUDFRONT_ID`     | `bin/deploy-photos.sh`      | CloudFront distribution ID; if set, cache is invalidated after deploy    |
-| `S3_BUCKET`         | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3`)            |
-| `RSYNC_HOST`        | `bin/deploy-photos.sh`      | Rsync target host, e.g. `user@your-server.example.com` (rsync mode only) |
-| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (rsync mode only)                   |
-| `TEST_ALBUM_LOCAL`  | `bin/test-photos-server.sh` | Album slug used for local server tests                                   |
-| `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                                     |
-| `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case)                   |
+| Variable            | Used by                     | Description                                                                                                             |
+|---------------------|-----------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `CLOUDFRONT_ID`     | `bin/deploy-photos.sh`      | CloudFront distribution ID; if set, cache is invalidated after deploy via `aws` CLI                                     |
+| `S3_BUCKET`         | `bin/deploy-photos.sh`      | S3 bucket name for deployment (S3 mode only; requires `--s3`)                                                           |
+| `RSYNC_HOST`        | `bin/deploy-photos.sh`      | Rsync target host, e.g. `user@your-server.example.com` (rsync mode only)                                                |
+| `RSYNC_DEST`        | `bin/deploy-photos.sh`      | Rsync destination path on the server (rsync mode only)                                                                  |
+| `TEST_ALBUM_LOCAL`  | `bin/test-photos-server.sh` | Album slug used for local server tests                                                                                  |
+| `TEST_ALBUM_PROD`   | `bin/test-photos-server.sh` | Album slug used for production tests                                                                                    |
+| `TEST_ALBUM_HYPHEN` | `bin/test-photos-server.sh` | Album slug with a hyphen (tests URL routing edge case, OK if your album doesn't have any with a hyphen, just copy prod) |
 
 The `bin` scripts `source` this file directly.
 

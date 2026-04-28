@@ -26,7 +26,7 @@ cd ~/my-ddphotos
 
 ### 3. Build your own site
 
-1. Edit `config/albums.yaml` to define your albums (see [Configuration](INSTALL.md#configuration))
+1. Edit `config/albums.yaml` to define your albums (see [Configuration](CONFIGURATION.md) for details)
 2. Repeat: `photogen` → `run` / `build` → `serve`
 
 ### 4. Deploy
