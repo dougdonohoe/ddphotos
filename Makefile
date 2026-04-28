@@ -212,7 +212,7 @@ sample-photogen-demo:
 	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -passwords sample/config/passwords-all.yaml -site-id sample-demo -doit
 
 .PHONY: sample-demo
-## sample-demo: one-step demo with custom CSS + password protection — photogens and runs dev server
+## sample-demo: one-step demo with custom CSS + password protection — photogen's and runs dev server
 sample-demo: sample-photogen-demo
 	DDPHOTOS_SITE_ID=sample-demo $(MAKE) web-npm-run-dev
 
