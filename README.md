@@ -7,7 +7,7 @@
 ## Docker Quick Start
 
 The easiest way to run DD Photos is via [Docker](https://www.docker.com/get-started/) — no Go, 
-Node, or libvips required.  Try the starter site:
+Node, or `libvips` required.  Try the starter site:
 
 ```bash
 mkdir ~/my-ddphotos

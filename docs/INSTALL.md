@@ -5,7 +5,9 @@ instead of using the [Docker](DOCKER.md)-based `ddphotos` tool.
 
 ## Prerequisites
 
-The following setup instructions are Mac-centric (via [Homebrew](https://docs.brew.sh/Installation)). Linux should work with 
+DD Photos uses Go, Node.js, `libvips`, so they must be installed and configured first.
+
+**NOTE**: The following setup instructions are Mac-centric (via [Homebrew](https://docs.brew.sh/Installation)). Linux should work with 
 equivalent package manager commands (`apt`, `yum`). Windows users should use WSL2.
 
 ```bash
@@ -16,9 +18,8 @@ brew install go vips pkg-config
 go mod download
 ```
 
-The website is a Node.js app. Install
-[nvm](https://github.com/nvm-sh/nvm#installing-and-updating) first if
-you don't already have it.
+The website is a Node.js app. Install [nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+first if you don't already have it.
 
 ```bash
 # Install Node and dependencies (for the web app):
@@ -31,6 +32,19 @@ make web-playwright-install  # installs Playwright + Chromium for e2e tests
 
 You may also want to install [Docker](https://www.docker.com/get-started/) if
 you don't have it, as it is required for testing site behavior using Apache or nginx.
+
+## Developer Tools on PATH
+
+The repo's `bin/` directory contains developer wrapper scripts. Add it to your PATH
+so you can run `bin/photogen` and `bin/decode` from anywhere in the repo:
+
+```bash
+# Add to your shell profile (~/.zshrc or ~/.bashrc)
+export PATH="$PATH:/path/to/ddphotos/bin"
+```
+
+Or just use the `bin/` prefix when invoking from the repo root, which is what all
+examples in these docs use.
 
 ## Sample App
 
@@ -54,7 +68,7 @@ To try a site with password protection and custom CSS together in one step:
 make sample-demo
 ```
 
-This photogen's the sample site with all albums password-protected and a custom CSS
+This `photogen`'s the sample site with all albums password-protected and a custom CSS
 override applied, then launches the dev server. The password for the sample site is
 `allgood`; the Uganda album password is `gorilla`; the Antarctica password is
 `penguin`.  The CSS changes the font color
@@ -125,10 +139,10 @@ in `config`, these commands are useful:
 
 ```bash
 # Dry run of indexing and resizing
-go run cmd/photogen/photogen.go -resize -index -clean
+bin/photogen -resize -index -clean
 
 # Do it for real
-go run cmd/photogen/photogen.go -resize -index -clean -doit
+bin/photogen -resize -index -clean -doit
 ```
 
 **NOTE**: output goes to `albums/<site-id>` at the repo root by default. For example,
@@ -178,4 +192,4 @@ variables in `site.env` to match your site.
 ## Developer Information
 
 For complete details about `photogen`, the SvelteKit site, testing, 
-deployment and other technical information, see the [docs/](.) directory.
+deployment and other technical information, see the [Documentation index](../README.md#documentation).

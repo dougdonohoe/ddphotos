@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -eo pipefail
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec go run "$REPO_ROOT/cmd/decode/decode.go" "$@"

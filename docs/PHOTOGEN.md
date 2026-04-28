@@ -1,46 +1,63 @@
 # Generating Photos (`photogen`)
 
-To resize photos and generate the JSON indexes, run `photogen`. Albums are
-defined in a YAML config file (default: `config/albums.yaml`). See
-[config/albums.example.yaml](../config/albums.example.yaml) for the full format.
+To resize photos and generate the JSON indexes, run `photogen`. The command varies by mode:
+
+| Mode      | Command                                                               |
+|-----------|-----------------------------------------------------------------------|
+| Docker    | `ddphotos photogen`                                                   |
+| Developer | `bin/photogen` (see [INSTALL.md](INSTALL.md#developer-tools-on-path)) |
+
+Albums are defined in a YAML config file (default: `config/albums.yaml`). See
+[config/albums.example.yaml](../config/albums.example.yaml) for the full format and
+all options.
 
 The `settings:` block at the top of `albums.yaml` has several required fields that are
 validated before any files are written:
 
 ```yaml
 settings:
-  id: my-site                                    # required; names the output directory
-  site_name: "My Photo Albums"                   # required
-  site_url: https://photos.example.com           # required
-  site_description: "A collection of photos"     # required
-  copyright_owner: "Your Name"                   # required
-  copyright_year: 2020                           # required
-  # allow_crawling: false                        # optional; default false
+  id: my-site                                  # required; names the output directory
+  site_name: "My Photo Albums"
+  site_url: https://photos.example.com
+  site_description: "A collection of photos"
+  copyright_owner: "Your Name"
+  copyright_year: 2020
 ```
 
-Album descriptions are in a TXT file (default: `config/descriptions.txt`).
-See [config/descriptions.example.txt](../config/descriptions.example.txt)
-for the format.
-
-The `settings.id` field is required and determines the output directory name (e.g. `id: prod`
+The `settings.id` field determines the output directory name (e.g. `id: prod`
 produces `albums/prod`). It must contain only lowercase letters, digits, and hyphens.
 The `-site-id` flag overrides this, which is useful when generating an encrypted variant
 alongside the standard output from the same config.
 
-Output goes to `$DDPHOTOS_ALBUMS_DIR}/{id}` (git-ignored). `DDPHOTOS_ALBUMS_DIR` defaults
-to `albums` at the repo root (from `config/defaults.env`). Override with the `-out` flag
-or by setting `DDPHOTOS_ALBUMS_DIR` in the environment.
+Album descriptions are in a TXT file specified by the `descriptions`
+field (by convention: `config/descriptions.txt`).
+See [config/descriptions.example.txt](../config/descriptions.example.txt)
+for the format.
+
+```yaml
+settings:
+  descriptions: descriptions.txt
+```
+
+Output goes to `<albums-dir>/<id>/` (git-ignored):
+
+| Mode      | Default output location                                                            | Override                                     |
+|-----------|------------------------------------------------------------------------------------|----------------------------------------------|
+| Docker    | `albums/` inside the `ddphotos` script directory (i.e. `~/my-ddphotos/albums/`)    | `--albums-dir` pre-command flag              |
+| Developer | `albums/` at the repo root (set by `DDPHOTOS_ALBUMS_DIR` in `config/defaults.env`) | `-out` flag or `DDPHOTOS_ALBUMS_DIR` env var |
 
 To run with defaults:
 
 ```bash
-go run cmd/photogen/photogen.go -resize -index -clean -doit
+ddphotos photogen                         # Docker mode (default flags: -resize -index -clean -doit)
+bin/photogen -resize -index -clean -doit  # developer mode
 ```
 
 To use a different albums file (e.g., a development subset):
 
 ```bash
-go run cmd/photogen/photogen.go -albums albums-dev.yaml -resize -index -clean -doit
+ddphotos photogen -- -albums albums-dev.yaml   # Docker mode
+bin/photogen -albums albums-dev.yaml           # developer mode
 ```
 
 ## Hero Image
@@ -64,7 +81,8 @@ To regenerate the hero without reprocessing albums or rebuilding indexes, use
 `-hero-only`. It always overwrites the existing `hero.jpg` regardless of `-force`:
 
 ```bash
-go run cmd/photogen/photogen.go -hero-only -doit
+ddphotos photogen -- -hero-only -doit  # Docker mode
+bin/photogen -hero-only -doit          # developer mode
 ```
 
 ## Custom CSS
@@ -147,7 +165,7 @@ There are three modes depending on configuration:
 | Mode          | Config                                                       | Behavior                                                                                        |
 |---------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
 | Off (default) | `recurse: false`                                             | Only photos in the album root directory are collected; subdirectories ignored                   |
-| Auto sort     | `recurse: true`, no `photogen.txt`                           | Root photos date-sorted, then subdirectories processed alphabetically, each date-sorted         |
+| Auto sort     | `recurse: true`, no `photogen.txt`                           | All photos from root and subdirectories collected, then globally sorted by date                 |
 | Manual sort   | `recurse: true` + `manual_sort_order: true` + `photogen.txt` | Subfolder names in `photogen.txt` expand inline; photos and subfolder groups freely interleaved |
 
 **Per-subfolder `photogen.txt`**: place a `photogen.txt` in any subfolder for captions
@@ -190,7 +208,7 @@ This makes it easy to find the prefixed `fileName` for a given original file:
 grep -B2 "IMG_0436" albums/my-site/my-album/index.json
 
 # encrypted album
-go run cmd/decode/decode.go albums/my-site/my-album/index.enc.json | grep -B2 "IMG_0436"
+bin/decode albums/my-site/my-album/index.enc.json | grep -B2 "IMG_0436"
 ```
 
 ## Passwords File
@@ -277,7 +295,8 @@ http://localhost:5173/?clear
 http://localhost:5173/albums/uganda?clear
 ```
 
-**Cover flash prevention:** Album cover images are cached in localStorage after unlock.
+**Cover flash prevention:** Album cover images are cached in localStorage after unlock
+as a visual indication that the album is accessible.
 An inline script in `app.html` runs synchronously before first paint, reading the cover
 cache and setting CSS custom properties (`--ddp-cover-{slug}`) on `<html>`. This means
 the cover image is visible from the very first paint with no flash, even before Svelte
@@ -301,23 +320,23 @@ plaintext JSON. Useful for inspecting what photogen wrote without running the fu
 frontend.
 
 ```bash
-go run cmd/decode/decode.go <path.enc.json>
-go run cmd/decode/decode.go -passwords <pw-file> <path.enc.json>
+bin/decode <path.enc.json>
+bin/decode -passwords <pw-file> <path.enc.json>
 ```
 
 `photogen` embeds the passwords file path in every `.enc.json` it writes, so in most
 cases no flags are needed:
 
 ```bash
-go run cmd/decode/decode.go albums/sample-pw-uganda/uganda/index.enc.json
-go run cmd/decode/decode.go albums/sample-pw-all/albums.enc.json
+bin/decode albums/sample-pw-uganda/uganda/index.enc.json
+bin/decode albums/sample-pw-all/albums.enc.json
 ```
 
 If the passwords file has moved, or the file was generated without an embedded path,
 pass `-passwords` explicitly:
 
 ```bash
-go run cmd/decode/decode.go -passwords sample/config/passwords-uganda.yaml \
+bin/decode -passwords sample/config/passwords-uganda.yaml \
   albums/sample-pw-uganda/uganda/index.enc.json
 ```
 
