@@ -1,6 +1,8 @@
 # Testing
 
-There are three ways of testing the website:
+**Note:** This page is for contributors developing DD Photos, not for users building their own sites with it.
+
+There are three ways of testing DD Photos:
 
 1. **Manual testing** in a browser, against the Vite dev server or a local static build (via Docker)
 2. **Playwright e2e tests** that drive a headless Chromium browser to verify UI behavior
