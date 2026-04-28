@@ -1,5 +1,7 @@
 # Makefile Targets
 
+**Note:** This page is for contributors developing DD Photos, not for users building their own sites with it.
+
 Common tasks are available via `make` from the repo root.
 
 **NOTE**: Most targets use `$DDPHOTOS_SITE_ID` to choose which site to operate on.  This defaults to `sample`,
