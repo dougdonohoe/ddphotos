@@ -183,6 +183,19 @@ make web-sanity-test
 The `bin/deploy-photos.sh` script runs Playwright automatically: locally before rsync,
 and against production after CloudFront cache invalidation.
 
+## Testing Deployment
+
+The two deploy paths can be validated locally without touching a real server:
+
+```bash
+# rsync path — rsyncs into a local Docker container; runs server routing tests and Playwright
+make sample-rsync-test
+
+# S3 path — syncs against MinIO; verifies file placement and Cache-Control headers
+# (post-deploy server and Playwright tests are skipped: MinIO serves S3 API only, not HTTP)
+make sample-s3-test
+```
+
 ## CI (GitHub Actions)
 
 The workflow in `.github/workflows/ci.yml` runs on every push or pull request to `main`. It:

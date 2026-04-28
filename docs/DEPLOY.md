@@ -1,8 +1,7 @@
 # Deployment
 
-DD Photos was originally built to serve my personal photo albums.  My first deployment
-re-used an existing EC2 instance with Apache which served my other websites.  The
-second (and current) deployment uses S3 as the backing store.  Both are described below.
+DD Photos supports two deployment approaches: **Apache via rsync** (for any SSH-accessible
+server) and **S3 + CloudFront** (fully serverless). Both are described below.
 
 ## Syncing Logic
 
@@ -147,7 +146,28 @@ A CloudFront Function at the **viewer-request** stage handles URL routing in pla
 server config file. See [Web Server Configuration](DEPLOYMENT-SERVERS.md#cloudfront-function)
 for the function code.
 
-## Deploy Script
+## Prerequisites
+
+A `config/site.env` with your rsync or S3 credentials is required before deploying in
+either mode — see [site.env](CONFIGURATION.md#siteenv) for examples.
+
+## Deploying — Docker Mode
+
+```bash
+ddphotos deploy
+```
+
+Docker mode is intentionally simple and prescriptive. It:
+
+1. Detects S3 or rsync automatically — if `S3_BUCKET` is set in `config/site.env`, S3 mode is used; otherwise rsync
+2. Validates that `photogen` and `build` have been run and are up to date — exits with an error if not
+3. Syncs the site (two-pass, as described in [Syncing Logic](#syncing-logic) above)
+4. Invalidates the CloudFront cache via `$CLOUDFRONT_ID` (skipped if not set)
+5. Runs `bin/test-photos-server.sh` to verify the deployment against production
+
+Pre-deploy tests and Playwright are skipped — run `ddphotos photogen` and `ddphotos build` before deploying.
+
+## Deploying — Developer Mode
 
 `bin/deploy-photos.sh` handles both S3 and rsync modes. Add `--s3` for S3 mode.
 
@@ -167,21 +187,20 @@ for the function code.
 
 The script uses `set -eo pipefail` — any failure aborts before deployment.
 
-## Flags
+### Flags
 
 | Flag                    | Description                                                                                                             |
 |-------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `--s3`                  | Deploy to S3 instead of rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests) |
 | `--dry-run`             | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests              |
 | `--no-photogen`         | Skip photo generation step                                                                                              |
+| `--no-build`            | Skip the static site build step                                                                                         |
 | `--no-rsync`            | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                   |
 | `--no-pre-deploy-tests` | Skip pre-deploy Docker/Apache test and Playwright (rsync mode only); post-deploy tests still run                        |
 | `--no-server-test`      | Skip both the local and post-deploy server routing tests                                                                |
 | `--no-playwright`       | Skip Playwright tests (both local and production)                                                                       |
 | `--config-dir`          | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                     |
 | `--site-env`            | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                         |
-
-Examples:
 
 ```bash
 # S3 mode
@@ -195,15 +214,4 @@ bin/deploy-photos.sh --dry-run                     # preview what rsync would tr
 bin/deploy-photos.sh --no-photogen                 # skip photo generation
 bin/deploy-photos.sh --no-rsync                    # build + local test only (safe on a dev machine)
 bin/deploy-photos.sh --no-photogen --no-rsync      # build + local test, skip both photogen and rsync
-```
-
-The deploy paths are validated by local test scripts:
-
-```bash
-# rsync path — rsyncs into a local Docker container; runs server routing tests and Playwright
-make sample-rsync-test
-
-# S3 path — syncs against MinIO; verifies file placement and Cache-Control headers
-# (post-deploy server and Playwright tests are skipped: MinIO serves S3 API only, not HTTP)
-make sample-s3-test
 ```
