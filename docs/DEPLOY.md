@@ -143,54 +143,9 @@ or users will see a raw XML error from S3 instead of your custom 404 page.
 
 ### CloudFront Function
 
-CloudFront Functions are lightweight JavaScript functions that run at the edge on every request.
-Attaching one at the **viewer-request** stage lets you rewrite and redirect URLs before S3 is ever
-contacted — no round-trip cost.
-
-For a SvelteKit `adapter-static` site like DD Photos, a function is **required** to handle:
-
-- **URL routing** — extensionless paths like `/albums/patagonia` map to `patagonia.html`; the root
-  `/` maps to `index.html`; unknown root-level paths fall back to `index.html` (SPA fallback)
-- **Photo permalinks** — `/albums/slug/42` maps to `/albums/slug.html` so the album page can open
-  the lightbox to photo 42 via the URL hash
-- **Domain redirects** — apex-to-www (`example.com` → `www.example.com`) and any other domain consolidation
-
-The function effectively replicates the Apache `.htaccess` rules. 
-Here is a minimal function for a SvelteKit-based photo site:
-
-```javascript
-function handler(event) {
-    var request = event.request;
-    var uri = request.uri;
-
-    // Root
-    if (uri === '/') {
-        request.uri = '/index.html';
-        return request;
-    }
-
-    // Photo permalink: /albums/slug/42 → /albums/slug.html
-    var photoPermalink = uri.match(/^\/albums\/([^\/]+)\/\d+$/);
-    if (photoPermalink) {
-        request.uri = '/albums/' + photoPermalink[1] + '.html';
-        return request;
-    }
-
-    // Extensionless paths
-    if (!uri.includes('.')) {
-        if (uri.indexOf('/', 1) === -1) {
-            // Root-level single-segment (/about, /unknown-page) → SPA fallback
-            request.uri = '/index.html';
-        } else {
-            // Deeper path (/albums/slug) → pre-rendered .html page
-            request.uri = uri + '.html';
-        }
-        return request;
-    }
-
-    return request;
-}
-```
+A CloudFront Function at the **viewer-request** stage handles URL routing in place of a web
+server config file. See [Web Server Configuration](DEPLOYMENT-SERVERS.md#cloudfront-function)
+for the function code.
 
 ## Deploy Script
 

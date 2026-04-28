@@ -1,5 +1,11 @@
 # Web Server Configuration
 
+DD Photos uses extensionless URLs (`/albums/patagonia`), photo permalink paths
+(`/albums/patagonia/15`), and an SPA fallback for unknown routes. Web servers don't handle
+any of these by default — each server needs URL rewriting rules to map these paths to the
+correct `.html` files. The configurations below provide those rules for Apache, nginx, and
+CloudFront.
+
 ## Apache
 
 If using Apache, the `VirtualHost` definition must specify the `ErrorDocument` and
@@ -49,3 +55,53 @@ symlinks the active build into the document root at container startup (same role
 - **HTML rewrite** — Serves `.html` files without the extension
   (e.g., `/albums/patagonia` serves `patagonia.html`)
 - **SPA fallback** — Unknown root-level paths fall back to `index.html`; deeper unknown paths return 404
+
+## CloudFront Function
+
+When serving from S3+CloudFront, a CloudFront Function replaces the web server routing rules.
+It runs at the **viewer-request** stage, rewriting URLs before S3 is ever contacted — no
+round-trip cost.
+
+For a SvelteKit `adapter-static` site like DD Photos, a function is **required** to handle:
+
+- **URL routing** — extensionless paths like `/albums/patagonia` map to `patagonia.html`; the root
+  `/` maps to `index.html`; unknown root-level paths fall back to `index.html` (SPA fallback)
+- **Photo permalinks** — `/albums/slug/42` maps to `/albums/slug.html` so the album page can open
+  the lightbox to photo 42 via the URL hash
+- **Domain redirects** — apex-to-www (`example.com` → `www.example.com`) and any other domain consolidation
+
+Here is a minimal function for a SvelteKit-based photo site:
+
+```javascript
+function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+
+    // Root
+    if (uri === '/') {
+        request.uri = '/index.html';
+        return request;
+    }
+
+    // Photo permalink: /albums/slug/42 → /albums/slug.html
+    var photoPermalink = uri.match(/^\/albums\/([^\/]+)\/\d+$/);
+    if (photoPermalink) {
+        request.uri = '/albums/' + photoPermalink[1] + '.html';
+        return request;
+    }
+
+    // Extensionless paths
+    if (!uri.includes('.')) {
+        if (uri.indexOf('/', 1) === -1) {
+            // Root-level single-segment (/about, /unknown-page) → SPA fallback
+            request.uri = '/index.html';
+        } else {
+            // Deeper path (/albums/slug) → pre-rendered .html page
+            request.uri = uri + '.html';
+        }
+        return request;
+    }
+
+    return request;
+}
+```
