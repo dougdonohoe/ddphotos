@@ -179,6 +179,11 @@ web-sanity-test:
 	bin/run-tests.sh --mode apache
 	bin/run-tests.sh --mode apache --passwords sample/config/passwords-all.yaml
 
+.PHONY: gen-deploy-tree
+## gen-deploy-tree: regenerate docs/deploy-tree.svg (colored directory tree for DEPLOY.md)
+gen-deploy-tree:
+	.venv/bin/python3 bin/gen-deploy-tree.py
+
 .PHONY: web-screenshots
 ## web-screenshots: capture screenshots and regenerate composite — requires a running server on port 8080
 web-screenshots:

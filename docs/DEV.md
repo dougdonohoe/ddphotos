@@ -122,9 +122,12 @@ $effect(() => { debug("In home page svelte, got $props()", data) });
 
 ## Python Setup
 
-The `bin/generate-screenshot-composite.py` script (invoked by `make web-screenshots`) requires
-[Pillow](https://pillow.readthedocs.io/). Set up a local virtualenv once using
-[uv](https://github.com/astral-sh/uv):
+Two scripts use Python:
+
+- `bin/generate-screenshot-composite.py` — generates `images/screenshots.png` (invoked by `make web-screenshots`); requires [Pillow](https://pillow.readthedocs.io/)
+- `bin/gen-deploy-tree.py` — regenerates `docs/deploy-tree.svg` (the colored directory tree in `DEPLOY.md`); requires [rich](https://github.com/Textualize/rich)
+
+Set up a local virtualenv once using [uv](https://github.com/astral-sh/uv):
 
 ```bash
 brew install uv          # if not already installed
@@ -132,8 +135,8 @@ uv venv .venv
 uv pip install -r requirements.txt
 ```
 
-The `.venv/` directory is git-ignored. The `make web-screenshots` target calls
-`.venv/bin/python3` directly, so no manual activation is needed.
+The `.venv/` directory is git-ignored. The `make web-screenshots` and `make gen-deploy-tree`
+targets call `.venv/bin/python3` directly, so no manual activation is needed.
 
 ## Docker Notes
 

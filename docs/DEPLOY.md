@@ -12,50 +12,7 @@ The web root is assembled from two independent sources:
 | `build/<site-id>/`  | SvelteKit output: HTML shell, JS/CSS bundles, pre-rendered `albums/*.html` pages | web root `/`        |
 | `albums/<site-id>/` | photogen output: WebP images, JSON indexes, hero images, `sitemap.xml`           | web root `/albums/` |
 
-```
-build/<site-id>/              albums/<site-id>/
-  index.html                    albums.json
-  albums.html                   config.json
-  404.html                      hero.jpg
-  robots.txt                    html.json
-  *.png, *.ico                  sitemap.xml
-  _app/                         antarctica/
-  albums/                         cover.jpg
-    antarctica.html               index.json
-    hawaii.html                   full/
-    albums.json  (ignored)          *.webp
-    config.json  (ignored)        grid/
-    html.json    (ignored)          *.webp
-    antarctica/
-      index.json (ignored)
-         |                            |
-         | Pass 1: sync -> /          | Pass 2: sync -> /albums/
-         +----------------------------+
-                       |
-                       v
-               Web root /
-                 index.html    (build)
-                 albums.html   (build)
-                 404.html      (build)
-                 robots.txt    (build)
-                 *.png, *.ico  (build)
-                 _app/         (build)
-                 albums/
-                   antarctica.html  (build)
-                   hawaii.html      (build)
-                   albums.json      (albums)
-                   config.json      (albums)
-                   hero.jpg         (albums)
-                   html.json        (albums)
-                   sitemap.xml      (albums)
-                   antarctica/      (albums)
-                     cover.jpg
-                     index.json
-                     full/
-                       *.webp
-                     grid/
-                       *.webp
-```
+![Web root assembly](deploy-tree.svg)
 
 **NOTE**:  If passwords are on, you might see `albums.enc.json`, `html.enc.json`, or `index.enc.json` files.
 

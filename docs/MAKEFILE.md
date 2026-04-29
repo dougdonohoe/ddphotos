@@ -48,5 +48,6 @@ as defined in `config/defaults.env`.
 | `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Docker container, verify      |
 | `sample-s3-test`              | Test the S3 deploy path against MinIO: verifies file placement and Cache-Control headers      |
 | `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                  |
+| `gen-deploy-tree`             | Regenerate `docs/deploy-tree.svg` (run after changing the deploy directory structure)         |
 | `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                       |
 | `docker-push`                 | Build multi-arch image and push to Docker Hub (`bin/docker-push.sh`)                          |
