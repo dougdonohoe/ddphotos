@@ -4,12 +4,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="ddphotos"
 
-# Parse --albums-dir, --site-id, --config-dir, --site-env flags before the command
+# Parse --dir, --site-id, --config-dir, --site-env flags before the command
 OPT_CONFIG_DIR=""
 OPT_SITE_ENV=""
 while [[ "${1:-}" == --?* ]]; do
     case "$1" in
-        --albums-dir) DDPHOTOS_ALBUMS_DIR="$2"; shift 2 ;;
+        --dir) DDPHOTOS_DIR="$2"; shift 2 ;;
         --site-id)    DDPHOTOS_SITE_ID="$2";    shift 2 ;;
         --config-dir) OPT_CONFIG_DIR="$2";      shift 2 ;;
         --site-env)   OPT_SITE_ENV="$2";        shift 2 ;;
@@ -20,14 +20,14 @@ done
 cmd="${1:-help}"
 shift 2>/dev/null || true
 
-# DDPHOTOS_ALBUMS_DIR: directory mounted as /ddphotos; defaults to script location
-DDPHOTOS_ALBUMS_DIR="${DDPHOTOS_ALBUMS_DIR:-$SCRIPT_DIR}"
+# DDPHOTOS_DIR: directory mounted as /ddphotos; defaults to script location
+DDPHOTOS_DIR="${DDPHOTOS_DIR:-$SCRIPT_DIR}"
 
 # CONFIG_HOST_DIR: host path to config directory (normalized)
 if [ -n "$OPT_CONFIG_DIR" ]; then
     CONFIG_HOST_DIR="$(cd "$OPT_CONFIG_DIR" && pwd)"
 else
-    CONFIG_HOST_DIR="$DDPHOTOS_ALBUMS_DIR/config"
+    CONFIG_HOST_DIR="$DDPHOTOS_DIR/config"
 fi
 
 # DDPHOTOS_SITE_ID: read from config dir's albums.yaml settings.id if not set via env or flag
@@ -40,13 +40,13 @@ fi
 DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
 
 # Resolve --config-dir to a container path.
-# If inside DDPHOTOS_ALBUMS_DIR, translate directly; otherwise mount as /ddphotos-config.
+# If inside DDPHOTOS_DIR, translate directly; otherwise mount as /ddphotos-config.
 EXTRA_MOUNT_ARGS=()
 DDPHOTOS_CONFIG_DIR=""
 CONFIG_DIR_EXTRA_SRC=""  # set only when an extra mount is needed (for display)
 if [ -n "$OPT_CONFIG_DIR" ]; then
-    if [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_ALBUMS_DIR"/* ]] || [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_ALBUMS_DIR" ]]; then
-        DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#$DDPHOTOS_ALBUMS_DIR}"
+    if [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR"/* ]] || [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR" ]]; then
+        DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#$DDPHOTOS_DIR}"
     else
         EXTRA_MOUNT_ARGS+=(-v "$CONFIG_HOST_DIR":/ddphotos-config:ro)
         DDPHOTOS_CONFIG_DIR="/ddphotos-config"
@@ -63,7 +63,7 @@ if [ -n "$OPT_SITE_ENV" ]; then
 fi
 
 # Parse bases: section from albums.yaml and emit -v flags for external photo dirs.
-# Paths already inside DDPHOTOS_ALBUMS_DIR are skipped (covered by the main /ddphotos mount).
+# Paths already inside DDPHOTOS_DIR are skipped (covered by the main /ddphotos mount).
 # Populates MOUNT_ARGS (for docker run), MOUNT_PATHS and MOUNT_DESTS (for display).
 build_mount_args() {
     local config="$CONFIG_HOST_DIR/albums.yaml"
@@ -80,7 +80,7 @@ build_mount_args() {
             local path
             path=$(echo "$line" | sed 's/^[[:space:]]*[^:]*:[[:space:]]*//')
             path="${path/#\~/$HOME}"
-            if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_ALBUMS_DIR"* ]]; then
+            if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
                 MOUNT_ARGS+=(-v "$path:$path:ro")
                 MOUNT_PATHS+=("$path")
                 MOUNT_DESTS+=("$path")
@@ -93,7 +93,7 @@ build_mount_args() {
 print_mounts() {
     echo "Mounting:"
     echo "  $SCRIPT_DIR -> /ddphotos-script-dir"
-    echo "  $DDPHOTOS_ALBUMS_DIR -> /ddphotos"
+    echo "  $DDPHOTOS_DIR -> /ddphotos"
     local i=0
     while [ $i -lt ${#MOUNT_PATHS[@]} ]; do
         echo "  ${MOUNT_PATHS[$i]} -> ${MOUNT_DESTS[$i]} (read-only)"
@@ -106,7 +106,7 @@ SERVE_PORT="${SERVE_PORT:-8000}"
 RUN_PORT="${RUN_PORT:-5173}"
 
 # Always mount SCRIPT_DIR at a fixed path so the container can verify/upgrade the script
-# regardless of what DDPHOTOS_ALBUMS_DIR points to.
+# regardless of what DDPHOTOS_DIR points to.
 SCRIPT_MOUNT=(-v "$SCRIPT_DIR":/ddphotos-script-dir)
 
 # For commands that need a config, validate albums.yaml exists before launching Docker.
@@ -115,9 +115,9 @@ case "$cmd" in
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
-            if [ "$DDPHOTOS_ALBUMS_DIR" = "$SCRIPT_DIR" ]; then
+            if [ "$DDPHOTOS_DIR" = "$SCRIPT_DIR" ]; then
                 echo "If ddphotos is installed in your PATH, specify your album directory:"
-                echo "  ddphotos --albums-dir ~/my-ddphotos $cmd"
+                echo "  ddphotos --dir ~/my-ddphotos $cmd"
             else
                 echo "Run 'ddphotos init' to initialize the album directory."
             fi
@@ -129,7 +129,7 @@ esac
 case "$cmd" in
     init)
         docker run --rm \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             "$IMAGE" init "$@"
         ;;
@@ -147,7 +147,7 @@ case "$cmd" in
         [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ARGS+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             "${PHOTOGEN_ARGS[@]}" \
             "$IMAGE" photogen "$@"
@@ -158,7 +158,7 @@ case "$cmd" in
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             "$IMAGE" build "$@"
         ;;
@@ -169,7 +169,7 @@ case "$cmd" in
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             -p "$SERVE_PORT":80 \
             "$IMAGE" serve "$@"
@@ -181,7 +181,7 @@ case "$cmd" in
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             -p "$RUN_PORT":5173 \
             "$IMAGE" run "$@"
@@ -217,14 +217,14 @@ case "$cmd" in
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             "${DEPLOY_ARGS[@]}" \
             "$IMAGE" deploy "$@"
         ;;
     upgrade)
         docker run --rm \
-            -v "$DDPHOTOS_ALBUMS_DIR":/ddphotos \
+            -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             "$IMAGE" upgrade
         ;;
@@ -236,15 +236,15 @@ case "$cmd" in
         else
             echo "Image:       $IMAGE"
         fi
-        echo "Albums dir:  $DDPHOTOS_ALBUMS_DIR"
-        echo "Config dir:  $CONFIG_HOST_DIR"
-        echo "Site ID:     $DDPHOTOS_SITE_ID"
+        echo "DD Photos dir:  $DDPHOTOS_DIR"
+        echo "Config dir:     $CONFIG_HOST_DIR"
+        echo "Site ID:        $DDPHOTOS_SITE_ID"
         ;;
     *)
         echo "Usage: ddphotos [OPTIONS] {init|photogen|build|serve|run|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
-        echo "  --albums-dir DIR   Album directory to mount as /ddphotos (default: script location)"
+        echo "  --dir DIR         Directory to mount as /ddphotos (default: script location)"
         echo "  --site-id ID      Site ID override (default: settings.id from albums.yaml)"
         echo "  --config-dir DIR  Config directory override (default: albums-dir/config)"
         echo "  --site-env FILE   Path to site.env for deploy (default: config-dir/site.env)"

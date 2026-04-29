@@ -55,8 +55,8 @@ If you have `ddphotos` on the path and the `ddphotos` repo checked out under `~/
 can use the script to photogen and run the [sample site](https://ddphotos.donohoe.info/):
 
 ```bash
-ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
-ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config run
+ddphotos --dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
+ddphotos --dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config run
 ```
 
 ---
@@ -169,7 +169,7 @@ Config dir:  /Users/anseladams/my-ddphotos/config
 Site ID:     my-photos
 ```
 
-The `--albums-dir`, `--config-dir`, and `--site-id` pre-command flags also work with `version`, making it useful for confirming which config a given invocation would use.
+The `--dir`, `--config-dir`, and `--site-id` pre-command flags also work with `version`, making it useful for confirming which config a given invocation would use.
 
 ---
 
@@ -179,7 +179,7 @@ These flags go before the command name and apply to all commands that need them:
 
 | Flag                  | Description                                                                                           |
 |-----------------------|-------------------------------------------------------------------------------------------------------|
-| `--albums-dir <path>` | Directory containing your config and albums output (default: same directory as the `ddphotos` script) |
+| `--dir <path>` | Directory containing your config and albums output (default: same directory as the `ddphotos` script) |
 | `--config-dir <path>` | Path to a config directory other than `<albums-dir>/config`                                           |
 | `--site-id <id>`      | Override the site ID (normally read from `config/albums.yaml`)                                        |
 | `--site-env <path>`   | Path to a `site.env` file other than `<config-dir>/site.env`                                          |
@@ -187,8 +187,8 @@ These flags go before the command name and apply to all commands that need them:
 Example — using a separate source repo as the albums dir:
 
 ```bash
-ddphotos --albums-dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
-ddphotos --albums-dir ~/work/ddphotos --site-id sample build
+ddphotos --dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config photogen
+ddphotos --dir ~/work/ddphotos --site-id sample build
 ```
 
 ---

@@ -1324,12 +1324,12 @@ Three values are baked in at build time via `ARG` + `RUN echo`:
 
 A single `ddphotos` bash script that users install locally and invoke instead of `docker run` directly. It handles all volume mounts, port bindings, and environment variable forwarding. Key design decisions:
 
-- Pre-command flags parsed before the command name: `--albums-dir`, `--config-dir`, `--site-id`, `--site-env`
+- Pre-command flags parsed before the command name: `--dir`, `--config-dir`, `--site-id`, `--site-env`
 - `DDPHOTOS_ALBUMS_DIR` (the `/ddphotos` mount) defaults to the script's own directory, so the script works whether it lives inside the album directory or somewhere on `$PATH`
 - `SCRIPT_DIR` is always mounted separately as `/ddphotos-script-dir` so the container can verify and upgrade the script regardless of what `DDPHOTOS_ALBUMS_DIR` points to
 - External `--config-dir` paths are mounted as `/ddphotos-config` when they fall outside `DDPHOTOS_ALBUMS_DIR`
 - `build_mount_args` parses `bases:` from `albums.yaml` and emits `-v` flags for external photo directories, resolving `~` and skipping paths already covered by the main mount
-- Pre-flight validation checks that `albums.yaml` exists before launching Docker for any command that needs it, with a helpful error message guiding PATH-installed users to pass `--albums-dir`
+- Pre-flight validation checks that `albums.yaml` exists before launching Docker for any command that needs it, with a helpful error message guiding PATH-installed users to pass `--dir`
 
 #### Entrypoint and Commands (`docker/entrypoint.sh`, `docker/do-*.sh`)
 

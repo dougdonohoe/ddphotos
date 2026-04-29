@@ -13,10 +13,10 @@ password protection.
 
 Output goes to `<albums-dir>/<id>/` (git-ignored):
 
-| Mode      | Default output location                                                            | Override                                     |
-|-----------|------------------------------------------------------------------------------------|----------------------------------------------|
-| Docker    | `albums/` inside the `ddphotos` script directory (i.e. `~/my-ddphotos/albums/`)    | `--albums-dir` pre-command flag              |
-| Developer | `albums/` at the repo root (set by `DDPHOTOS_ALBUMS_DIR` in `config/defaults.env`) | `-out` flag or `DDPHOTOS_ALBUMS_DIR` env var |
+| Mode      | Default output location                                                            | Override                                       |
+|-----------|------------------------------------------------------------------------------------|------------------------------------------------|
+| Docker    | `albums/` inside the `ddphotos` script directory (i.e. `~/my-ddphotos/albums/`)    | `--dir` pre-command flag can change script dir |
+| Developer | `albums/` at the repo root (set by `DDPHOTOS_ALBUMS_DIR` in `config/defaults.env`) | `-out` flag or `DDPHOTOS_ALBUMS_DIR` env var   |
 
 To run with defaults:
 
