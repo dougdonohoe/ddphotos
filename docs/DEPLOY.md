@@ -2,7 +2,7 @@
 
 DD Photos supports the following deployment approaches:
 
- * **Static** - via `export` script (for any compatible static-hosting service, i.e., [Surge](https://surge.sh))
+ * **Static** - via `export` script (for any compatible static-hosting service, i.e., [Surge↗](https://surge.sh))
  * **Apache via rsync** - via `deploy` script (for any SSH-accessible server)
  * **S3 + CloudFront** - via `deploy` script (fully serverless).
 
@@ -77,10 +77,7 @@ export.sh --site-id <site-id> --copy
 
 ### Surge
 
-[Surge](https://surge.sh) is a simple, free alternative for hosting static sites. It works well with DD Photos sites
-with the following known limitation:
-
-* Image permalinks (e.g., `albums/antarctica/5`) don't work (they show the 404 page with a link back to the albums)
+[Surge↗](https://surge.sh) is a simple, free alternative for hosting static sites. It works well with DD Photos sites.
 
 Assuming you have `surge` installed, in Docker mode:
 

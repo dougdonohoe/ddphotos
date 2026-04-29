@@ -7,7 +7,7 @@ instead of using the [Docker](DOCKER.md)-based `ddphotos` tool.
 
 DD Photos uses Go, Node.js, `libvips`, so they must be installed and configured first.
 
-**NOTE**: The following setup instructions are Mac-centric (via [Homebrew](https://docs.brew.sh/Installation)). Linux should work with 
+**NOTE**: The following setup instructions are Mac-centric (via [Homebrew↗](https://docs.brew.sh/Installation)). Linux should work with 
 equivalent package manager commands (`apt`, `yum`). Windows users should use WSL2.
 
 ```bash
@@ -18,7 +18,7 @@ brew install go vips pkg-config
 go mod download
 ```
 
-The website is a Node.js app. Install [nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+The website is a Node.js app. Install [nvm↗](https://github.com/nvm-sh/nvm#installing-and-updating)
 first if you don't already have it.
 
 ```bash
@@ -30,7 +30,7 @@ make web-npm-install  # install npm dependencies
 make web-playwright-install  # installs Playwright + Chromium for e2e tests
 ```
 
-You may also want to install [Docker](https://www.docker.com/get-started/) if
+You may also want to install [Docker↗](https://www.docker.com/get-started/) if
 you don't have it, as it is required for testing site behavior using Apache or nginx.
 
 ## Developer Tools on PATH

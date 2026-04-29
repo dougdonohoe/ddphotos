@@ -32,7 +32,15 @@ cd ~/my-ddphotos
 
 ### 4. Deploy
 
-Configure `config/site.env` for rsync or S3 (see [site.env](CONFIGURATION.md#siteenv)), then:
+**Quick option — [Surge↗](https://surge.sh)** (free, one command, no server required):
+
+```bash
+./ddphotos export --copy
+surge --domain my-unique-site.surge.sh export/my-photos
+```
+
+**Production option** — configure `config/site.env` for rsync or S3
+(see [site.env](CONFIGURATION.md#siteenv)), then:
 
 ```bash
 ./ddphotos deploy
@@ -138,11 +146,18 @@ python3 -m http.server 8000 --directory export/my-photos
 See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for notes
 on limitations and usage.
 
-Some static hosting services (e.g. [Surge](https://surge.sh)) don't follow symlinks.
-Use `--copy` to produce real files instead:
+Use `--copy` to produce real files instead of symlinks — required for static hosting
+services like [Surge↗](https://surge.sh):
 
 ```bash
 ddphotos export --copy
+```
+
+To deploy to Surge (free, no server required):
+
+```bash
+ddphotos export --copy
+surge --domain my-unique-site.surge.sh export/my-photos
 ```
 
 ### `deploy`

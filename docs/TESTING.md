@@ -212,7 +212,7 @@ The workflow in `.github/workflows/ci.yml` runs on every push or pull request to
 
 ### Testing CI Locally with `act`
 
-It is often helpful to run GitHub CI locally using [`act`](https://nektosact.com/).
+It is often helpful to run GitHub CI locally using [`act`↗](https://nektosact.com/).
 It requires Docker. Before running, there is one key prerequisite and one important caveat to understand:
 
 ```bash
