@@ -148,6 +148,15 @@ for the function code.
 A `config/site.env` with your rsync or S3 credentials is required before deploying in
 either mode — see [site.env](CONFIGURATION.md#siteenv) for examples.
 
+**Rsync mode** also requires a valid SSH key in `~/.ssh` with access to the target host.
+In Docker mode, `~/.ssh` is mounted into the container automatically if the directory exists.
+
+**S3 mode** requires AWS credentials — either via `~/.aws` config files or environment variables
+(`AWS_PROFILE`, `AWS_DEFAULT_PROFILE`, `AWS_DEFAULT_REGION`, `AWS_REGION`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`).
+In Docker mode, `~/.aws` is mounted and any of those environment variables that are set
+are forwarded into the container automatically.
+
 ## Deploying — Docker Mode
 
 ```bash
