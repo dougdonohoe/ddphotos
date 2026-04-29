@@ -1,4 +1,4 @@
-# Development
+# Development Notes
 
 **Note:** This page is for contributors developing DD Photos, not for users building their own sites with it.
 

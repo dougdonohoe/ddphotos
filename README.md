@@ -136,18 +136,26 @@ See [Deployment](docs/DEPLOY.md) for setup details.
 
 ## Documentation
 
+These documents are primarily meant for users of DD Photos:
+
 | Document                                               | Description                                                                        |
 |--------------------------------------------------------|------------------------------------------------------------------------------------|
 | [Docker](docs/DOCKER.md)                               | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                |
-| [Non-Docker Setup](docs/INSTALL.md)                    | Prerequisites, sample app, commands (developer mode)                               |
 | [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `descriptions.txt`, `site.env`, and how config reaches the frontend |
 | [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, recursive albums                        |
 | [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                             |
 | [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, and CloudFront URL routing rules                                    |
-| [Environment Variables](docs/ENV.md)                   | Deploy and album location variables                                                |
-| [Development](docs/DEV.md)                             | SvelteKit details, LAN access, debugging                                           |
-| [Testing](docs/TESTING.md)                             | Manual testing, Playwright e2e tests, CI                                           |
-| [Makefile Targets](docs/MAKEFILE.md)                   | All `make` targets                                                                 |
+| [Environment Variables](docs/ENV.md)                   | Deployment variables                                                               |
+
+These documents are primarily meant for developers of DD Photos:
+
+| Document                             | Description                                          |
+|--------------------------------------|------------------------------------------------------|
+| [Developer Setup](docs/INSTALL.md)   | Prerequisites, sample app, commands (developer mode) |
+| [Development Notes](docs/DEV.md)     | SvelteKit details, LAN access, debugging             |
+| [Testing](docs/TESTING.md)           | Manual testing, Playwright e2e tests, CI             |
+| [Makefile Targets](docs/MAKEFILE.md) | All `make` targets                                   |
+| [Environment Variables](docs/ENV.md) | Deploy and album location variables                  |
 
 ## Contributing
 

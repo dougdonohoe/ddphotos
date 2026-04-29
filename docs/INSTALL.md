@@ -1,4 +1,4 @@
-# Non-Docker Setup
+# Developer Setup
 
 The following are aimed at developers who want to work directly from this repo,
 instead of using the [Docker](DOCKER.md)-based `ddphotos` tool.
