@@ -16,7 +16,7 @@ if [ "${1:-}" = "--script-only" ]; then
     echo
     echo "Usage with a separate albums directory:"
     echo
-    echo "  ddphotos --dir ~/my-ddphotos photogen|run|build|serve|upgrade|version"
+    echo "  ddphotos --dir ~/my-ddphotos photogen|run|build|serve|export|upgrade|version"
     echo
     exit 0
 fi

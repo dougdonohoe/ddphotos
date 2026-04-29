@@ -221,6 +221,11 @@ sample-demo: sample-photogen-demo
 sample-build:
 	$(MAKE) web-npm-build
 
+.PHONY: sample-export
+## sample-export: create export/<site-id>/ with symlinks for local serving
+sample-export:
+	@bin/export
+
 .PHONY: sample-test-apache
 ## sample-test-apache: run routing tests against local Apache Docker container on port 8082 (starts/stops Docker automatically)
 sample-test-apache: _check-docker-schema-apache

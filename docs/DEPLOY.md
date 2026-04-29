@@ -83,6 +83,10 @@ The local Docker testing environment uses the same separation: `web/setup-htdocs
 build output into `htdocs/` and album data into `htdocs/albums/` from separate bind mounts,
 mirroring the two-source structure without transferring any files.
 
+The `export` command uses the same logic to produce `export/<site-id>/` — a self-contained
+directory of symlinks suitable for local serving (`python3 -m http.server`) or uploading to
+a static hosting service. See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python).
+
 ## Apache + rsync
 
 In this scenario, traffic is handled by CloudFront, which filters

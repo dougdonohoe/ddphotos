@@ -22,6 +22,7 @@ cd ~/my-ddphotos
 ./ddphotos run        # run dev server at http://localhost:5173
 ./ddphotos build      # build static site
 ./ddphotos serve      # serve static site via Apache at http://localhost:8000
+./ddphotos export     # (optional) export for local serving without Apache
 ```
 
 ### 3. Build your own site
@@ -118,6 +119,25 @@ Good for testing the final output before deploying.
 ddphotos serve
 ```
 
+### `export`
+
+Exports the built site into `export/<site-id>/` — a directory of relative symlinks
+that any static file server can read. Useful for serving with `python3 -m http.server`
+or uploading to a static hosting service.
+
+```bash
+ddphotos export
+```
+
+On the host, serve the exported directory with:
+
+```bash
+python3 -m http.server 8000 --directory export/my-photos
+```
+
+See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for notes
+on limitations and usage.
+
 ### `deploy`
 
 Syncs the built site and album data to a remote host via rsync or S3. 
@@ -208,6 +228,7 @@ my-ddphotos/
     site.env         ← deploy credentials (not committed to git)
   albums/            ← photogen output (generated, not edited)
   build/             ← static site output (generated, not edited)
+  export/            ← export output (generated, not edited)
 ```
 
 ---

@@ -6,6 +6,31 @@ any of these by default — each server needs URL rewriting rules to map these p
 correct `.html` files. The configurations below provide those rules for Apache, nginx, and
 CloudFront.
 
+## Local Testing with Python
+
+The `export` command creates `export/<site-id>/` — a directory of symlinks combining
+build output and album data into a single tree that any static file server can read
+without the routing configuration required by Apache or nginx.
+
+**Docker mode** (after `ddphotos build`):
+
+```bash
+ddphotos export
+python3 -m http.server 8000 --directory export/my-photos
+```
+
+**Developer mode** (after `make sample-build`):
+
+```bash
+make sample-export
+python3 -m http.server 8000 --directory export/sample
+```
+
+**Limitation:** Python's built-in server has no URL-rewriting capability, so extensionless
+album URLs (`/albums/patagonia`) and photo permalinks (`/albums/patagonia/15`) won't resolve.
+The home page and any directly-typed `.html` URLs will load correctly. Use `ddphotos serve`
+or `make web-docker-run-apache` for full routing.
+
 ## Apache
 
 If using Apache, the `VirtualHost` definition must specify the `ErrorDocument` and

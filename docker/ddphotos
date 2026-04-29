@@ -107,6 +107,10 @@ print_mounts() {
 SERVE_PORT="${SERVE_PORT:-8000}"
 RUN_PORT="${RUN_PORT:-5173}"
 
+MOUNT_ARGS=()
+MOUNT_PATHS=()
+MOUNT_DESTS=()
+
 # Always mount SCRIPT_DIR at a fixed path so the container can verify/upgrade the script
 # regardless of what DDPHOTOS_DIR points to.
 SCRIPT_MOUNT=(-v "$SCRIPT_DIR":/ddphotos-script-dir)
@@ -136,9 +140,6 @@ case "$cmd" in
             "$IMAGE" init "$@"
         ;;
     photogen)
-        MOUNT_ARGS=()
-        MOUNT_PATHS=()
-        MOUNT_DESTS=()
         if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
             MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
             MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
@@ -155,8 +156,6 @@ case "$cmd" in
             "$IMAGE" photogen "$@"
         ;;
     build)
-        MOUNT_PATHS=()
-        MOUNT_DESTS=()
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -165,8 +164,6 @@ case "$cmd" in
             "$IMAGE" build "$@"
         ;;
     serve)
-        MOUNT_PATHS=()
-        MOUNT_DESTS=()
         print_mounts
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -177,8 +174,6 @@ case "$cmd" in
             "$IMAGE" serve "$@"
         ;;
     run)
-        MOUNT_PATHS=()
-        MOUNT_DESTS=()
         print_mounts
         docker run --rm -it \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
@@ -188,9 +183,15 @@ case "$cmd" in
             -p "$RUN_PORT":5173 \
             "$IMAGE" run "$@"
         ;;
+    export)
+        print_mounts
+        docker run --rm \
+            -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
+            -v "$DDPHOTOS_DIR":/ddphotos \
+            "${SCRIPT_MOUNT[@]}" \
+            "$IMAGE" export "$@"
+        ;;
     deploy)
-        MOUNT_PATHS=()
-        MOUNT_DESTS=()
         DEPLOY_ARGS=("${EXTRA_MOUNT_ARGS[@]}")
         if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
             MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
@@ -231,10 +232,10 @@ case "$cmd" in
             "$IMAGE" upgrade
         ;;
     version)
-        echo "Script:      $SCRIPT_DIR/ddphotos"
+        echo "Script:         $SCRIPT_DIR/ddphotos"
         if [ "${1:-}" = "--image" ]; then
-            echo "Image:       $IMAGE"
-            docker run --rm "$IMAGE" version | sed 's/^/               /'
+            echo "Image:          $IMAGE"
+            docker run --rm "$IMAGE" version | sed 's/^/                  /'
         else
             echo "Image:       $IMAGE"
         fi
@@ -243,7 +244,7 @@ case "$cmd" in
         echo "Site ID:        $DDPHOTOS_SITE_ID"
         ;;
     *)
-        echo "Usage: ddphotos [OPTIONS] {init|photogen|build|serve|run|deploy|upgrade} [args]"
+        echo "Usage: ddphotos [OPTIONS] {init|photogen|build|serve|run|export|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
         echo "  --dir DIR         Directory to mount as /ddphotos (default: script location)"
@@ -257,6 +258,7 @@ case "$cmd" in
         echo "  build     Build the static site"
         echo "  serve     Preview the site via Apache on port \$SERVE_PORT (default 8000)"
         echo "  run       Preview the site via Vite dev server on port \$RUN_PORT (default 5173)"
+        echo "  export    Export site to export/<site-id>/ for local serving"
         echo "  deploy    Deploy build and albums to remote host"
         echo "  upgrade   Update this script to match the current 'ddphotos' image"
         echo "  version           Print script location, image, and config paths (no Docker required)"

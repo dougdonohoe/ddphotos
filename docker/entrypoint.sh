@@ -19,6 +19,7 @@ case "$cmd" in
     build)    exec /docker/do-build.sh "$@" ;;
     serve)    exec /docker/do-serve.sh "$@" ;;
     run)      exec /docker/do-run.sh "$@" ;;
+    export)   exec /docker/do-export.sh "$@" ;;
     deploy)   exec /docker/do-deploy.sh "$@" ;;
     version)
         echo "Version:  $(cat /docker/VERSION 2>/dev/null || echo unknown)"
@@ -37,7 +38,7 @@ case "$cmd" in
         fi
         ;;
     *)
-        echo "Usage: docker run ddphotos {init|photogen|build|serve|run|deploy|upgrade}"
+        echo "Usage: docker run ddphotos {init|photogen|build|serve|run|export|deploy|upgrade}"
         echo ""
         echo "Commands:"
         echo "  init      Create config scaffold (--script-only to install 'ddphotos' script only)"
@@ -45,6 +46,7 @@ case "$cmd" in
         echo "  build     Build the static site"
         echo "  serve     Preview the site via Apache on port 80"
         echo "  run       Preview the site via Vite dev server on port 5173"
+        echo "  export    Export site to export/<site-id>/ for local serving"
         echo "  deploy    Rsync build and albums to a remote host"
         echo "  upgrade   Update the ddphotos script to match this image"
         exit 1

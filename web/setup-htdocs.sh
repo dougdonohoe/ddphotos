@@ -29,12 +29,24 @@ BUILD_ROOT="${BUILD_ROOT:-/build}"
 ALBUMS_DIR="${ALBUMS_DIR:-/albums}"
 BUILD_SITE="$BUILD_ROOT/$SITE_ID"
 
+# When RELATIVE_LINKS=1, compute a relative symlink target using GNU realpath.
+# Only set this when running inside the Linux container (realpath --relative-to
+# is a GNU coreutils extension not available on macOS).
+make_link() {
+    local target="$1"
+    local link="$2"
+    if [ -n "${RELATIVE_LINKS:-}" ]; then
+        target=$(realpath --relative-to="$(dirname "$link")" "$target")
+    fi
+    ln -sf "$target" "$link"
+}
+
 # 1. Symlink build output into htdocs/ (skip albums/ — handled separately below).
 # Use find rather than glob so dotfiles like .htaccess are included.
 find "$BUILD_SITE" -maxdepth 1 -mindepth 1 | while IFS= read -r item; do
     name=$(basename "$item")
     [ "$name" = "albums" ] && continue
-    ln -sf "$item" "$HTDOCS/$name"
+    make_link "$item" "$HTDOCS/$name"
 done
 
 # 2. Create htdocs/albums/ and populate with symlinks
@@ -43,11 +55,11 @@ mkdir -p "$HTDOCS/albums"
 # Pre-rendered album HTML pages from the build
 for item in "$BUILD_SITE/albums"/*.html; do
     [ -e "$item" ] || continue
-    ln -sf "$item" "$HTDOCS/albums/$(basename "$item")"
+    make_link "$item" "$HTDOCS/albums/$(basename "$item")"
 done
 
 # Album data (image dirs, albums.json, sitemap.xml, etc.) from the photogen mount
 for item in "$ALBUMS_DIR"/*; do
     [ -e "$item" ] || continue
-    ln -sf "$item" "$HTDOCS/albums/$(basename "$item")"
+    make_link "$item" "$HTDOCS/albums/$(basename "$item")"
 done

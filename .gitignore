@@ -25,3 +25,6 @@ memory/
 
 # per-site static builds (npm run build output)
 /build
+
+# per-site exports
+/export
