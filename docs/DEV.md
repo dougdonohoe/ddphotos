@@ -149,8 +149,7 @@ make docker-build
 To quickly test it out:
 
 ```bash
-rm -rf /tmp/my-ddphotos
-mkdir -p /tmp/my-ddphotos
+rm -rf /tmp/my-ddphotos && mkdir -p /tmp/my-ddphotos
 docker run --rm -v /tmp/my-ddphotos:/ddphotos ddphotos init
 /tmp/my-ddphotos/ddphotos photogen
 /tmp/my-ddphotos/ddphotos run

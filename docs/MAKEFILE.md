@@ -40,7 +40,7 @@ as defined in `config/defaults.env`.
 | `sample-photogen-demo`        | Run photogen using sample config with custom CSS and all albums password-protected            |
 | `sample-demo`                 | One-step demo: photogen (CSS + passwords) and run dev server                                  |
 | `sample-build`                | Build the static site using sample config                                                     |
-| `sample-export`               | Create `export/<site-id>/` with symlinks for local serving (runs `bin/export`)                |
+| `sample-export`               | Create `export/<site-id>/` with symlinks for local serving (runs `bin/export.sh`)             |
 | `sample-npm-run-dev`          | Run the Vite dev server using sample config                                                   |
 | `sample-npm-run-dev-css`      | Run the Vite dev server using sample config with custom CSS                                   |
 | `sample-test-apache`          | Run routing tests against Docker/Apache on port 8082                                          |

@@ -129,7 +129,7 @@ or uploading to a static hosting service.
 ddphotos export
 ```
 
-On the host, serve the exported directory with:
+Serve the exported directory with Python:
 
 ```bash
 python3 -m http.server 8000 --directory export/my-photos
@@ -137,6 +137,13 @@ python3 -m http.server 8000 --directory export/my-photos
 
 See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for notes
 on limitations and usage.
+
+Some static hosting services (e.g. [Surge](https://surge.sh)) don't follow symlinks.
+Use `--copy` to produce real files instead:
+
+```bash
+ddphotos export --copy
+```
 
 ### `deploy`
 

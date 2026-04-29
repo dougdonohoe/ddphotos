@@ -27,7 +27,7 @@ python3 -m http.server 8000 --directory export/sample
 ```
 
 **Limitation:** Python's built-in server has no URL-rewriting capability, so extensionless
-album URLs (`/albums/patagonia`) and photo permalinks (`/albums/patagonia/15`) won't resolve.
+album URLs (`/albums/patagonia`) and photo permalinks (`/albums/patagonia/15`) won't resolve when entered directly.
 The home page and any directly-typed `.html` URLs will load correctly. Use `ddphotos serve`
 or `make web-docker-run-apache` for full routing.
 

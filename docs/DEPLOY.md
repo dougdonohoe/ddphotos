@@ -1,11 +1,16 @@
 # Deployment
 
-DD Photos supports two deployment approaches: **Apache via rsync** (for any SSH-accessible
-server) and **S3 + CloudFront** (fully serverless). Both are described below.
+DD Photos supports the following deployment approaches:
+
+ * **Static** - via `export` script (for any compatible static-hosting service, i.e., [Surge](https://surge.sh))
+ * **Apache via rsync** - via `deploy` script (for any SSH-accessible server)
+ * **S3 + CloudFront** - via `deploy` script (fully serverless).
+
+All are described below.
 
 ## Syncing Logic
 
-The web root is assembled from two independent sources:
+It is important to understand that the web root is assembled from two independent sources:
 
 | Source              | Contents                                                                         | Maps to             |
 |---------------------|----------------------------------------------------------------------------------|---------------------|
@@ -36,13 +41,60 @@ Both rsync and S3 implement this pattern, with minor differences:
 | **Pass 2**           | `--exclude=*.html` skips pre-rendered pages                                                                                             | Two sub-passes: one for JSON/XML/covers (`Cache-Control: no-cache`), one for WebP (`Cache-Control: immutable`) |
 | **Change detection** | Pass 1 uses `--checksum` (Vite resets timestamps every build); Pass 2 uses size+time (photogen preserves timestamps on unchanged files) | Size+time only (no checksum option in `aws s3 sync`)                                                           |
 
+The `export` command uses the same logic (in `web/setup-htdocs.sh`) to produce `export/<site-id>/` — a self-contained
+directory of symlinks suitable for local serving (`python3 -m http.server`) or uploading to
+a static hosting service. Use `--copy` to resolve symlinks to real files for services that
+don't follow them. See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for Python limitations.
+
 The local Docker testing environment uses the same separation: `web/setup-htdocs.sh` symlinks
 build output into `htdocs/` and album data into `htdocs/albums/` from separate bind mounts,
 mirroring the two-source structure without transferring any files.
 
-The `export` command uses the same logic to produce `export/<site-id>/` — a self-contained
-directory of symlinks suitable for local serving (`python3 -m http.server`) or uploading to
-a static hosting service. See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python).
+## Static Deployment
+
+Static deployment typically works by copying a single folder which represents the HTML root. The `export` command
+is used to create a root from the source `album` and `build` dirs.
+
+### Docker Mode
+
+```bash
+./ddphotos photogen
+./ddphotos build
+./ddphotos export        # uses symlinks
+./ddphotos export --copy # do not use symlinks
+```
+
+After running `export`, you'll see an `export/<site-id>` folder which you can sync to your static site service.
+
+### Developer Mode
+
+Use the `bin/export.sh` script:
+
+```bash
+export.sh --site-id <site-id>
+export.sh --site-id <site-id> --copy
+```
+
+### Surge
+
+[Surge](https://surge.sh) is a simple, free alternative for hosting static sites. It works well with DD Photos sites
+with the following known limitation:
+
+* Image permalinks (e.g., `albums/antarctica/5`) don't work (they show the 404 page with a link back to the albums)
+
+Assuming you have `surge` installed, in Docker mode:
+
+```bash
+./ddphotos export --copy
+./surge --domain my-unique-site.surge.sh export/my-photos
+```
+
+In developer mode:
+
+```bash
+export.sh --site-id <site-id> --copy
+./surge --domain my-unique-site.surge.sh export/<site-id>
+```
 
 ## Apache + rsync
 
