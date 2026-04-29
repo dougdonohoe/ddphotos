@@ -354,7 +354,13 @@
 	.modal-body dd {
 		margin: 0;
 		color: var(--text-color);
-		word-break: break-all;
+		word-break: break-word;
+	}
+
+	@media (max-width: 480px) {
+		.modal-body {
+			font-size: 0.95rem;
+		}
 	}
 
 	.modal-body a {

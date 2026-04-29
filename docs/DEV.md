@@ -52,7 +52,7 @@ ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null
 hostname -I | awk '{print $1}'
 ```
 
-### HTTPS on the Dev Server
+## HTTPS on the Dev Server
 
 Password-protected albums use the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
 (`crypto.subtle`), which browsers only expose in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts).
@@ -92,6 +92,14 @@ To see each request to the dev server (useful in debugging) set `VITE_LOG_REQUES
 
 ```bash
 VITE_LOG_REQUESTS=1 make sample-npm-run-dev
+```
+
+## Setting VITE Variables
+
+To set values not normally set in dev server:
+
+```bash
+VITE_DOCKER_IMAGE='dougdonohoe/ddphotos:v1.12.0' make sample-npm-run-dev
 ```
 
 ## Debugging
