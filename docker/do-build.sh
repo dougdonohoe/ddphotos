@@ -15,5 +15,7 @@ mkdir -p /ddphotos/build
 # svelte.config.js writes to ../build/$SITE_ID relative to web/; redirect to /ddphotos/build
 ln -sfn /ddphotos/build /app/build
 
+echo "Building $DDPHOTOS_SITE_ID ..."
+
 cd /app/web
 exec npm run build
