@@ -173,10 +173,8 @@ See [Deployment](DEPLOY.md) for full setup details.
 
 ### `upgrade`
 
-Pulls the latest release and updates the local `ddphotos` wrapper script. If an update
-notice has been shown (see [Version Check and Upgrade](#version-check-and-upgrade) below),
-this installs the newer version automatically. Otherwise it upgrades to match the currently
-pinned image.
+Updates the local `ddphotos` wrapper script to match the image. Run this when an update
+notice appears to install the newer version, or to fix a script/image mismatch.
 
 ```bash
 ddphotos upgrade
@@ -283,11 +281,11 @@ Every command (except `init`, `upgrade`, and `version`) also checks that your lo
 `ddphotos` script matches the running image. In normal use with a tagged release this
 should never fire — the automatic update check keeps things in sync. It is primarily
 relevant for `dev` builds, or in the unlikely event you manually edit the `ddphotos`
-script. If they differ, you'll see:
+script. If they differ, a warning is printed and the command continues normally:
 
 ```
-Error: local ddphotos script does not match the image.
-Run: ddphotos upgrade
+WARNING: the local 'ddphotos' script does not match the image.
+         Run: 'ddphotos upgrade' to fix this.
 ```
 
 Run `ddphotos upgrade` to bring the script back in sync.

@@ -52,7 +52,7 @@ DDPHOTOS_CONFIG_DIR=""
 CONFIG_DIR_EXTRA_SRC=""  # set only when an extra mount is needed (for display)
 if [ -n "$OPT_CONFIG_DIR" ]; then
     if [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR"/* ]] || [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR" ]]; then
-        DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#$DDPHOTOS_DIR}"
+        DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#"$DDPHOTOS_DIR"}"
     else
         EXTRA_MOUNT_ARGS+=(-v "$CONFIG_HOST_DIR":/ddphotos-config:ro)
         DDPHOTOS_CONFIG_DIR="/ddphotos-config"
@@ -76,16 +76,25 @@ build_mount_args() {
     [ -f "$config" ] || return 0
     local in_bases=false
     while IFS= read -r line; do
+        # Look for the "bases:" section header; once found, start processing lines below it
         if [[ "$line" =~ ^bases: ]]; then
             in_bases=true
             continue
         fi
         if $in_bases; then
+            # A line starting with a letter/underscore is a new top-level YAML key — we've
+            # left the bases: section, so stop
             [[ "$line" =~ ^[a-zA-Z_] ]] && break
+            # Skip comment lines
             [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            # Extract the value from a "  name: /some/path" line:
+            # strip everything up to and including the first colon, then strip leading whitespace
             local path
-            path=$(echo "$line" | sed 's/^[[:space:]]*[^:]*:[[:space:]]*//')
+            path="${line#*:}"
+            path="${path#"${path%%[^[:space:]]*}"}"
+            # Expand leading ~ to $HOME
             path="${path/#\~/$HOME}"
+            # Only mount absolute paths that fall outside DDPHOTOS_DIR (which is already mounted)
             if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
                 MOUNT_ARGS+=(-v "$path:$path:ro")
                 MOUNT_PATHS+=("$path")

@@ -7,9 +7,9 @@ shift 2>/dev/null || true
 # Verify the mounted ddphotos script matches the image (skip for init/upgrade/version)
 if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ] && [ "$cmd" != "version" ]; then
     if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
-        echo "Error: local ddphotos script does not match the image."
-        echo "Run: ddphotos upgrade"
-        exit 1
+        echo "WARNING: the local 'ddphotos' script does not match the image."
+        echo "         Run: 'ddphotos upgrade' to fix this."
+        echo ""
     fi
 fi
 
