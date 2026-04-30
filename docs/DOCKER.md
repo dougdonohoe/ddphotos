@@ -284,8 +284,8 @@ relevant for `dev` builds, or in the unlikely event you manually edit the `ddpho
 script. If they differ, a warning is printed and the command continues normally:
 
 ```
-WARNING: the local 'ddphotos' script does not match the image.
-         Run: 'ddphotos upgrade' to fix this.
+WARNING:  The local 'ddphotos' script does not match the image.
+          Run: 'ddphotos upgrade' to fix this.
 ```
 
 Run `ddphotos upgrade` to bring the script back in sync.
