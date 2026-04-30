@@ -1,16 +1,19 @@
 // hooks.server.ts — build-time hook (not the dev server).
 //
-// handleFetch intercepts fetch() calls made in SvelteKit load functions (+page.ts)
-// during `npm run build` prerendering. In practice only JSON files are fetched here
-// (config.json, albums.json, index.json, etc.) — images are just strings in the
-// rendered HTML and are never fetched server-side.
+// Album data is always served dynamically, never as static files:
+//   dev:     Vite middleware in vite.config.ts serves /albums/** from DDPHOTOS_ALBUMS_DIR
+//   build:   handleFetch below intercepts fetch() calls in load functions (JSON only)
+//   runtime: Apache/Docker mounts the albums directory and serves everything directly
 //
-// Dev server asset serving (/albums/**) is handled separately in vite.config.ts.
-// At runtime (Apache/Docker), neither applies — Apache serves everything directly.
+// handleFetch intercepts fetch('/albums/...') calls made in SvelteKit load functions
+// during `npm run build` pre-rendering. In practice only JSON files are fetched here
+// (config.json, albums.json, index.json, etc.) — images are strings in the rendered
+// HTML, not server-side fetches, so the prerender crawler encounters them as 404s
+// (suppressed via handleError below and handleHttpError in svelte.config.js).
 
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import type { Handle, HandleFetch } from '@sveltejs/kit';
+import type { Handle, HandleFetch, HandleServerError } from '@sveltejs/kit';
 
 // Resolve albums dir the same way vite.config.ts does (repo-root-relative default).
 function resolveAlbumsDir(): string {
@@ -43,3 +46,14 @@ export const handleFetch: HandleFetch = async ({ request, fetch }) => {
 };
 
 export const handle: Handle = async ({ event, resolve }) => resolve(event);
+
+// Suppress the noisy [404] log that SvelteKit's default handleError emits when the
+// prerender crawler follows <img src="/albums/..."> cover URLs on the home page.
+// Those assets are served at runtime (Apache/Docker) and are never pre-rendered;
+// the 404 is expected and already silenced in svelte.config.js handleHttpError.
+// For real errors, replicate the default: log status + path (+ stack for non-404).
+export const handleError: HandleServerError = ({ status, error, event }) => {
+	if (status === 404 && event.url.pathname.startsWith('/albums/')) return;
+	const line = `\n\x1b[1;31m[${status}] ${event.request.method} ${event.url.pathname}\x1b[0m`;
+	console.error(status === 404 ? line : `${line}\n${(error as Error)?.stack ?? error}`);
+};
