@@ -173,7 +173,10 @@ See [Deployment](DEPLOY.md) for full setup details.
 
 ### `upgrade`
 
-Updates the local `ddphotos` wrapper script to match the current Docker image.
+Pulls the latest release and updates the local `ddphotos` wrapper script. If an update
+notice has been shown (see [Version Check and Upgrade](#version-check-and-upgrade) below),
+this installs the newer version automatically. Otherwise it upgrades to match the currently
+pinned image.
 
 ```bash
 ddphotos upgrade
@@ -188,11 +191,12 @@ ddphotos version
 ```
 
 ```
-Script:      /Users/anseladams/.local/bin/ddphotos
-Image:       dougdonohoe/ddphotos:v1.2.0
-Albums dir:  /Users/anseladams/my-ddphotos
-Config dir:  /Users/anseladams/my-ddphotos/config
-Site ID:     my-photos
+Script:         /Users/anseladams/.local/bin/ddphotos
+Image:          dougdonohoe/ddphotos:v1.2.0
+DD Photos dir:  /Users/anseladams/my-ddphotos
+Config dir:     /Users/anseladams/my-ddphotos/config
+Site ID:        my-photos
+State dir:      /Users/anseladams/.config/ddphotos
 ```
 
 Add `--image` to also query the image for its build details:
@@ -202,13 +206,14 @@ ddphotos version --image
 ```
 
 ```
-Script:      /Users/anseladams/.local/bin/ddphotos
-Image:       dougdonohoe/ddphotos:v1.2.0
-               Version:  v1.2.0
-               Git:      v1.2.0-0-gabcdef1
-Albums dir:  /Users/anseladams/my-ddphotos
-Config dir:  /Users/anseladams/my-ddphotos/config
-Site ID:     my-photos
+Script:         /Users/anseladams/.local/bin/ddphotos
+Image:          dougdonohoe/ddphotos:v1.2.0
+                  Version:  v1.2.0
+                  Git:      v1.2.0-0-gabcdef1
+DD Photos dir:  /Users/anseladams/my-ddphotos
+Config dir:     /Users/anseladams/my-ddphotos/config
+Site ID:        my-photos
+State dir:      /Users/anseladams/.config/ddphotos
 ```
 
 The `--dir`, `--config-dir`, and `--site-id` pre-command flags also work with `version`, making it useful for confirming which config a given invocation would use.
@@ -221,7 +226,7 @@ These flags go before the command name and apply to all commands that need them:
 
 | Flag                  | Description                                                                                           |
 |-----------------------|-------------------------------------------------------------------------------------------------------|
-| `--dir <path>` | Directory containing your config and albums output (default: same directory as the `ddphotos` script) |
+| `--dir <path>`        | Directory containing your config and albums output (default: same directory as the `ddphotos` script) |
 | `--config-dir <path>` | Path to a config directory other than `<albums-dir>/config`                                           |
 | `--site-id <id>`      | Override the site ID (normally read from `config/albums.yaml`)                                        |
 | `--site-env <path>`   | Path to a `site.env` file other than `<config-dir>/site.env`                                          |
@@ -257,11 +262,32 @@ my-ddphotos/
 
 ## Version Check and Upgrade
 
-Every command (except `init`, `upgrade`, and `version`) checks that your local `ddphotos` script matches the image. If they differ, you'll see:
+### Automatic update check
+
+Each time you run `ddphotos`, it checks Docker Hub for a newer release — at most once per
+day, and only when the script is pinned to a versioned release (not a `dev` build). State is
+stored in `~/.config/ddphotos/` (created automatically on first run).
+
+If a newer version is available, a notice prints to stderr on every subsequent run:
+
+```
+Update available: v1.3.0 - run 'ddphotos upgrade' to update
+```
+
+Run `ddphotos upgrade` to pull and install it. The notice is cleared automatically once
+the installed version matches the latest.
+
+### Script/image mismatch check
+
+Every command (except `init`, `upgrade`, and `version`) also checks that your local
+`ddphotos` script matches the running image. In normal use with a tagged release this
+should never fire — the automatic update check keeps things in sync. It is primarily
+relevant for `dev` builds, or in the unlikely event you manually edit the `ddphotos`
+script. If they differ, you'll see:
 
 ```
 Error: local ddphotos script does not match the image.
 Run: ddphotos upgrade
 ```
 
-Run `ddphotos upgrade` to update the script in place.
+Run `ddphotos upgrade` to bring the script back in sync.

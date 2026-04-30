@@ -5,6 +5,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="ddphotos"
+CURRENT_VERSION="${IMAGE##*:}"
+STATE_DIR="${HOME}/.config/ddphotos"
+UPGRADE_FILE="$STATE_DIR/upgrade.txt"
+mkdir -p "$STATE_DIR"
 
 # Parse --dir, --site-id, --config-dir, --site-env flags before the command
 OPT_CONFIG_DIR=""
@@ -104,6 +108,33 @@ print_mounts() {
     echo ""
 }
 
+# Query Docker Hub for the latest versioned release tag and write upgrade.txt if newer.
+check_for_update() {
+    [[ "$CURRENT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 0
+    command -v curl >/dev/null 2>&1 || return 0
+
+    local last_check="$STATE_DIR/last-check"
+    if [ -f "$last_check" ] && [ -z "$(find "$last_check" -mmin +1440 2>/dev/null)" ]; then
+        return 0
+    fi
+
+    local repo latest newer
+    repo="${IMAGE%%:*}"
+    latest=$(curl -sf --max-time 2 \
+        "https://hub.docker.com/v2/repositories/${repo}/tags?page_size=50&ordering=last_updated" \
+        | grep -oE '"name":"v[0-9]+\.[0-9]+\.[0-9]+"' \
+        | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' \
+        | sort -V | tail -1) || true
+
+    touch "$last_check"
+    [ -z "$latest" ] && return 0
+
+    newer=$(printf '%s\n%s' "$CURRENT_VERSION" "$latest" | sort -V | tail -1)
+    if [ "$newer" != "$CURRENT_VERSION" ]; then
+        echo "$latest" > "$UPGRADE_FILE"
+    fi
+}
+
 SERVE_PORT="${SERVE_PORT:-8000}"
 RUN_PORT="${RUN_PORT:-5173}"
 
@@ -131,6 +162,17 @@ case "$cmd" in
         fi
         ;;
 esac
+
+# Remove upgrade.txt if we're already on that version (post-upgrade cleanup)
+if [ -f "$UPGRADE_FILE" ] && [ "$(cat "$UPGRADE_FILE")" = "$CURRENT_VERSION" ]; then
+    rm -f "$UPGRADE_FILE"
+fi
+
+check_for_update
+
+if [ -f "$UPGRADE_FILE" ]; then
+    echo "Update available: $(cat "$UPGRADE_FILE") - run 'ddphotos upgrade' to update" >&2
+fi
 
 case "$cmd" in
     init)
@@ -226,10 +268,15 @@ case "$cmd" in
             "$IMAGE" deploy "$@"
         ;;
     upgrade)
+        UPGRADE_IMAGE="$IMAGE"
+        if [[ "$CURRENT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ -f "$UPGRADE_FILE" ]; then
+            TARGET_VERSION=$(cat "$UPGRADE_FILE")
+            UPGRADE_IMAGE="${IMAGE%%:*}:$TARGET_VERSION"
+        fi
         docker run --rm \
             -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
-            "$IMAGE" upgrade
+            "$UPGRADE_IMAGE" upgrade
         ;;
     version)
         echo "Script:         $SCRIPT_DIR/ddphotos"
@@ -240,6 +287,7 @@ case "$cmd" in
         echo "DD Photos dir:  $DDPHOTOS_DIR"
         echo "Config dir:     $CONFIG_HOST_DIR"
         echo "Site ID:        $DDPHOTOS_SITE_ID"
+        echo "State dir:      $STATE_DIR"
         ;;
     *)
         echo "Usage: ddphotos [OPTIONS] {init|photogen|build|serve|run|export|deploy|upgrade} [args]"
