@@ -1442,3 +1442,45 @@ On narrow mobile screens, the Docker image name (e.g., `dougdonohoe/ddphotos:v1.
 - Changed to `word-break: break-word` — breaks only at natural word boundaries (`/`, `:`)
 - Added `@media (max-width: 480px)` rule reducing `.modal-body` font size from `1.15rem` to `0.95rem`, giving enough width to keep the image name on one line
 - Added `VITE_DOCKER_IMAGE` dev-server usage to `docs/DEV.md` so developers can test the dialog with a realistic image name: `VITE_DOCKER_IMAGE='dougdonohoe/ddphotos:v1.12.0' make sample-npm-run-dev`
+
+### 66. 04/30/2026 - Automatic Update Check
+
+#### Motivation
+
+The `ddphotos` script is pinned to a specific image version (e.g., `dougdonohoe/ddphotos:v1.13.0`). Users had no way to know when a newer release was available without manually checking Docker Hub. The goal was a low-friction, host-side check that notifies without interrupting normal use.
+
+#### Update Check Design
+
+After evaluating several approaches, the check runs host-side in the `ddphotos` bash script (no Docker involvement, no new mounts needed). State lives in `~/.config/ddphotos/` (created automatically on first run).
+
+Key design decisions:
+- **Docker Hub API** used to find the latest versioned tag (via `curl` + `grep -oE`)  
+- **`jq` and `python3` avoided** — not reliably present on all platforms; pure bash + `grep` + `sort -V` is sufficient
+- **`curl`** treated as safe to assume (it's required to install `ddphotos` in the first place)
+- **Once-per-day throttle** via mtime of `~/.config/ddphotos/last-check`; skipped entirely for `dev` builds
+- **Serial check** (not background) — `ddphotos` commands are long-running enough that a sub-2-second curl is not a concern
+
+#### Implementation (`docker/ddphotos`)
+
+- `STATE_DIR` (`~/.config/ddphotos/`) and `UPGRADE_FILE` (`upgrade.txt`) set up at script top; `mkdir -p` ensures the directory exists
+- `check_for_update()` function: queries Docker Hub, extracts version tags with `grep -oE`, compares with current version using `sort -V`, writes `upgrade.txt` if newer found; `curl --max-time 2` prevents hangs
+- On every command run: if `upgrade.txt` matches current version (post-upgrade), it is deleted; then `check_for_update` runs; then a notice is printed to stderr if `upgrade.txt` exists
+- `upgrade` command reads `upgrade.txt` when present and substitutes the target version into the image reference before calling `docker run`, so the container's existing upgrade logic installs the new script
+- `version` output now includes `State dir:` line
+
+#### Script/Image Mismatch Check
+
+Changed from a hard error (`exit 1`) to a warning that lets the command continue. The mismatch check is primarily relevant for `dev` builds; with the new automatic update flow, it should never fire for tagged releases in normal use.
+
+#### Shell Script Fixes
+
+Two IntelliJ/ShellCheck warnings addressed:
+- Quoted `$DDPHOTOS_DIR` inside `${CONFIG_HOST_DIR#"$DDPHOTOS_DIR"}` to prevent glob interpretation of the pattern
+- Replaced `echo "$line" | sed 's/^[[:space:]]*[^:]*:[[:space:]]*//'` in `build_mount_args()` with pure bash parameter expansion: `path="${line#*:}"` then `path="${path#"${path%%[^[:space:]]*}"}"` — eliminates subprocess and the sed dependency
+- Added inline comments to `build_mount_args()` explaining the YAML parsing logic
+
+#### Documentation (`docs/DOCKER.md`)
+
+- `upgrade` command description rewritten to be accurate
+- `version` output examples corrected (`DD Photos dir:` was wrong as `Albums dir:`) and updated to include `State dir:`
+- `Version Check and Upgrade` section expanded into two subsections: **Automatic update check** (new) and **Script/image mismatch check** (existing, now described as a warning)
