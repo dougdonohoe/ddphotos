@@ -288,6 +288,7 @@ DDPHOTOS_IMAGE  ?= ddphotos
 ## docker-build: build the ddphotos Docker image
 docker-build:
 	docker build -t $(DDPHOTOS_IMAGE) \
+		--build-arg NODE_VERSION=$$(cat web/.nvmrc) \
 		--build-arg DDPHOTOS_GIT_DESCRIBE="$$(git describe --tags --long --dirty --always 2>/dev/null || echo unknown)" \
 		-f docker/Dockerfile .
 

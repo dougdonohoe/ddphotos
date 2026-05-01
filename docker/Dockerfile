@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
 
+ARG NODE_VERSION=22
+
 # ── Stage 1: Build photogen (Go + libvips) ────────────────────────────────────
 FROM golang:1.25-bookworm AS go-builder
 
@@ -15,7 +17,7 @@ COPY pkg pkg/
 RUN CGO_ENABLED=1 go build -o /photogen ./cmd/photogen/photogen.go
 
 # ── Stage 2: Pre-install Node dependencies ────────────────────────────────────
-FROM node:22-bookworm-slim AS node-builder
+FROM node:${NODE_VERSION}-bookworm-slim AS node-builder
 
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
@@ -48,7 +50,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     awscli \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 22 binary from node-builder (avoids NodeSource apt install)
+# Node binary from node-builder (avoids NodeSource apt install)
 COPY --from=node-builder /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-builder /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 # Use a symlink so __dirname-relative paths in npm-cli.js resolve correctly

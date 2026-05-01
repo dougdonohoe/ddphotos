@@ -47,9 +47,11 @@ else
 fi
 
 GIT_DESCRIBE=$(git describe --tags --long --dirty --always 2>/dev/null || echo "unknown")
+NODE_VERSION=$(cat web/.nvmrc)
 
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
+    --build-arg NODE_VERSION="$NODE_VERSION" \
     --build-arg DDPHOTOS_VERSION="$VERSION" \
     --build-arg DDPHOTOS_GIT_DESCRIBE="$GIT_DESCRIBE" \
     --build-arg DDPHOTOS_IMAGE="$IMAGE_TAG" \
