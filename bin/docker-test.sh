@@ -150,8 +150,17 @@ pass "export --copy OK ($FILE_COUNT files, no symlinks)"
 
 # ── 8. Version ─────────────────────────────────────────────────────────────────
 step "Version"
-"$TEST_DIR/ddphotos" version
-"$TEST_DIR/ddphotos" version --image
+version_out=$("$TEST_DIR/ddphotos" version)
+echo "$version_out"
+echo "$version_out" | grep -qF "$TEST_DIR/ddphotos" || fail "version: Script path does not match $TEST_DIR/ddphotos"
+pass "version: Script path OK"
+
+version_image_out=$("$TEST_DIR/ddphotos" version --image)
+echo "$version_image_out"
+echo "$version_image_out" | grep -qF "$TEST_DIR/ddphotos" || fail "version --image: Script path does not match $TEST_DIR/ddphotos"
+echo "$version_image_out" | grep -q "Git:" || fail "version --image: missing Git: line"
+echo "$version_image_out" | grep -q "Version:.*dev" || fail "version --image: missing Version: dev"
+pass "version --image: Script path OK, Git: and Version: dev present"
 
 # ── 9. Init --script-only ──────────────────────────────────────────────────────
 step "Init --script-only"

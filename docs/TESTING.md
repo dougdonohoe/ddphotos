@@ -196,6 +196,33 @@ make sample-rsync-test
 make sample-s3-test
 ```
 
+## Testing Docker
+
+`bin/docker-test.sh` exercises the full `ddphotos` Docker workflow end-to-end —
+from `init` through `photogen`, `run`, `build`, `serve`, `export`, and `version` —
+using the built-in sample photos that ship with the image.
+
+```bash
+make docker-test              # build the ddphotos image and run all tests
+bin/docker-test.sh --no-build # skip image build (reuse existing ddphotos image)
+```
+
+The script runs the following steps in a fresh temp workspace:
+
+1. Builds the `ddphotos` Docker image via `make docker-build`
+2. Runs `init` and verifies the `ddphotos` script and config files are created
+3. Runs `photogen` on the bundled sample photos and verifies album output
+4. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
+5. Runs `build` and verifies the static site output
+6. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
+7. Tests `export` (symlink mode) and `export --copy` (all files resolved, no symlinks)
+8. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
+9. Runs `init --script-only` and verifies only the script is installed (no `config/` or `albums/`)
+
+Playwright tests skip assertions that depend on sample-site-specific albums (e.g. `antarctica`) when
+those albums are not present in the init site, so the full test suite runs cleanly against the
+smaller built-in sample. The temp workspace is cleaned up automatically on exit.
+
 ## CI (GitHub Actions)
 
 The workflow in `.github/workflows/ci.yml` runs on every push or pull request to `main`. It:
@@ -209,6 +236,9 @@ The workflow in `.github/workflows/ci.yml` runs on every push or pull request to
 7. Runs `make web-docker-build-nginx sample-test-nginx` — builds the nginx Docker image and runs routing tests
 8. Runs `bin/test-all.sh --mode apache` — Playwright e2e tests across all password/CSS variants against Apache
 9. Runs `bin/test-all.sh --mode nginx` — Playwright e2e tests across all password/CSS variants against nginx
+10. Runs `make sample-rsync-test` — tests the rsync deploy path against a local Docker container
+11. Runs `make sample-s3-test` — tests the S3 deploy path against LocalStack
+12. Runs `make docker-test` — builds the `ddphotos` image and runs end-to-end Docker workflow tests
 
 ### Testing CI Locally with `act`
 

@@ -154,7 +154,7 @@ To build the DD Photos Docker `ddphotos` image for testing locally:
 make docker-build
 ```
 
-To quickly test it out:
+To quickly test it out manually:
 
 ```bash
 rm -rf /tmp/my-ddphotos && mkdir -p /tmp/my-ddphotos
@@ -170,6 +170,8 @@ To install `ddphotos` in `~/.localbin`:
 ```bash
 docker run --rm -v ~/.local/bin:/ddphotos ddphotos init --script-only
 ```
+
+See [Testing Docker](TESTING.md#testing-docker) for information on the full test suite.
 
 ## Docker Push
 
