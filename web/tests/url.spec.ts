@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, loadPasswords, unlockAlbumIfNeeded } from './helpers';
+import { waitForHydration, loadPasswords, unlockAlbumIfNeeded, albumExists } from './helpers';
 
 const pw = loadPasswords();
+
+let hasAntarctica = true;
+test.beforeAll(async ({ request }) => {
+	hasAntarctica = await albumExists(request, 'antarctica');
+});
 
 // URL management tests — covers the replaceState fixes:
 //  - history.replaceState was replaced with SvelteKit's replaceState from $app/navigation
@@ -10,6 +15,7 @@ const pw = loadPasswords();
 //    (animate=false) don't call replaceState before the router is initialised.
 
 test('opening a photo updates URL to permalink', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
@@ -19,6 +25,7 @@ test('opening a photo updates URL to permalink', async ({ page }) => {
 });
 
 test('navigating photos updates URL', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
@@ -31,6 +38,7 @@ test('navigating photos updates URL', async ({ page }) => {
 });
 
 test('closing lightbox restores album URL', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
@@ -44,6 +52,7 @@ test('closing lightbox restores album URL', async ({ page }) => {
 });
 
 test('loading a permalink URL opens the correct photo', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	// If the album is encrypted, unlock at the base URL first so the password is
 	// stored in localStorage. Then navigating to the permalink triggers tryDecryptAlbum
 	// in onMount, which auto-decrypts and opens the lightbox. (handleUnlock, called by

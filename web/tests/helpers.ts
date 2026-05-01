@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
-import { type Page, type Locator } from '@playwright/test';
+import { type APIRequestContext, type Page, type Locator } from '@playwright/test';
 
 export interface Passwords {
 	all: string | null;
@@ -103,6 +103,36 @@ export async function unlockAlbumIfNeeded(
 	]).catch(() => 'timeout');
 	if (result !== 'locked') return;
 	await unlockAlbum(page, pw);
+}
+
+/**
+ * Check whether a specific album slug exists in albums.json.
+ * Fails open (returns true) on API error so tests surface real failures.
+ */
+export async function albumExists(request: APIRequestContext, slug: string): Promise<boolean> {
+	try {
+		const resp = await request.get('/albums/albums.json');
+		if (!resp.ok()) return true;
+		const albums: { slug: string }[] = await resp.json();
+		return albums.some((a) => a.slug === slug);
+	} catch {
+		return true;
+	}
+}
+
+/**
+ * Check whether the site has at least n albums that contain photos (count > 0).
+ * Fails open (returns true) on API error.
+ */
+export async function hasAtLeastNAlbums(request: APIRequestContext, n: number): Promise<boolean> {
+	try {
+		const resp = await request.get('/albums/albums.json');
+		if (!resp.ok()) return true;
+		const albums: { count: number }[] = await resp.json();
+		return albums.filter((a) => a.count > 0).length >= n;
+	} catch {
+		return true;
+	}
 }
 
 /**

@@ -6,9 +6,9 @@
 # Works against any web server (Apache or nginx).
 #
 # Usage:
-#   bin/test-photos-server.sh --local              # test local Docker on port 8080
-#   bin/test-photos-server.sh --local 9090         # test local Docker on port 9090
-#   bin/test-photos-server.sh --remote URL         # test a remote site at URL
+#   bin/test-photos-server.sh --local          # test local Docker on port 8080
+#   bin/test-photos-server.sh --local 9090     # test local Docker on port 9090
+#   bin/test-photos-server.sh --remote URL     # test a remote site at URL
 #
 # Note: In production, Apache is behind CloudFront, so:
 #   - Redirect locations use http:// (Apache sees HTTP from CloudFront)
@@ -25,7 +25,6 @@ SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 LOCAL=0
 PORT=8080
 REMOTE_URL=""
-CONFIG_DIR=""
 S3_MODE=0
 
 while [[ $# -gt 0 ]]; do
@@ -38,23 +37,12 @@ while [[ $# -gt 0 ]]; do
             fi
             shift
             ;;
-        --remote)       REMOTE_URL="$2"; shift 2 ;;
-        --remote=*)     REMOTE_URL="${1#*=}"; shift ;;
-        --config-dir)   CONFIG_DIR="$2"; shift 2 ;;
-        --config-dir=*) CONFIG_DIR="${1#*=}"; shift ;;
-        --s3)           S3_MODE=1; shift ;;
+        --remote)   REMOTE_URL="$2"; shift 2 ;;
+        --remote=*) REMOTE_URL="${1#*=}"; shift ;;
+        --s3)       S3_MODE=1; shift ;;
         *) shift ;;
     esac
 done
-
-if [ -n "$CONFIG_DIR" ]; then
-    CONFIG="$CONFIG_DIR/site.env"
-else
-    CONFIG="$SDIR/../config/site.env"
-fi
-[ -f "$CONFIG" ] || { echo "Error: $CONFIG not found"; exit 1; }
-echo "Loading environment variables from $CONFIG ..."
-source "$CONFIG"
 
 if [ "$LOCAL" -eq 1 ]; then
     BASE="http://localhost:$PORT"

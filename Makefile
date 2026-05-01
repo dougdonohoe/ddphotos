@@ -242,7 +242,7 @@ sample-test-apache: _check-docker-schema-apache
 		photos-apache
 	@echo "Waiting for Apache to be ready..."; \
 	until curl -s -o /dev/null http://localhost:8082; do sleep 1; done
-	bin/test-photos-server.sh --config-dir sample/config --local 8082; \
+	bin/test-photos-server.sh --local 8082; \
 	EXIT=$$?; docker stop sample-test-apache 2>/dev/null || true; exit $$EXIT
 
 .PHONY: sample-test-nginx
@@ -256,7 +256,7 @@ sample-test-nginx: _check-docker-schema-nginx
 		photos-nginx
 	@echo "Waiting for nginx to be ready..."; \
 	until curl -s -o /dev/null http://localhost:8082; do sleep 1; done
-	bin/test-photos-server.sh --config-dir sample/config --local 8082; \
+	bin/test-photos-server.sh --local 8082; \
 	EXIT=$$?; docker stop sample-test-nginx 2>/dev/null || true; exit $$EXIT
 
 .PHONY: sample-rsync-test
@@ -295,3 +295,8 @@ docker-build:
 ## docker-push: build multi-arch image and push to Docker Hub (tag is dev or vX.Y.Z+latest)
 docker-push:
 	bin/docker-push.sh
+
+.PHONY: docker-test
+## docker-test: build the ddphotos Docker image and run end-to-end Docker workflow tests
+docker-test:
+	bin/docker-test.sh

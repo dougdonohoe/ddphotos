@@ -38,6 +38,7 @@ test('custom CSS applies border-radius to album cards', async ({ page }) => {
 
 test('custom CSS <link> is NOT present when CSS is not configured', async ({ page }) => {
 	test.skip(hasCustomCss, 'CSS is configured — skipping no-CSS check');
+	test.skip(!!process.env.PLAYWRIGHT_IGNORE_CUSTOM_CSS, 'CSS presence unknown — skipping');
 	await page.goto('/');
 	const link = page.locator('link[rel="stylesheet"][href*="custom.css"]');
 	await expect(link).toHaveCount(0);

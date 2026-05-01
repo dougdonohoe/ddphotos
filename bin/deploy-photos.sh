@@ -157,7 +157,6 @@ _pre_deploy() {
 
         echo "Running local server tests..."
         TEST_ARGS=(--local 8080)
-        [ -n "$CONFIG_DIR" ] && TEST_ARGS+=(--config-dir "$CONFIG_DIR")
         "$SDIR/test-photos-server.sh" "${TEST_ARGS[@]}"
 
         if [ "$SKIP_PLAYWRIGHT" = true ]; then
@@ -198,7 +197,6 @@ _post_deploy() {
         fi
         PROD_ARGS=(--remote "$SITE_URL")
         [ "$mode" = "s3" ] && PROD_ARGS=(--s3 "${PROD_ARGS[@]}")
-        [ -n "$CONFIG_DIR" ] && PROD_ARGS+=(--config-dir "$CONFIG_DIR")
         "$SDIR/test-photos-server.sh" "${PROD_ARGS[@]}"
     fi
 

@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, loadPasswords, unlockAlbumIfNeeded } from './helpers';
+import { waitForHydration, loadPasswords, unlockAlbumIfNeeded, albumExists } from './helpers';
 
 const pw = loadPasswords();
+
+let hasAntarctica = true;
+test.beforeAll(async ({ request }) => {
+	hasAntarctica = await albumExists(request, 'antarctica');
+});
 
 // Caption tests verify the rendering mechanism works (rAF fix, animate=false fix),
 // not specific caption text — so they work against any site (sample or prod).
@@ -16,6 +21,7 @@ async function expectCaptionVisible(page: import('@playwright/test').Page) {
 }
 
 test('caption shows when clicking a photo from the grid (animate=true path)', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto(`/albums/${ALBUM}`);
 	await unlockAlbumIfNeeded(page, ALBUM, pw);
 	await waitForHydration(page);
@@ -30,6 +36,7 @@ test('caption shows when clicking a photo from the grid (animate=true path)', as
 });
 
 test('caption shows when loading a photo permalink directly (animate=false path)', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	// Direct URL open: onMount calls openLightbox(..., false) before the router
 	// is fully initialised — exercises the `if (animate) replaceState(...)` fix.
 	//
@@ -51,6 +58,7 @@ test('caption shows when loading a photo permalink directly (animate=false path)
 });
 
 test('caption updates when navigating to prev/next photo', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto(`/albums/${ALBUM}`);
 	await unlockAlbumIfNeeded(page, ALBUM, pw);
 	await waitForHydration(page);

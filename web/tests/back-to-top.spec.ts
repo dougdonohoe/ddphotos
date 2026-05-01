@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded } from './helpers';
+import { loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded, albumExists } from './helpers';
 
 const pw = loadPasswords();
+
+let hasAntarctica = true;
+test.beforeAll(async ({ request }) => {
+	hasAntarctica = await albumExists(request, 'antarctica');
+});
 
 const MOBILE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 800 };
@@ -20,6 +25,7 @@ async function simulateScroll(page: any, y = 700) {
 
 // Album grid page: back-to-top should appear on both desktop and mobile
 test('album page: back-to-top appears after scrolling on desktop', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.setViewportSize(DESKTOP);
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
@@ -30,6 +36,7 @@ test('album page: back-to-top appears after scrolling on desktop', async ({ page
 });
 
 test('album page: back-to-top appears after scrolling on mobile', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.setViewportSize(MOBILE);
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);

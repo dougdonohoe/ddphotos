@@ -66,3 +66,6 @@ jobs:
 
       - name: Run S3 deploy test
         run: make sample-s3-test
+
+      - name: Run Docker workflow tests
+        run: make docker-test

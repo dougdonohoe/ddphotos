@@ -1,12 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded } from './helpers';
+import { loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded, albumExists } from './helpers';
 
 // Smoke tests — basic rendering checks that catch build/deploy regressions.
 // Albums checked here (Antarctica, Uganda) are present in both sample and prod.
 
 const pw = loadPasswords();
 
+let hasAntarctica = true;
+test.beforeAll(async ({ request }) => {
+	hasAntarctica = await albumExists(request, 'antarctica');
+});
+
 test('home page lists albums including known overlap albums', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 	// Spot-check albums present in both sample and prod
@@ -15,6 +21,7 @@ test('home page lists albums including known overlap albums', async ({ page }) =
 });
 
 test('home page album cards show description', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 	// Antarctica's description is stable across sample and prod
@@ -22,6 +29,7 @@ test('home page album cards show description', async ({ page }) => {
 });
 
 test('album page shows title, description, and photo count', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await expect(page.locator('h1')).toHaveText('Antarctica');
@@ -30,6 +38,7 @@ test('album page shows title, description, and photo count', async ({ page }) =>
 });
 
 test('album page renders photos in the grid', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	// At least one photo button should be present
@@ -37,6 +46,7 @@ test('album page renders photos in the grid', async ({ page }) => {
 });
 
 test('album page has correct Open Graph tags', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^Antarctica/);
@@ -53,6 +63,7 @@ test('home page og:site_name matches siteName from config.json', async ({ page }
 });
 
 test('album page og:site_name matches siteName from config.json', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	const config = await page.request.get('/albums/config.json').then((r) => r.json());
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);

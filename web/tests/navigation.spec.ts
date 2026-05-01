@@ -4,7 +4,8 @@ import {
 	loadPasswords,
 	unlockSiteIfNeeded,
 	unlockAlbumIfNeeded,
-	slugFromCard
+	slugFromCard,
+	hasAtLeastNAlbums
 } from './helpers';
 
 // Cross-album navigation tests — covers the $effect fix for stale imageSrcs.
@@ -18,6 +19,11 @@ import {
 // work against any site (sample, dev, or prod) without hardcoding album names.
 
 const pw = loadPasswords();
+
+let threeAlbums = true;
+test.beforeAll(async ({ request }) => {
+	threeAlbums = await hasAtLeastNAlbums(request, 3);
+});
 
 test('navigating from one album to another shows correct content', async ({ page }) => {
 	await page.goto('/');
@@ -74,6 +80,7 @@ test('lightbox works correctly after cross-album navigation', async ({ page }) =
 });
 
 test('navigating through multiple albums maintains correct state', async ({ page }) => {
+	test.skip(!threeAlbums, 'fewer than 3 albums');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 

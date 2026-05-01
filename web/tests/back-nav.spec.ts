@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded } from './helpers';
+import { waitForHydration, loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded, albumExists } from './helpers';
 
 const pw = loadPasswords();
+
+let hasAntarctica = true;
+test.beforeAll(async ({ request }) => {
+	hasAntarctica = await albumExists(request, 'antarctica');
+});
 
 // Browser back/forward navigation tests for the lightbox.
 //
@@ -10,6 +15,7 @@ const pw = loadPasswords();
 // (e.g. the album list) or leave the lightbox hanging open.
 
 test('back button after opening photo closes lightbox and returns to album URL', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
@@ -25,6 +31,7 @@ test('back button after opening photo closes lightbox and returns to album URL',
 });
 
 test('back button after navigating photos in lightbox closes lightbox', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
@@ -43,6 +50,7 @@ test('back button after navigating photos in lightbox closes lightbox', async ({
 });
 
 test('back button after closing lightbox navigates to previous page', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: 'Antarctica' }).click();
@@ -64,6 +72,7 @@ test('back button after closing lightbox navigates to previous page', async ({ p
 });
 
 test('after reload and back, album photos render correctly', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);
@@ -95,6 +104,7 @@ test('after reload and back, album photos render correctly', async ({ page }) =>
 });
 
 test('URL never shows /albums/undefined', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await waitForHydration(page);

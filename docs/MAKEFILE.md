@@ -51,3 +51,4 @@ as defined in `config/defaults.env`.
 | `gen-deploy-tree`             | Regenerate `docs/deploy-tree.svg` (run after changing the deploy directory structure)         |
 | `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                       |
 | `docker-push`                 | Build multi-arch image and push to Docker Hub (`bin/docker-push.sh`)                          |
+| `docker-test`                 | Build the `ddphotos` image and run end-to-end Docker workflow tests (`bin/docker-test.sh`)    |

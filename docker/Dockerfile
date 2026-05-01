@@ -19,7 +19,20 @@ FROM node:22-bookworm-slim AS node-builder
 
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
-RUN npm ci
+# Strip debug symbols from node binary before copying to runtime image
+RUN apt-get update && apt-get install -y --no-install-recommends binutils \
+    && strip /usr/local/bin/node \
+    && rm -rf /var/lib/apt/lists/*
+# npm 10.9.7 (bundled with node:22) can't self-upgrade due to missing promise-retry;
+# install 11.13.0 directly from the registry tarball instead.
+RUN node -e "\
+const https=require('https'),fs=require('fs');\
+function dl(u,cb){https.get(u,r=>{if(r.statusCode>=300&&r.statusCode<400)return dl(r.headers.location,cb);const f=fs.createWriteStream('/tmp/npm.tgz');r.pipe(f);f.on('finish',cb);});}\
+dl('https://registry.npmjs.org/npm/-/npm-11.13.0.tgz',()=>process.exit(0));" \
+    && tar -xz -C /tmp -f /tmp/npm.tgz \
+    && /bin/rm -rf /usr/local/lib/node_modules/npm \
+    && mv /tmp/package /usr/local/lib/node_modules/npm \
+    && npm ci
 
 # ── Stage 3: Runtime image ────────────────────────────────────────────────────
 FROM debian:bookworm-slim
@@ -28,23 +41,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips \
     ca-certificates \
     curl \
-    unzip \
     apache2 \
     rsync \
     openssh-client \
+    python3 \
+    awscli \
     && rm -rf /var/lib/apt/lists/*
 
-# AWS CLI v2
-RUN ARCH=$(uname -m) \
-    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}.zip" -o /tmp/awscliv2.zip \
-    && unzip -q /tmp/awscliv2.zip -d /tmp \
-    && /tmp/aws/install \
-    && rm -rf /tmp/aws /tmp/awscliv2.zip
-
-# Node 22 via NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# Node 22 binary from node-builder (avoids NodeSource apt install)
+COPY --from=node-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-builder /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+# Use a symlink so __dirname-relative paths in npm-cli.js resolve correctly
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
 # Apache: enable mod_rewrite, replace default site with ddphotos config
 RUN a2enmod rewrite headers && a2dissite 000-default 2>/dev/null || true \

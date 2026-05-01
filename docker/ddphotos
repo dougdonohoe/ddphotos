@@ -13,12 +13,14 @@ mkdir -p "$STATE_DIR"
 # Parse --dir, --site-id, --config-dir, --site-env flags before the command
 OPT_CONFIG_DIR=""
 OPT_SITE_ENV=""
+NON_INTERACTIVE=false
 while [[ "${1:-}" == --?* ]]; do
     case "$1" in
         --dir) DDPHOTOS_DIR="$2"; shift 2 ;;
-        --site-id)    DDPHOTOS_SITE_ID="$2";    shift 2 ;;
-        --config-dir) OPT_CONFIG_DIR="$2";      shift 2 ;;
-        --site-env)   OPT_SITE_ENV="$2";        shift 2 ;;
+        --site-id)         DDPHOTOS_SITE_ID="$2"; shift 2 ;;
+        --config-dir)      OPT_CONFIG_DIR="$2";   shift 2 ;;
+        --site-env)        OPT_SITE_ENV="$2";     shift 2 ;;
+        --non-interactive) NON_INTERACTIVE=true;  shift ;;
         *)            break ;;
     esac
 done
@@ -145,6 +147,7 @@ check_for_update() {
 }
 
 SERVE_PORT="${SERVE_PORT:-8000}"
+IT_FLAGS=(); $NON_INTERACTIVE || IT_FLAGS=(-it)
 RUN_PORT="${RUN_PORT:-5173}"
 
 MOUNT_ARGS=()
@@ -216,7 +219,7 @@ case "$cmd" in
         ;;
     serve)
         print_mounts
-        docker run --rm -it \
+        docker run --rm "${IT_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
             -v "$DDPHOTOS_DIR":/ddphotos \
@@ -226,7 +229,7 @@ case "$cmd" in
         ;;
     run)
         print_mounts
-        docker run --rm -it \
+        docker run --rm "${IT_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
             -v "$DDPHOTOS_DIR":/ddphotos \
