@@ -122,8 +122,9 @@ step "Serve — Apache on port $SERVE_PORT"
 SERVE_PORT="$SERVE_PORT" "$TEST_DIR/ddphotos" --non-interactive serve &
 SERVE_PID=$!
 wait_for_http "http://localhost:$SERVE_PORT" "Apache"
-run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
+curl "http://localhost:$SERVE_PORT/albums/config.json"
 "$SCRIPT_DIR/test-photos-server.sh" --local "$SERVE_PORT"
+run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
 pass "serve + Playwright + test-photos-server.sh OK"
 
