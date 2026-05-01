@@ -21,10 +21,12 @@ FROM node:${NODE_VERSION}-bookworm-slim AS node-builder
 
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
+
 # Strip debug symbols from node binary before copying to runtime image
 RUN apt-get update && apt-get install -y --no-install-recommends binutils \
     && strip /usr/local/bin/node \
     && rm -rf /var/lib/apt/lists/*
+
 # npm 10.9.7 (bundled with node:22) can't self-upgrade due to missing promise-retry;
 # install 11.13.0 directly from the registry tarball instead.
 RUN node -e "\
@@ -53,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Node binary from node-builder (avoids NodeSource apt install)
 COPY --from=node-builder /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-builder /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+
 # Use a symlink so __dirname-relative paths in npm-cli.js resolve correctly
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
