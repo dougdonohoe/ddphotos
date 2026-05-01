@@ -39,8 +39,17 @@ cleanup() {
     # Belt-and-suspenders: stop any containers using the local image still running on our ports
     docker ps --filter publish="$RUN_PORT"   -q | xargs docker stop &>/dev/null || true
     docker ps --filter publish="$SERVE_PORT" -q | xargs docker stop &>/dev/null || true
-    [ -n "$TEST_DIR"  ] && /bin/rm -rf "$TEST_DIR"
-    [ -n "$TEST_DIR2" ] && /bin/rm -rf "$TEST_DIR2"
+    # Docker creates root-owned files in TEST_DIRs; clear them via Docker before removing the dir
+    if [ -n "$TEST_DIR" ]; then
+        docker run --rm --entrypoint /bin/sh -v "$TEST_DIR":/target "$IMAGE" \
+            -c 'find /target -mindepth 1 -delete' 2>/dev/null || true
+        /bin/rm -rf "$TEST_DIR"
+    fi
+    if [ -n "$TEST_DIR2" ]; then
+        docker run --rm --entrypoint /bin/sh -v "$TEST_DIR2":/target "$IMAGE" \
+            -c 'find /target -mindepth 1 -delete' 2>/dev/null || true
+        /bin/rm -rf "$TEST_DIR2"
+    fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -123,7 +132,7 @@ step "Serve — Apache on port $SERVE_PORT"
 SERVE_PORT="$SERVE_PORT" "$TEST_DIR/ddphotos" --non-interactive serve &
 SERVE_PID=$!
 wait_for_http "http://localhost:$SERVE_PORT" "Apache"
-curl "http://localhost:$SERVE_PORT/albums/config.json"
+curl -s "http://localhost:$SERVE_PORT/albums/config.json" # sanity check before tests run
 "$SCRIPT_DIR/test-photos-server.sh" --local "$SERVE_PORT"
 run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
