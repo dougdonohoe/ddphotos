@@ -183,5 +183,18 @@ docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ ! -d "$TEST_DIR2/albums" ]   || fail "--script-only should not create albums/"
 pass "init --script-only OK (only ddphotos script installed)"
 
+# ── 10. Skip ──────────────────────────────────────────────────────
+# Note: decided to skip tests for deploy (s3/rsync) due to complexity
+#       of setup.  S3 works (it is actively used by yours truly). I have faith
+#       in rsync code, but if someone reports problems we can revisit it.
+#       The existing rsync-test.sh could be repurposed, but the
+#       $RSYNC_RSH var isn't passed on to the container, not is the temp
+#       .ssh key.  The existing s3-test.sh could also be repurposed,
+#       but it assumes the sample site contents.
+#
+# Note: Likewise, not testing upgrade logic since it depends on prod
+#       images. I did test manually by editing the ddphotos script to
+#       verify the detection logic works.
+
 echo ""
 echo "=== All docker tests passed ==="
