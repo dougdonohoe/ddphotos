@@ -87,6 +87,7 @@ fi
 # ── 2. Init ────────────────────────────────────────────────────────────────────
 step "Init"
 TEST_DIR=$(mktemp -d)
+chmod 755 "$TEST_DIR"
 docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init
 [ -x "$TEST_DIR/ddphotos" ]              || fail "ddphotos script not installed"
 [ -f "$TEST_DIR/config/albums.yaml" ]    || fail "config/albums.yaml not created"
@@ -166,6 +167,7 @@ pass "version --image: Script path OK, Git: and Version: dev present"
 # ── 9. Init --script-only ──────────────────────────────────────────────────────
 step "Init --script-only"
 TEST_DIR2=$(mktemp -d)
+chmod 755 "$TEST_DIR2"
 docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ -x "$TEST_DIR2/ddphotos" ]   || fail "ddphotos script not installed"
 [ ! -d "$TEST_DIR2/config" ]   || fail "--script-only should not create config/"
