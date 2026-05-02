@@ -159,6 +159,14 @@ symlinks=$(find "$EXPORT_DIR" -type l)
 FILE_COUNT=$(find "$EXPORT_DIR" -type f | wc -l | tr -d ' ')
 pass "export --copy OK ($FILE_COUNT files, no symlinks)"
 
+step "Export --cloudflare"
+"$TEST_DIR/ddphotos" export --cloudflare
+[ -d "$EXPORT_DIR" ]                || fail "export/$SITE_ID not created"
+[ -f "$EXPORT_DIR/index.html" ]     || fail "export/$SITE_ID/index.html missing"
+[ -f "$EXPORT_DIR/_worker.js" ]     || fail "export/$SITE_ID/_worker.js missing"
+grep -q "ASSETS.fetch" "$EXPORT_DIR/_worker.js" || fail "_worker.js missing ASSETS.fetch"
+pass "export --cloudflare OK (_worker.js present)"
+
 # ── 8. Version ─────────────────────────────────────────────────────────────────
 step "Version"
 version_out=$("$TEST_DIR/ddphotos" version)

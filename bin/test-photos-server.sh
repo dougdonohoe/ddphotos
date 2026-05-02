@@ -9,11 +9,15 @@
 #   bin/test-photos-server.sh --local          # test local Docker on port 8080
 #   bin/test-photos-server.sh --local 9090     # test local Docker on port 9090
 #   bin/test-photos-server.sh --remote URL     # test a remote site at URL
+#   bin/test-photos-server.sh --remote URL --cloudflare  # test Cloudflare Pages deployment
 #
 # Note: In production, Apache is behind CloudFront, so:
 #   - Redirect locations use http:// (Apache sees HTTP from CloudFront)
 #   - CloudFront upgrades to HTTPS on the next hop
 #   - We check redirect locations with http:// to match what Apache returns
+#
+# Note: Cloudflare Pages (_worker.js) uses 308 (not 301) for trailing slash redirects
+#   and always returns https:// in Location headers.
 #
 
 set -e
@@ -26,6 +30,7 @@ LOCAL=0
 PORT=8080
 REMOTE_URL=""
 S3_MODE=0
+CLOUDFLARE_MODE=0
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -37,9 +42,10 @@ while [[ $# -gt 0 ]]; do
             fi
             shift
             ;;
-        --remote)   REMOTE_URL="$2"; shift 2 ;;
-        --remote=*) REMOTE_URL="${1#*=}"; shift ;;
-        --s3)       S3_MODE=1; shift ;;
+        --remote)      REMOTE_URL="$2"; shift 2 ;;
+        --remote=*)    REMOTE_URL="${1#*=}"; shift ;;
+        --s3)          S3_MODE=1; shift ;;
+        --cloudflare)  CLOUDFLARE_MODE=1; shift ;;
         *) shift ;;
     esac
 done
@@ -47,15 +53,22 @@ done
 if [ "$LOCAL" -eq 1 ]; then
     BASE="http://localhost:$PORT"
     REDIRECT_BASE="http://localhost:$PORT"
+    REDIRECT_STATUS=301
 else
     [ -n "$REMOTE_URL" ] || { echo "Error: --remote URL is required when not using --local"; exit 1; }
     BASE="$REMOTE_URL"
-    if [ "$S3_MODE" -eq 1 ]; then
+    if [ "$CLOUDFLARE_MODE" -eq 1 ]; then
+        # Cloudflare Pages (_worker.js): returns https:// in Location and uses 308
+        REDIRECT_BASE="$REMOTE_URL"
+        REDIRECT_STATUS=308
+    elif [ "$S3_MODE" -eq 1 ]; then
         # S3+CloudFront: redirects come from CloudFront Functions and use https://
         REDIRECT_BASE="$REMOTE_URL"
+        REDIRECT_STATUS=301
     else
         # Apache behind CloudFront: Apache sees HTTP and returns http:// in Location headers
         REDIRECT_BASE="$(echo "$REMOTE_URL" | sed 's|^https://|http://|')"
+        REDIRECT_STATUS=301
     fi
 fi
 
@@ -172,9 +185,9 @@ check_status "$BASE/albums/config.json"           200 "Config JSON"
 check_status "$BASE/albums/sitemap.xml"           200 "Sitemap (albums)"
 
 echo ""
-echo "Trailing slash redirects (expect 301 -> no slash):"
+echo "Trailing slash redirects (expect $REDIRECT_STATUS -> no slash):"
 if [ -n "$ALBUM" ]; then
-    check_redirect "$BASE/albums/$ALBUM/"         301 "$REDIRECT_BASE/albums/$ALBUM"   "Album trailing slash redirect"
+    check_redirect "$BASE/albums/$ALBUM/"         "$REDIRECT_STATUS" "$REDIRECT_BASE/albums/$ALBUM"   "Album trailing slash redirect"
 fi
 
 echo ""
@@ -199,8 +212,8 @@ if [ -n "$ALBUM" ]; then
     check_body "$BASE/albums/$ALBUM/1" "/_app/immutable" "Photo permalink HTML has absolute asset paths"
 
     echo ""
-    echo "Photo permalink trailing slash redirects (expect 301):"
-    check_redirect "$BASE/albums/$ALBUM/1/"       301 "$REDIRECT_BASE/albums/$ALBUM/1" "Photo permalink trailing slash"
+    echo "Photo permalink trailing slash redirects (expect $REDIRECT_STATUS):"
+    check_redirect "$BASE/albums/$ALBUM/1/"       "$REDIRECT_STATUS" "$REDIRECT_BASE/albums/$ALBUM/1" "Photo permalink trailing slash"
 fi
 
 echo ""

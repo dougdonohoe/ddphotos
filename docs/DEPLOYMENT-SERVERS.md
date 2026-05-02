@@ -134,13 +134,25 @@ function handler(event) {
 ## Cloudflare Pages Worker
 
 When deploying to [Cloudflare Pages↗](https://pages.cloudflare.com), a `_worker.js` in the
-export root handles photo permalink routing — the equivalent of the CloudFront Function above.
+export root handles URL routing — the equivalent of the CloudFront Function above.
 
-The worker only needs to handle **photo permalinks** (`/albums/slug/42` → `/albums/slug.html`).
+The worker handles three cases not covered natively by Cloudflare Pages:
+
+- **Photo permalinks** — `/albums/slug/42` → serves `/albums/slug.html` via `env.ASSETS.fetch()`,
+  keeping the URL unchanged so the JS can read the photo index and open the lightbox
+- **Photo permalink trailing slash** — `/albums/slug/42/` → 308 redirect to `/albums/slug/42`
+- **Root-level SPA fallback** — unknown single-segment paths (e.g. `/nope`) → serves `index.html`
+  so the client-side router can handle 404 display
+
 All other routing — extensionless album URLs, static assets, `404.html` — is handled natively
-by Cloudflare Pages. The worker calls `env.ASSETS.fetch()` to serve the pre-rendered album
-HTML at the permalink URL, keeping the URL unchanged so the JS can read the photo index and
-open the lightbox.
+by Cloudflare Pages.
 
 `ddphotos export --cloudflare` (or `export.sh --cloudflare`) copies `docker/cloudflare-worker.js`
 into the export root as `_worker.js` automatically.
+
+To verify a Cloudflare Pages deployment with `bin/test-photos-server.sh`, pass `--cloudflare`
+so the script expects 308 (not 301) for trailing slash redirects and HTTPS in Location headers:
+
+```bash
+bin/test-photos-server.sh --remote https://your-site.pages.dev --cloudflare
+```
