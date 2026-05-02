@@ -143,6 +143,7 @@ EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks) to $EXPORT_DIR"
 "$TEST_DIR/ddphotos" export
+echo "Tree $EXPORT_DIR ..."
 tree "$EXPORT_DIR"
 [ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
@@ -153,6 +154,7 @@ pass "export/$SITE_ID OK ($ENTRY_COUNT entries, no broken symlinks)"
 
 step "Export --copy (resolved) to $EXPORT_DIR"
 "$TEST_DIR/ddphotos" export --copy
+echo "Tree $EXPORT_DIR ..."
 tree "$EXPORT_DIR"
 [ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
