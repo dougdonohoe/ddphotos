@@ -32,12 +32,34 @@ cd ~/my-ddphotos
 
 ### 4. Deploy
 
-**Quick option — [Surge↗](https://surge.sh)** (free, one command, no server required):
+**Quick option — [Surge↗](https://surge.sh)** - free, one command, no server required (requires
+[Node.js](http://nodejs.org/)):
 
 ```bash
+# Install
+npm install --global surge
+
+# Export and deploy (and on 1st time, create account/login)
 ./ddphotos export --copy
 surge --domain my-unique-site.surge.sh export/my-photos
 ```
+
+The site will be at https://my-unique-site.surge.sh.
+
+**Quick option — [Cloudflare Pages↗](https://pages.cloudflare.com)** - free, unlimited bandwidth (requires
+[Node.js](http://nodejs.org/) and [Cloudflare account](https://dash.cloudflare.com/login)):
+
+```bash
+# Install and login
+npm install -g wrangler --ignore-scripts
+wrangler login
+
+# Export and deploy
+./ddphotos export --cloudflare
+wrangler pages deploy export/my-photos --project-name my-unique-site
+```
+
+The site will be at https://my-unique-site.pages.dev.
 
 **Production option** — configure `config/site.env` for rsync or S3
 (see [site.env](CONFIGURATION.md#siteenv)), then:
@@ -129,8 +151,8 @@ ddphotos serve
 
 ### `export`
 
-Exports the built site into `export/<site-id>/` — a directory of relative symlinks
-that any static file server can read. Useful for serving with `python3 -m http.server`
+Exports the built site into `export/<site-id>/` — a directory of relative symlinks or
+real files that any static file server can read. Useful for serving with `python3 -m http.server`
 or uploading to a static hosting service.
 
 ```bash
@@ -146,19 +168,23 @@ python3 -m http.server 8000 --directory export/my-photos
 See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for notes
 on limitations and usage.
 
-Use `--copy` to produce real files instead of symlinks — required for static hosting
-services like [Surge↗](https://surge.sh):
-
-```bash
-ddphotos export --copy
-```
-
-To deploy to Surge (free, no server required):
+Use `--copy` to produce real files instead of symlinks — required for services like
+[Surge↗](https://surge.sh) that don't follow symlinks:
 
 ```bash
 ddphotos export --copy
 surge --domain my-unique-site.surge.sh export/my-photos
 ```
+
+Use `--cloudflare` for [Cloudflare Pages↗](https://pages.cloudflare.com) — adds a `_worker.js`
+for photo permalink routing (symlinks are followed, so `--copy` is not needed):
+
+```bash
+ddphotos export --cloudflare
+wrangler pages deploy export/my-photos --project-name my-unique-site
+```
+
+See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for details.
 
 ### `deploy`
 

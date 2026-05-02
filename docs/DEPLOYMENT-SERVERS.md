@@ -95,7 +95,7 @@ For a SvelteKit `adapter-static` site like DD Photos, a function is **required**
   the lightbox to photo 42 via the URL hash
 - **Domain redirects** — apex-to-www (`example.com` → `www.example.com`) and any other domain consolidation
 
-Here is a minimal function for a SvelteKit-based photo site:
+Here is a minimal function for a SvelteKit-based photo site (see also the [Cloudflare Pages Worker](#cloudflare-pages-worker) below, which handles the same routing for Cloudflare deployments):
 
 ```javascript
 function handler(event) {
@@ -130,3 +130,17 @@ function handler(event) {
     return request;
 }
 ```
+
+## Cloudflare Pages Worker
+
+When deploying to [Cloudflare Pages↗](https://pages.cloudflare.com), a `_worker.js` in the
+export root handles photo permalink routing — the equivalent of the CloudFront Function above.
+
+The worker only needs to handle **photo permalinks** (`/albums/slug/42` → `/albums/slug.html`).
+All other routing — extensionless album URLs, static assets, `404.html` — is handled natively
+by Cloudflare Pages. The worker calls `env.ASSETS.fetch()` to serve the pre-rendered album
+HTML at the permalink URL, keeping the URL unchanged so the JS can read the photo index and
+open the lightbox.
+
+`ddphotos export --cloudflare` (or `export.sh --cloudflare`) copies `docker/cloudflare-worker.js`
+into the export root as `_worker.js` automatically.

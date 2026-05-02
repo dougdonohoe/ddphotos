@@ -2,7 +2,7 @@
 
 DD Photos supports the following deployment approaches:
 
- * **Static** - via `export` script (for any compatible static-hosting service, i.e., [Surge↗](https://surge.sh))
+ * **Static** - via `export` script (for any compatible static-hosting service, e.g., [Surge↗](https://surge.sh), [Cloudflare Pages↗](https://pages.cloudflare.com))
  * **Apache via rsync** - via `deploy` script (for any SSH-accessible server)
  * **S3 + CloudFront** - via `deploy` script (fully serverless).
 
@@ -44,7 +44,8 @@ Both rsync and S3 implement this pattern, with minor differences:
 The `export` command uses the same logic (in `web/setup-htdocs.sh`) to produce `export/<site-id>/` — a self-contained
 directory of symlinks suitable for local serving (`python3 -m http.server`) or uploading to
 a static hosting service. Use `--copy` to resolve symlinks to real files for services that
-don't follow them. See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for Python limitations.
+don't follow them (e.g. Surge); Cloudflare Pages follows symlinks so `--copy` is not required
+there. See [Local Testing with Python](DEPLOYMENT-SERVERS.md#local-testing-with-python) for Python limitations.
 
 The local Docker testing environment uses the same separation: `web/setup-htdocs.sh` symlinks
 build output into `htdocs/` and album data into `htdocs/albums/` from separate bind mounts,
@@ -79,7 +80,7 @@ export.sh --site-id <site-id> --copy
 
 [Surge↗](https://surge.sh) is a simple, free alternative for hosting static sites. It works well with DD Photos sites.
 
-Assuming you have `surge` installed, in Docker mode:
+Assuming you have `surge` installed (`npm install --global surge`), in Docker mode:
 
 ```bash
 ./ddphotos export --copy
@@ -92,6 +93,33 @@ In developer mode:
 export.sh --site-id <site-id> --copy
 ./surge --domain my-unique-site.surge.sh export/<site-id>
 ```
+
+The site will be at https://my-unique-site.surge.sh.
+
+### Cloudflare Pages
+
+[Cloudflare Pages↗](https://pages.cloudflare.com) is a free static hosting service with
+unlimited bandwidth. Photo permalink routing requires a `_worker.js` — use `--cloudflare`
+instead of `--copy` to generate it automatically (symlinks are followed, so `--copy` is
+not needed).
+
+Assuming you have `wrangler` installed (`npm install -g wrangler --ignore-scripts`), in Docker mode:
+
+```bash
+./ddphotos export --cloudflare
+wrangler pages deploy export/my-photos --project-name my-unique-site
+```
+
+In developer mode:
+
+```bash
+export.sh --site-id <site-id> --cloudflare
+wrangler pages deploy export/<site-id> --project-name my-unique-site
+```
+
+The first deploy creates the project automatically and assigns a URL of
+`https://my-unique-site.pages.dev`. See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker)
+for how routing works.
 
 ## Apache + rsync
 

@@ -9,10 +9,12 @@ BUILD_DIR="$REPO_ROOT/build"
 ALBUMS_DIR="$REPO_ROOT/albums"
 
 COPY=""
+CLOUDFLARE=""
 
 while [[ "${1:-}" == --* ]]; do
     case "$1" in
         --copy)       COPY=1;          shift ;;
+        --cloudflare) CLOUDFLARE=1; shift ;;
         --site-id)    SITE_ID="$2";    shift 2 ;;
         --build-dir)  BUILD_DIR="$2";  shift 2 ;;
         --albums-dir) ALBUMS_DIR="$2"; shift 2 ;;
@@ -56,6 +58,10 @@ else
     ALBUMS_DIR="$ALBUMS_DIR/$SITE_ID" \
     DDPHOTOS_SITE_ID="$SITE_ID" \
     "$REPO_ROOT/web/setup-htdocs.sh" "$EXPORT_DIR"
+fi
+
+if [ -n "$CLOUDFLARE" ]; then
+    /bin/cp "$REPO_ROOT/docker/cloudflare-worker.js" "$EXPORT_DIR/_worker.js"
 fi
 
 echo ""
