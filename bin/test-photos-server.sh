@@ -10,6 +10,7 @@
 #   bin/test-photos-server.sh --local 9090     # test local Docker on port 9090
 #   bin/test-photos-server.sh --remote URL     # test a remote site at URL
 #   bin/test-photos-server.sh --remote URL --cloudflare  # test Cloudflare Pages deployment
+#   bin/test-photos-server.sh --remote URL --surge       # test Surge deployment
 #
 # Note: In production, Apache is behind CloudFront, so:
 #   - Redirect locations use http:// (Apache sees HTTP from CloudFront)
@@ -31,6 +32,7 @@ PORT=8080
 REMOTE_URL=""
 S3_MODE=0
 CLOUDFLARE_MODE=0
+SURGE_MODE=0
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -46,6 +48,7 @@ while [[ $# -gt 0 ]]; do
         --remote=*)    REMOTE_URL="${1#*=}"; shift ;;
         --s3)          S3_MODE=1; shift ;;
         --cloudflare)  CLOUDFLARE_MODE=1; shift ;;
+        --surge)       SURGE_MODE=1; shift ;;
         *) shift ;;
     esac
 done
@@ -61,8 +64,8 @@ else
         # Cloudflare Pages (_worker.js): returns https:// in Location and uses 308
         REDIRECT_BASE="$REMOTE_URL"
         REDIRECT_STATUS=308
-    elif [ "$S3_MODE" -eq 1 ]; then
-        # S3+CloudFront: redirects come from CloudFront Functions and use https://
+    elif [ "$S3_MODE" -eq 1 ] || [ "$SURGE_MODE" -eq 1 ]; then
+        # S3+CloudFront and Surge: terminate HTTPS themselves, so Location headers use https://
         REDIRECT_BASE="$REMOTE_URL"
         REDIRECT_STATUS=301
     else
@@ -212,17 +215,31 @@ if [ -n "$ALBUM" ]; then
     check_body "$BASE/albums/$ALBUM/1" "/_app/immutable" "Photo permalink HTML has absolute asset paths"
 
     echo ""
-    echo "Photo permalink trailing slash redirects (expect $REDIRECT_STATUS):"
-    check_redirect "$BASE/albums/$ALBUM/1/"       "$REDIRECT_STATUS" "$REDIRECT_BASE/albums/$ALBUM/1" "Photo permalink trailing slash"
+    if [ "$SURGE_MODE" -eq 1 ]; then
+        # Surge has no worker, so trailing slash on photo permalinks is handled by the SPA router
+        echo "Photo permalink trailing slash (Surge: SPA handles, expect 200):"
+        check_final_status "$BASE/albums/$ALBUM/1/"  200 "Photo permalink trailing slash -> 200"
+    else
+        echo "Photo permalink trailing slash redirects (expect $REDIRECT_STATUS):"
+        check_redirect "$BASE/albums/$ALBUM/1/"       "$REDIRECT_STATUS" "$REDIRECT_BASE/albums/$ALBUM/1" "Photo permalink trailing slash"
+    fi
 fi
 
 echo ""
-echo "404s (expect 404):"
-check_status "$BASE/albums/doesnotexist"          404 "Bad album slug"
-check_status "$BASE/albums/doesnotexist/1"        404 "Bad album slug with photo index"
-# /nope returns 200 because .htaccess falls back to index.html (SPA handles 404 client-side)
-check_status "$BASE/nope"                         200 "Unknown path serves SPA shell"
-check_body   "$BASE/albums/doesnotexist"          "404 - Not Found" "Custom 404 page served for bad album slug"
+if [ "$SURGE_MODE" -eq 1 ]; then
+    # Surge uses 200.html as SPA fallback for all missing paths — no server-side 404 routing
+    echo "404s (Surge: SPA fallback returns 200 for all missing paths):"
+    check_status "$BASE/albums/doesnotexist"      200 "Bad album slug (Surge SPA: 200, 404 handled client-side)"
+    check_status "$BASE/albums/doesnotexist/1"    200 "Bad album slug with photo index (Surge SPA: 200)"
+    check_status "$BASE/nope"                     200 "Unknown path serves SPA shell"
+else
+    echo "404s (expect 404):"
+    check_status "$BASE/albums/doesnotexist"          404 "Bad album slug"
+    check_status "$BASE/albums/doesnotexist/1"        404 "Bad album slug with photo index"
+    # /nope returns 200 because .htaccess falls back to index.html (SPA handles 404 client-side)
+    check_status "$BASE/nope"                         200 "Unknown path serves SPA shell"
+    check_body   "$BASE/albums/doesnotexist"          "404 - Not Found" "Custom 404 page served for bad album slug"
+fi
 
 echo ""
 echo "---"

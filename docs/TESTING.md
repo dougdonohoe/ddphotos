@@ -79,13 +79,14 @@ pages to render correctly).
 make web-docker-test
 ```
 
-You can also run the script directly, against production or locally:
+You can also run the `test-photos-server.sh` script directly, against production or locally:
 
 ```bash
-bin/test-photos-server.sh --remote https://photos.example.com             # remote site
+bin/test-photos-server.sh --remote https://photos.example.com                # remote site
 bin/test-photos-server.sh --remote https://your-site.pages.dev --cloudflare  # Cloudflare Pages
-bin/test-photos-server.sh --local                                          # local Docker on port 8080
-bin/test-photos-server.sh --local 9090                                     # local Docker on custom port
+bin/test-photos-server.sh --remote https://your-site.surge.sh --surge        # Surge
+bin/test-photos-server.sh --local                                            # local Docker on port 8080
+bin/test-photos-server.sh --local 9090                                       # local Docker on custom port
 ```
 
 The deployment script runs this script automatically after deploying.

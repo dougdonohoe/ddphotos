@@ -45,7 +45,15 @@ export async function load({ params, fetch }) {
 		if (indexEncrypted) {
 			album = { encrypted: true, blob: await indexRes.text(), hint: config.albumHints?.[params.slug] };
 		} else {
-			album = { encrypted: false, data: await indexRes.json() as AlbumIndex };
+			let data: AlbumIndex;
+			try {
+				data = await indexRes.json();
+			} catch {
+				// Response was 200 but not JSON — SPA hosts (e.g. Surge) return the HTML shell
+				// for missing files instead of a real 404. Treat it as not found.
+				error(404, `Album "${params.slug}" not found`);
+			}
+			album = { encrypted: false, data };
 		}
 	}
 

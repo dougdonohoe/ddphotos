@@ -96,6 +96,8 @@ export.sh --site-id <site-id> --copy
 
 The site will be at https://my-unique-site.surge.sh.
 
+See [Surge](DEPLOYMENT-SERVERS.md#surge) for routing behavior and known limitations.
+
 ### Cloudflare Pages
 
 [Cloudflare Pages↗](https://pages.cloudflare.com) is a free static hosting service with
