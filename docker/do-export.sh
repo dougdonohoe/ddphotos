@@ -32,23 +32,7 @@ if [ -n "$COPY" ]; then
     DDPHOTOS_SITE_ID=$SITE_ID \
     /docker/setup-htdocs.sh "$LINK_DIR"
     mkdir -p "$EXPORT_DIR"
-    #find "$EXPORT_DIR" -type l -delete 2>/dev/null || true
-    #rsync -aLv --delete "$LINK_DIR/" "$EXPORT_DIR/"
-
-      echo "=== LINK_DIR ==="
-      ls -la "$LINK_DIR/albums/" 2>&1
-
-      echo "=== EXPORT_DIR before rsync ==="
-      ls -la "$EXPORT_DIR/" 2>&1
-
-      rsync -aLv --delete "$LINK_DIR/" "$EXPORT_DIR/" 2>&1; RSYNC_RC=$?
-      echo "=== rsync exit code: $RSYNC_RC ==="
-
-      echo "=== EXPORT_DIR after rsync ==="
-      ls -la "$EXPORT_DIR/" 2>&1
-      ls -la "$EXPORT_DIR/albums/" 2>&1
-
-
+    rsync -rLtv --delete "$LINK_DIR/" "$EXPORT_DIR/"
     /bin/rm -rf "$LINK_DIR"
 else
     /bin/rm -rf "$EXPORT_DIR"

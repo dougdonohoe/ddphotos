@@ -49,7 +49,7 @@ if [ -n "$COPY" ]; then
     DDPHOTOS_SITE_ID="$SITE_ID" \
     "$REPO_ROOT/web/setup-htdocs.sh" "$LINK_DIR"
     mkdir -p "$EXPORT_DIR"
-    rsync -aLv --delete "$LINK_DIR/" "$EXPORT_DIR/"
+    rsync -rLtv --delete "$LINK_DIR/" "$EXPORT_DIR/"
     /bin/rm -rf "$LINK_DIR"
 else
     /bin/rm -rf "$EXPORT_DIR"
