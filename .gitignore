@@ -28,3 +28,6 @@ memory/
 
 # per-site exports
 /export
+
+# Cloudflare
+.wrangler

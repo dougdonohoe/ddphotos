@@ -1484,3 +1484,84 @@ Two IntelliJ/ShellCheck warnings addressed:
 - `upgrade` command description rewritten to be accurate
 - `version` output examples corrected (`DD Photos dir:` was wrong as `Albums dir:`) and updated to include `State dir:`
 - `Version Check and Upgrade` section expanded into two subsections: **Automatic update check** (new) and **Script/image mismatch check** (existing, now described as a warning)
+
+### 67. 05/02/2026 - Cloudflare Pages Support and Surge Improvements
+
+#### Motivation
+
+After adding Surge as a static hosting option (session 65), explored Cloudflare Pages as a
+second free static hosting option with unlimited bandwidth. Cloudflare Pages requires a
+`_worker.js` to handle photo permalink routing — extensionless paths and unknown routes are
+handled natively, but `/albums/slug/42` needs to be rewritten to `/albums/slug.html`
+server-side. Also improved `test-photos-server.sh` to support both platforms and fixed a
+latent frontend crash on Surge caused by its SPA fallback behavior.
+
+#### Vite 7 tsconfig Warning Fix
+
+After the Vite 7 upgrade (Dependabot on 4/7/2026), a noisy tsconfig warning appeared on dev server
+startup: Vite 7 resolves `tsconfig.json` before the SvelteKit plugin runs `svelte-kit sync`,
+so `.svelte-kit/tsconfig.json` (which `tsconfig.json` extends) doesn't exist yet.
+
+Fixed by prepending `svelte-kit sync &&` to the `dev` script in `web/package.json`. The file
+is generated once at startup and Vite proceeds cleanly.
+
+#### Cloudflare Pages Worker (`docker/cloudflare-worker.js`)
+
+Created `docker/cloudflare-worker.js` as the single source of truth for the `_worker.js`
+that handles routing on Cloudflare Pages. Both `bin/export.sh` and `docker/do-export.sh`
+copy it into the export root when `--cloudflare` is passed. The worker handles three cases:
+
+- **Photo permalinks** — `/albums/slug/42` → `env.ASSETS.fetch(/albums/slug.html)`, keeping
+  the URL unchanged so SvelteKit can hydrate the album page and open the lightbox
+- **Photo permalink trailing slash** — `/albums/slug/42/` → 308 redirect to `/albums/slug/42`
+- **Root-level SPA fallback** — unknown single-segment paths (e.g. `/nope`) → `index.html`
+
+All other routing (extensionless album URLs, static assets, `404.html`) is handled natively
+by Cloudflare Pages.
+
+#### Export Flag (`--cloudflare`)
+
+Added `--cloudflare` flag to `bin/export.sh` and `docker/do-export.sh`. Does not imply
+`--copy` — Cloudflare Pages follows symlinks natively. The `docker/ddphotos` wrapper passes
+the flag through and its help text was updated. Added `--cloudflare` test to
+`bin/docker-test.sh` (section 7) verifying `_worker.js` is present and contains
+`ASSETS.fetch`.
+
+#### test-photos-server.sh: `--cloudflare` and `--surge` Flags
+
+Extended `bin/test-photos-server.sh` to support both static hosting platforms:
+
+- **`--cloudflare`** — sets `REDIRECT_STATUS=308` and `REDIRECT_BASE` to HTTPS, matching the
+  308 redirects and HTTPS Location headers returned by Cloudflare's `_worker.js`
+- **`--surge`** — sets `REDIRECT_BASE` to HTTPS (Surge terminates HTTPS itself); changes the
+  photo permalink trailing slash test to `check_final_status 200` (no server-side redirect
+  without a worker); expects 200 for bad album slugs (Surge SPA fallback, no server-side 404)
+
+Both flags also update the section header text to reflect expected behavior, making the
+output self-documenting.
+
+#### Surge: SPA Fallback Crash Fix (`+page.ts`)
+
+Discovered that bad album slugs on Surge rendered a 500 error instead of a 404. Root cause:
+Surge's `200.html` SPA fallback returns HTTP 200 with HTML for all missing files, including
+`/albums/slug/index.json`. The `indexRes.ok` guard passed (status 200), then `indexRes.json()`
+threw `SyntaxError: Unexpected token '<'` because the response was HTML.
+
+Fixed in `web/src/routes/albums/[slug]/[[index]]/+page.ts` by wrapping `indexRes.json()` in
+a try/catch that converts any parse failure to `error(404, ...)`. Applies to any SPA host
+that returns HTML for missing files, not just Surge.
+
+#### Documentation
+
+- `docs/DEPLOYMENT-SERVERS.md` — added `## Cloudflare Pages Worker` section (worker behavior,
+  three handled cases, `--cloudflare` test command); added `## Surge` section (known
+  limitations: SPA-only 404s, no photo permalink trailing slash redirect, `--surge` test
+  command); updated intro paragraph to mention Cloudflare and Surge
+- `docs/DEPLOY.md` — added Cloudflare Pages subsection (install, login, deploy for Docker and
+  developer mode); Surge section updated with cross-reference to DEPLOYMENT-SERVERS.md
+- `docs/DOCKER.md` — added Cloudflare Pages to quick-start deploy step; added `--cloudflare`
+  to export command section
+- `README.md` — quick-start deploy block shows both Surge and Cloudflare Pages; tech details
+  and docs table updated
+- `docs/TESTING.md` — added `--cloudflare` and `--surge` examples to `test-photos-server.sh`
+  usage block
