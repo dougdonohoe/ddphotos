@@ -142,8 +142,7 @@ pass "serve + Playwright + test-photos-server.sh OK"
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
-tree "$EXPORT_DIR"
-[ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"
+[ -d "$EXPORT_DIR" ]            || fail "export /$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
 broken=$(find "$EXPORT_DIR" -type l ! -exec test -e {} \; -print)
 [ -z "$broken" ] || fail "broken symlinks in export/$SITE_ID: $broken"
