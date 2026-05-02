@@ -45,7 +45,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips \
     ca-certificates \
     curl \
-    tree \
     apache2 \
     rsync \
     openssh-client \

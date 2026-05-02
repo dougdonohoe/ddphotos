@@ -56,7 +56,7 @@ wrangler login
 
 # Export and deploy
 ./ddphotos export --cloudflare
-wrangler pages deploy export/my-photos --project-name my-unique-site
+wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
 The site will be at https://my-unique-site.pages.dev.
@@ -181,7 +181,7 @@ for photo permalink routing (symlinks are followed, so `--copy` is not needed):
 
 ```bash
 ddphotos export --cloudflare
-wrangler pages deploy export/my-photos --project-name my-unique-site
+wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
 See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for details.

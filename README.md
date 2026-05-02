@@ -21,24 +21,18 @@ cd ~/my-ddphotos
 
 Then edit `config/albums.yaml` to define your own albums and repeat.
 
-**Deploy in seconds** (free, no server required):
+**Deploy in seconds** (free, no server required) via [Surge↗](https://surge.sh) or 
+[Cloudflare Pages↗](https://pages.cloudflare.com) (unlimited bandwidth):
 
-[Surge↗](https://surge.sh):
 ```bash
 ./ddphotos export --copy
 surge --domain my-unique-site.surge.sh export/my-photos
-```
 
-[Cloudflare Pages↗](https://pages.cloudflare.com) (unlimited bandwidth):
-```bash
 ./ddphotos export --cloudflare
-wrangler pages deploy export/my-photos --project-name my-unique-site
+wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
-For production deployments (Apache via rsync or S3+CloudFront), configure `config/site.env`
-and run `./ddphotos deploy`.
-
-See the [Docker](docs/DOCKER.md) page for full details.
+See the [Docker](docs/DOCKER.md) page for full details including deploying via `rsync` or to S3.
 
 ## Motivation
 

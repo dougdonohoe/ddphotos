@@ -109,14 +109,14 @@ Assuming you have `wrangler` installed (`npm install -g wrangler --ignore-script
 
 ```bash
 ./ddphotos export --cloudflare
-wrangler pages deploy export/my-photos --project-name my-unique-site
+wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
 In developer mode:
 
 ```bash
 export.sh --site-id <site-id> --cloudflare
-wrangler pages deploy export/<site-id> --project-name my-unique-site
+wrangler pages deploy --project-name my-unique-site export/<site-id> 
 ```
 
 The first deploy creates the project automatically and assigns a URL of
