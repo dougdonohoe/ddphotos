@@ -141,8 +141,9 @@ pass "serve + Playwright + test-photos-server.sh OK"
 # ── 7. Export (symlink mode) ───────────────────────────────────────────────────
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
-step "Export (symlinks)"
+step "Export (symlinks) to $EXPORT_DIR"
 "$TEST_DIR/ddphotos" export
+tree "$EXPORT_DIR"
 [ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
 broken=$(find "$EXPORT_DIR" -type l ! -exec test -e {} \; -print)
@@ -150,8 +151,9 @@ broken=$(find "$EXPORT_DIR" -type l ! -exec test -e {} \; -print)
 ENTRY_COUNT=$(find "$EXPORT_DIR" \( -type f -o -type l \) | wc -l | tr -d ' ')
 pass "export/$SITE_ID OK ($ENTRY_COUNT entries, no broken symlinks)"
 
-step "Export --copy (resolved)"
+step "Export --copy (resolved) to $EXPORT_DIR"
 "$TEST_DIR/ddphotos" export --copy
+tree "$EXPORT_DIR"
 [ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
 symlinks=$(find "$EXPORT_DIR" -type l)
