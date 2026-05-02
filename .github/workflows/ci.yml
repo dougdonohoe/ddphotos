@@ -9,6 +9,8 @@ on:
       - main
 
 jobs:
+
+  # Basic tests, Apache and rsync
   test:
     runs-on: ubuntu-latest
 
@@ -52,22 +54,61 @@ jobs:
       - name: Run Apache routing tests
         run: make web-docker-build-apache sample-test-apache
 
-      - name: Run nginx routing tests
-        run: make web-docker-build-nginx sample-test-nginx
-
       - name: Run Apache Playwright e2e tests (all password variants)
         run: bin/test-all.sh --mode apache --ci
-
-      - name: Run nginx Playwright e2e tests (all password variants)
-        run: bin/test-all.sh --mode nginx --ci
 
       - name: Run rsync deploy test
         run: make sample-rsync-test
 
+  # Split out nginx/s3 tests to run in parallel
+  test-nginx-s3:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev pkg-config
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'web/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+
+      - name: Install Go dependencies
+        run: go mod download
+
+      - name: Install npm dependencies
+        run: cd web && npm ci
+
+      - name: Install Playwright Chromium
+        run: make web-playwright-install
+
+      - name: Install Playwright system dependencies
+        run: cd web && npx playwright install-deps chromium
+
+      - name: Photogen and build
+        run: make sample-photogen sample-build
+
+      - name: Run nginx routing tests
+        run: make web-docker-build-nginx sample-test-nginx
+
+      - name: Run nginx Playwright e2e tests (all password variants)
+        run: bin/test-all.sh --mode nginx --ci
+
       - name: Run S3 deploy test
         run: make sample-s3-test
 
-  docker-test:
+  # Docker-mode tests of 'ddphotos' can run in parallel
+  test-docker:
     runs-on: ubuntu-latest
 
     steps:
