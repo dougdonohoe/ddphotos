@@ -142,6 +142,7 @@ pass "serve + Playwright + test-photos-server.sh OK"
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
+"$TEST_DIR/ddphotos" export
 [ -d "$EXPORT_DIR" ]            || fail "export /$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
 broken=$(find "$EXPORT_DIR" -type l ! -exec test -e {} \; -print)
