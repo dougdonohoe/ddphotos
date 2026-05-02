@@ -41,7 +41,6 @@ if [ ! -d "$BUILD_DIR/$SITE_ID" ]; then
 fi
 
 EXPORT_DIR="$REPO_ROOT/export/$SITE_ID"
-/bin/rm -rf "$EXPORT_DIR"
 
 if [ -n "$COPY" ]; then
     LINK_DIR=$(mktemp -d)
@@ -50,9 +49,10 @@ if [ -n "$COPY" ]; then
     DDPHOTOS_SITE_ID="$SITE_ID" \
     "$REPO_ROOT/web/setup-htdocs.sh" "$LINK_DIR"
     mkdir -p "$EXPORT_DIR"
-    /bin/cp -rL "$LINK_DIR/." "$EXPORT_DIR/"
+    rsync -aLv --delete "$LINK_DIR/" "$EXPORT_DIR/"
     /bin/rm -rf "$LINK_DIR"
 else
+    /bin/rm -rf "$EXPORT_DIR"
     mkdir -p "$EXPORT_DIR"
     BUILD_ROOT="$BUILD_DIR" \
     ALBUMS_DIR="$ALBUMS_DIR/$SITE_ID" \

@@ -1551,6 +1551,12 @@ Fixed in `web/src/routes/albums/[slug]/[[index]]/+page.ts` by wrapping `indexRes
 a try/catch that converts any parse failure to `error(404, ...)`. Applies to any SPA host
 that returns HTML for missing files, not just Surge.
 
+#### Export Improvement
+
+- `--copy` flag now resolves all symlinks to real files via `rsync -aLv --delete` — 
+  preserves source file timestamps (useful for cloud uploaders) and skips unchanged files 
+  on re-export
+
 #### Documentation
 
 - `docs/DEPLOYMENT-SERVERS.md` — added `## Cloudflare Pages Worker` section (worker behavior,
