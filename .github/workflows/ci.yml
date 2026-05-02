@@ -67,5 +67,28 @@ jobs:
       - name: Run S3 deploy test
         run: make sample-s3-test
 
+  docker-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'web/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+
+      - name: Install npm dependencies
+        run: cd web && npm ci
+
+      - name: Install Playwright Chromium
+        run: make web-playwright-install
+
+      - name: Install Playwright system dependencies
+        run: cd web && npx playwright install-deps chromium
+
       - name: Run Docker workflow tests
         run: make docker-test
