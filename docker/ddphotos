@@ -3,8 +3,12 @@
 # https://github.com/dougdonohoe/ddphotos
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# IMAGE is replaced at docker build time (see Dockerfile).  In a production
+# build it will be something like dougdonohoe/ddphotos:v.1.##.0.
 IMAGE="ddphotos"
+
+# Setup
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CURRENT_VERSION="${IMAGE##*:}"
 STATE_DIR="${HOME}/.config/ddphotos"
 UPGRADE_FILE="$STATE_DIR/upgrade.txt"
@@ -25,6 +29,7 @@ while [[ "${1:-}" == --?* ]]; do
     esac
 done
 
+# Default to help if no cmd
 cmd="${1:-help}"
 shift 2>/dev/null || true
 
@@ -47,33 +52,67 @@ if [ -z "$DDPHOTOS_SITE_ID" ]; then
 fi
 DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
 
+# ── Mount registry ─────────────────────────────────────────────────────────────
+# All Docker volume mounts go through add_mount(), which updates both the display
+# arrays (MOUNT_FROM/TO/OPTS) and the ready-to-use MOUNT_FLAGS (-v args for docker run).
+
+MOUNT_FROM=()   # host paths
+MOUNT_TO=()     # container paths
+MOUNT_OPTS=()   # "ro", or "" for read-write
+MOUNT_FLAGS=()  # -v args, kept in sync by add_mount
+MOUNT_SEQ=0     # used when passing mounts as args
+
+add_mount() {
+    MOUNT_FROM+=("$1")
+    MOUNT_TO+=("$2")
+    MOUNT_OPTS+=("${3:-}")
+    if [ -n "${3:-}" ]; then
+        MOUNT_FLAGS+=(-v "$1:$2:$3")
+    else
+        MOUNT_FLAGS+=(-v "$1:$2")
+    fi
+}
+
+# Print all registered mounts.
+print_mounts() {
+    echo "Mounting:"
+    local i=0
+    while [ $i -lt ${#MOUNT_FROM[@]} ]; do
+        local suffix=""
+        [ "${MOUNT_OPTS[$i]}" = "ro" ] && suffix=" (read-only)"
+        echo "  ${MOUNT_FROM[$i]} -> ${MOUNT_TO[$i]}${suffix}"
+        i=$((i + 1))
+    done
+    echo ""
+}
+
+# Always-present mounts
+add_mount "$SCRIPT_DIR" /ddphotos-script-dir
+add_mount "$DDPHOTOS_DIR" /ddphotos
+
 # Resolve --config-dir to a container path.
 # If inside DDPHOTOS_DIR, translate directly; otherwise mount as /ddphotos-config.
-EXTRA_MOUNT_ARGS=()
 DDPHOTOS_CONFIG_DIR=""
-CONFIG_DIR_EXTRA_SRC=""  # set only when an extra mount is needed (for display)
 if [ -n "$OPT_CONFIG_DIR" ]; then
     if [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR"/* ]] || [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR" ]]; then
         DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#"$DDPHOTOS_DIR"}"
     else
         DDPHOTOS_CONFIG_DIR="/ddphotos-config"
-        EXTRA_MOUNT_ARGS+=(-v "$CONFIG_HOST_DIR":"$DDPHOTOS_CONFIG_DIR":ro)
-        CONFIG_DIR_EXTRA_SRC="$CONFIG_HOST_DIR"
+        add_mount "$CONFIG_HOST_DIR" /ddphotos-config ro
     fi
 fi
 
-# Resolve --site-env: always mount as an extra file at /ddphotos-site.env.
+# Resolve --site-env: mount as /ddphotos-site.env.
 DDPHOTOS_SITE_ENV=""
 if [ -n "$OPT_SITE_ENV" ]; then
     OPT_SITE_ENV="$(cd "$(dirname "$OPT_SITE_ENV")" && pwd)/$(basename "$OPT_SITE_ENV")"
-    EXTRA_MOUNT_ARGS+=(-v "$OPT_SITE_ENV":/ddphotos-site.env:ro)
     DDPHOTOS_SITE_ENV="/ddphotos-site.env"
+    add_mount "$OPT_SITE_ENV" "$DDPHOTOS_SITE_ENV" ro
 fi
 
-# Parse bases: section from albums.yaml and emit -v flags for external photo dirs.
+# Parse the 'bases:' section from albums.yaml and add mounts for external photo dirs.
 # Paths already inside DDPHOTOS_DIR are skipped (covered by the main /ddphotos mount).
-# Populates MOUNT_ARGS (for docker run), MOUNT_PATHS and MOUNT_DESTS (for display).
-build_mount_args() {
+build_config_bases_mounts() {
     local config="$CONFIG_HOST_DIR/albums.yaml"
     [ -f "$config" ] || return 0
     local in_bases=false
@@ -98,25 +137,10 @@ build_mount_args() {
             path="${path/#\~/$HOME}"
             # Only mount absolute paths that fall outside DDPHOTOS_DIR (which is already mounted)
             if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
-                MOUNT_ARGS+=(-v "$path:$path:ro")
-                MOUNT_PATHS+=("$path")
-                MOUNT_DESTS+=("$path")
+                add_mount "$path" "$path" ro
             fi
         fi
     done < "$config"
-}
-
-# Print all Docker volume mounts for the current command.
-print_mounts() {
-    echo "Mounting:"
-    echo "  $SCRIPT_DIR -> /ddphotos-script-dir"
-    echo "  $DDPHOTOS_DIR -> /ddphotos"
-    local i=0
-    while [ $i -lt ${#MOUNT_PATHS[@]} ]; do
-        echo "  ${MOUNT_PATHS[$i]} -> ${MOUNT_DESTS[$i]} (read-only)"
-        i=$((i + 1))
-    done
-    echo ""
 }
 
 # Query Docker Hub for the latest versioned release tag and write upgrade.txt if newer.
@@ -146,17 +170,10 @@ check_for_update() {
     fi
 }
 
+# Docker settings
 SERVE_PORT="${SERVE_PORT:-8000}"
-IT_FLAGS=(); $NON_INTERACTIVE || IT_FLAGS=(-it)
 RUN_PORT="${RUN_PORT:-5173}"
-
-MOUNT_ARGS=()
-MOUNT_PATHS=()
-MOUNT_DESTS=()
-
-# Always mount SCRIPT_DIR at a fixed path so the container can verify/upgrade the script
-# regardless of what DDPHOTOS_DIR points to.
-SCRIPT_MOUNT=(-v "$SCRIPT_DIR":/ddphotos-script-dir)
+IT_FLAGS=(); $NON_INTERACTIVE || IT_FLAGS=(-it)
 
 # Resolve a path to absolute. Relative paths are anchored to DDPHOTOS_DIR.
 abs_path() {
@@ -166,8 +183,7 @@ abs_path() {
 }
 
 # Translate an absolute host path to its container equivalent.
-# Paths inside DDPHOTOS_DIR map to /ddphotos/...; others get a dedicated read-only mount
-# appended to DECODE_MOUNTS (caller must initialize that array and MOUNT_SEQ=0).
+# Paths inside DDPHOTOS_DIR map to /ddphotos/...; others get a dedicated read-only mount.
 # Preserves <parent-dir>/<filename> so the decode binary can identify the album slug
 # from the container path (e.g. secret/index.enc.json → slug "secret").
 # Sets CONTAINER_PATH.
@@ -178,7 +194,7 @@ host_to_container() {
     else
         MOUNT_SEQ=$((MOUNT_SEQ + 1))
         CONTAINER_PATH="/ddphotos-args/arg-$MOUNT_SEQ/$(basename "$(dirname "$abs")")/$(basename "$abs")"
-        DECODE_MOUNTS+=(-v "$abs:$CONTAINER_PATH:ro")
+        add_mount "$abs" "$CONTAINER_PATH" ro
     fi
 }
 
@@ -213,11 +229,9 @@ fi
 
 case "$cmd" in
     init)
-        docker run --rm \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
-            "$IMAGE" init "$@"
+        docker run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" init "$@"
         ;;
+
     decode)
         PW_FILE=""
         while [[ "${1:-}" == -* ]]; do
@@ -230,13 +244,6 @@ case "$cmd" in
             echo "Usage: ddphotos [OPTIONS] decode [--passwords <file>] <file.enc.json>" >&2
             exit 1
         fi
-
-        DECODE_MOUNTS=("${EXTRA_MOUNT_ARGS[@]}")
-        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
-            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
-            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
-        fi
-        MOUNT_SEQ=0
 
         ABS_ENC="$(abs_path "$1")"
         if [[ ! -f "$ABS_ENC" ]]; then
@@ -266,130 +273,93 @@ case "$cmd" in
             fi
         fi
 
-        #print_mounts # uncomment for debugging; normally off so can pipe result to jq and the like.
-        docker run --rm \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
-            "${DECODE_MOUNTS[@]}" \
-            "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
+        # Not calling print_mounts: decode output goes to stdout for piping to jq etc.
+        docker run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
         ;;
+
     search-cover)
         if [[ $# -ne 1 ]]; then
             echo "Usage: ddphotos [OPTIONS] search-cover <url>" >&2
             exit 1
         fi
-
-        SEARCH_MOUNTS=("${EXTRA_MOUNT_ARGS[@]}")
-        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
-            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
-            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
-        fi
-
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
-            "${SEARCH_MOUNTS[@]}" \
+            "${MOUNT_FLAGS[@]}" \
             "$IMAGE" search-cover "$@"
         ;;
+
     photogen)
-        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
-            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
-            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
-        fi
-        build_mount_args
+        build_config_bases_mounts
         print_mounts
-        PHOTOGEN_ARGS=("${EXTRA_MOUNT_ARGS[@]}" "${MOUNT_ARGS[@]}")
-        [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ARGS+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
-        docker run --rm \
-            -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
-            "${PHOTOGEN_ARGS[@]}" \
-            "$IMAGE" photogen "$@"
+        PHOTOGEN_ENV=(-e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID")
+        [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
+        docker run --rm "${MOUNT_FLAGS[@]}" "${PHOTOGEN_ENV[@]}" "$IMAGE" photogen "$@"
         ;;
+
     build)
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
+            "${MOUNT_FLAGS[@]}" \
             "$IMAGE" build "$@"
         ;;
+
     serve)
         print_mounts
         docker run --rm "${IT_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
+            "${MOUNT_FLAGS[@]}" \
             -p "$SERVE_PORT":80 \
             "$IMAGE" serve "$@"
         ;;
+
     run)
         print_mounts
         docker run --rm "${IT_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
+            "${MOUNT_FLAGS[@]}" \
             -p "$RUN_PORT":5173 \
             "$IMAGE" run "$@"
         ;;
+
     export)
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
+            "${MOUNT_FLAGS[@]}" \
             "$IMAGE" export "$@"
         ;;
+
     deploy)
-        DEPLOY_ARGS=("${EXTRA_MOUNT_ARGS[@]}")
-        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
-            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
-            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
-        fi
-        if [ -n "$DDPHOTOS_SITE_ENV" ]; then
-            MOUNT_PATHS+=("$OPT_SITE_ENV")
-            MOUNT_DESTS+=("/ddphotos-site.env")
-        fi
-        if [ -d "$HOME/.ssh" ]; then
-            DEPLOY_ARGS+=(-v "$HOME/.ssh":/root/.ssh:ro)
-            MOUNT_PATHS+=("$HOME/.ssh")
-            MOUNT_DESTS+=("/root/.ssh")
-        fi
-        if [ -d "$HOME/.aws" ]; then
-            DEPLOY_ARGS+=(-v "$HOME/.aws":/root/.aws:ro)
-            MOUNT_PATHS+=("$HOME/.aws")
-            MOUNT_DESTS+=("/root/.aws")
-        fi
+        [ -d "$HOME/.ssh" ] && add_mount "$HOME/.ssh" /root/.ssh ro
+        [ -d "$HOME/.aws" ] && add_mount "$HOME/.aws" /root/.aws ro
+        DEPLOY_ENV=()
         for var in AWS_PROFILE AWS_DEFAULT_PROFILE AWS_DEFAULT_REGION AWS_REGION \
                    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
-            [ -n "${!var}" ] && DEPLOY_ARGS+=(-e "$var=${!var}")
+            [ -n "${!var}" ] && DEPLOY_ENV+=(-e "$var=${!var}")
         done
-        [ -n "$DDPHOTOS_CONFIG_DIR" ] && DEPLOY_ARGS+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
-        [ -n "$DDPHOTOS_SITE_ENV" ]   && DEPLOY_ARGS+=(-e "DDPHOTOS_SITE_ENV=$DDPHOTOS_SITE_ENV")
+        [ -n "$DDPHOTOS_CONFIG_DIR" ] && DEPLOY_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
+        [ -n "$DDPHOTOS_SITE_ENV" ]   && DEPLOY_ENV+=(-e "DDPHOTOS_SITE_ENV=$DDPHOTOS_SITE_ENV")
         print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
-            "${DEPLOY_ARGS[@]}" \
+            "${MOUNT_FLAGS[@]}" \
+            "${DEPLOY_ENV[@]}" \
             "$IMAGE" deploy "$@"
         ;;
+
     upgrade)
         UPGRADE_IMAGE="$IMAGE"
         if [[ "$CURRENT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ -f "$UPGRADE_FILE" ]; then
             TARGET_VERSION=$(cat "$UPGRADE_FILE")
             UPGRADE_IMAGE="${IMAGE%%:*}:$TARGET_VERSION"
         fi
-        docker run --rm \
-            -v "$DDPHOTOS_DIR":/ddphotos \
-            "${SCRIPT_MOUNT[@]}" \
-            "$UPGRADE_IMAGE" upgrade
+        docker run --rm "${MOUNT_FLAGS[@]}" "$UPGRADE_IMAGE" upgrade
         ;;
+
     version)
         echo "Script:         $SCRIPT_DIR/ddphotos"
         echo "Image:          $IMAGE"
@@ -401,6 +371,7 @@ case "$cmd" in
         echo "Site ID:        $DDPHOTOS_SITE_ID"
         echo "State dir:      $STATE_DIR"
         ;;
+
     *)
         echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|search-cover|build|serve|run|export|deploy|upgrade} [args]"
         echo ""

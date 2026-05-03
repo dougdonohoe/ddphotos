@@ -18,6 +18,7 @@ TEST_DIR=""
 TEST_DIR2=""
 TEMP_DECODE_DIR=""
 EXT_CONFIG_DIR=""
+SC_TEST_DIR=""
 RUN_PID=""
 SERVE_PID=""
 
@@ -41,6 +42,19 @@ cleanup() {
     # Belt-and-suspenders: stop any containers using the local image still running on our ports
     docker ps --filter publish="$RUN_PORT"   -q | xargs docker stop &>/dev/null || true
     docker ps --filter publish="$SERVE_PORT" -q | xargs docker stop &>/dev/null || true
+    # !! IMPORTANT: Docker containers run as root, so any files/dirs they create inside a
+    # !! mounted volume (e.g. TEST_DIR/albums/, TEST_DIR/build/) are root-owned with 700
+    # !! permissions — unreadable and unwritable from the host. This has bitten us 3-4 times.
+    # !!
+    # !! On Mac, Docker's VM layer masks this (writes may appear to succeed locally), but CI
+    # !! runs on Linux where host and container share the real filesystem — failures are real.
+    # !! Always write tests to pass on Linux / CI, not just on Mac.
+    # !!
+    # !! Rules to avoid it:
+    # !!   1. Never write test files into subdirs that Docker created (e.g. TEST_DIR/albums/...).
+    # !!   2. For test fixtures, use TEMP_DECODE_DIR or a fresh mktemp -d (user-owned).
+    # !!   3. If you need Docker output in a specific dir layout, copy it there after the fact.
+    # !!   4. Cleanup below must use Docker to remove root-owned files before /bin/rm -rf works.
     # Docker creates root-owned files in TEST_DIRs; clear them via Docker before removing the dir
     if [ -n "$TEST_DIR" ]; then
         docker run --rm --entrypoint /bin/sh -v "$TEST_DIR":/target "$IMAGE" \
@@ -53,7 +67,8 @@ cleanup() {
         /bin/rm -rf "$TEST_DIR2"
     fi
     if [ -n "$TEMP_DECODE_DIR" ]; then /bin/rm -rf "$TEMP_DECODE_DIR"; fi
-    if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR";   fi
+    if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR"; fi
+    if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -166,22 +181,29 @@ pass "search-cover: found cover file for secret album"
 # the embedded pwFile path from /ddphotos/config/... to /ddphotos-config/...
 # (the container path used when --config-dir is outside DDPHOTOS_DIR).
 step "Decode + Search-Cover with external --config-dir"
+
+# Simulate photogen having been run with an external --config-dir by rewriting
+# the embedded pwFile path from /ddphotos/config/... to /ddphotos-config/...
 EXT_CONFIG_DIR=$(mktemp -d)
 /bin/cp "$TEST_DIR/config/passwords.yaml" "$EXT_CONFIG_DIR/"
 
-# Create modified enc.json (inside DDPHOTOS_DIR so decode path translation works)
-EXT_ENC_RELPATH="albums/$SITE_ID/secret/index-extconfig.enc.json"
+# Write the modified enc.json to TEMP_DECODE_DIR (user-owned) — the album
+# directory inside TEST_DIR is root-owned (created by Docker) and unwritable.
+EXT_ENC_FILE="$TEMP_DECODE_DIR/secret/index-extconfig.enc.json"
 sed 's|"pwFile":"/ddphotos/config/passwords.yaml"|"pwFile":"/ddphotos-config/passwords.yaml"|' \
-    "$TEST_DIR/$ENC_FILE" > "$TEST_DIR/$EXT_ENC_RELPATH"
+    "$TEST_DIR/$ENC_FILE" > "$EXT_ENC_FILE"
 
-decoded=$("$TEST_DIR/ddphotos" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_RELPATH")
+decoded=$("$TEST_DIR/ddphotos" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_FILE")
 echo "$decoded" | grep -q '"photos"' || fail "decode --config-dir: decoded output missing 'photos' key"
 pass "decode --config-dir: external config dir mounted correctly"
 
-# Replace the album enc.json with the modified version so search-cover decodes
-# it using /ddphotos-config/passwords.yaml, then reuse SC_URL from step 5.
-/bin/cp "$TEST_DIR/$EXT_ENC_RELPATH" "$TEST_DIR/$ENC_FILE"
-SC_OUT=$("$TEST_DIR/ddphotos" --config-dir "$EXT_CONFIG_DIR" search-cover "$SC_URL")
+# search-cover needs the modified enc.json at the album path. Use a fresh
+# user-owned SC_TEST_DIR with --dir so we can write to it freely.
+SC_TEST_DIR=$(mktemp -d)
+chmod 755 "$SC_TEST_DIR"
+mkdir -p "$SC_TEST_DIR/albums/$SITE_ID/secret"
+/bin/cp "$EXT_ENC_FILE" "$SC_TEST_DIR/albums/$SITE_ID/secret/index.enc.json"
+SC_OUT=$("$TEST_DIR/ddphotos" --dir "$SC_TEST_DIR" --config-dir "$EXT_CONFIG_DIR" search-cover "$SC_URL")
 echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover --config-dir: 'cover: 2024-The-Way-21.jpg' not in output"
 pass "search-cover --config-dir: external config dir mounted correctly"
 
