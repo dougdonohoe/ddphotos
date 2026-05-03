@@ -29,11 +29,8 @@ if [ -f "$CONFIG/albums.yaml" ]; then
     exit 1
 fi
 
-mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build
-cp /docker/init/albums.yaml "$CONFIG/albums.yaml"
-cp /docker/init/descriptions.txt "$CONFIG/descriptions.txt"
-cp /docker/init/custom.css "$CONFIG/custom.css"
-cp /docker/init/passwords.yaml "$CONFIG/passwords.yaml"
+mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build /ddphotos/export
+cp /docker/init/* "$CONFIG"
 
 echo "Initialized ddphotos!"
 echo
@@ -50,9 +47,10 @@ echo
 echo "  1. Edit config/albums.yaml to define your own albums"
 echo "  2. Repeat photogen, run, build, serve"
 echo
-echo "When ready to deploy, configure your   config/site.env for rsync or s3"
+echo "When ready to deploy, configure your config/site.env for rsync or s3 and deploy, or export"
 echo
 echo "  1. ./ddphotos deploy"
+echo "  2. ./ddphotos export [--copy] [--cloudflare]"
 echo
-echo "Docs:  https://github.com/dougdonohoe/ddphotos"
+echo "Docs:  https://github.com/dougdonohoe/ddphotos/blob/main/docs/DOCKER.md"
 echo

@@ -101,6 +101,8 @@ docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init
 [ -x "$TEST_DIR/ddphotos" ]              || fail "ddphotos script not installed"
 [ -f "$TEST_DIR/config/albums.yaml" ]    || fail "config/albums.yaml not created"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
+[ -f "$TEST_DIR/config/site.env" ]       || fail "config/site.env not created"
+[ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 pass "ddphotos script and config created at $TEST_DIR"
 
 PASSWORDS_FILE="$TEST_DIR/config/passwords.yaml"

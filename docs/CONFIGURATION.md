@@ -3,11 +3,11 @@
 A DD Photos site is driven by three config files. Both Docker and developer modes
 use the same files — only the path conventions differ.
 
-| File               | Required | Purpose                                                 |
-|--------------------|----------|---------------------------------------------------------|
-| `albums.yaml`      | yes      | Albums, site settings, photo base paths                 |
-| `descriptions.txt` | no       | Per-album descriptions shown on the home page           |
-| `site.env`         | no       | Deploy credentials (never committed)                    |
+| File               | Required | Purpose                                       |
+|--------------------|----------|-----------------------------------------------|
+| `albums.yaml`      | yes      | Albums, site settings, photo base paths       |
+| `descriptions.txt` | no       | Per-album descriptions shown on the home page |
+| `site.env`         | no       | Deploy credentials                            |
 
 **Docker mode:** `ddphotos init` creates a `config/` directory with starter versions of
 the first two, ready to edit directly — no copying needed (you'll create a `site.env` when
@@ -232,8 +232,6 @@ for the format.
 
 Holds deploy credentials — nothing that affects the built site itself.
 See [Deploy Variables](ENV.md#deploy-variables-siteenv) for the full variable reference.
-
-This file should never be committed. Store it outside the repo or in a git-ignored location.
 
 **rsync deployment:**
 

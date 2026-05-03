@@ -125,9 +125,11 @@ Tests are in `web/tests/` and cover:
 | `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear` |
 | `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius            |
 
-Smoke and caption tests assume the presence of albums in the sample website (`antarctica`, `uganda`).
 Navigation tests are fully dynamic - they read album names from the page at runtime and
-work against any site without hardcoding album names.
+work against any site without hardcoding album names.  Several tests require the presence of 
+the `antarctica` album in the sample website, and are skipped if that album is missing.  Other
+tests require a minimum number of albums and are skipped if the site doesn't comply.  In general,
+the tests can be run against any site to verify base functionality.
 
 The `baseURL` is set via `PLAYWRIGHT_BASE_URL`. `bin/run-tests.sh` sets it automatically
 to the port for the selected mode (5174 for dev, 8083 for Apache, 8084 for nginx).
@@ -137,10 +139,11 @@ Playwright directly (e.g. via `deploy-photos.sh`).
 Password and CSS tests are gated by environment variables so they only run against
 the appropriate site variant:
 
-| Variable                    | Set by             | Effect                                         |
-|-----------------------------|--------------------|------------------------------------------------|
-| `PLAYWRIGHT_PASSWORDS_FILE` | `bin/run-tests.sh` | Path to passwords file; enables password tests |
-| `PLAYWRIGHT_CUSTOM_CSS`     | `bin/run-tests.sh` | Set to `true`; enables CSS tests               |
+| Variable                       | Set by               | Effect                                         |
+|--------------------------------|----------------------|------------------------------------------------|
+| `PLAYWRIGHT_PASSWORDS_FILE`    | `bin/run-tests.sh`   | Path to passwords file; enables password tests |
+| `PLAYWRIGHT_CUSTOM_CSS`        | `bin/run-tests.sh`   | Set to `true`; enables CSS tests               |
+| `PLAYWRIGHT_IGNORE_CUSTOM_CSS` | `bin/docker-test.sh` | Set to `true`; skips no-CSS expected test      |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
 `bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
@@ -227,20 +230,9 @@ smaller built-in sample. The temp workspace is cleaned up automatically on exit.
 
 ## CI (GitHub Actions)
 
-The workflow in `.github/workflows/ci.yml` runs on every push or pull request to `main`. It:
-
-1. Installs `libvips-dev` and `pkg-config` via `apt-get`
-2. Sets up Go (version from `go.mod`) and Node (version from `web/.nvmrc`); installs dependencies
-3. Runs `make build test vet`
-4. Installs Playwright Chromium and its system dependencies
-5. Runs `make sample-photogen sample-build` — photogen's the sample site and builds the static site
-6. Runs `make web-docker-build-apache sample-test-apache` — builds the Apache Docker image and runs routing tests
-7. Runs `make web-docker-build-nginx sample-test-nginx` — builds the nginx Docker image and runs routing tests
-8. Runs `bin/test-all.sh --mode apache` — Playwright e2e tests across all password/CSS variants against Apache
-9. Runs `bin/test-all.sh --mode nginx` — Playwright e2e tests across all password/CSS variants against nginx
-10. Runs `make sample-rsync-test` — tests the rsync deploy path against a local Docker container
-11. Runs `make sample-s3-test` — tests the S3 deploy path against LocalStack
-12. Runs `make docker-test` — builds the `ddphotos` image and runs end-to-end Docker workflow tests
+The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on every push or pull 
+request to `main`. See that file for all the tests it runs.  Tests are configured to run in parallel
+to minimize CI run time.
 
 ### Testing CI Locally with `act`
 

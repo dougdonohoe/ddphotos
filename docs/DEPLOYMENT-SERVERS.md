@@ -147,7 +147,8 @@ The worker handles three cases not covered natively by Cloudflare Pages:
 All other routing — extensionless album URLs, static assets, `404.html` — is handled natively
 by Cloudflare Pages.
 
-`ddphotos export --cloudflare` (or `export.sh --cloudflare`) copies `docker/cloudflare-worker.js`
+`ddphotos export --cloudflare` (or `export.sh --cloudflare`) copies
+[docker/cloudflare-worker.js](../docker/cloudflare-worker.js)
 into the export root as `_worker.js` automatically.
 
 To verify a Cloudflare Pages deployment with `bin/test-photos-server.sh`, pass `--cloudflare`

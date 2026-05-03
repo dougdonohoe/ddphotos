@@ -120,7 +120,7 @@ wrangler pages deploy --project-name my-unique-site export/<site-id>
 ```
 
 The first deploy creates the project automatically and assigns a URL of
-`https://my-unique-site.pages.dev`. See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker)
+https://my-unique-site.pages.dev. See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker)
 for how routing works.
 
 ## Apache + rsync

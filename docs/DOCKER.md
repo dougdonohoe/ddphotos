@@ -126,7 +126,7 @@ See [CLI Flags](PHOTOGEN.md#cli-flags) for all flags.
 
 ### `run`
 
-Starts a Vite dev server at `http://localhost:5173`. Live-reloads on template/CSS changes.
+Starts a Vite dev server at http://localhost:5173. Live-reloads on template/CSS changes.
 
 ```bash
 ddphotos run
@@ -142,7 +142,7 @@ ddphotos build
 
 ### `serve`
 
-Serves the built static site via Apache at `http://localhost:8000`. 
+Serves the built static site via Apache at http://localhost:8000. 
 Good for testing the final output before deploying.
 
 ```bash
@@ -248,13 +248,13 @@ The `--dir`, `--config-dir`, and `--site-id` pre-command flags also work with `v
 
 These flags go before the command name and apply to all commands that need them:
 
-| Flag                  | Description                                                                                           |
-|-----------------------|-------------------------------------------------------------------------------------------------------|
-| `--dir <path>`        | Directory containing your config and albums output (default: same directory as the `ddphotos` script) |
-| `--config-dir <path>` | Path to a config directory other than `<albums-dir>/config`                                           |
-| `--site-id <id>`      | Override the site ID (normally read from `config/albums.yaml`)                                        |
-| `--site-env <path>`   | Path to a `site.env` file other than `<config-dir>/site.env`                                          |
-| `--non-interactive`   | Run `serve` and `run` without a TTY (no `-it` flag) — useful for scripted/CI contexts                 |
+| Flag                  | Description                                                                                             |
+|-----------------------|---------------------------------------------------------------------------------------------------------|
+| `--dir <path>`        | Directory containing your `config` and `albums` dirs (default: same directory as the `ddphotos` script) |
+| `--config-dir <path>` | Path to a config directory other than `<dir>/config`                                                    |
+| `--site-id <id>`      | Override the site ID (normally read from `config/albums.yaml`)                                          |
+| `--site-env <path>`   | Path to a `site.env` file other than `<config-dir>/site.env`                                            |
+| `--non-interactive`   | Run `serve` and `run` without a TTY (no `-it` flag) — useful for scripted/CI contexts                   |
 
 Example — using a separate source repo as the albums dir:
 
@@ -274,10 +274,10 @@ my-ddphotos/
   ddphotos           ← wrapper script
   config/
     albums.yaml      ← album definitions and site settings
-    descriptions.txt ← per-album descriptions
     custom.css       ← optional CSS overrides
+    descriptions.txt ← per-album descriptions
     passwords.yaml   ← optional password protection
-    site.env         ← deploy credentials (not committed to git)
+    site.env         ← deploy credentials
   albums/            ← photogen output (generated, not edited)
   build/             ← static site output (generated, not edited)
   export/            ← export output (generated, not edited)
