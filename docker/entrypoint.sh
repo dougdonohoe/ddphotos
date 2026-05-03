@@ -7,9 +7,9 @@ shift 2>/dev/null || true
 # Verify the mounted ddphotos script matches the image (skip for init/upgrade/version)
 if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ] && [ "$cmd" != "version" ]; then
     if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
-        echo "WARNING:  The local 'ddphotos' script does not match the image."
-        echo "          Run: 'ddphotos upgrade' to fix this."
-        echo ""
+        echo "WARNING:  The local 'ddphotos' script does not match the image." >&2
+        echo "          Run: 'ddphotos upgrade' to fix this." >&2
+        echo "" >&2
     fi
 fi
 
@@ -31,19 +31,20 @@ case "$cmd" in
         SCRIPT=/ddphotos-script-dir/ddphotos
         VERSION=$(cat /docker/VERSION 2>/dev/null || echo "dev")
         if diff -q /docker/ddphotos "$SCRIPT" > /dev/null 2>&1; then
-            echo "ddphotos is up to date ($VERSION)."
+            echo "The 'ddphotos' script is up to date ($VERSION)."
         else
             /bin/cp /docker/ddphotos "${SCRIPT}.new"
             chmod +x "${SCRIPT}.new"
             /bin/mv -f "${SCRIPT}.new" "$SCRIPT"
-            echo "ddphotos script upgraded ($VERSION)."
+            echo "The 'ddphotos' script was upgraded ($VERSION)."
         fi
         ;;
     *)
-        echo "Unknown command: '$cmd'"
-        echo
-        echo "This image is intended to be used via the 'ddphotos' wrapper script."
-        echo "See: https://github.com/dougdonohoe/ddphotos"
+        echo "Unknown command: '$cmd'" >&2
+        echo >&2
+        echo "This image is intended to be used via the 'ddphotos' wrapper script." >&2
+        echo "See: https://github.com/dougdonohoe/ddphotos" >&2
+        echo >&2
         exit 1
         ;;
 esac
