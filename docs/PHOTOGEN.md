@@ -178,14 +178,14 @@ The correct password is selected automatically from the filename:
 | `html.enc.json`   | Site-wide password (`site.password`)             |
 | `index.enc.json`  | Per-album password for the parent directory slug |
 
-## Finding a Cover Photo (`search_cover.sh`)
+## Finding a Cover Photo (`search-cover.sh`)
 
 When browsing the site, and you want to set a photo as an album cover, you need its
 `fileName` value for the `cover:` field in `albums.yaml`. The easiest way to get it is
-to right-click the photo, copy the image URL, and pass it to `bin/search_cover.sh`:
+to right-click the photo, copy the image URL, and pass it to `bin/search-cover.sh`:
 
 ```bash
-bin/search_cover.sh <url>
+bin/search-cover.sh <url>
 ```
 
 The script parses the album slug and image path from the URL, locates the album's
@@ -197,17 +197,22 @@ The search is scoped to `DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID` (defaults from
 `config/defaults.env`). Override to search a different site:
 
 ```bash
-DDPHOTOS_SITE_ID=sample-pw-all bin/search_cover.sh http://localhost:5173/albums/uganda/full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp```
+DDPHOTOS_SITE_ID=sample-pw-all bin/search-cover.sh http://localhost:5173/albums/uganda/full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp```
 ```
 
 Output:
 
 ```
-Album:  uganda
-Index:  /Users/donohoe/work/ddphotos/albums/sample-pw-all/uganda/index.enc.json
-src:    full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp
+Searching...
+  Album:  uganda
+  Index:  /Users/donohoe/work/ddphotos/albums/sample-pw-all/uganda/index.enc.json
+  Source: full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp
 
-fileName: subfolder_img_840_d.jpg
-id:       subfolder_img_840_d
-sourcePath: uganda/subfolder/img_840_d.jpg
+Found:
+  id:         subfolder_img_840_d
+  sourcePath: uganda/subfolder/img_840_d.jpg
+  fileName:   subfolder_img_840_d.jpg
+
+Use for cover:
+  cover: subfolder_img_840_d.jpg
 ```

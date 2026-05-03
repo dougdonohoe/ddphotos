@@ -4,6 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 See the [docs/](docs/) directory for full developer documentation (architecture, data flow, env vars,
 Makefile targets, CLI flags, etc.).
 
+## Directory structure sync requirement
+
+If the `albums/` or `build/` directory structure changes, keep these in sync:
+
+- `bin/deploy-photos.sh` — rsync and S3 logic
+- `web/setup-htdocs.sh` — sets up the Apache htdocs directory
+- `bin/gen-deploy-tree.py` — generates the directory tree image used in docs
+- `## Syncing Logic` section in `docs/DEPLOY.md`
+
 ## Type sync requirement
 
 The Go structs in `pkg/photogen/json.go` (`AlbumIndex`, `AlbumSummary`, `PhotoIndex`, `PhotoSrcIndex`)

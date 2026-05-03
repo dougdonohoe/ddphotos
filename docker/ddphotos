@@ -184,7 +184,7 @@ host_to_container() {
 
 # For commands that need a config, validate albums.yaml exists before launching Docker.
 case "$cmd" in
-    init|upgrade|help|version|decode) ;;
+    init|upgrade|help|version|decode|search-cover) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
@@ -267,6 +267,17 @@ case "$cmd" in
             "${SCRIPT_MOUNT[@]}" \
             "${DECODE_MOUNTS[@]}" \
             "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
+        ;;
+    search-cover)
+        if [[ $# -ne 1 ]]; then
+            echo "Usage: ddphotos [OPTIONS] search-cover <url>" >&2
+            exit 1
+        fi
+        docker run --rm \
+            -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
+            -v "$DDPHOTOS_DIR":/ddphotos \
+            "${SCRIPT_MOUNT[@]}" \
+            "$IMAGE" search-cover "$@"
         ;;
     photogen)
         if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
@@ -377,7 +388,7 @@ case "$cmd" in
         echo "State dir:      $STATE_DIR"
         ;;
     *)
-        echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|build|serve|run|export|deploy|upgrade} [args]"
+        echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|search-cover|build|serve|run|export|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
         echo "  --dir DIR         Directory to mount as /ddphotos (default: script location)"
@@ -386,20 +397,22 @@ case "$cmd" in
         echo "  --site-env FILE   Path to site.env for deploy (default: config-dir/site.env)"
         echo ""
         echo "Commands:"
-        echo "  init      Initialize config scaffold (use --script-only to just install 'ddphotos')"
-        echo "  photogen  Process source photos into albums output"
-        echo "  decode    Decrypt an .enc.json file and print the contents"
-        echo "            --passwords FILE  use this passwords file instead of the embedded path"
-        echo "  build     Build the static site"
-        echo "  serve     Preview the site via Apache on port \$SERVE_PORT (default 8000)"
-        echo "  run       Preview the site via Vite dev server on port \$RUN_PORT (default 5173)"
-        echo "  export    Export site to export/<site-id>/ for local serving or static hosting"
-        echo "            --copy        Resolve symlinks (required for static hosting)"
-        echo "            --cloudflare  Adds _worker.js for Cloudflare Pages photo permalinks"
-        echo "  deploy    Deploy build and albums to remote host"
-        echo "  upgrade   Update this script to match the current 'ddphotos' image"
-        echo "  version           Print script location, image, and config paths (no Docker required)"
-        echo "  version --image   Also query the image for its version and git info"
+        echo "  init                Initialize config scaffold"
+        echo "                        --script-only  Just install 'ddphotos' script"
+        echo "  photogen            Process source photos into albums output"
+        echo "  decode [filename]   Decrypt an .enc.json file and print the contents"
+        echo "                        --passwords [filename]  Use this passwords file instead of the embedded path"
+        echo "  search-cover [url]  Find the original filename for a photo URL"
+        echo "  build               Build the static site"
+        echo "  serve               Preview the site via Apache on port \$SERVE_PORT (default 8000)"
+        echo "  run                 Preview the site via Vite dev server on port \$RUN_PORT (default 5173)"
+        echo "  export              Export site to export/<site-id>/ for local serving or static hosting"
+        echo "                        --copy        Resolve symlinks (required for static hosting)"
+        echo "                        --cloudflare  Adds _worker.js for Cloudflare Pages photo permalinks"
+        echo "  deploy              Deploy build and albums to remote host"
+        echo "  upgrade             Update this script to match the current 'ddphotos' image"
+        echo "  version             Print script location, image, and config paths (no Docker required)"
+        echo "                        --image  Also query the image for its version and git info"
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
         echo "  ddphotos photogen -- -hero-only"

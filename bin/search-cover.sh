@@ -2,17 +2,23 @@
 # Find the fileName for a photo given its URL.
 #
 # Usage:
-#   bin/search_cover.sh <url>
+#   bin/search-cover.sh [--from-docker] <url>
 #
 # Example:
-#   bin/search_cover.sh http://localhost:5173/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
+#   bin/search-cover.sh http://localhost:5173/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
 #
 # Respects DDPHOTOS_ALBUMS_DIR and DDPHOTOS_SITE_ID (falls back to config/defaults.env).
 
 set -eo pipefail
 
+FROM_DOCKER=false
+if [[ "${1:-}" == "--from-docker" ]]; then
+    FROM_DOCKER=true
+    shift
+fi
+
 if [[ $# -ne 1 ]]; then
-    echo "Usage: bin/search_cover.sh <url>" >&2
+    echo "Usage: bin/search_cover.sh [--from-docker] <url>" >&2
     exit 1
 fi
 
@@ -56,17 +62,28 @@ index_file=$(find "$SEARCH_ROOT" -maxdepth 2 -type f \( -name "index.enc.json" -
 
 if [[ -z "$index_file" ]]; then
     echo "No index file found for album slug '$slug' under $SEARCH_ROOT" >&2
-    echo "Try another site with DDPHOTOS_SITE_ID=<site-id> search_cover.sh $url" >&2
+    if $FROM_DOCKER; then
+        echo "Try another site with: ddphotos --site-id <site-id> search-cover $url" >&2
+    else
+        echo "Try another site with: DDPHOTOS_SITE_ID=<site-id> bin/search_cover.sh $url" >&2
+    fi
     exit 1
 fi
 
-echo "Album:  $slug"
-echo "Index:  $index_file"
-echo "src:    $src_path"
+echo ""
+echo "Searching..."
+echo "  Album:  $slug"
+echo "  Index:  $index_file"
+echo "  Source: $src_path"
 echo ""
 
 # Decode (handles both encrypted and plain JSON) and search for the src path
-decoded=$(go run cmd/decode/decode.go "$index_file" 2>/dev/null || cat "$index_file")
+if $FROM_DOCKER; then
+    DECODE_CMD="/usr/local/bin/decode"
+else
+    DECODE_CMD="$SDIR/decode"
+fi
+decoded=$("$DECODE_CMD" "$index_file" 2>/dev/null || cat "$index_file")
 
 # Extract the fileName for the matching src path (matches full or grid)
 echo "$decoded" | python3 -c "
@@ -77,12 +94,17 @@ src = sys.argv[1]
 for p in photos:
     srcs = p.get('src', {})
     if srcs.get('full') == src or srcs.get('grid') == src:
-        print('fileName: ' + p.get('fileName', ''))
-        print('id:       ' + p.get('id', ''))
+        print('Found:')
+        print('  id:         ' + p.get('id', ''))
         sp = p.get('sourcePath', '')
         if sp:
-            print('sourcePath: ' + sp)
+            print('  sourcePath: ' + sp)
+        print('  fileName:   ' + p.get('fileName', '') + '')
+        print('')
+        print('Use for cover:')
+        print('  cover: ' + p.get('fileName', ''))
+        print('')
         sys.exit(0)
-print('src path not found in index', file=sys.stderr)
+print('WARN: ' + src + ' not found in index', file=sys.stderr)
 sys.exit(1)
 " "$src_path"

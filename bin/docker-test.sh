@@ -146,7 +146,17 @@ decoded=$("$TEST_DIR/ddphotos" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
 echo "$decoded" | grep -q '"photos"' || fail "decode (external pwFile): decoded output missing 'photos' key"
 pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"
 
-# ── 5. Run (Vite dev server) + Playwright ─────────────────────────────────────
+# ── 5. Search-Cover ────────────────────────────────────────────────────────────
+step "Search-Cover"
+# Derive the URL from the decoded index so we don't hardcode the UUID.
+SC_DECODED=$("$TEST_DIR/ddphotos" decode "$ENC_FILE")
+SC_GRID=$(echo "$SC_DECODED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['photos'][0]['src']['grid'])")
+SC_URL="http://localhost:5173/albums/secret/$SC_GRID"
+SC_OUT=$("$TEST_DIR/ddphotos" search-cover "$SC_URL")
+echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover: 'cover: 2024-The-Way-21.jpg' not in output"
+pass "search-cover: found cover file for secret album"
+
+# ── 6. Run (Vite dev server) + Playwright ─────────────────────────────────────
 step "Run — Vite dev server on port $RUN_PORT"
 RUN_PORT="$RUN_PORT" "$TEST_DIR/ddphotos" --non-interactive run &
 RUN_PID=$!
@@ -155,13 +165,13 @@ run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
 kill "$RUN_PID" 2>/dev/null || true; wait "$RUN_PID" 2>/dev/null || true; RUN_PID=""
 pass "run + Playwright OK"
 
-# ── 6. Build ───────────────────────────────────────────────────────────────────
+# ── 7. Build ───────────────────────────────────────────────────────────────────
 step "Build"
 "$TEST_DIR/ddphotos" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"
 pass "build/$SITE_ID created"
 
-# ── 7. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
+# ── 8. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
 step "Serve — Apache on port $SERVE_PORT"
 SERVE_PORT="$SERVE_PORT" "$TEST_DIR/ddphotos" --non-interactive serve &
 SERVE_PID=$!
@@ -172,7 +182,7 @@ run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
 pass "serve + Playwright + test-photos-server.sh OK"
 
-# ── 8. Export (symlink mode) ───────────────────────────────────────────────────
+# ── 9. Export (symlink mode) ───────────────────────────────────────────────────
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
@@ -201,7 +211,7 @@ step "Export --cloudflare"
 grep -q "ASSETS.fetch" "$EXPORT_DIR/_worker.js" || fail "_worker.js missing ASSETS.fetch"
 pass "export --cloudflare OK (_worker.js present)"
 
-# ── 9. Version ─────────────────────────────────────────────────────────────────
+# ── 10. Version ────────────────────────────────────────────────────────────────
 step "Version"
 version_out=$("$TEST_DIR/ddphotos" version)
 echo "$version_out"
@@ -215,7 +225,7 @@ echo "$version_image_out" | grep -q "Git:" || fail "version --image: missing Git
 echo "$version_image_out" | grep -q "Version:.*dev" || fail "version --image: missing Version: dev"
 pass "version --image: Script path OK, Git: and Version: dev present"
 
-# ── 10. Init --script-only ─────────────────────────────────────────────────────
+# ── 11. Init --script-only ─────────────────────────────────────────────────────
 step "Init --script-only"
 TEST_DIR2=$(mktemp -d)
 chmod 755 "$TEST_DIR2"
@@ -225,7 +235,7 @@ docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ ! -d "$TEST_DIR2/albums" ]   || fail "--script-only should not create albums/"
 pass "init --script-only OK (only ddphotos script installed)"
 
-# ── 11. Skip ──────────────────────────────────────────────────────
+# ── 12. Skip ──────────────────────────────────────────────────────
 # Note: decided to skip tests for deploy (s3/rsync) due to complexity
 #       of setup.  S3 works (it is actively used by yours truly). I have faith
 #       in rsync code, but if someone reports problems we can revisit it.

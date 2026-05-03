@@ -40,5 +40,5 @@ These variables are consumed by:
 - `web/src/hooks.server.ts` — intercepts fetch calls to `/albums/**` during `npm run build`
 - `web/setup-htdocs.sh` — symlinks `build/<DDPHOTOS_SITE_ID>/` into the web server document root at container startup (called by both `apache-entrypoint.sh` and `nginx-entrypoint.sh`)
 - `bin/deploy-photos.sh` — drives `npm run build`, Docker deployment, and S3/rsync sync
-- `bin/search_cover.sh` — locates album data when searching for cover images
+- `bin/search-cover.sh` — locates album data when searching for cover images
 - `bin/run-tests.sh` — sets both when starting the dev server, building, and running Docker test containers

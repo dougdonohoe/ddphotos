@@ -14,14 +14,15 @@ if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ] && [ "$cmd" != "version" ]; t
 fi
 
 case "$cmd" in
-    init)     exec /docker/do-init.sh "$@" ;;
-    photogen) exec /docker/do-photogen.sh "$@" ;;
-    decode)   exec /docker/do-decode.sh "$@" ;;
-    build)    exec /docker/do-build.sh "$@" ;;
-    serve)    exec /docker/do-serve.sh "$@" ;;
-    run)      exec /docker/do-run.sh "$@" ;;
-    export)   exec /docker/do-export.sh "$@" ;;
-    deploy)   exec /docker/do-deploy.sh "$@" ;;
+    init)         exec /docker/do-init.sh "$@" ;;
+    photogen)     exec /docker/do-photogen.sh "$@" ;;
+    decode)       exec /docker/do-decode.sh "$@" ;;
+    search-cover) exec /docker/do-search-cover.sh "$@" ;;
+    build)        exec /docker/do-build.sh "$@" ;;
+    serve)        exec /docker/do-serve.sh "$@" ;;
+    run)          exec /docker/do-run.sh "$@" ;;
+    export)       exec /docker/do-export.sh "$@" ;;
+    deploy)       exec /docker/do-deploy.sh "$@" ;;
     version)
         echo "Version:  $(cat /docker/VERSION 2>/dev/null || echo unknown)"
         echo "Git:      $(cat /docker/GIT_DESCRIBE 2>/dev/null || echo unknown)"
@@ -39,18 +40,10 @@ case "$cmd" in
         fi
         ;;
     *)
-        echo "Usage: docker run ddphotos {init|photogen|decode|build|serve|run|export|deploy|upgrade}"
-        echo ""
-        echo "Commands:"
-        echo "  init      Create config scaffold (--script-only to install 'ddphotos' script only)"
-        echo "  photogen  Process source photos into albums output"
-        echo "  decode    Decrypt an .enc.json file and print the contents"
-        echo "  build     Build the static site"
-        echo "  serve     Preview the site via Apache on port 80"
-        echo "  run       Preview the site via Vite dev server on port 5173"
-        echo "  export    Export site to export/<site-id>/ for local serving"
-        echo "  deploy    Rsync build and albums to a remote host"
-        echo "  upgrade   Update the ddphotos script to match this image"
+        echo "Unknown command: '$cmd'"
+        echo
+        echo "This image is intended to be used via the 'ddphotos' wrapper script."
+        echo "See: https://github.com/dougdonohoe/ddphotos"
         exit 1
         ;;
 esac

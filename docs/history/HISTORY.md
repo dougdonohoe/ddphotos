@@ -1628,3 +1628,47 @@ were updated to match.
   Fixed cleanup to use `if [ -n ... ]` pattern (avoids `&&...||` exit-code pitfall).
 - **`docs/DOCKER.md`** — added `### decode` command section
 - **`docs/PHOTOGEN.md`** — updated decode examples to use `--passwords`
+
+### 69. 05/03/2026 - Add `ddphotos search-cover` Command
+
+#### Motivation
+
+Finding an album cover required decoding an `.enc.json`, manually parsing the JSON, and
+matching a UUID from a photo URL back to an original filename. `search-cover` automates this:
+pass a photo URL from any page in the site, get back the `fileName` to use as `cover:` in
+`albums.yaml`.
+
+#### `bin/search_cover.sh`
+
+Existing script was updated to:
+- Replace the inline `go run cmd/decode/decode.go` call with a `$DECODE_CMD` variable,
+  set to `$SDIR/decode` (the `bin/decode` script) by default.
+- Add a `--from-docker` flag: uses `/usr/local/bin/decode` inside the container and prints
+  a Docker-appropriate "try another site" hint (`ddphotos --site-id <id> search-cover <url>`)
+  instead of the local shell form.
+- Cosmetic output improvements (aligned labels, "Found:" / "Use for cover:" sections).
+
+#### Docker: `ddphotos search-cover` Command
+
+Added `search-cover` as a first-class Docker command:
+
+- **`docker/do-search-cover.sh`** — sets `DDPHOTOS_ALBUMS_DIR=/ddphotos/albums` and
+  `DDPHOTOS_SITE_ID`, then delegates to `/app/bin/search_cover.sh --from-docker "$@"`
+- **`docker/Dockerfile`** — added `docker/do-search-cover.sh` to the scripts `COPY` line;
+  added a separate `COPY bin/search_cover.sh /app/bin/search_cover.sh` so the script is
+  available inside the container at the path `do-search-cover.sh` expects
+- **`docker/entrypoint.sh`** — added `search-cover)` case; simplified the `*` fallback to a
+  short redirect message (full command list belongs in the `ddphotos` wrapper, not here)
+- **`docker/ddphotos`** — added `search-cover` to the albums.yaml validation exemption,
+  added the `search-cover` dispatch case, and updated both usage strings
+
+No path translation is needed (unlike `decode`) — `search-cover` only takes a URL string
+and reads from the already-mounted `/ddphotos/albums` directory.
+
+#### Tests and Documentation
+
+- **`bin/docker-test.sh`** — added step 5 "Search-Cover": decodes the same `secret/index.enc.json`
+  used in the decode test to extract the actual grid UUID, constructs the URL dynamically,
+  runs `ddphotos search-cover`, and asserts the output contains `cover: 2024-The-Way-21.jpg`.
+  Renumbered subsequent steps 6-12.
+- **`docs/DOCKER.md`** — added `### search-cover` section with example output
