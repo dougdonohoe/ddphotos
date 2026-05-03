@@ -70,7 +70,6 @@ if [[ -z "$index_file" ]]; then
     exit 1
 fi
 
-echo ""
 echo "Searching..."
 echo "  Album:  $slug"
 echo "  Index:  $index_file"

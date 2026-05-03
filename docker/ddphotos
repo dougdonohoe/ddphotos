@@ -18,6 +18,7 @@ mkdir -p "$STATE_DIR"
 OPT_CONFIG_DIR=""
 OPT_SITE_ENV=""
 NON_INTERACTIVE=false
+SHOW_MOUNTS=false
 while [[ "${1:-}" == --?* ]]; do
     case "$1" in
         --dir) DDPHOTOS_DIR="$2"; shift 2 ;;
@@ -25,6 +26,7 @@ while [[ "${1:-}" == --?* ]]; do
         --config-dir)      OPT_CONFIG_DIR="$2";   shift 2 ;;
         --site-env)        OPT_SITE_ENV="$2";     shift 2 ;;
         --non-interactive) NON_INTERACTIVE=true;  shift ;;
+        --show-mounts)     SHOW_MOUNTS=true;      shift ;;
         *)            break ;;
     esac
 done
@@ -73,8 +75,9 @@ add_mount() {
     fi
 }
 
-# Print all registered mounts.
+# Print all registered mounts (no-op unless --show-mounts was passed).
 print_mounts() {
+    $SHOW_MOUNTS || return 0
     echo "Mounting:"
     local i=0
     while [ $i -lt ${#MOUNT_FROM[@]} ]; do
@@ -273,7 +276,7 @@ case "$cmd" in
             fi
         fi
 
-        # Not calling print_mounts: decode output goes to stdout for piping to jq etc.
+        print_mounts
         docker run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
         ;;
 
@@ -376,10 +379,11 @@ case "$cmd" in
         echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|search-cover|build|serve|run|export|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
-        echo "  --dir DIR         Directory to mount as /ddphotos (default: script location)"
-        echo "  --site-id ID      Site ID override (default: settings.id from albums.yaml)"
-        echo "  --config-dir DIR  Config directory override (default: albums-dir/config)"
-        echo "  --site-env FILE   Path to site.env for deploy (default: config-dir/site.env)"
+        echo "  --dir DIR          Directory to mount as /ddphotos (default: script location)"
+        echo "  --site-id ID       Site ID override (default: settings.id from albums.yaml)"
+        echo "  --config-dir DIR   Config directory override (default: albums-dir/config)"
+        echo "  --site-env FILE    Path to site.env for deploy (default: config-dir/site.env)"
+        echo "  --show-mounts      Print Docker volume mounts before running the command"
         echo ""
         echo "Commands:"
         echo "  init                Initialize config scaffold"

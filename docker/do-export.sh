@@ -48,7 +48,6 @@ if [ -n "$CLOUDFLARE" ]; then
     /bin/cp /docker/cloudflare-worker.js "$EXPORT_DIR/_worker.js"
 fi
 
-echo ""
 echo "  Exported $SITE_ID to export/$SITE_ID"
 echo "  Serve with: python3 -m http.server 8000 --directory export/$SITE_ID"
 echo ""

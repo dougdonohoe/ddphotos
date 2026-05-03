@@ -124,11 +124,13 @@ docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 pass "ddphotos script and config created at $TEST_DIR"
 
+DDPHOTOS=("$TEST_DIR/ddphotos" --show-mounts)
+DDPHOTOS_QUIET=("$TEST_DIR/ddphotos")
 PASSWORDS_FILE="$TEST_DIR/config/passwords.yaml"
 
 # ── 3. Photogen ────────────────────────────────────────────────────────────────
 step "Photogen"
-"$TEST_DIR/ddphotos" photogen
+"${DDPHOTOS[@]}" photogen
 [ -d "$TEST_DIR/albums/$SITE_ID" ] || fail "albums/$SITE_ID not created"
 ALBUM_COUNT=$(find "$TEST_DIR/albums/$SITE_ID" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
 pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
@@ -137,7 +139,7 @@ pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
 step "Decode"
 ENC_FILE="albums/$SITE_ID/secret/index.enc.json"
 [ -f "$TEST_DIR/$ENC_FILE" ] || fail "$ENC_FILE not found after photogen"
-decoded=$("$TEST_DIR/ddphotos" decode "$ENC_FILE")
+decoded=$("${DDPHOTOS[@]}" decode "$ENC_FILE")
 echo "$decoded" | grep -q '"photos"' || fail "decoded output missing 'photos' key"
 pass "decode: $ENC_FILE decrypted OK"
 
@@ -151,7 +153,7 @@ mkdir -p "$TEMP_DECODE_DIR/secret"
 /bin/cp "$TEST_DIR/$ENC_FILE"              "$TEMP_DECODE_DIR/secret/index.enc.json"
 
 # (a) explicit --passwords pointing outside DDPHOTOS_DIR
-decoded=$("$TEST_DIR/ddphotos" decode --passwords "$TEMP_DECODE_DIR/passwords.yaml" "$TEMP_DECODE_DIR/secret/index.enc.json")
+decoded=$("${DDPHOTOS[@]}" decode --passwords "$TEMP_DECODE_DIR/passwords.yaml" "$TEMP_DECODE_DIR/secret/index.enc.json")
 echo "$decoded" | grep -q '"photos"' || fail "decode --passwords (external): decoded output missing 'photos' key"
 pass "decode --passwords: files outside DDPHOTOS_DIR OK"
 
@@ -159,17 +161,17 @@ pass "decode --passwords: files outside DDPHOTOS_DIR OK"
 sed "s|\"pwFile\":\"[^\"]*\"|\"pwFile\":\"$TEMP_DECODE_DIR/passwords.yaml\"|" \
     "$TEMP_DECODE_DIR/secret/index.enc.json" > "$TEMP_DECODE_DIR/secret/index.enc.json.tmp"
 mv "$TEMP_DECODE_DIR/secret/index.enc.json.tmp" "$TEMP_DECODE_DIR/secret/index.enc.json"
-decoded=$("$TEST_DIR/ddphotos" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
+decoded=$("${DDPHOTOS[@]}" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
 echo "$decoded" | grep -q '"photos"' || fail "decode (external pwFile): decoded output missing 'photos' key"
 pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"
 
 # ── 5. Search-Cover ────────────────────────────────────────────────────────────
 step "Search-Cover"
 # Derive the URL from the decoded index so we don't hardcode the UUID.
-SC_DECODED=$("$TEST_DIR/ddphotos" decode "$ENC_FILE")
+SC_DECODED=$("${DDPHOTOS_QUIET[@]}" decode "$ENC_FILE")
 SC_GRID=$(echo "$SC_DECODED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['photos'][0]['src']['grid'])")
 SC_URL="http://localhost:5173/albums/secret/$SC_GRID"
-SC_OUT=$("$TEST_DIR/ddphotos" search-cover "$SC_URL")
+SC_OUT=$("${DDPHOTOS[@]}" search-cover "$SC_URL")
 echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover: 'cover: 2024-The-Way-21.jpg' not in output"
 pass "search-cover: found cover file for secret album"
 
@@ -193,7 +195,7 @@ EXT_ENC_FILE="$TEMP_DECODE_DIR/secret/index-extconfig.enc.json"
 sed 's|"pwFile":"/ddphotos/config/passwords.yaml"|"pwFile":"/ddphotos-config/passwords.yaml"|' \
     "$TEST_DIR/$ENC_FILE" > "$EXT_ENC_FILE"
 
-decoded=$("$TEST_DIR/ddphotos" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_FILE")
+decoded=$("${DDPHOTOS[@]}" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_FILE")
 echo "$decoded" | grep -q '"photos"' || fail "decode --config-dir: decoded output missing 'photos' key"
 pass "decode --config-dir: external config dir mounted correctly"
 
@@ -203,13 +205,13 @@ SC_TEST_DIR=$(mktemp -d)
 chmod 755 "$SC_TEST_DIR"
 mkdir -p "$SC_TEST_DIR/albums/$SITE_ID/secret"
 /bin/cp "$EXT_ENC_FILE" "$SC_TEST_DIR/albums/$SITE_ID/secret/index.enc.json"
-SC_OUT=$("$TEST_DIR/ddphotos" --dir "$SC_TEST_DIR" --config-dir "$EXT_CONFIG_DIR" search-cover "$SC_URL")
+SC_OUT=$("${DDPHOTOS[@]}" --dir "$SC_TEST_DIR" --config-dir "$EXT_CONFIG_DIR" search-cover "$SC_URL")
 echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover --config-dir: 'cover: 2024-The-Way-21.jpg' not in output"
 pass "search-cover --config-dir: external config dir mounted correctly"
 
 # ── 7. Run (Vite dev server) + Playwright ─────────────────────────────────────
 step "Run — Vite dev server on port $RUN_PORT"
-RUN_PORT="$RUN_PORT" "$TEST_DIR/ddphotos" --non-interactive run &
+RUN_PORT="$RUN_PORT" "${DDPHOTOS[@]}" --non-interactive run &
 RUN_PID=$!
 wait_for_http "http://localhost:$RUN_PORT" "Vite dev server"
 run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
@@ -218,13 +220,13 @@ pass "run + Playwright OK"
 
 # ── 8. Build ───────────────────────────────────────────────────────────────────
 step "Build"
-"$TEST_DIR/ddphotos" build
+"${DDPHOTOS[@]}" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"
 pass "build/$SITE_ID created"
 
 # ── 9. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
 step "Serve — Apache on port $SERVE_PORT"
-SERVE_PORT="$SERVE_PORT" "$TEST_DIR/ddphotos" --non-interactive serve &
+SERVE_PORT="$SERVE_PORT" "${DDPHOTOS[@]}" --non-interactive serve &
 SERVE_PID=$!
 wait_for_http "http://localhost:$SERVE_PORT" "Apache"
 curl -s "http://localhost:$SERVE_PORT/albums/config.json" # sanity check before tests run
@@ -237,7 +239,7 @@ pass "serve + Playwright + test-photos-server.sh OK"
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
-"$TEST_DIR/ddphotos" export
+"${DDPHOTOS[@]}" export
 [ -d "$EXPORT_DIR" ]            || fail "export /$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
 broken=$(find "$EXPORT_DIR" -type l ! -exec test -e {} \; -print)
@@ -246,7 +248,7 @@ ENTRY_COUNT=$(find "$EXPORT_DIR" \( -type f -o -type l \) | wc -l | tr -d ' ')
 pass "export/$SITE_ID OK ($ENTRY_COUNT entries, no broken symlinks)"
 
 step "Export --copy (resolved)"
-"$TEST_DIR/ddphotos" export --copy
+"${DDPHOTOS[@]}" export --copy
 [ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ] || fail "export/$SITE_ID/index.html missing"
 symlinks=$(find "$EXPORT_DIR" -type l)
@@ -255,7 +257,7 @@ FILE_COUNT=$(find "$EXPORT_DIR" -type f | wc -l | tr -d ' ')
 pass "export --copy OK ($FILE_COUNT files, no symlinks)"
 
 step "Export --cloudflare"
-"$TEST_DIR/ddphotos" export --cloudflare
+"${DDPHOTOS[@]}" export --cloudflare
 [ -d "$EXPORT_DIR" ]                || fail "export/$SITE_ID not created"
 [ -f "$EXPORT_DIR/index.html" ]     || fail "export/$SITE_ID/index.html missing"
 [ -f "$EXPORT_DIR/_worker.js" ]     || fail "export/$SITE_ID/_worker.js missing"
@@ -264,12 +266,12 @@ pass "export --cloudflare OK (_worker.js present)"
 
 # ── 11. Version ────────────────────────────────────────────────────────────────
 step "Version"
-version_out=$("$TEST_DIR/ddphotos" version)
+version_out=$("${DDPHOTOS[@]}" version)
 echo "$version_out"
 echo "$version_out" | grep -qF "$TEST_DIR/ddphotos" || fail "version: Script path does not match $TEST_DIR/ddphotos"
 pass "version: Script path OK"
 
-version_image_out=$("$TEST_DIR/ddphotos" version --image)
+version_image_out=$("${DDPHOTOS[@]}" version --image)
 echo "$version_image_out"
 echo "$version_image_out" | grep -qF "$TEST_DIR/ddphotos" || fail "version --image: Script path does not match $TEST_DIR/ddphotos"
 echo "$version_image_out" | grep -q "Git:" || fail "version --image: missing Git: line"

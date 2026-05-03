@@ -15,9 +15,7 @@ export VITE_GIT_BRANCH=""
 export VITE_GIT_REPO_SLUG="dougdonohoe/ddphotos"
 export VITE_GIT_REPO_URL="https://github.com/dougdonohoe/ddphotos"
 
-echo ""
 echo "  Dev server for $SITE_ID at:   http://localhost:${RUN_PORT}"
-echo ""
 
 export DDPHOTOS_ALBUMS_DIR=/ddphotos/albums
 export DDPHOTOS_SITE_ID="$SITE_ID"

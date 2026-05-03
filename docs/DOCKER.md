@@ -308,6 +308,7 @@ These flags go before the command name and apply to all commands that need them:
 | `--site-id <id>`      | Override the site ID (normally read from `config/albums.yaml`)                                          |
 | `--site-env <path>`   | Path to a `site.env` file other than `<config-dir>/site.env`                                            |
 | `--non-interactive`   | Run `serve` and `run` without a TTY (no `-it` flag) — useful for scripted/CI contexts                   |
+| `--show-mounts`       | Print the Docker volume mounts before running the command — useful for debugging mount issues           |
 
 Example — using a separate source repo as the albums dir:
 
