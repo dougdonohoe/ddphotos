@@ -16,6 +16,7 @@ SERVE_PORT=8090        # Apache host port (maps to container port 80; avoids con
 DO_BUILD=true
 TEST_DIR=""
 TEST_DIR2=""
+TEMP_DECODE_DIR=""
 RUN_PID=""
 SERVE_PID=""
 
@@ -34,8 +35,8 @@ pass()  { echo "  PASS: $*"; }
 fail()  { echo "  FAIL: $*" >&2; exit 1; }
 
 cleanup() {
-    [ -n "$RUN_PID" ]   && kill "$RUN_PID"   2>/dev/null || true
-    [ -n "$SERVE_PID" ] && kill "$SERVE_PID" 2>/dev/null || true
+    if [ -n "$RUN_PID" ];   then kill "$RUN_PID"   2>/dev/null || true; fi
+    if [ -n "$SERVE_PID" ]; then kill "$SERVE_PID" 2>/dev/null || true; fi
     # Belt-and-suspenders: stop any containers using the local image still running on our ports
     docker ps --filter publish="$RUN_PORT"   -q | xargs docker stop &>/dev/null || true
     docker ps --filter publish="$SERVE_PORT" -q | xargs docker stop &>/dev/null || true
@@ -50,6 +51,7 @@ cleanup() {
             -c 'find /target -mindepth 1 -delete' 2>/dev/null || true
         /bin/rm -rf "$TEST_DIR2"
     fi
+    if [ -n "$TEMP_DECODE_DIR" ]; then /bin/rm -rf "$TEMP_DECODE_DIR"; fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -114,7 +116,35 @@ step "Photogen"
 ALBUM_COUNT=$(find "$TEST_DIR/albums/$SITE_ID" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
 pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
 
-# ── 4. Run (Vite dev server) + Playwright ─────────────────────────────────────
+# ── 4. Decode ──────────────────────────────────────────────────────────────────
+step "Decode"
+ENC_FILE="albums/$SITE_ID/secret/index.enc.json"
+[ -f "$TEST_DIR/$ENC_FILE" ] || fail "$ENC_FILE not found after photogen"
+decoded=$("$TEST_DIR/ddphotos" decode "$ENC_FILE")
+echo "$decoded" | grep -q '"photos"' || fail "decoded output missing 'photos' key"
+pass "decode: $ENC_FILE decrypted OK"
+
+# Test 2: files outside DDPHOTOS_DIR — exercises the external-mount path in ddphotos decode.
+# The enc.json is placed in a secret/ subdirectory so the album slug is preserved in the
+# container path (/ddphotos-args/arg-N/secret/index.enc.json), which decode needs to find
+# the right per-album password.
+TEMP_DECODE_DIR=$(mktemp -d)
+mkdir -p "$TEMP_DECODE_DIR/secret"
+/bin/cp "$TEST_DIR/config/passwords.yaml"  "$TEMP_DECODE_DIR/passwords.yaml"
+/bin/cp "$TEST_DIR/$ENC_FILE"              "$TEMP_DECODE_DIR/secret/index.enc.json"
+
+# (a) explicit --passwords pointing outside DDPHOTOS_DIR
+decoded=$("$TEST_DIR/ddphotos" decode --passwords "$TEMP_DECODE_DIR/passwords.yaml" "$TEMP_DECODE_DIR/secret/index.enc.json")
+echo "$decoded" | grep -q '"photos"' || fail "decode --passwords (external): decoded output missing 'photos' key"
+pass "decode --passwords: files outside DDPHOTOS_DIR OK"
+
+# (b) replace embedded pwFile with the temp path; decode should mount it automatically
+sed -i '' "s|\"pwFile\":\"[^\"]*\"|\"pwFile\":\"$TEMP_DECODE_DIR/passwords.yaml\"|" "$TEMP_DECODE_DIR/secret/index.enc.json"
+decoded=$("$TEST_DIR/ddphotos" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
+echo "$decoded" | grep -q '"photos"' || fail "decode (external pwFile): decoded output missing 'photos' key"
+pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"
+
+# ── 5. Run (Vite dev server) + Playwright ─────────────────────────────────────
 step "Run — Vite dev server on port $RUN_PORT"
 RUN_PORT="$RUN_PORT" "$TEST_DIR/ddphotos" --non-interactive run &
 RUN_PID=$!
@@ -123,13 +153,13 @@ run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
 kill "$RUN_PID" 2>/dev/null || true; wait "$RUN_PID" 2>/dev/null || true; RUN_PID=""
 pass "run + Playwright OK"
 
-# ── 5. Build ───────────────────────────────────────────────────────────────────
+# ── 6. Build ───────────────────────────────────────────────────────────────────
 step "Build"
 "$TEST_DIR/ddphotos" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"
 pass "build/$SITE_ID created"
 
-# ── 6. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
+# ── 7. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
 step "Serve — Apache on port $SERVE_PORT"
 SERVE_PORT="$SERVE_PORT" "$TEST_DIR/ddphotos" --non-interactive serve &
 SERVE_PID=$!
@@ -140,7 +170,7 @@ run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
 pass "serve + Playwright + test-photos-server.sh OK"
 
-# ── 7. Export (symlink mode) ───────────────────────────────────────────────────
+# ── 8. Export (symlink mode) ───────────────────────────────────────────────────
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
@@ -169,7 +199,7 @@ step "Export --cloudflare"
 grep -q "ASSETS.fetch" "$EXPORT_DIR/_worker.js" || fail "_worker.js missing ASSETS.fetch"
 pass "export --cloudflare OK (_worker.js present)"
 
-# ── 8. Version ─────────────────────────────────────────────────────────────────
+# ── 9. Version ─────────────────────────────────────────────────────────────────
 step "Version"
 version_out=$("$TEST_DIR/ddphotos" version)
 echo "$version_out"
@@ -183,7 +213,7 @@ echo "$version_image_out" | grep -q "Git:" || fail "version --image: missing Git
 echo "$version_image_out" | grep -q "Version:.*dev" || fail "version --image: missing Version: dev"
 pass "version --image: Script path OK, Git: and Version: dev present"
 
-# ── 9. Init --script-only ──────────────────────────────────────────────────────
+# ── 10. Init --script-only ─────────────────────────────────────────────────────
 step "Init --script-only"
 TEST_DIR2=$(mktemp -d)
 chmod 755 "$TEST_DIR2"
@@ -193,7 +223,7 @@ docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ ! -d "$TEST_DIR2/albums" ]   || fail "--script-only should not create albums/"
 pass "init --script-only OK (only ddphotos script installed)"
 
-# ── 10. Skip ──────────────────────────────────────────────────────
+# ── 11. Skip ──────────────────────────────────────────────────────
 # Note: decided to skip tests for deploy (s3/rsync) due to complexity
 #       of setup.  S3 works (it is actively used by yours truly). I have faith
 #       in rsync code, but if someone reports problems we can revisit it.

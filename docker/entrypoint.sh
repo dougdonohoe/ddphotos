@@ -16,6 +16,7 @@ fi
 case "$cmd" in
     init)     exec /docker/do-init.sh "$@" ;;
     photogen) exec /docker/do-photogen.sh "$@" ;;
+    decode)   exec /docker/do-decode.sh "$@" ;;
     build)    exec /docker/do-build.sh "$@" ;;
     serve)    exec /docker/do-serve.sh "$@" ;;
     run)      exec /docker/do-run.sh "$@" ;;
@@ -38,11 +39,12 @@ case "$cmd" in
         fi
         ;;
     *)
-        echo "Usage: docker run ddphotos {init|photogen|build|serve|run|export|deploy|upgrade}"
+        echo "Usage: docker run ddphotos {init|photogen|decode|build|serve|run|export|deploy|upgrade}"
         echo ""
         echo "Commands:"
         echo "  init      Create config scaffold (--script-only to install 'ddphotos' script only)"
         echo "  photogen  Process source photos into albums output"
+        echo "  decode    Decrypt an .enc.json file and print the contents"
         echo "  build     Build the static site"
         echo "  serve     Preview the site via Apache on port 80"
         echo "  run       Preview the site via Vite dev server on port 5173"

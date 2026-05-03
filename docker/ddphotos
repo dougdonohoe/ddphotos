@@ -158,9 +158,33 @@ MOUNT_DESTS=()
 # regardless of what DDPHOTOS_DIR points to.
 SCRIPT_MOUNT=(-v "$SCRIPT_DIR":/ddphotos-script-dir)
 
+# Resolve a path to absolute. Relative paths are anchored to DDPHOTOS_DIR.
+abs_path() {
+    local p="$1"
+    [[ "$p" != /* ]] && p="$DDPHOTOS_DIR/$p"
+    echo "$(cd "$(dirname "$p")" 2>/dev/null && pwd)/$(basename "$p")"
+}
+
+# Translate an absolute host path to its container equivalent.
+# Paths inside DDPHOTOS_DIR map to /ddphotos/...; others get a dedicated read-only mount
+# appended to DECODE_MOUNTS (caller must initialize that array and MOUNT_SEQ=0).
+# Preserves <parent-dir>/<filename> so the decode binary can identify the album slug
+# from the container path (e.g. secret/index.enc.json → slug "secret").
+# Sets CONTAINER_PATH.
+host_to_container() {
+    local abs="$1"
+    if [[ "$abs" == "$DDPHOTOS_DIR"/* ]]; then
+        CONTAINER_PATH="/ddphotos${abs#"$DDPHOTOS_DIR"}"
+    else
+        MOUNT_SEQ=$((MOUNT_SEQ + 1))
+        CONTAINER_PATH="/ddphotos-args/arg-$MOUNT_SEQ/$(basename "$(dirname "$abs")")/$(basename "$abs")"
+        DECODE_MOUNTS+=(-v "$abs:$CONTAINER_PATH:ro")
+    fi
+}
+
 # For commands that need a config, validate albums.yaml exists before launching Docker.
 case "$cmd" in
-    init|upgrade|help|version) ;;
+    init|upgrade|help|version|decode) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
@@ -182,8 +206,9 @@ fi
 
 check_for_update
 
-if [ -f "$UPGRADE_FILE" ]; then
-    echo "Update available: $(cat "$UPGRADE_FILE") - run 'ddphotos upgrade' to update" >&2
+# Print update msg if not on dev image
+if [ -f "$UPGRADE_FILE" ] && [ "$CURRENT_VERSION" != "ddphotos" ] ; then
+    echo "Update available from $CURRENT_VERSION: $(cat "$UPGRADE_FILE") - run 'ddphotos upgrade' to update" >&2
 fi
 
 case "$cmd" in
@@ -192,6 +217,56 @@ case "$cmd" in
             -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
             "$IMAGE" init "$@"
+        ;;
+    decode)
+        PW_FILE=""
+        while [[ "${1:-}" == -* ]]; do
+            case "$1" in
+                -passwords|--passwords) PW_FILE="$2"; shift 2 ;;
+                *) echo "Unknown flag: $1" >&2; exit 1 ;;
+            esac
+        done
+        if [[ $# -ne 1 ]]; then
+            echo "Usage: ddphotos [OPTIONS] decode [--passwords <file>] <file.enc.json>" >&2
+            exit 1
+        fi
+
+        DECODE_MOUNTS=()
+        MOUNT_SEQ=0
+
+        ABS_ENC="$(abs_path "$1")"
+        if [[ ! -f "$ABS_ENC" ]]; then
+            echo "Error: file not found: $1" >&2; exit 1
+        fi
+        host_to_container "$ABS_ENC"
+        ENC_CONTAINER="$CONTAINER_PATH"
+
+        PW_ARGS=()
+        if [[ -n "$PW_FILE" ]]; then
+            host_to_container "$(abs_path "$PW_FILE")"
+            PW_ARGS=(-passwords "$CONTAINER_PATH")
+        else
+            stored_pw=$(sed -n 's/.*"pwFile":"\([^"]*\)".*/\1/p' "$ABS_ENC")
+            if [[ -z "$stored_pw" ]]; then
+                echo "Error: no pwFile stored in $1 — use -passwords <file>" >&2; exit 1
+            fi
+            if [[ "$stored_pw" != /ddphotos/* ]]; then
+                ABS_PW="$(abs_path "$stored_pw")"
+                if [[ ! -f "$ABS_PW" ]]; then
+                    echo "Error: passwords file not found: $stored_pw" >&2
+                    echo "       Use -passwords <file> to specify an alternative." >&2
+                    exit 1
+                fi
+                host_to_container "$ABS_PW"
+                PW_ARGS=(-passwords "$CONTAINER_PATH")
+            fi
+        fi
+
+        docker run --rm \
+            -v "$DDPHOTOS_DIR":/ddphotos \
+            "${SCRIPT_MOUNT[@]}" \
+            "${DECODE_MOUNTS[@]}" \
+            "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
         ;;
     photogen)
         if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
@@ -302,7 +377,7 @@ case "$cmd" in
         echo "State dir:      $STATE_DIR"
         ;;
     *)
-        echo "Usage: ddphotos [OPTIONS] {init|photogen|build|serve|run|export|deploy|upgrade} [args]"
+        echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|build|serve|run|export|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
         echo "  --dir DIR         Directory to mount as /ddphotos (default: script location)"
@@ -313,6 +388,8 @@ case "$cmd" in
         echo "Commands:"
         echo "  init      Initialize config scaffold (use --script-only to just install 'ddphotos')"
         echo "  photogen  Process source photos into albums output"
+        echo "  decode    Decrypt an .enc.json file and print the contents"
+        echo "            --passwords FILE  use this passwords file instead of the embedded path"
         echo "  build     Build the static site"
         echo "  serve     Preview the site via Apache on port \$SERVE_PORT (default 8000)"
         echo "  run       Preview the site via Vite dev server on port \$RUN_PORT (default 5173)"

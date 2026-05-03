@@ -1,4 +1,30 @@
 #!/usr/bin/env bash
+# Decode one or more encrypted .enc.json files produced by photogen.
+#
+# Usage:
+#   bin/decode [-passwords <pw-file>] <file> [file ...]
 set -eo pipefail
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-exec go run "$REPO_ROOT/cmd/decode/decode.go" "$@"
+DECODE="$REPO_ROOT/cmd/decode/decode.go"
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: bin/decode [--passwords <file>] <file> [file ...]" >&2
+    exit 1
+fi
+
+PW_ARGS=()
+if [[ "${1:-}" == -passwords || "${1:-}" == --passwords ]]; then
+    PW_ARGS=(--passwords "$2")
+    shift 2
+fi
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: bin/decode [--passwords <file>] <file> [file ...]" >&2
+    exit 1
+fi
+
+for file in "$@"; do
+    [[ $# -gt 1 ]] && echo "=== $file ==="
+    go run "$DECODE" "${PW_ARGS[@]}" "$file"
+done

@@ -124,6 +124,27 @@ ddphotos photogen -- -hero-only
 
 See [CLI Flags](PHOTOGEN.md#cli-flags) for all flags.
 
+### `decode`
+
+Decrypts an `.enc.json` file produced by `photogen` and prints the plaintext JSON.
+Useful for inspecting what an encrypted album or site index contains — for example,
+to find a photo's original filename from its UUID so you can set it as a cover.
+
+```bash
+ddphotos decode albums/my-photos/secret/index.enc.json
+ddphotos decode albums/my-photos/albums.enc.json
+```
+
+The passwords file path is embedded in every `.enc.json` by `photogen`, so no extra
+flags are needed in normal use. If the embedded path is unreachable, pass it explicitly:
+
+```bash
+ddphotos decode --passwords config/passwords.yaml albums/my-photos/secret/index.enc.json
+```
+
+Paths are resolved relative to the `--dir` directory (default: the `ddphotos` script
+location). Files outside that directory are mounted automatically.
+
 ### `run`
 
 Starts a Vite dev server at http://localhost:5173. Live-reloads on template/CSS changes.

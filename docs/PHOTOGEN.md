@@ -151,7 +151,7 @@ frontend.
 
 ```bash
 bin/decode <path.enc.json>
-bin/decode -passwords <pw-file> <path.enc.json>
+bin/decode --passwords <pw-file> <path.enc.json>
 ```
 
 `photogen` embeds the passwords file path in every `.enc.json` it writes, so in most
@@ -163,10 +163,10 @@ bin/decode albums/sample-pw-all/albums.enc.json
 ```
 
 If the passwords file has moved, or the file was generated without an embedded path,
-pass `-passwords` explicitly:
+pass `--passwords` explicitly:
 
 ```bash
-bin/decode -passwords sample/config/passwords-uganda.yaml \
+bin/decode --passwords sample/config/passwords-uganda.yaml \
   albums/sample-pw-uganda/uganda/index.enc.json
 ```
 

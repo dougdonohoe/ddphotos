@@ -15,6 +15,7 @@ RUN go mod download
 COPY cmd cmd/
 COPY pkg pkg/
 RUN CGO_ENABLED=1 go build -o /photogen ./cmd/photogen/photogen.go
+RUN CGO_ENABLED=1 go build -o /decode ./cmd/decode/decode.go
 
 # ── Stage 2: Pre-install Node dependencies ────────────────────────────────────
 FROM node:${NODE_VERSION}-bookworm-slim AS node-builder
@@ -65,8 +66,9 @@ RUN a2enmod rewrite headers && a2dissite 000-default 2>/dev/null || true \
 COPY docker/apache.conf /etc/apache2/sites-available/ddphotos.conf
 RUN a2ensite ddphotos
 
-# photogen binary
+# photogen and decode binaries
 COPY --from=go-builder /photogen /usr/local/bin/photogen
+COPY --from=go-builder /decode /usr/local/bin/decode
 
 # Web app source + pre-installed node_modules
 COPY web/ /app/web/
@@ -75,7 +77,7 @@ COPY --from=node-builder /app/web/node_modules /app/web/node_modules
 # Docker scripts
 COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
      docker/do-build.sh docker/do-serve.sh docker/do-run.sh docker/do-export.sh docker/do-deploy.sh \
-     docker/ddphotos docker/cloudflare-worker.js \
+     docker/do-decode.sh docker/ddphotos docker/cloudflare-worker.js \
      web/setup-htdocs.sh bin/deploy-photos.sh bin/test-photos-server.sh /docker/
 RUN chmod +x /docker/*.sh
 

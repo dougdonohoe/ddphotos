@@ -8,10 +8,10 @@ cd /ddphotos
 
 if [ "$1" = "--" ]; then
     shift
-    exec /usr/local/bin/photogen -config-dir ${DDPHOTOS_CONFIG_DIR:-/ddphotos/config} "$@"
+    exec /usr/local/bin/photogen -config-dir "${DDPHOTOS_CONFIG_DIR:-/ddphotos/config}" "$@"
 fi
 
 exec /usr/local/bin/photogen \
-    -config-dir ${DDPHOTOS_CONFIG_DIR:-/ddphotos/config} \
+    -config-dir "${DDPHOTOS_CONFIG_DIR:-/ddphotos/config}" \
     -resize -index -clean -doit \
     "$@"
