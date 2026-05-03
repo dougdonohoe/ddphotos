@@ -17,6 +17,7 @@ DO_BUILD=true
 TEST_DIR=""
 TEST_DIR2=""
 TEMP_DECODE_DIR=""
+EXT_CONFIG_DIR=""
 RUN_PID=""
 SERVE_PID=""
 
@@ -52,6 +53,7 @@ cleanup() {
         /bin/rm -rf "$TEST_DIR2"
     fi
     if [ -n "$TEMP_DECODE_DIR" ]; then /bin/rm -rf "$TEMP_DECODE_DIR"; fi
+    if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR";   fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -156,7 +158,34 @@ SC_OUT=$("$TEST_DIR/ddphotos" search-cover "$SC_URL")
 echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover: 'cover: 2024-The-Way-21.jpg' not in output"
 pass "search-cover: found cover file for secret album"
 
-# ── 6. Run (Vite dev server) + Playwright ─────────────────────────────────────
+# ── 6. Decode + Search-Cover with external --config-dir ───────────────────────
+# Regression test for: decode and search-cover failing to mount the config dir
+# when --config-dir points outside DDPHOTOS_DIR.
+#
+# Simulates photogen having been run with an external --config-dir by rewriting
+# the embedded pwFile path from /ddphotos/config/... to /ddphotos-config/...
+# (the container path used when --config-dir is outside DDPHOTOS_DIR).
+step "Decode + Search-Cover with external --config-dir"
+EXT_CONFIG_DIR=$(mktemp -d)
+/bin/cp "$TEST_DIR/config/passwords.yaml" "$EXT_CONFIG_DIR/"
+
+# Create modified enc.json (inside DDPHOTOS_DIR so decode path translation works)
+EXT_ENC_RELPATH="albums/$SITE_ID/secret/index-extconfig.enc.json"
+sed 's|"pwFile":"/ddphotos/config/passwords.yaml"|"pwFile":"/ddphotos-config/passwords.yaml"|' \
+    "$TEST_DIR/$ENC_FILE" > "$TEST_DIR/$EXT_ENC_RELPATH"
+
+decoded=$("$TEST_DIR/ddphotos" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_RELPATH")
+echo "$decoded" | grep -q '"photos"' || fail "decode --config-dir: decoded output missing 'photos' key"
+pass "decode --config-dir: external config dir mounted correctly"
+
+# Replace the album enc.json with the modified version so search-cover decodes
+# it using /ddphotos-config/passwords.yaml, then reuse SC_URL from step 5.
+/bin/cp "$TEST_DIR/$EXT_ENC_RELPATH" "$TEST_DIR/$ENC_FILE"
+SC_OUT=$("$TEST_DIR/ddphotos" --config-dir "$EXT_CONFIG_DIR" search-cover "$SC_URL")
+echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover --config-dir: 'cover: 2024-The-Way-21.jpg' not in output"
+pass "search-cover --config-dir: external config dir mounted correctly"
+
+# ── 7. Run (Vite dev server) + Playwright ─────────────────────────────────────
 step "Run — Vite dev server on port $RUN_PORT"
 RUN_PORT="$RUN_PORT" "$TEST_DIR/ddphotos" --non-interactive run &
 RUN_PID=$!
@@ -165,13 +194,13 @@ run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
 kill "$RUN_PID" 2>/dev/null || true; wait "$RUN_PID" 2>/dev/null || true; RUN_PID=""
 pass "run + Playwright OK"
 
-# ── 7. Build ───────────────────────────────────────────────────────────────────
+# ── 8. Build ───────────────────────────────────────────────────────────────────
 step "Build"
 "$TEST_DIR/ddphotos" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"
 pass "build/$SITE_ID created"
 
-# ── 8. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
+# ── 9. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
 step "Serve — Apache on port $SERVE_PORT"
 SERVE_PORT="$SERVE_PORT" "$TEST_DIR/ddphotos" --non-interactive serve &
 SERVE_PID=$!
@@ -182,7 +211,7 @@ run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
 pass "serve + Playwright + test-photos-server.sh OK"
 
-# ── 9. Export (symlink mode) ───────────────────────────────────────────────────
+# ── 10. Export (symlink mode) ──────────────────────────────────────────────────
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
@@ -211,7 +240,7 @@ step "Export --cloudflare"
 grep -q "ASSETS.fetch" "$EXPORT_DIR/_worker.js" || fail "_worker.js missing ASSETS.fetch"
 pass "export --cloudflare OK (_worker.js present)"
 
-# ── 10. Version ────────────────────────────────────────────────────────────────
+# ── 11. Version ────────────────────────────────────────────────────────────────
 step "Version"
 version_out=$("$TEST_DIR/ddphotos" version)
 echo "$version_out"
@@ -225,7 +254,7 @@ echo "$version_image_out" | grep -q "Git:" || fail "version --image: missing Git
 echo "$version_image_out" | grep -q "Version:.*dev" || fail "version --image: missing Version: dev"
 pass "version --image: Script path OK, Git: and Version: dev present"
 
-# ── 11. Init --script-only ─────────────────────────────────────────────────────
+# ── 12. Init --script-only ─────────────────────────────────────────────────────
 step "Init --script-only"
 TEST_DIR2=$(mktemp -d)
 chmod 755 "$TEST_DIR2"
@@ -235,7 +264,7 @@ docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ ! -d "$TEST_DIR2/albums" ]   || fail "--script-only should not create albums/"
 pass "init --script-only OK (only ddphotos script installed)"
 
-# ── 12. Skip ──────────────────────────────────────────────────────
+# ── 13. Skip ──────────────────────────────────────────────────────
 # Note: decided to skip tests for deploy (s3/rsync) due to complexity
 #       of setup.  S3 works (it is actively used by yours truly). I have faith
 #       in rsync code, but if someone reports problems we can revisit it.

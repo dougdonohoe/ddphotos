@@ -56,8 +56,8 @@ if [ -n "$OPT_CONFIG_DIR" ]; then
     if [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR"/* ]] || [[ "$CONFIG_HOST_DIR" == "$DDPHOTOS_DIR" ]]; then
         DDPHOTOS_CONFIG_DIR="/ddphotos${CONFIG_HOST_DIR#"$DDPHOTOS_DIR"}"
     else
-        EXTRA_MOUNT_ARGS+=(-v "$CONFIG_HOST_DIR":/ddphotos-config:ro)
         DDPHOTOS_CONFIG_DIR="/ddphotos-config"
+        EXTRA_MOUNT_ARGS+=(-v "$CONFIG_HOST_DIR":"$DDPHOTOS_CONFIG_DIR":ro)
         CONFIG_DIR_EXTRA_SRC="$CONFIG_HOST_DIR"
     fi
 fi
@@ -231,7 +231,11 @@ case "$cmd" in
             exit 1
         fi
 
-        DECODE_MOUNTS=()
+        DECODE_MOUNTS=("${EXTRA_MOUNT_ARGS[@]}")
+        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
+            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
+            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
+        fi
         MOUNT_SEQ=0
 
         ABS_ENC="$(abs_path "$1")"
@@ -244,17 +248,17 @@ case "$cmd" in
         PW_ARGS=()
         if [[ -n "$PW_FILE" ]]; then
             host_to_container "$(abs_path "$PW_FILE")"
-            PW_ARGS=(-passwords "$CONTAINER_PATH")
+            PW_ARGS=(--passwords "$CONTAINER_PATH")
         else
             stored_pw=$(sed -n 's/.*"pwFile":"\([^"]*\)".*/\1/p' "$ABS_ENC")
             if [[ -z "$stored_pw" ]]; then
-                echo "Error: no pwFile stored in $1 — use -passwords <file>" >&2; exit 1
+                echo "Error: no pwFile stored in $1 — use --passwords <file>" >&2; exit 1
             fi
-            if [[ "$stored_pw" != /ddphotos/* ]]; then
+            if [[ "$stored_pw" != /ddphotos* ]]; then # matches /ddphotos, /ddphotos-config
                 ABS_PW="$(abs_path "$stored_pw")"
                 if [[ ! -f "$ABS_PW" ]]; then
                     echo "Error: passwords file not found: $stored_pw" >&2
-                    echo "       Use -passwords <file> to specify an alternative." >&2
+                    echo "       Use --passwords <file> to specify an alternative." >&2
                     exit 1
                 fi
                 host_to_container "$ABS_PW"
@@ -262,6 +266,7 @@ case "$cmd" in
             fi
         fi
 
+        #print_mounts # uncomment for debugging; normally off so can pipe result to jq and the like.
         docker run --rm \
             -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
@@ -273,10 +278,19 @@ case "$cmd" in
             echo "Usage: ddphotos [OPTIONS] search-cover <url>" >&2
             exit 1
         fi
+
+        SEARCH_MOUNTS=("${EXTRA_MOUNT_ARGS[@]}")
+        if [ -n "$CONFIG_DIR_EXTRA_SRC" ]; then
+            MOUNT_PATHS+=("$CONFIG_DIR_EXTRA_SRC")
+            MOUNT_DESTS+=("$DDPHOTOS_CONFIG_DIR")
+        fi
+
+        print_mounts
         docker run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -v "$DDPHOTOS_DIR":/ddphotos \
             "${SCRIPT_MOUNT[@]}" \
+            "${SEARCH_MOUNTS[@]}" \
             "$IMAGE" search-cover "$@"
         ;;
     photogen)
