@@ -1653,9 +1653,9 @@ Existing script was updated to:
 Added `search-cover` as a first-class Docker command:
 
 - **`docker/do-search-cover.sh`** — sets `DDPHOTOS_ALBUMS_DIR=/ddphotos/albums` and
-  `DDPHOTOS_SITE_ID`, then delegates to `/app/bin/search_cover.sh --from-docker "$@"`
+  `DDPHOTOS_SITE_ID`, then delegates to `/app/bin/search-cover.sh --from-docker "$@"`
 - **`docker/Dockerfile`** — added `docker/do-search-cover.sh` to the scripts `COPY` line;
-  added a separate `COPY bin/search_cover.sh /app/bin/search_cover.sh` so the script is
+  added a separate `COPY bin/searc-cover.sh /app/bin/search-cover.sh` so the script is
   available inside the container at the path `do-search-cover.sh` expects
 - **`docker/entrypoint.sh`** — added `search-cover)` case; simplified the `*` fallback to a
   short redirect message (full command list belongs in the `ddphotos` wrapper, not here)

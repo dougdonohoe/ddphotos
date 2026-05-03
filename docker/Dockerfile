@@ -82,7 +82,7 @@ COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
 RUN chmod +x /docker/*.sh
 
 # search-cover.sh lives under /app/bin so do-search-cover.sh can call it
-COPY bin/search_cover.sh /app/bin/search_cover.sh
+COPY bin/search-cover.sh /app/bin/search-cover.sh
 RUN chmod +x /app/bin/search-cover.sh
 
 # Init templates and placeholder album directory

@@ -18,7 +18,7 @@ if [[ "${1:-}" == "--from-docker" ]]; then
 fi
 
 if [[ $# -ne 1 ]]; then
-    echo "Usage: bin/search_cover.sh [--from-docker] <url>" >&2
+    echo "Usage: bin/search-cover.sh [--from-docker] <url>" >&2
     exit 1
 fi
 
@@ -65,7 +65,7 @@ if [[ -z "$index_file" ]]; then
     if $FROM_DOCKER; then
         echo "Try another site with: ddphotos --site-id <site-id> search-cover $url" >&2
     else
-        echo "Try another site with: DDPHOTOS_SITE_ID=<site-id> bin/search_cover.sh $url" >&2
+        echo "Try another site with: DDPHOTOS_SITE_ID=<site-id> bin/search-cover.sh $url" >&2
     fi
     exit 1
 fi

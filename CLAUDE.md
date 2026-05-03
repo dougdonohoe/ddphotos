@@ -22,10 +22,11 @@ define the JSON schema consumed by the frontend. Their TypeScript counterparts l
 ## Commands
 
 ```bash
-make build test vet          # Go build, unit tests, static analysis
-make sample-build            # build static site with sample data
-make web-sanity-test         # Playwright e2e tests: Apache, no-passwords + all-passwords (quick comprehensive web check)
+make build test vet              # Go build, unit tests, static analysis
+make sample-build                # build static site with sample data
+make web-sanity-test             # Playwright e2e tests: Apache, no-passwords + all-passwords (quick comprehensive web check)
 make web-playwright-test-apache  # Playwright e2e tests, Apache, no-passwords only
+make docker-test                 # Test 'ddphotos' docker commands
 ```
 
 System dependency required: `brew install vips pkg-config`
