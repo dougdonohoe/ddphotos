@@ -197,7 +197,7 @@ The search is scoped to `DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID` (defaults from
 `config/defaults.env`). Override to search a different site:
 
 ```bash
-DDPHOTOS_SITE_ID=sample-pw-all bin/search-cover.sh http://localhost:5173/albums/uganda/full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp```
+DDPHOTOS_SITE_ID=sample-pw-all bin/search-cover.sh http://localhost:5173/albums/uganda/full/1996ae71-5ada-d233-8f26-53e46fac4f64.webp
 ```
 
 Output:
