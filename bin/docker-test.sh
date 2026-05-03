@@ -139,7 +139,9 @@ echo "$decoded" | grep -q '"photos"' || fail "decode --passwords (external): dec
 pass "decode --passwords: files outside DDPHOTOS_DIR OK"
 
 # (b) replace embedded pwFile with the temp path; decode should mount it automatically
-sed -i '' "s|\"pwFile\":\"[^\"]*\"|\"pwFile\":\"$TEMP_DECODE_DIR/passwords.yaml\"|" "$TEMP_DECODE_DIR/secret/index.enc.json"
+sed "s|\"pwFile\":\"[^\"]*\"|\"pwFile\":\"$TEMP_DECODE_DIR/passwords.yaml\"|" \
+    "$TEMP_DECODE_DIR/secret/index.enc.json" > "$TEMP_DECODE_DIR/secret/index.enc.json.tmp"
+mv "$TEMP_DECODE_DIR/secret/index.enc.json.tmp" "$TEMP_DECODE_DIR/secret/index.enc.json"
 decoded=$("$TEST_DIR/ddphotos" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
 echo "$decoded" | grep -q '"photos"' || fail "decode (external pwFile): decoded output missing 'photos' key"
 pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"

@@ -1571,3 +1571,60 @@ that returns HTML for missing files, not just Surge.
   and docs table updated
 - `docs/TESTING.md` — added `--cloudflare` and `--surge` examples to `test-photos-server.sh`
   usage block
+
+### 68. 05/03/2026 - Add `ddphotos decode` Command
+
+#### Motivation
+
+The `decode` tool (`bin/decode`, `cmd/decode/decode.go`) existed for dev mode but had no
+Docker equivalent. The primary use case is inspecting an `.enc.json` file — in particular,
+looking up a photo's original filename from its UUID so it can be set as an album cover.
+
+#### `bin/decode`: Multi-file Support and `bin/decode.sh` Removal
+
+`bin/decode.sh` (the original multi-file loop wrapper) and `bin/decode` (a single-file
+`go run` passthrough) were redundant. Merged multi-file loop behavior into `bin/decode`,
+deleted `bin/decode.sh`. `bin/decode` now accepts `[--passwords <file>] <file> [file ...]`.
+
+#### Docker: `ddphotos decode` Command
+
+Added `decode` as a first-class Docker command:
+
+- **`docker/Dockerfile`** — compiles `cmd/decode/decode.go` as `/usr/local/bin/decode` in the
+  go-builder stage (same CGO flags as `photogen`; libvips is already in the runtime image)
+- **`docker/do-decode.sh`** — thin wrapper: `cd /ddphotos && exec /usr/local/bin/decode "$@"`
+- **`docker/entrypoint.sh`** — added `decode)` case
+- **`docker/ddphotos`** — added `decode` command with full path translation
+
+#### Path Translation in `docker/ddphotos`
+
+The tricky part: the enc.json file and passwords file may live anywhere on the host. Two
+helper functions extracted as top-level helpers (reusable by future commands like
+`search-cover`):
+
+- **`abs_path`** — resolves a path to absolute; relative paths anchor to `DDPHOTOS_DIR`
+- **`host_to_container`** — maps an absolute host path to a container path: paths inside
+  `DDPHOTOS_DIR` translate to `/ddphotos/...`; external paths get a read-only bind mount at
+  `/ddphotos-args/arg-N/<parent>/<filename>`. The two-component container path preserves the
+  album slug (parent dir name) so the decode binary can select the right per-album password.
+
+`pwFile` is a plain JSON field in the `.enc.json` envelope (not encrypted), so the host
+script reads it with `sed` and mounts it automatically when it is not already a `/ddphotos/`
+path. The `--passwords` flag overrides this.
+
+The `decode` command is exempted from the `albums.yaml` existence check.
+
+#### Flag Convention
+
+Both `bin/decode` and `ddphotos decode` accept `--passwords` (and `-passwords` for
+compatibility). Go's `flag` package already accepts both forms natively; the bash wrappers
+were updated to match.
+
+#### Tests and Documentation
+
+- **`bin/docker-test.sh`** — added step 4 "Decode" with three sub-tests: (1) file inside
+  `DDPHOTOS_DIR` (embedded pwFile, common case); (2) `--passwords` flag with both files
+  outside `DDPHOTOS_DIR`; (3) modified embedded pwFile pointing outside `DDPHOTOS_DIR`.
+  Fixed cleanup to use `if [ -n ... ]` pattern (avoids `&&...||` exit-code pitfall).
+- **`docs/DOCKER.md`** — added `### decode` command section
+- **`docs/PHOTOGEN.md`** — updated decode examples to use `--passwords`
