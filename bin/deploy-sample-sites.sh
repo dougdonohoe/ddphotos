@@ -31,6 +31,7 @@
 #   --doit        Actually upload to surge/wrangler (default: dry-run, skips upload)
 #   --no-photogen Skip the photogen step
 #   --no-build    Skip the build step
+#   --verify      Instead of deploying, verify each site via test-photos-server.sh
 #   --help        Show this usage message
 
 set -eo pipefail
@@ -40,6 +41,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 IMAGE="dougdonohoe/ddphotos:latest"
 DOIT=false
+VERIFY=false
 DO_PHOTOGEN=true
 DO_BUILD=true
 INIT_EXPLICIT=false
@@ -57,6 +59,7 @@ while [[ $# -gt 0 ]]; do
         --doit)        DOIT=true;               shift ;;
         --no-photogen) DO_PHOTOGEN=false;        shift ;;
         --no-build)    DO_BUILD=false;           shift ;;
+        --verify)      VERIFY=true;              shift ;;
         --help|-h)
             echo "Usage: bin/deploy-sample-sites.sh [--init] [--sample] [--surge] [--cloudflare] [--dev] [--doit]"
             echo ""
@@ -68,6 +71,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --doit        Actually upload to surge/wrangler (default: dry-run, skips upload)"
             echo "  --no-photogen Skip the photogen step"
             echo "  --no-build    Skip the build step"
+            echo "  --verify      Instead of deploying, verify each site via test-photos-server.sh"
             exit 0
             ;;
         *) echo "Unknown flag: $1" >&2; exit 1 ;;
@@ -133,14 +137,37 @@ _deploy_site() {
     local site_dir="$DEPLOY_DIR/$site"
 
     step "Site: $site"
+
+    if $VERIFY; then
+        for target in "$@"; do
+            local wrangler_project="${target%%:*}"
+            local surge_domain="${target#*:}"
+
+            if $DO_CLOUDFLARE; then
+                local url="https://${wrangler_project}.pages.dev"
+                echo
+                echo "=== Validating $site @ cloudflare: $url ==="
+                "$SCRIPT_DIR/test-photos-server.sh" --remote "$url" --cloudflare
+            fi
+
+            if $DO_SURGE && [ -n "$surge_domain" ]; then
+                local url="https://${surge_domain}"
+                echo
+                echo "=== Validating $site @ surge: $url ==="
+                "$SCRIPT_DIR/test-photos-server.sh" --remote "$url" --surge
+            fi
+        done
+        return
+    fi
+
     mkdir -p "$site_dir"
 
     if [ -z "$(ls -A "$site_dir")" ]; then
         echo "docker: init"
-        docker run --rm -v "$site_dir":/ddphotos "$IMAGE" init
+        docker run --pull always --rm -v "$site_dir":/ddphotos "$IMAGE" init
     else
         echo "docker: init --script-only (site dir exists)"
-        docker run --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
+        docker run --pull always --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
     fi
 
     if [ "$site" = "sample" ]; then

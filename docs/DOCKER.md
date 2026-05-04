@@ -94,6 +94,20 @@ ddphotos --dir ~/work/ddphotos --config-dir ~/work/ddphotos/sample/config run
 
 ## Commands
 
+| Command                         | Description                                                       |
+|---------------------------------|-------------------------------------------------------------------|
+| [`init`](#init)                 | Create config scaffold and install the `ddphotos` wrapper script. |
+| [`photogen`](#photogen)         | Resize photos to WebP and generate JSON index files.              |
+| [`run`](#run)                   | Start a Vite dev server at http://localhost:5173.                 |
+| [`build`](#build)               | Build the static site into `build/`.                              |
+| [`serve`](#serve)               | Serve the built site via Apache at http://localhost:8000.         |
+| [`export`](#export)             | Export the built site to `export/<site-id>/` for static hosting.  |
+| [`deploy`](#deploy)             | Sync the built site to a remote host via rsync or S3.             |
+| [`decode`](#decode)             | Decrypt an `.enc.json` file and print the plaintext JSON.         |
+| [`search-cover`](#search-cover) | Find the original filename for a photo given its URL.             |
+| [`upgrade`](#upgrade)           | Update the local `ddphotos` wrapper script to match the image.    |
+| [`version`](#version)           | Print script location, image tag, and config paths.               |
+
 ### `init`
 
 Creates the config scaffold and installs the `ddphotos` wrapper script.
@@ -123,59 +137,6 @@ ddphotos photogen -- -hero-only
 ```
 
 See [CLI Flags](PHOTOGEN.md#cli-flags) for all flags.
-
-### `decode`
-
-Decrypts an `.enc.json` file produced by `photogen` and prints the plaintext JSON.
-Useful for inspecting what an encrypted album or site index contains — for example,
-to find a photo's original filename from its UUID so you can set it as a cover.
-
-```bash
-ddphotos decode albums/my-photos/secret/index.enc.json
-ddphotos decode albums/my-photos/albums.enc.json
-```
-
-The passwords file path is embedded in every `.enc.json` by `photogen`, so no extra
-flags are needed in normal use. If the embedded path is unreachable, pass it explicitly:
-
-```bash
-ddphotos decode --passwords config/passwords.yaml albums/my-photos/secret/index.enc.json
-```
-
-Paths are resolved relative to the `--dir` directory (default: the `ddphotos` script
-location). Files outside that directory are mounted automatically.
-
-### `search-cover`
-
-Finds the original filename for a photo given its URL — useful for setting a cover image
-in `albums.yaml`. Pass any photo URL from your site (full-size or grid thumbnail):
-
-```bash
-ddphotos search-cover https://my-site.example.com/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
-```
-
-Output:
-
-```
-Searching...
-  Album:  banff-2002
-  Index:  /ddphotos/albums/my-photos/banff-2002/index.json
-  Source: full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
-
-Found:
-  id:         0918bedf-2f7d-dedc-9e89-b99ec5bb2752
-  sourcePath: /photos/banff-2002/IMG_1234.jpg
-  fileName:   IMG_1234.jpg
-
-Use for cover:
-  cover: IMG_1234.jpg
-```
-
-Use the `--site-id` flag to search a different site:
-
-```bash
-ddphotos --site-id other-site search-cover <url>
-```
 
 ### `run`
 
@@ -256,6 +217,59 @@ ddphotos deploy
 ```
 
 See [Deployment](DEPLOY.md) for full setup details.
+
+### `decode`
+
+Decrypts an `.enc.json` file produced by `photogen` and prints the plaintext JSON.
+Useful for inspecting what an encrypted album or site index contains — for example,
+to find a photo's original filename from its UUID so you can set it as a cover.
+
+```bash
+ddphotos decode albums/my-photos/secret/index.enc.json
+ddphotos decode albums/my-photos/albums.enc.json
+```
+
+The passwords file path is embedded in every `.enc.json` by `photogen`, so no extra
+flags are needed in normal use. If the embedded path is unreachable, pass it explicitly:
+
+```bash
+ddphotos decode --passwords config/passwords.yaml albums/my-photos/secret/index.enc.json
+```
+
+Paths are resolved relative to the `--dir` directory (default: the `ddphotos` script
+location). Files outside that directory are mounted automatically.
+
+### `search-cover`
+
+Finds the original filename for a photo given its URL — useful for setting a cover image
+in `albums.yaml`. Pass any photo URL from your site (full-size or grid thumbnail):
+
+```bash
+ddphotos search-cover https://my-site.example.com/albums/banff-2002/full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
+```
+
+Output:
+
+```
+Searching...
+  Album:  banff-2002
+  Index:  /ddphotos/albums/my-photos/banff-2002/index.json
+  Source: full/0918bedf-2f7d-dedc-9e89-b99ec5bb2752.webp
+
+Found:
+  id:         0918bedf-2f7d-dedc-9e89-b99ec5bb2752
+  sourcePath: /photos/banff-2002/IMG_1234.jpg
+  fileName:   IMG_1234.jpg
+
+Use for cover:
+  cover: IMG_1234.jpg
+```
+
+Use the `--site-id` flag to search a different site:
+
+```bash
+ddphotos --site-id other-site search-cover <url>
+```
 
 ### `upgrade`
 
