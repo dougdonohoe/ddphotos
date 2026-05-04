@@ -2,17 +2,20 @@
 set -e
 
 SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
-EXPORT_DIR="/ddphotos/export/$SITE_ID"
 COPY=""
 CLOUDFLARE=""
+EXPORT_SITE_ID="$SITE_ID"
 
 while [ "${1#--}" != "$1" ]; do
     case "$1" in
-        --copy)       COPY=1;          shift ;;
-        --cloudflare) CLOUDFLARE=1; shift ;;
+        --copy)             COPY=1;                shift ;;
+        --cloudflare)       CLOUDFLARE=1;          shift ;;
+        --export-site-id)   EXPORT_SITE_ID="$2";   shift 2 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
+
+EXPORT_DIR="/ddphotos/export/$EXPORT_SITE_ID"
 
 if [ ! -d "/ddphotos/albums/$SITE_ID" ]; then
     echo "Error: /ddphotos/albums/$SITE_ID not found. Run 'photogen' first."
@@ -48,6 +51,6 @@ if [ -n "$CLOUDFLARE" ]; then
     /bin/cp /docker/cloudflare-worker.js "$EXPORT_DIR/_worker.js"
 fi
 
-echo "  Exported $SITE_ID to export/$SITE_ID"
-echo "  Serve with: python3 -m http.server 8000 --directory export/$SITE_ID"
+echo "  Exported $SITE_ID to export/$EXPORT_SITE_ID"
+echo "  Serve with: python3 -m http.server 8000 --directory export/$EXPORT_SITE_ID"
 echo ""

@@ -247,6 +247,13 @@ broken=$(find "$EXPORT_DIR" -type l ! -exec test -e {} \; -print)
 ENTRY_COUNT=$(find "$EXPORT_DIR" \( -type f -o -type l \) | wc -l | tr -d ' ')
 pass "export/$SITE_ID OK ($ENTRY_COUNT entries, no broken symlinks)"
 
+step "Export --export-site-id (alternate destination)"
+"${DDPHOTOS[@]}" export --export-site-id alternate
+EXPORT_ALT_DIR="$TEST_DIR/export/alternate"
+[ -d "$EXPORT_ALT_DIR" ]            || fail "export/alternate not created"
+[ -f "$EXPORT_ALT_DIR/index.html" ] || fail "export/alternate/index.html missing"
+pass "export --export-site-id alternate OK"
+
 step "Export --copy (resolved)"
 "${DDPHOTOS[@]}" export --copy
 [ -d "$EXPORT_DIR" ]            || fail "export/$SITE_ID not created"

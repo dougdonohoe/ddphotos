@@ -239,6 +239,13 @@ wrangler pages deploy --project-name my-unique-site export/my-photos
 
 See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for details.
 
+Use `--export-site-id` to write the export to a different subdirectory name instead of
+`export/<site-id>/`:
+
+```bash
+ddphotos export --export-site-id my-alternate-name
+```
+
 ### `deploy`
 
 Syncs the built site and album data to a remote host via rsync or S3. 
