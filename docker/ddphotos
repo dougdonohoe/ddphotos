@@ -297,7 +297,10 @@ case "$cmd" in
         print_mounts
         PHOTOGEN_ENV=(-e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID")
         [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
-        docker run --rm "${MOUNT_FLAGS[@]}" "${PHOTOGEN_ENV[@]}" "$IMAGE" photogen "$@"
+        docker run --rm \
+            "${MOUNT_FLAGS[@]}" \
+            "${PHOTOGEN_ENV[@]}" \
+            "$IMAGE" photogen "$@"
         ;;
 
     build)
