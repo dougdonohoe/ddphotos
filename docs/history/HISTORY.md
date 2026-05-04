@@ -1672,3 +1672,52 @@ and reads from the already-mounted `/ddphotos/albums` directory.
   runs `ddphotos search-cover`, and asserts the output contains `cover: 2024-The-Way-21.jpg`.
   Renumbered subsequent steps 6-12.
 - **`docs/DOCKER.md`** — added `### search-cover` section with example output
+
+### 70. 05/04/2026 - Sample Sites Deploy Script
+
+#### Motivation
+
+The `init` and `sample` example sites needed a repeatable way to build and publish to
+Cloudflare Pages and surge.sh. This session added `bin/deploy-sample-sites.sh` and two
+supporting changes: an `--export-site-id` flag so multiple exports can coexist in the same
+site directory, and proper `-site-id` propagation through photogen.
+
+#### `--export-site-id` Flag
+
+`export` previously always wrote to `export/<site-id>/`. The new `--export-site-id <id>`
+flag redirects output to `export/<id>/`, so a single site can have separate exports for
+different providers (e.g. `export/cloudflare/` and `export/surge/`) without conflicts.
+
+- **`bin/export.sh`** — added `--export-site-id` flag; `EXPORT_SITE_ID` defaults to `SITE_ID`
+- **`docker/do-export.sh`** — same flag added; `EXPORT_DIR` now derived from `EXPORT_SITE_ID`
+- **`docker/ddphotos`** — updated help text to document `--export-site-id`
+- **`bin/docker-test.sh`** — added test for `--export-site-id alternate`
+- **`docs/DOCKER.md`** — documented the flag
+
+#### Photogen `-site-id` Propagation
+
+`docker/do-photogen.sh` was updated to pass `DDPHOTOS_SITE_ID` as `-site-id` to the
+photogen binary, and to log the full invocation before running it.
+
+#### `bin/deploy-sample-sites.sh`
+
+New script that builds and deploys the `init` and `sample` sites end-to-end. Key design
+decisions:
+
+- **Targets as arrays** — each site has a `*_TARGETS` array of `"wrangler-project:surge-domain"`
+  pairs, so photogen, build, and each provider export run once per site regardless of how
+  many deployment targets exist.
+- **`--doit` dry-run guard** — surge and wrangler uploads are skipped by default; pass
+  `--doit` to actually publish. Tool presence checks (wrangler, surge) are also skipped
+  in dry-run mode.
+- **Selective flags** — `--init`/`--sample` restrict which sites run; `--surge`/`--cloudflare`
+  restrict which providers are used; flags compose freely (e.g. `--cloudflare --sample`).
+- **`--no-photogen` / `--no-build`** — skip those steps when iterating on deploy only.
+- **`--dev`** — uses the local `ddphotos` image instead of `dougdonohoe/ddphotos:latest`.
+- **First-run vs. update** — runs `ddphotos init` when the site directory is empty;
+  `ddphotos init --script-only` on subsequent runs to keep the wrapper script current.
+- **Surge domain blank = surge skipped** — passing an empty surge domain in a target entry
+  silently skips the surge steps for that target.
+- **wrangler/surge run from site dir** — both tools are invoked via a subshell `cd` into
+  the site directory with a relative export path, so they don't detect the repo as a git
+  working directory and attach branch names to deployments.
