@@ -4,6 +4,12 @@ set -e
 SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
 SERVE_PORT="${SERVE_PORT:-8000}"
 
+if [ $# -gt 0 ]; then
+    echo "Error: 'serve' takes no arguments; got: $*" >&2
+    echo "Did you mean to pass options before the command? e.g.: ddphotos $* serve" >&2
+    exit 1
+fi
+
 if [ ! -d "/ddphotos/build/$SITE_ID" ]; then
     echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first."
     exit 1

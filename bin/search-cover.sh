@@ -18,7 +18,11 @@ if [[ "${1:-}" == "--from-docker" ]]; then
 fi
 
 if [[ $# -ne 1 ]]; then
-    echo "Usage: bin/search-cover.sh [--from-docker] <url>" >&2
+    if $FROM_DOCKER; then
+        echo "Usage: ddphotos [--site-id ID] search-cover <url>" >&2
+    else
+        echo "Usage: bin/search-cover.sh <url>" >&2
+    fi
     exit 1
 fi
 

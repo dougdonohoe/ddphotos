@@ -29,7 +29,23 @@ while [[ $# -gt 0 ]]; do
         --config-dir=*)      CONFIG_DIR="${1#*=}"; shift ;;
         --site-env)          SITE_ENV_ARG="$2"; shift 2 ;;
         --site-env=*)        SITE_ENV_ARG="${1#*=}"; shift ;;
-        *) echo "Unknown flag: $1"; exit 1 ;;
+        *)
+            echo "Unknown flag: $1" >&2
+            echo "" >&2
+            echo "Usage: deploy-photos.sh [OPTIONS]" >&2
+            echo "" >&2
+            echo "  --dry-run              Show what would be deployed without transferring files" >&2
+            echo "  --s3                   Deploy to S3 (default: rsync; auto-set if S3_BUCKET in site.env)" >&2
+            echo "  --config-dir DIR       Config directory (default: config/)" >&2
+            echo "  --site-env FILE        Path to site.env (default: config-dir/site.env)" >&2
+            echo "  --no-photogen          Skip photogen step" >&2
+            echo "  --no-build             Skip build step" >&2
+            echo "  --no-pre-deploy-tests  Skip pre-deploy server and Playwright tests" >&2
+            echo "  --no-rsync             Skip rsync/S3 sync and post-deploy steps" >&2
+            echo "  --no-playwright        Skip Playwright tests (pre- and post-deploy)" >&2
+            echo "  --no-server-test       Skip server tests (pre- and post-deploy)" >&2
+            exit 1
+            ;;
     esac
 done
 

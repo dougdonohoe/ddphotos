@@ -6,12 +6,27 @@ if [ ! -d "/ddphotos" ]; then
     exit 1
 fi
 
+SCRIPT_ONLY=""
+while [ "${1#--}" != "$1" ]; do
+    case "$1" in
+        --script-only) SCRIPT_ONLY=1; shift ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "" >&2
+            echo "Usage: ddphotos init [--script-only]" >&2
+            echo "" >&2
+            echo "  --script-only    Install just the 'ddphotos' wrapper script, skip config scaffold" >&2
+            exit 1
+            ;;
+    esac
+done
+
 # Always copy script
 cp /docker/ddphotos /ddphotos/ddphotos
 chmod +x /ddphotos/ddphotos
 
 # --script-only: install just the ddphotos wrapper script, skip config scaffold
-if [ "${1:-}" = "--script-only" ]; then
+if [ -n "$SCRIPT_ONLY" ]; then
     echo "Standalone 'ddphotos' script installed."
     echo
     echo "Usage with a separate albums directory:"

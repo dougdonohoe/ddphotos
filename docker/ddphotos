@@ -207,11 +207,15 @@ case "$cmd" in
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
+            echo
             if [ "$DDPHOTOS_DIR" = "$SCRIPT_DIR" ]; then
-                echo "If ddphotos is installed in your PATH, specify your album directory:"
+                echo "'ddphotos' is installed in $SCRIPT_DIR."
+                echo "Since you are running 'ddphotos' standalone, you must specify the"
+                echo "DD Photos site directory (the one containing your 'config' dir):"
                 echo "  ddphotos --dir ~/my-ddphotos $cmd"
             else
-                echo "Run 'ddphotos init' to initialize the album directory."
+                echo "Run init to initialize the DD Photos site:"
+                echo "  ddphotos --dir $DDPHOTOS_DIR init"
             fi
             exit 1
         fi
