@@ -203,7 +203,7 @@ host_to_container() {
 
 # For commands that need a config, validate albums.yaml exists before launching Docker.
 case "$cmd" in
-    init|upgrade|help|version|decode|search-cover) ;;
+    init|upgrade|help|version) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
@@ -222,9 +222,13 @@ case "$cmd" in
         ;;
 esac
 
-# Remove upgrade.txt if we're already on that version (post-upgrade cleanup)
-if [ -f "$UPGRADE_FILE" ] && [ "$(cat "$UPGRADE_FILE")" = "$CURRENT_VERSION" ]; then
-    rm -f "$UPGRADE_FILE"
+# Remove upgrade.txt if we're already on or past that version (post-upgrade cleanup)
+if [ -f "$UPGRADE_FILE" ]; then
+    _stored=$(cat "$UPGRADE_FILE")
+    _newer=$(printf '%s\n%s' "$CURRENT_VERSION" "$_stored" | sort -V | tail -1)
+    if [ "$_newer" = "$CURRENT_VERSION" ]; then
+        rm -f "$UPGRADE_FILE"
+    fi
 fi
 
 check_for_update

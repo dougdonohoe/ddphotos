@@ -301,3 +301,17 @@ docker-push:
 ## docker-test: build the ddphotos Docker image and run end-to-end Docker workflow tests
 docker-test:
 	bin/docker-test.sh
+
+.PHONY: ddphotos-install-dev
+ddphotos-install-dev:
+	docker run --rm -v ~/.local/bin:/ddphotos ddphotos init --script-only
+
+.PHONY: ddphotos-install-prod
+ddphotos-install-prod:
+	docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos:latest init --script-only
+
+.PHONY: ddphotos-patch
+ddphotos-patch:
+	@_img=$$(grep '^IMAGE=' ~/.local/bin/ddphotos); \
+	/bin/cp docker/ddphotos ~/.local/bin/ddphotos; \
+	sed -i '' "s|^IMAGE=.*|$$_img|" ~/.local/bin/ddphotos

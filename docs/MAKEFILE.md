@@ -52,3 +52,6 @@ as defined in `config/defaults.env`.
 | `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                       |
 | `docker-push`                 | Build multi-arch image and push to Docker Hub (`bin/docker-push.sh`)                          |
 | `docker-test`                 | Build the `ddphotos` image and run end-to-end Docker workflow tests (`bin/docker-test.sh`)    |
+| `ddphotos-install-dev`        | Install `ddphotos` script from local dev image into `~/.local/bin`                            |
+| `ddphotos-install-prod`       | Install `ddphotos` script from `dougdonohoe/ddphotos:latest` into `~/.local/bin`              |
+| `ddphotos-patch`              | Copy `docker/ddphotos` to `~/.local/bin`, preserving the `IMAGE=` line from the installed one |
