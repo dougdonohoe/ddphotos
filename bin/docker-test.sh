@@ -10,9 +10,9 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE="ddphotos"
-SITE_ID="my-photos"   # site-id created by 'init' template
-RUN_PORT=5173          # Vite host port; matches container default to keep port-mapping consistent
-SERVE_PORT=8090        # Apache host port (maps to container port 80; avoids conflicts with run-tests.sh)
+SITE_ID="docker-test-id"  # passed to init via --site-id, verified against albums.yaml after
+RUN_PORT=5173             # Vite host port; matches container default to keep port-mapping consistent
+SERVE_PORT=8090           # Apache host port (maps to container port 80; avoids conflicts with run-tests.sh)
 DO_BUILD=true
 TEST_DIR=""
 TEST_DIR2=""
@@ -116,13 +116,17 @@ fi
 step "Init"
 TEST_DIR=$(mktemp -d)
 chmod 755 "$TEST_DIR"
-docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init
+docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init --site-id "$SITE_ID"
 [ -x "$TEST_DIR/ddphotos" ]              || fail "ddphotos script not installed"
 [ -f "$TEST_DIR/config/albums.yaml" ]    || fail "config/albums.yaml not created"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 [ -f "$TEST_DIR/config/site.env" ]       || fail "config/site.env not created"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 pass "ddphotos script and config created at $TEST_DIR"
+
+VALIDATE_SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$TEST_DIR/config/albums.yaml")
+[ "$VALIDATE_SITE_ID" = "$SITE_ID" ] || fail "SITE_ID mismatch: expected '$SITE_ID', got '$VALIDATE_SITE_ID' in config/albums.yaml"
+pass "site ID '$SITE_ID' written correctly to config/albums.yaml"
 
 DDPHOTOS=("$TEST_DIR/ddphotos" --show-mounts)
 DDPHOTOS_QUIET=("$TEST_DIR/ddphotos")

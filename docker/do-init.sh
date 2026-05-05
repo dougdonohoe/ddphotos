@@ -25,15 +25,18 @@ if [ "$_named" = "true" ]; then
 fi
 
 SCRIPT_ONLY=""
+SITE_ID="my-photos"
 while [ "${1#--}" != "$1" ]; do
     case "$1" in
         --script-only) SCRIPT_ONLY=1; shift ;;
+        --site-id) SITE_ID="$2"; shift 2 ;;
         *)
             echo "Unknown option: $1" >&2
             echo "" >&2
-            echo "Usage: ddphotos init [--script-only]" >&2
+            echo "Usage: ddphotos init [--script-only] [--site-id ID]" >&2
             echo "" >&2
             echo "  --script-only    Install just the 'ddphotos' wrapper script, skip config scaffold" >&2
+            echo "  --site-id ID     Site ID written into albums.yaml (default: my-photos)" >&2
             exit 1
             ;;
     esac
@@ -64,8 +67,9 @@ fi
 
 mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build /ddphotos/export
 cp /docker/init/* "$CONFIG"
+sed -i "s/__SITE_ID__/$SITE_ID/g" "$CONFIG/albums.yaml"
 
-echo "Initialized ddphotos!"
+echo "Initialized ddphotos (site-id=$SITE_ID)!"
 echo
 echo "Next steps - generate, run, build and serve the example site:"
 echo

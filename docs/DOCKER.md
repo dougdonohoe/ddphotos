@@ -146,9 +146,17 @@ Creates the config scaffold and installs the `ddphotos` wrapper script.
 # Full init (script + config)
 docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
 
+# Set a custom site ID (written into config/albums.yaml; default: my-photos)
+docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init --site-id my-site
+
 # Script only (no config scaffold)
 docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos init --script-only
 ```
+
+| Flag            | Description                                                                       |
+|-----------------|-----------------------------------------------------------------------------------|
+| `--site-id ID`  | Site ID written into `config/albums.yaml` as `settings.id` (default: `my-photos`) |
+| `--script-only` | Install just the `ddphotos` wrapper script; skip config scaffold                  |
 
 ### `photogen`
 

@@ -25,7 +25,7 @@
 #   ./ddphotos serve
 
 settings:
-  id: my-photos
+  id: __SITE_ID__
   site_name: My Photos
   site_url: https://photos.yourdomain.com
   site_description: My personal photo gallery

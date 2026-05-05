@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
+SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
 CONFIG_DIR="${DDPHOTOS_CONFIG_DIR:-/ddphotos/config}"
 SITE_ENV="${DDPHOTOS_SITE_ENV:-$CONFIG_DIR/site.env}"
 

@@ -2,7 +2,7 @@
 set -e
 
 export DDPHOTOS_ALBUMS_DIR="/ddphotos/albums"
-export DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
+export DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
 
 export VITE_GIT_DESCRIBE=$(cat /docker/GIT_DESCRIBE 2>/dev/null || echo "unknown")
 export VITE_DOCKER_IMAGE=$(cat /docker/IMAGE 2>/dev/null || echo "")

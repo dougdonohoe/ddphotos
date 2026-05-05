@@ -52,7 +52,6 @@ if [ -z "$DDPHOTOS_SITE_ID" ]; then
         DDPHOTOS_SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$ALBUMS_YAML")
     fi
 fi
-DDPHOTOS_SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
 
 # ── Mount registry ─────────────────────────────────────────────────────────────
 # All Docker volume mounts go through add_mount(), which updates both the display

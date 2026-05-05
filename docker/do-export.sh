@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
+SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
 COPY=""
 CLOUDFLARE=""
 EXPORT_SITE_ID="$SITE_ID"

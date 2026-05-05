@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SITE_ID="${DDPHOTOS_SITE_ID:-my-photos}"
+SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
 RUN_PORT="${RUN_PORT:-5173}"
 
 if [ $# -gt 0 ]; then
