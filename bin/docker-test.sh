@@ -188,6 +188,7 @@ step "Decode + Search-Cover with external --config-dir"
 # the embedded pwFile path from /ddphotos/config/... to /ddphotos-config/...
 EXT_CONFIG_DIR=$(mktemp -d)
 /bin/cp "$TEST_DIR/config/passwords.yaml" "$EXT_CONFIG_DIR/"
+/bin/cp "$TEST_DIR/config/albums.yaml"    "$EXT_CONFIG_DIR/"
 
 # Write the modified enc.json to TEMP_DECODE_DIR (user-owned) — the album
 # directory inside TEST_DIR is root-owned (created by Docker) and unwritable.
