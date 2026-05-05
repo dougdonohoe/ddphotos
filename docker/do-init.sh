@@ -6,6 +6,24 @@ if [ ! -d "/ddphotos" ]; then
     exit 1
 fi
 
+_mp=$(grep ' /ddphotos ' /proc/self/mountinfo 2>/dev/null | tail -1)
+_named=false
+# Linux: named volume path appears in mountinfo source
+echo "$_mp" | grep -q 'docker/volumes' && _named=true
+# Docker Desktop Mac: bind mounts use virtiofs/grpcfuse/osxfs; named volumes don't
+if [ "$_named" = "false" ] && [ -n "$_mp" ]; then
+    if grep -qE 'virtiofs|grpcfuse|osxfs' /proc/mounts 2>/dev/null; then
+        echo "$_mp" | grep -qE 'virtiofs|grpcfuse|osxfs' || _named=true
+    fi
+fi
+if [ "$_named" = "true" ]; then
+    echo "Error: /ddphotos is mounted as a Docker named volume, not a host directory." >&2
+    echo "Files written inside the container will not appear on your filesystem." >&2
+    echo "Use a bind mount with a relative or absolute path:" >&2
+    echo "  docker run -v ./my-dir:/ddphotos ddphotos init" >&2
+    exit 1
+fi
+
 SCRIPT_ONLY=""
 while [ "${1#--}" != "$1" ]; do
     case "$1" in

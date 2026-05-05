@@ -1,17 +1,18 @@
 #!/bin/sh
 set -e
-
 cmd="${1:-help}"
-shift 2>/dev/null || true
+if [ "$#" -gt 0 ]; then shift; fi
 
-# Verify the mounted ddphotos script matches the image (skip for init/upgrade/version)
-if [ "$cmd" != "init" ] && [ "$cmd" != "upgrade" ] && [ "$cmd" != "version" ]; then
-    if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
-        echo "WARNING:  The local 'ddphotos' script does not match the image." >&2
-        echo "          Run: 'ddphotos upgrade' to fix this." >&2
-        echo "" >&2
-    fi
-fi
+# Verify the mounted ddphotos script matches the image (only for commands that use it)
+case "$cmd" in
+    photogen|decode|search-cover|build|serve|run|export|deploy)
+        if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
+            echo "WARNING:  The local 'ddphotos' script does not match the image." >&2
+            echo "          Run: 'ddphotos upgrade' to fix this." >&2
+            echo "" >&2
+        fi
+        ;;
+esac
 
 case "$cmd" in
     init)         exec /docker/do-init.sh "$@" ;;
@@ -39,12 +40,15 @@ case "$cmd" in
             echo "The 'ddphotos' script was upgraded ($VERSION)."
         fi
         ;;
-    *)
-        echo "Unknown command: '$cmd'" >&2
-        echo >&2
-        echo "This image is intended to be used via the 'ddphotos' wrapper script." >&2
-        echo "See: https://github.com/dougdonohoe/ddphotos" >&2
-        echo >&2
-        exit 1
+    help|*)
+        [ "$cmd" != "help" ] && { echo "Unknown command: '$cmd'" >&2; echo >&2; }
+        echo "Usage: ddphotos [OPTIONS] COMMAND"
+        echo ""
+        echo "Commands: init, photogen, decode, search-cover, build, serve, run, export, deploy, upgrade, version"
+        echo ""
+        echo "This image is intended to be used via the 'ddphotos' wrapper script."
+        echo "See: https://github.com/dougdonohoe/ddphotos"
+        echo ""
+        [ "$cmd" = "help" ] || exit 1
         ;;
 esac
