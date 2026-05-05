@@ -385,7 +385,8 @@ case "$cmd" in
         echo "State dir:      $STATE_DIR"
         ;;
 
-    *)
+    help|*)
+        [ "$cmd" != "help" ] && { echo "Unknown command: '$cmd'" >&2; echo "" >&2; }
         echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|search-cover|build|serve|run|export|deploy|upgrade} [args]"
         echo ""
         echo "Options (before command):"
@@ -416,6 +417,6 @@ case "$cmd" in
         echo ""
         echo "Tip: pass -- to photogen for full flag control:"
         echo "  ddphotos photogen -- -hero-only"
-        exit 1
+        [ "$cmd" = "help" ] || exit 1
         ;;
 esac

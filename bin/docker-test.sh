@@ -132,7 +132,31 @@ DDPHOTOS=("$TEST_DIR/ddphotos" --show-mounts)
 DDPHOTOS_QUIET=("$TEST_DIR/ddphotos")
 PASSWORDS_FILE="$TEST_DIR/config/passwords.yaml"
 
-# ── 3. Photogen ────────────────────────────────────────────────────────────────
+# ── 3. Error handling ─────────────────────────────────────────────────────────
+step "Error handling: commands reject unexpected args"
+out=$("${DDPHOTOS_QUIET[@]}" build extra-arg 2>&1) || true
+echo "$out" | grep -q "takes no arguments" || fail "build: expected 'takes no arguments' error"
+pass "build rejects unexpected args"
+
+out=$("$TEST_DIR/ddphotos" --non-interactive serve --foo 2>&1) || true
+echo "$out" | grep -q "takes no arguments" || fail "serve: expected 'takes no arguments' error"
+pass "serve rejects unexpected args"
+
+out=$("${DDPHOTOS_QUIET[@]}" export --no-such-flag 2>&1) || true
+echo "$out" | grep -q "Unknown option" || fail "export: expected 'Unknown option' error"
+pass "export rejects unknown flags"
+
+step "Error handling: unknown pre-command option"
+out=$("$TEST_DIR/ddphotos" --no-such-flag build 2>&1) || true
+echo "$out" | grep -q "Unknown option" || fail "ddphotos: expected 'Unknown option' for unknown pre-command flag"
+pass "ddphotos rejects unknown pre-command options"
+
+step "Help command"
+out=$("${DDPHOTOS_QUIET[@]}" help 2>&1)
+echo "$out" | grep -q "photogen" || fail "help: missing expected content"
+pass "help exits 0 and shows usage"
+
+# ── 4. Photogen ────────────────────────────────────────────────────────────────
 step "Photogen"
 "${DDPHOTOS[@]}" photogen
 [ -d "$TEST_DIR/albums/$SITE_ID" ] || fail "albums/$SITE_ID not created"
@@ -289,6 +313,9 @@ echo "$version_image_out" | grep -qF "$TEST_DIR/ddphotos" || fail "version --ima
 echo "$version_image_out" | grep -q "Git:" || fail "version --image: missing Git: line"
 echo "$version_image_out" | grep -q "Version:.*dev" || fail "version --image: missing Version: dev"
 pass "version --image: Script path OK, Git: and Version: dev present"
+
+echo "$version_out" | grep -q "Site ID:.*$SITE_ID" || fail "version: Site ID does not show $SITE_ID"
+pass "version: Site ID '$SITE_ID' auto-detected from albums.yaml"
 
 # ── 12. Init --script-only ─────────────────────────────────────────────────────
 step "Init --script-only"
