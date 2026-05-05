@@ -40,6 +40,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 IMAGE="dougdonohoe/ddphotos:latest"
+PULL_FLAG="--pull always"
 DOIT=false
 VERIFY=false
 DO_PHOTOGEN=true
@@ -55,7 +56,7 @@ while [[ $# -gt 0 ]]; do
         --sample)      SAMPLE_EXPLICIT=true;     shift ;;
         --surge)       SURGE_EXPLICIT=true;      shift ;;
         --cloudflare)  CLOUDFLARE_EXPLICIT=true; shift ;;
-        --dev)         IMAGE="ddphotos";         shift ;;
+        --dev)         IMAGE="ddphotos"; PULL_FLAG=""; shift ;;
         --doit)        DOIT=true;               shift ;;
         --no-photogen) DO_PHOTOGEN=false;        shift ;;
         --no-build)    DO_BUILD=false;           shift ;;
@@ -164,10 +165,10 @@ _deploy_site() {
 
     if [ -z "$(ls -A "$site_dir")" ]; then
         echo "docker: init"
-        docker run --pull always --rm -v "$site_dir":/ddphotos "$IMAGE" init
+        docker run $PULL_FLAG --rm -v "$site_dir":/ddphotos "$IMAGE" init
     else
         echo "docker: init --script-only (site dir exists)"
-        docker run --pull always --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
+        docker run $PULL_FLAG --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
     fi
 
     if [ "$site" = "sample" ]; then
