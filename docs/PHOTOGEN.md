@@ -25,19 +25,11 @@ ddphotos photogen                         # Docker mode (default flags: -resize 
 bin/photogen -resize -index -clean -doit  # developer mode
 ```
 
-To use a different albums file (e.g., a development subset):
-
-```bash
-ddphotos photogen -- -albums albums-dev.yaml   # Docker mode
-bin/photogen -albums albums-dev.yaml           # developer mode
-```
-
 ## CLI Flags
 
 | Flag          | Default       | Description                                                                                                                          |
 |---------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------|
 | `-config-dir` | `config`      | Directory containing the albums YAML and descriptions files                                                                          |
-| `-albums`     | `albums.yaml` | Albums YAML filename within `-config-dir`                                                                                            |
 | `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                                                                      |
 | `-resize`     | `false`       | Generate resized WebP image variants                                                                                                 |
 | `-index`      | `false`       | Generate JSON index files and sitemap.xml                                                                                            |

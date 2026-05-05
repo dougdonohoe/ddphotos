@@ -54,7 +54,6 @@ func loadDefaultsEnv() {
 
 var (
 	configDir  = flag.String("config-dir", "config", "directory containing albums YAML and descriptions files")
-	albumsFile = flag.String("albums", "albums.yaml", "albums YAML filename within config-dir")
 	outputDir  = flag.String("out", "", "albums directory override (overrides DDPHOTOS_ALBUMS_DIR env var)")
 	doit       = flag.Bool("doit", false, "do actual work; otherwise log planned work without writing any files")
 	limit      = flag.Int("limit", 0, "limit number of photos per album (0 = no limit)")
@@ -76,7 +75,7 @@ func main() {
 	exit.HandleSignal()
 	loadDefaultsEnv()
 
-	albums, settings, err := photogen.LoadAlbumConfigs(*configDir, *albumsFile)
+	albums, settings, err := photogen.LoadAlbumConfigs(*configDir, "albums.yaml")
 	if err != nil {
 		exit.Fatal("Error loading config", err)
 	}

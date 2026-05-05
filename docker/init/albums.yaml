@@ -1,5 +1,8 @@
 # ddphotos configuration
-# See https://github.com/dougdonohoe/ddphotos for full documentation.
+#
+# See https://github.com/dougdonohoe/ddphotos/blob/main/docs/DOCKER.md for full documentation.
+# See https://github.com/dougdonohoe/ddphotos/blob/main/config/albums.example.yaml for
+#     specification of this file.
 #
 # Define bases pointing to where your source photos live. The ddphotos wrapper
 # script reads these paths and mounts them automatically into Docker.

@@ -1721,3 +1721,78 @@ decisions:
 - **wrangler/surge run from site dir** — both tools are invoked via a subshell `cd` into
   the site directory with a relative export path, so they don't detect the repo as a git
   working directory and attach branch names to deployments.
+
+### 71. 05/05/2026 - Docker Robustness: Error Handling, Configurable Site ID, Remove `-albums`
+
+#### Motivation
+
+A cluster of hardening changes across the Docker tooling: clearer error messages when
+commands are misused, a proper `--site-id` flag for `init` so the default site ID isn't
+forever hardcoded to `my-photos`, and removal of the `-albums` photogen flag that had
+become a source of subtle site-id mismatches.
+
+#### Error Messages and Usage Text
+
+Several Docker entry-point scripts previously printed terse or misleading error output
+when given unexpected arguments. This pass made them consistent:
+
+- **`docker/do-build.sh`**, **`do-run.sh`**, **`do-serve.sh`** — added argument guards
+  (`Error: 'build' takes no arguments; got: ...`) with a hint about pre-command options
+- **`docker/do-export.sh`** — expanded the unknown-flag error into a full usage block
+- **`bin/deploy-photos.sh`** — same: replaced bare `exit 1` with a full usage block
+- **`bin/search-cover.sh`** — usage message now varies by context: `ddphotos search-cover`
+  when invoked from Docker, `bin/search-cover.sh` otherwise
+- **`docker/ddphotos`** — unknown pre-command options now exit with a message instead of
+  silently breaking; `albums.yaml`-missing error message is more specific about which path
+  to use; `decode` and `search-cover` were removed from the "skip config check" list so
+  they also validate that albums.yaml exists before launching Docker
+- **`docker/entrypoint.sh`** — unknown commands now show a short usage summary instead of
+  pointing to GitHub; `help` is a recognised command; stale-version check uses `sort -V`
+  so the upgrade file is cleared correctly when already at or past the stored version
+
+#### `init --site-id`
+
+Previously `init` always wrote `id: my-photos` into `config/albums.yaml`, and
+`my-photos` was the hardcoded fallback throughout every `do-*.sh` script. This was
+wrong for anyone who wanted a different site ID from the start.
+
+- **`docker/init/albums.yaml`** — `settings.id` changed to placeholder `__SITE_ID__`
+- **`docker/do-init.sh`** — added `--site-id ID` flag (default `my-photos`); `sed`
+  replaces `__SITE_ID__` in the generated `albums.yaml` at init time; also added named-
+  volume detection (errors out if `/ddphotos` is a Docker named volume rather than a
+  bind mount, since written files would be invisible on the host)
+- **`docker/ddphotos`** — removed the `:-my-photos` final fallback after the awk
+  `settings.id` auto-detection block; the outer script now propagates whatever the YAML
+  says, and if it's empty the inner scripts surface `site-id-undefined` rather than
+  silently using the wrong path
+- **`docker/do-build/run/serve/deploy/export/search-cover.sh`** — `:-my-photos`
+  fallbacks changed to `:-site-id-undefined` so misconfiguration is visible
+- **`docs/DOCKER.md`** — `init` section now documents both `--site-id` and `--script-only`
+  in a flag table with an example
+- **`bin/docker-test.sh`** — `SITE_ID` is now `docker-test-id` (not `my-photos`);
+  `init` receives `--site-id "$SITE_ID"`; after init, `VALIDATE_SITE_ID` is parsed from
+  `albums.yaml` and asserted equal to `SITE_ID` to confirm the substitution worked
+
+#### Remove `-albums` Flag from `photogen`
+
+The `-albums` flag allowed specifying an alternate YAML filename within the config dir.
+It was a development convenience and had a subtle correctness problem: when a non-default
+file was used, the outer `ddphotos` script would still auto-detect `settings.id` from
+the default `albums.yaml` and pass it as `-site-id`, silently overriding whatever ID the
+alternate file defined. Since `--config-dir` already covers legitimate multi-config
+scenarios, the flag was removed.
+
+- **`cmd/photogen/photogen.go`** — `albumsFile` flag removed; `LoadAlbumConfigs` now
+  always receives `"albums.yaml"`
+- **`docs/PHOTOGEN.md`** — usage example and table row for `-albums` removed
+
+#### Developer Make Targets
+
+Three new targets were added to `Makefile` for managing a locally installed `ddphotos`
+script, documented in `docs/MAKEFILE.md`:
+
+- `ddphotos-install-dev` — install from the local dev image into `~/.local/bin`
+- `ddphotos-install-prod` — install from `dougdonohoe/ddphotos:latest`
+- `ddphotos-patch` — copy `docker/ddphotos` to `~/.local/bin` while preserving the
+  `IMAGE=` line from the currently installed script (useful when iterating on the script
+  without a full image rebuild)
