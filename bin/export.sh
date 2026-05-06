@@ -19,7 +19,19 @@ while [[ "${1:-}" == --* ]]; do
         --export-site-id)   EXPORT_SITE_ID="$2";   shift 2 ;;
         --build-dir)        BUILD_DIR="$2";        shift 2 ;;
         --albums-dir)       ALBUMS_DIR="$2";       shift 2 ;;
-        *) echo "Unknown option: $1" >&2; exit 1 ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "" >&2
+            echo "Usage: export.sh [--copy] [--cloudflare] [--site-id ID] [--export-site-id ID] [--build-dir DIR] [--albums-dir DIR]" >&2
+            echo "" >&2
+            echo "  --copy                 Resolve symlinks (required for static hosting)" >&2
+            echo "  --cloudflare           Add _worker.js for Cloudflare Pages photo permalinks" >&2
+            echo "  --site-id ID           Site ID to export (default: \$DDPHOTOS_SITE_ID or 'sample')" >&2
+            echo "  --export-site-id ID    Use export/ID/ as destination instead of export/<site-id>/" >&2
+            echo "  --build-dir DIR        Build directory (default: <repo>/build)" >&2
+            echo "  --albums-dir DIR       Albums directory (default: <repo>/albums)" >&2
+            exit 1
+            ;;
     esac
 done
 

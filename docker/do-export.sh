@@ -6,7 +6,7 @@ COPY=""
 CLOUDFLARE=""
 EXPORT_SITE_ID="$SITE_ID"
 
-while [ "${1#--}" != "$1" ]; do
+while [[ "${1:-}" == --* ]]; do
     case "$1" in
         --copy)             COPY=1;                shift ;;
         --cloudflare)       CLOUDFLARE=1;          shift ;;

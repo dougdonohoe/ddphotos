@@ -26,7 +26,7 @@ fi
 
 SCRIPT_ONLY=""
 SITE_ID="my-photos"
-while [ "${1#--}" != "$1" ]; do
+while [[ "${1:-}" == --* ]]; do
     case "$1" in
         --script-only) SCRIPT_ONLY=1; shift ;;
         --site-id) SITE_ID="$2"; shift 2 ;;
