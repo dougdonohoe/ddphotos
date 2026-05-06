@@ -101,12 +101,17 @@ RUN echo "$DDPHOTOS_VERSION" > /docker/VERSION
 
 ARG DDPHOTOS_GIT_DESCRIBE=unknown
 RUN echo "$DDPHOTOS_GIT_DESCRIBE" > /docker/GIT_DESCRIBE
+ENV VITE_GIT_DESCRIBE=$DDPHOTOS_GIT_DESCRIBE
 
 ARG DDPHOTOS_IMAGE=ddphotos
 RUN echo "$DDPHOTOS_IMAGE" > /docker/IMAGE \
     && sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
+ENV VITE_DOCKER_IMAGE=$DDPHOTOS_IMAGE
 
-ENV DDPHOTOS_ALBUMS_DIR=/ddphotos/albums
+ENV DDPHOTOS_ALBUMS_DIR=/ddphotos/albums \
+    VITE_GIT_BRANCH="" \
+    VITE_GIT_REPO_SLUG=dougdonohoe/ddphotos \
+    VITE_GIT_REPO_URL=https://github.com/dougdonohoe/ddphotos
 
 EXPOSE 80
 

@@ -267,7 +267,7 @@ pass "run + Playwright OK"
 
 # ── 10. Pre-build error checks ─────────────────────────────────────────────────
 step "Error handling: serve/export/deploy fail before build"
-out=$("${DDPHOTOS_QUIET[@]}" serve 2>&1) || true
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive serve 2>&1) || true
 echo "$out" | grep -q "Run 'build' first" || fail "serve: expected 'Run build first' error when build dir missing"
 pass "serve: fails correctly when build dir missing"
 
