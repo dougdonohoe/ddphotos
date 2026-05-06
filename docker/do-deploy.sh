@@ -20,7 +20,7 @@ case " $* " in
     *) [ -n "${S3_BUCKET:-}" ] && set -- --s3 "$@" ;;
 esac
 
-ALBUMS_CONFIG="/ddphotos/albums/$SITE_ID/config.json"
+ALBUMS_CONFIG="$DDPHOTOS_ALBUMS_DIR/$SITE_ID/config.json"
 BUILD_INDEX="/ddphotos/build/$SITE_ID/index.html"
 
 if [ ! -f "$ALBUMS_CONFIG" ]; then

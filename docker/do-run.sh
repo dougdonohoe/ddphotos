@@ -9,8 +9,8 @@ fi
 
 SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
 
-if [ ! -d "/ddphotos/albums/$SITE_ID" ]; then
-    echo "Error: /ddphotos/albums/$SITE_ID not found. Run 'photogen' first."
+if [ ! -d "$DDPHOTOS_ALBUMS_DIR/$SITE_ID" ]; then
+    echo "Error: $DDPHOTOS_ALBUMS_DIR/$SITE_ID not found. Run 'photogen' first."
     exit 1
 fi
 

@@ -26,8 +26,8 @@ done
 
 EXPORT_DIR="/ddphotos/export/$EXPORT_SITE_ID"
 
-if [ ! -d "/ddphotos/albums/$SITE_ID" ]; then
-    echo "Error: /ddphotos/albums/$SITE_ID not found. Run 'photogen' first."
+if [ ! -d "$DDPHOTOS_ALBUMS_DIR/$SITE_ID" ]; then
+    echo "Error: $DDPHOTOS_ALBUMS_DIR/$SITE_ID not found. Run 'photogen' first."
     exit 1
 fi
 
@@ -40,7 +40,7 @@ if [ -n "$COPY" ]; then
     LINK_DIR=$(mktemp -d)
     RELATIVE_LINKS=1 \
     BUILD_ROOT=/ddphotos/build \
-    ALBUMS_DIR=/ddphotos/albums/$SITE_ID \
+    ALBUMS_DIR=$DDPHOTOS_ALBUMS_DIR/$SITE_ID \
     DDPHOTOS_SITE_ID=$SITE_ID \
     /docker/setup-htdocs.sh "$LINK_DIR"
     mkdir -p "$EXPORT_DIR"
@@ -51,7 +51,7 @@ else
     mkdir -p "$EXPORT_DIR"
     RELATIVE_LINKS=1 \
     BUILD_ROOT=/ddphotos/build \
-    ALBUMS_DIR=/ddphotos/albums/$SITE_ID \
+    ALBUMS_DIR=$DDPHOTOS_ALBUMS_DIR/$SITE_ID \
     DDPHOTOS_SITE_ID=$SITE_ID \
     /docker/setup-htdocs.sh "$EXPORT_DIR"
 fi

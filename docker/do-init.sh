@@ -65,7 +65,7 @@ if [ -f "$CONFIG/albums.yaml" ]; then
     exit 1
 fi
 
-mkdir -p "$CONFIG" /ddphotos/albums /ddphotos/build /ddphotos/export
+mkdir -p "$CONFIG" "$DDPHOTOS_ALBUMS_DIR" /ddphotos/build /ddphotos/export
 cp /docker/init/* "$CONFIG"
 sed -i "s/__SITE_ID__/$SITE_ID/g" "$CONFIG/albums.yaml"
 

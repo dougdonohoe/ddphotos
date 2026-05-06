@@ -16,7 +16,7 @@ fi
 
 # setup htdocs symlinks in for Apache to serve
 BUILD_ROOT=/ddphotos/build \
-  ALBUMS_DIR=/ddphotos/albums/$SITE_ID \
+  ALBUMS_DIR=$DDPHOTOS_ALBUMS_DIR/$SITE_ID \
   DDPHOTOS_SITE_ID=$SITE_ID \
   /docker/setup-htdocs.sh /htdocs
 
