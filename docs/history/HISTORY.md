@@ -1,6 +1,6 @@
 # Photo Album Project - Session Summary
 
-For current project documentation, see [`README.md`](../README.md).
+For current project documentation, see [`README.md`](../../README.md).
 
 This file is a historical log of work done with ChatGPT and Claude Code.
 
