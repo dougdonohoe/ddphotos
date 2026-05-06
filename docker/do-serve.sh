@@ -1,8 +1,5 @@
-#!/bin/sh
+#!/bin/bash
 set -e
-
-SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
-SERVE_PORT="${SERVE_PORT:-8000}"
 
 if [ $# -gt 0 ]; then
     echo "Error: 'serve' takes no arguments; got: $*" >&2
@@ -10,17 +7,21 @@ if [ $# -gt 0 ]; then
     exit 1
 fi
 
+SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
+
 if [ ! -d "/ddphotos/build/$SITE_ID" ]; then
     echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first."
     exit 1
 fi
 
+# setup htdocs symlinks in for Apache to serve
 BUILD_ROOT=/ddphotos/build \
-ALBUMS_DIR=/ddphotos/albums/$SITE_ID \
-DDPHOTOS_SITE_ID=$SITE_ID \
-/docker/setup-htdocs.sh /htdocs
+  ALBUMS_DIR=/ddphotos/albums/$SITE_ID \
+  DDPHOTOS_SITE_ID=$SITE_ID \
+  /docker/setup-htdocs.sh /htdocs
 
-echo "  Serving $SITE_ID at:   http://localhost:${SERVE_PORT}"
+SERVE_PORT="${SERVE_PORT:-8000}"
+echo "  Serving $SITE_ID at: http://localhost:${SERVE_PORT}"
 echo ""
 
 . /etc/apache2/envvars

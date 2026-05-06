@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 export DDPHOTOS_ALBUMS_DIR="/ddphotos/albums"

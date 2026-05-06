@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"

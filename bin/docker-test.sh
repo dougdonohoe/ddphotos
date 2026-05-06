@@ -156,7 +156,25 @@ out=$("${DDPHOTOS_QUIET[@]}" help 2>&1)
 echo "$out" | grep -q "photogen" || fail "help: missing expected content"
 pass "help exits 0 and shows usage"
 
-# ── 4. Photogen ────────────────────────────────────────────────────────────────
+# ── 4. Pre-photogen error checks ───────────────────────────────────────────────
+step "Error handling: build/run/export/deploy fail before photogen"
+out=$("${DDPHOTOS_QUIET[@]}" build 2>&1) || true
+echo "$out" | grep -q "Run 'photogen' first" || fail "build: expected 'Run photogen first' error when albums dir missing"
+pass "build: fails correctly when albums dir missing"
+
+out=$("${DDPHOTOS_QUIET[@]}" run 2>&1) || true
+echo "$out" | grep -q "Run 'photogen' first" || fail "run: expected 'Run photogen first' error when albums dir missing"
+pass "run: fails correctly when albums dir missing"
+
+out=$("${DDPHOTOS_QUIET[@]}" export 2>&1) || true
+echo "$out" | grep -q "Run 'photogen' first" || fail "export: expected 'Run photogen first' error when albums dir missing"
+pass "export: fails correctly when albums dir missing"
+
+out=$("${DDPHOTOS_QUIET[@]}" deploy 2>&1) || true
+echo "$out" | grep -q "Run 'photogen' first" || fail "deploy: expected 'Run photogen first' error when albums dir missing"
+pass "deploy: fails correctly when albums dir missing"
+
+# ── 5. Photogen ────────────────────────────────────────────────────────────────
 step "Photogen"
 "${DDPHOTOS[@]}" photogen
 [ -d "$TEST_DIR/albums/$SITE_ID" ] || fail "albums/$SITE_ID not created"
@@ -247,7 +265,21 @@ run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
 kill "$RUN_PID" 2>/dev/null || true; wait "$RUN_PID" 2>/dev/null || true; RUN_PID=""
 pass "run + Playwright OK"
 
-# ── 8. Build ───────────────────────────────────────────────────────────────────
+# ── 8. Pre-build error checks ──────────────────────────────────────────────────
+step "Error handling: serve/export/deploy fail before build"
+out=$("${DDPHOTOS_QUIET[@]}" serve 2>&1) || true
+echo "$out" | grep -q "Run 'build' first" || fail "serve: expected 'Run build first' error when build dir missing"
+pass "serve: fails correctly when build dir missing"
+
+out=$("${DDPHOTOS_QUIET[@]}" export 2>&1) || true
+echo "$out" | grep -q "Run 'build' first" || fail "export: expected 'Run build first' error when build dir missing"
+pass "export: fails correctly when build dir missing"
+
+out=$("${DDPHOTOS_QUIET[@]}" deploy 2>&1) || true
+echo "$out" | grep -q "Run 'build' first" || fail "deploy: expected 'Run build first' error when build dir missing"
+pass "deploy: fails correctly when build dir missing"
+
+# ── 9. Build ───────────────────────────────────────────────────────────────────
 step "Build"
 "${DDPHOTOS[@]}" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 cmd="${1:-help}"
 if [ "$#" -gt 0 ]; then shift; fi
