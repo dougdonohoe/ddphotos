@@ -44,7 +44,6 @@ if [ -n "$(find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null)" ]; then
 fi
 
 export REPO_ROOT="/ddphotos"
-export DDPHOTOS_ALBUMS_DIR="/ddphotos/albums"
 export DDPHOTOS_SITE_ID="$SITE_ID"
 
 echo "Deploying: $SITE_ID"

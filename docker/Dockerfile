@@ -106,6 +106,8 @@ ARG DDPHOTOS_IMAGE=ddphotos
 RUN echo "$DDPHOTOS_IMAGE" > /docker/IMAGE \
     && sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
 
+ENV DDPHOTOS_ALBUMS_DIR=/ddphotos/albums
+
 EXPOSE 80
 
 ENTRYPOINT ["/docker/entrypoint.sh"]

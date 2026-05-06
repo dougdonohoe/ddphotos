@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-export DDPHOTOS_ALBUMS_DIR="/ddphotos/albums"
-
 # Relative base paths in albums.yaml are anchored to cwd; cd to the album dir so they resolve correctly.
 cd /ddphotos
 
