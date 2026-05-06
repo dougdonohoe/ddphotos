@@ -61,7 +61,7 @@ The `.htaccess` file (`web/static/.htaccess`) configures URL routing:
   (e.g., `/albums/patagonia` serves `patagonia.html`)
 - **Photo permalink rewrite** - Serves album HTML for photo permalink URLs
   (e.g., `/albums/patagonia/15` serves `patagonia.html`; JS reads the path and opens the lightbox)
-- **SPA fallback** - Unknown root-level paths fall back to `index.html` for client-side routing
+- **Unknown paths** - Return 404 (served as `404.html` via `ErrorDocument 404`)
 
 ## nginx
 
@@ -79,7 +79,7 @@ symlinks the active build into the document root at container startup (same role
   (e.g., `/albums/patagonia/15` serves `patagonia.html`; JS reads the path and opens the lightbox)
 - **HTML rewrite** — Serves `.html` files without the extension
   (e.g., `/albums/patagonia` serves `patagonia.html`)
-- **SPA fallback** — Unknown root-level paths fall back to `index.html`; deeper unknown paths return 404
+- **Unknown paths** — Return 404 (served as `404.html` via `error_page 404`)
 
 ## CloudFront Function
 

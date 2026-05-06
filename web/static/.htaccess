@@ -31,9 +31,3 @@ RewriteRule ^(.+)$ $1.html [L,QSA]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^albums/([^/]+)/(\d+)$ /albums/$1.html [L]
-
-# Fallback to index.html for client-side routing (root level only)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} ^/[^/]*$
-RewriteRule ^(.*)$ /index.html [L]

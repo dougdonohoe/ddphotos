@@ -243,8 +243,7 @@ else
     echo "404s (expect 404):"
     check_status "$BASE/albums/doesnotexist"          404 "Bad album slug"
     check_status "$BASE/albums/doesnotexist/1"        404 "Bad album slug with photo index"
-    # /nope returns 200 because .htaccess falls back to index.html (SPA handles 404 client-side)
-    check_status "$BASE/nope"                         200 "Unknown path serves SPA shell"
+    check_status "$BASE/nope"                         404 "Unknown path returns 404"
     check_body   "$BASE/albums/doesnotexist"          "404 - Not Found" "Custom 404 page served for bad album slug"
 fi
 
