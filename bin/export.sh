@@ -3,11 +3,10 @@
 set -eo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-
-SITE_ID="${DDPHOTOS_SITE_ID:-$(sed -n 's/^DDPHOTOS_SITE_ID=//p' "$REPO_ROOT/config/defaults.env")}"
 BUILD_DIR="$REPO_ROOT/build"
 ALBUMS_DIR="$REPO_ROOT/albums"
 
+SITE_ID="${DDPHOTOS_SITE_ID:-$(sed -n 's/^DDPHOTOS_SITE_ID=//p' "$REPO_ROOT/config/defaults.env")}"
 COPY=""
 CLOUDFLARE=""
 EXPORT_SITE_ID=""
@@ -26,6 +25,7 @@ done
 
 SITE_ID="${SITE_ID:-sample}"
 EXPORT_SITE_ID="${EXPORT_SITE_ID:-$SITE_ID}"
+EXPORT_DIR="$REPO_ROOT/export/$EXPORT_SITE_ID"
 
 if [ ! -d "$ALBUMS_DIR/$SITE_ID" ]; then
     echo "Error: $ALBUMS_DIR/$SITE_ID not found." >&2
@@ -42,8 +42,6 @@ if [ ! -d "$BUILD_DIR/$SITE_ID" ]; then
     fi
     exit 1
 fi
-
-EXPORT_DIR="$REPO_ROOT/export/$EXPORT_SITE_ID"
 
 if [ -n "$COPY" ]; then
     LINK_DIR=$(mktemp -d)
