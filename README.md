@@ -114,6 +114,9 @@ Website features:
 - OpenGraph tags for rich link previews when sharing album or photo URLs on social media
   or messaging apps. The hero image (if configured) or an album cover JPEG is used as
   the preview image.
+- Privacy page (`/privacy`) documents what is stored in browser local storage (theme
+  preference, site ID, and passwords/covers on encrypted sites). Append `?clear` to any
+  URL to wipe all stored data.
 
 Backend features:
 

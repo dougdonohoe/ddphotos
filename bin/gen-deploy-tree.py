@@ -59,6 +59,7 @@ def t(label: str, style: str) -> Text:
 def build_tree() -> Tree:
     root = Tree(t("build/<site-id>/", BUILD))
     root.add(t("index.html", BUILD))
+    root.add(t("privacy.html", BUILD))
     root.add(t("albums.html", BUILD))
     root.add(t("about.json", BUILD))
     root.add(t("404.html", BUILD))
@@ -99,6 +100,7 @@ def albums_tree() -> Tree:
 def result_tree() -> Tree:
     root = Tree(t("Web root /", DIR))
     root.add(t("index.html", BUILD))
+    root.add(t("privacy.html", BUILD))
     root.add(t("albums.html", BUILD))
     root.add(t("about.json", BUILD))
     root.add(t("404.html", BUILD))

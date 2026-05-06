@@ -768,7 +768,7 @@
 		background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
 		color: white;
 		font-size: 0.78rem;
-		line-height: 1.3;
+		line-height: 1.2;
 		text-align: left;
 		opacity: 0;
 		transform: translateY(4px);
@@ -853,7 +853,7 @@
 		background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
 		color: white;
 		font-size: 0.9rem;
-		line-height: 1.4;
+		line-height: 1.2;
 		text-align: center;
 		pointer-events: none;
 		z-index: 10;

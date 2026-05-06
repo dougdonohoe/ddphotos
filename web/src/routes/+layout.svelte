@@ -96,7 +96,8 @@
 			{/if}</div>
 		<div class="built-with">
 			<button class="about-btn" onclick={openAbout} aria-label="About this site"><Info size={16} aria-hidden="true" /></button>
-			Built with joy by <a class="footer-link" href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>.
+			Built with joy by <a class="footer-link" href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>
+				· <a class="footer-link" href="/privacy">Privacy</a>
 		</div>
 	</footer>
 
@@ -321,8 +322,6 @@
 		border: none;
 		cursor: pointer;
 		color: var(--text-muted);
-		font-size: 1.25rem;
-		line-height: 1;
 		padding: 0.15rem 0.3rem;
 		border-radius: 4px;
 		transition: color 0.15s;
