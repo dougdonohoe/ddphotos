@@ -122,6 +122,7 @@ Tests are in `web/tests/` and cover:
 | `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description                     |
 | `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload                     |
 | `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                               |
+| `privacy.spec.ts`     | Privacy page content, back link, scroll restoration on return to home                           |
 | `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear` |
 | `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius            |
 
@@ -173,6 +174,9 @@ bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
 
 # Run custom CSS variant against dev server
 bin/run-tests.sh --css sample/config/custom.css --mode dev
+
+# Run a single test file against dev server (useful for debugging a specific test)
+bin/run-tests.sh --mode dev --test tests/privacy.spec.ts
 ```
 
 ### Sanity Check

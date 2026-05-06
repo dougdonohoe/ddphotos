@@ -2,7 +2,7 @@
 # Run Playwright tests against one variant of the sample site.
 #
 # Usage:
-#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|all] [--ci]
+#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|all] [--test <file>] [--ci]
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
@@ -13,6 +13,8 @@
 #              apache — static build + Docker/Apache on port 8083
 #              nginx  — static build + Docker/nginx on port 8084
 #              all    — dev, apache, and nginx
+# --test       Run only the specified test file (passed directly to Playwright).
+#              e.g. --test tests/privacy.spec.ts
 # --ci         Skip photogen if albums/<site-id> already exists; skip npm build if build/ exists.
 #              Speeds up CI by reusing output from a prior run or step.
 
@@ -36,6 +38,7 @@ usage() {
     echo "                        apache — static build + Docker/Apache on port 8083"
     echo "                        nginx  — static build + Docker/nginx on port 8084"
     echo "                        all    — dev, apache, and nginx"
+    echo "  --test <file>       Run only a specific test file (e.g. tests/privacy.spec.ts)."
     echo "  --ci                Skip photogen if albums/<site-id> exists; skip npm build if build/ exists."
     echo "  --help, -?          Show this help message and exit."
 }
@@ -49,6 +52,8 @@ while [[ $# -gt 0 ]]; do
         --mode)        MODE="$2"; shift 2 ;;
         --mode=*)      MODE="${1#*=}"; shift ;;
         --ci)          CI_MODE=true; shift ;;
+        --test)        TEST_FILTER="$2"; shift 2 ;;
+        --test=*)      TEST_FILTER="${1#*=}"; shift ;;
         --help|-\?)    usage; exit 0 ;;
         *) echo "Unknown flag: $1" >&2; exit 1 ;;
     esac
@@ -140,7 +145,7 @@ run_playwright() {
         export PLAYWRIGHT_BASE_URL="$base_url"
         [ -n "$PASSWORDS_FILE" ] && export PLAYWRIGHT_PASSWORDS_FILE="$PASSWORDS_FILE"
         [ -n "$CSS_FILE" ] && export PLAYWRIGHT_CUSTOM_CSS="true"
-        npx playwright test
+        npx playwright test ${TEST_FILTER:+"$TEST_FILTER"}
     )
 }
 

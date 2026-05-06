@@ -39,6 +39,11 @@ test('Back to albums from privacy restores scroll position', async ({ page }) =>
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.albums').waitFor();
+	// Wait for all JS modules to finish loading so SvelteKit is fully hydrated.
+	// Without this, dev mode (Vite serves many individual modules) may click the
+	// privacy link before the SvelteKit router intercepts it, causing a full page
+	// reload that resets module-level savedScrollY to 0.
+	await page.waitForLoadState('networkidle');
 
 	// Scroll to the bottom of the home page.
 	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
