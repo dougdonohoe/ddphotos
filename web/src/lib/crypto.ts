@@ -88,13 +88,15 @@ export function storePassword(key: string, password: string): void {
 	}
 }
 
-// Remove all localStorage keys that start with prefix, plus any extra exact keys.
-export function clearStoredKeys(prefix = 'ddp_', extra: string[] = []): void {
+// Remove all ddp_* keys from localStorage, except those in the exclude list.
+// Default excludes ddp_theme so logout and build-change events preserve the user's theme.
+// Pass [] to clear everything (e.g. ?clear).
+export function clearStoredKeys(exclude: string[] = ['ddp_theme']): void {
 	try {
-		const keys: string[] = [...extra];
+		const keys: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
-			if (key?.startsWith(prefix)) keys.push(key);
+			if (key?.startsWith('ddp_') && !exclude.includes(key)) keys.push(key);
 		}
 		keys.forEach((k) => localStorage.removeItem(k));
 	} catch {

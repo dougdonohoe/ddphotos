@@ -189,9 +189,9 @@
 		// Clear stale cover cache if the siteId or keyId changed (key rotation renames all image files).
 		syncSiteId(siteId, data.siteConfig?.keyId);
 
-		// ?clear removes all stored ddp_* passwords (and theme) then reloads without the param.
+		// ?clear removes all stored ddp_* keys including theme, then reloads without the param.
 		if (new URLSearchParams(window.location.search).has('clear')) {
-			clearStoredKeys('ddp_', ['theme']);
+			clearStoredKeys([]);
 			window.location.replace('/');
 			return;
 		}

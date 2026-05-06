@@ -16,7 +16,7 @@
 			(function () {
 				var themeMeta = document.querySelector('meta[name="ddp-default-theme"]');
 				var defaultTheme = (themeMeta && themeMeta.getAttribute('content')) || 'dark';
-				var theme = localStorage.getItem('theme') || defaultTheme;
+				var theme = localStorage.getItem('ddp_theme') || defaultTheme;
 				document.documentElement.setAttribute('data-theme', theme);
 				try {
 					// Read siteId from the pre-rendered meta tag, not from localStorage.

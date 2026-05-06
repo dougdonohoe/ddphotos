@@ -93,7 +93,7 @@ async function waitForAlbumImages(page) {
  */
 async function applyTheme(page, theme) {
 	await page.addInitScript((t) => {
-		localStorage.setItem('theme', t);
+		localStorage.setItem('ddp_theme', t);
 		// Belt-and-suspenders: also set the attribute directly in case the inline
 		// script in app.html has already run by the time theme.ts initializes.
 		document.documentElement.setAttribute('data-theme', t);

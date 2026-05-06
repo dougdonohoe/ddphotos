@@ -3,7 +3,7 @@ import { browser } from '$app/environment';
 
 type Theme = 'dark' | 'light';
 
-const storedTheme = browser ? (localStorage.getItem('theme') as Theme) : null;
+const storedTheme = browser ? (localStorage.getItem('ddp_theme') as Theme) : null;
 // Read the theme already applied by the inline script in app.html (sourced from the
 // ddp-default-theme meta tag). This ensures the store matches what's on screen,
 // preventing a flash when the configured default is not 'dark'.
@@ -15,7 +15,7 @@ export const theme = writable<Theme>(storedTheme || appliedTheme);
 
 theme.subscribe((value) => {
 	if (browser) {
-		localStorage.setItem('theme', value);
+		localStorage.setItem('ddp_theme', value);
 		document.documentElement.setAttribute('data-theme', value);
 	}
 });
