@@ -162,7 +162,7 @@ out=$("${DDPHOTOS_QUIET[@]}" build 2>&1) || true
 echo "$out" | grep -q "Run 'photogen' first" || fail "build: expected 'Run photogen first' error when albums dir missing"
 pass "build: fails correctly when albums dir missing"
 
-out=$("${DDPHOTOS_QUIET[@]}" run 2>&1) || true
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive run 2>&1) || true
 echo "$out" | grep -q "Run 'photogen' first" || fail "run: expected 'Run photogen first' error when albums dir missing"
 pass "run: fails correctly when albums dir missing"
 
@@ -181,7 +181,7 @@ step "Photogen"
 ALBUM_COUNT=$(find "$TEST_DIR/albums/$SITE_ID" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
 pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
 
-# ── 4. Decode ──────────────────────────────────────────────────────────────────
+# ── 6. Decode ──────────────────────────────────────────────────────────────────
 step "Decode"
 ENC_FILE="albums/$SITE_ID/secret/index.enc.json"
 [ -f "$TEST_DIR/$ENC_FILE" ] || fail "$ENC_FILE not found after photogen"
@@ -211,7 +211,7 @@ decoded=$("${DDPHOTOS[@]}" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
 echo "$decoded" | grep -q '"photos"' || fail "decode (external pwFile): decoded output missing 'photos' key"
 pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"
 
-# ── 5. Search-Cover ────────────────────────────────────────────────────────────
+# ── 7. Search-Cover ────────────────────────────────────────────────────────────
 step "Search-Cover"
 # Derive the URL from the decoded index so we don't hardcode the UUID.
 SC_DECODED=$("${DDPHOTOS_QUIET[@]}" decode "$ENC_FILE")
@@ -221,7 +221,7 @@ SC_OUT=$("${DDPHOTOS[@]}" search-cover "$SC_URL")
 echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover: 'cover: 2024-The-Way-21.jpg' not in output"
 pass "search-cover: found cover file for secret album"
 
-# ── 6. Decode + Search-Cover with external --config-dir ───────────────────────
+# ── 8. Decode + Search-Cover with external --config-dir ───────────────────────
 # Regression test for: decode and search-cover failing to mount the config dir
 # when --config-dir points outside DDPHOTOS_DIR.
 #
@@ -256,7 +256,7 @@ SC_OUT=$("${DDPHOTOS[@]}" --dir "$SC_TEST_DIR" --config-dir "$EXT_CONFIG_DIR" se
 echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover --config-dir: 'cover: 2024-The-Way-21.jpg' not in output"
 pass "search-cover --config-dir: external config dir mounted correctly"
 
-# ── 7. Run (Vite dev server) + Playwright ─────────────────────────────────────
+# ── 9. Run (Vite dev server) + Playwright ─────────────────────────────────────
 step "Run — Vite dev server on port $RUN_PORT"
 RUN_PORT="$RUN_PORT" "${DDPHOTOS[@]}" --non-interactive run &
 RUN_PID=$!
@@ -265,7 +265,7 @@ run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
 kill "$RUN_PID" 2>/dev/null || true; wait "$RUN_PID" 2>/dev/null || true; RUN_PID=""
 pass "run + Playwright OK"
 
-# ── 8. Pre-build error checks ──────────────────────────────────────────────────
+# ── 10. Pre-build error checks ─────────────────────────────────────────────────
 step "Error handling: serve/export/deploy fail before build"
 out=$("${DDPHOTOS_QUIET[@]}" serve 2>&1) || true
 echo "$out" | grep -q "Run 'build' first" || fail "serve: expected 'Run build first' error when build dir missing"
@@ -279,13 +279,13 @@ out=$("${DDPHOTOS_QUIET[@]}" deploy 2>&1) || true
 echo "$out" | grep -q "Run 'build' first" || fail "deploy: expected 'Run build first' error when build dir missing"
 pass "deploy: fails correctly when build dir missing"
 
-# ── 9. Build ───────────────────────────────────────────────────────────────────
+# ── 11. Build ──────────────────────────────────────────────────────────────────
 step "Build"
 "${DDPHOTOS[@]}" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"
 pass "build/$SITE_ID created"
 
-# ── 9. Serve (Apache) + Playwright + test-photos-server.sh ────────────────────
+# ── 12. Serve (Apache) + Playwright + test-photos-server.sh ───────────────────
 step "Serve — Apache on port $SERVE_PORT"
 SERVE_PORT="$SERVE_PORT" "${DDPHOTOS[@]}" --non-interactive serve &
 SERVE_PID=$!
@@ -296,7 +296,7 @@ run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
 pass "serve + Playwright + test-photos-server.sh OK"
 
-# ── 10. Export (symlink mode) ──────────────────────────────────────────────────
+# ── 13. Export (symlink mode) ──────────────────────────────────────────────────
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Export (symlinks)"
@@ -332,7 +332,7 @@ step "Export --cloudflare"
 grep -q "ASSETS.fetch" "$EXPORT_DIR/_worker.js" || fail "_worker.js missing ASSETS.fetch"
 pass "export --cloudflare OK (_worker.js present)"
 
-# ── 11. Version ────────────────────────────────────────────────────────────────
+# ── 14. Version ────────────────────────────────────────────────────────────────
 step "Version"
 version_out=$("${DDPHOTOS[@]}" version)
 echo "$version_out"
@@ -349,7 +349,7 @@ pass "version --image: Script path OK, Git: and Version: dev present"
 echo "$version_out" | grep -q "Site ID:.*$SITE_ID" || fail "version: Site ID does not show $SITE_ID"
 pass "version: Site ID '$SITE_ID' auto-detected from albums.yaml"
 
-# ── 12. Init --script-only ─────────────────────────────────────────────────────
+# ── 15. Init --script-only ─────────────────────────────────────────────────────
 step "Init --script-only"
 TEST_DIR2=$(mktemp -d)
 chmod 755 "$TEST_DIR2"
@@ -359,7 +359,7 @@ docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ ! -d "$TEST_DIR2/albums" ]   || fail "--script-only should not create albums/"
 pass "init --script-only OK (only ddphotos script installed)"
 
-# ── 13. Skip ──────────────────────────────────────────────────────
+# ── 16. Skip ──────────────────────────────────────────────────────
 # Note: decided to skip tests for deploy (s3/rsync) due to complexity
 #       of setup.  S3 works (it is actively used by yours truly). I have faith
 #       in rsync code, but if someone reports problems we can revisit it.
