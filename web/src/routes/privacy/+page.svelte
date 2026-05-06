@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+
 	let { data } = $props();
 	const siteName = $derived(data.siteConfig?.siteName ?? 'DD Photos');
 	const encrypted = $derived(data.siteConfig?.encrypted ?? false);
@@ -42,7 +44,7 @@
 		<a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">GitHub</a>.
 	</p>
 
-	<a href="/">Back to albums</a>
+	<a href="/" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to albums</a>
 </main>
 
 <style>
@@ -73,5 +75,11 @@
 
 	a {
 		color: var(--link-color);
+	}
+
+	.back-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
 	}
 </style>
