@@ -7,6 +7,9 @@ name: Deploy Sample Sites
 #   CLOUDFLARE_ACCOUNT_ID — Cloudflare account ID
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - deploy-sample-sites
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
