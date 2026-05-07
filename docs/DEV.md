@@ -243,6 +243,35 @@ Use `bin/deploy-sample-sites.sh` to deploy `init` and `sample` sites to Cloudfla
 
 Use `deploy-sample-sites.sh --verify` to run smoke tests against these sites
 
+### CI Setup
+
+#### Cloudflare (wrangler)
+
+ * CLOUDFLARE_API_TOKEN — create at [dash.cloudflare.com](https://dash.cloudflare.com) > My 
+   Profile > API Tokens; use the "Edit Cloudflare Pages" template
+ * CLOUDFLARE_ACCOUNT_ID — visible in the Cloudflare dashboard sidebar
+
+#### Surge
+
+ * SURGE_LOGIN — your `surge` email
+ * SURGE_TOKEN — run `surge token` locally to print it
+
+```bash
+gh secret set CLOUDFLARE_ACCOUNT_ID --body "your-account-id"
+gh secret set CLOUDFLARE_API_TOKEN
+gh secret set SURGE_LOGIN --body "your@email.com"
+gh secret set SURGE_TOKEN
+gh secret list
+```
+
+Testing
+
+```bash
+gh workflow run deploy-sample-sites.yml --ref [branch name]
+# then watch the logs:
+gh run watch
+```
+
 ## Project History
 
 Much of this project was built with Claude Code. See [HISTORY.md](history/HISTORY.md)
