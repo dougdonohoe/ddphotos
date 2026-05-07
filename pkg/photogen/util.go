@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+// Use permissive modes so files written inside a Docker container (as root) remain
+// accessible to the host user that mounted the volume.
+const (
+	dirPerms  os.FileMode = 0777
+	filePerms os.FileMode = 0666
+)
+
 // loadJSON reads a JSON file at path and unmarshals it into a value of type T.
 func loadJSON[T any](path string) (T, error) {
 	var zero T

@@ -420,7 +420,7 @@ func (c *Config) WriteCSSFile() error {
 	if err != nil {
 		return fmt.Errorf("read css: %w", err)
 	}
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := os.WriteFile(outputPath, data, filePerms); err != nil {
 		return fmt.Errorf("write css: %w", err)
 	}
 	fmt.Printf("copied: %s\n", outputPath)
@@ -476,10 +476,10 @@ func (c *Config) WriteSitemap(summaries []AlbumSummary) error {
 
 // writeBytes writes data to path, creating directories as needed.
 func writeBytes(path string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), dirPerms); err != nil {
 		return fmt.Errorf("create directory %s: %w", filepath.Dir(path), err)
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, filePerms); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	fmt.Printf("  wrote: %s\n", path)

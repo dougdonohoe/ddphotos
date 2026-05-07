@@ -91,7 +91,7 @@ func prepareImage(inputPath, outputPath string, maxDim int, dryRunLabel string, 
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputPath), dirPerms); err != nil {
 		img.Close()
 		return nil, nil, fmt.Errorf("create output directory: %w", err)
 	}
@@ -128,7 +128,7 @@ func ResizeImage(inputPath, outputPath string, size ImageSize, force, dryRun boo
 		return nil, fmt.Errorf("export webp: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, buf, 0644); err != nil {
+	if err := os.WriteFile(outputPath, buf, filePerms); err != nil {
 		return nil, fmt.Errorf("write file: %w", err)
 	}
 
@@ -162,7 +162,7 @@ func ResizeCoverJPEG(inputPath, outputPath string, force, dryRun bool) (*ResizeR
 		return nil, fmt.Errorf("export jpeg: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, buf, 0644); err != nil {
+	if err := os.WriteFile(outputPath, buf, filePerms); err != nil {
 		return nil, fmt.Errorf("write file: %w", err)
 	}
 
@@ -221,7 +221,7 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 		return nil, fmt.Errorf("crop: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputPath), dirPerms); err != nil {
 		return nil, fmt.Errorf("create output directory: %w", err)
 	}
 
@@ -233,7 +233,7 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 	if err != nil {
 		return nil, fmt.Errorf("export jpeg: %w", err)
 	}
-	if err := os.WriteFile(outputPath, buf, 0644); err != nil {
+	if err := os.WriteFile(outputPath, buf, filePerms); err != nil {
 		return nil, fmt.Errorf("write file: %w", err)
 	}
 
