@@ -1,15 +1,17 @@
 name: Deploy Sample Sites
 
-# Triggered manually for testing; will later be chained from Docker Release.
+# Triggered manually or automatically after a successful Docker Release.
 #
 # Required GitHub Actions secrets:
 #   CLOUDFLARE_API_TOKEN — Cloudflare API token with Cloudflare Pages: Edit permission
 #   CLOUDFLARE_ACCOUNT_ID — Cloudflare account ID
+#   SURGE_LOGIN — Surge account email
+#   SURGE_TOKEN — Surge token (run 'surge token' locally to obtain)
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - deploy-sample-sites
+  workflow_run:
+    workflows: ["Docker Release"]
+    types: [completed]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -17,6 +19,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout code
@@ -36,4 +39,4 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SURGE_LOGIN: ${{ secrets.SURGE_LOGIN }}
           SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
-        run: bin/deploy-sample-sites.sh --doit --init
+        run: bin/deploy-sample-sites.sh --doit
