@@ -16,7 +16,6 @@ jobs:
   # Basic tests, Apache and rsync
   test:
     runs-on: ubuntu-latest
-    if: false # TODO: revert
 
     steps:
       - name: Checkout code
@@ -67,7 +66,6 @@ jobs:
   # Split out nginx/s3 tests to run in parallel
   test-nginx-s3:
     runs-on: ubuntu-latest
-    if: false # TODO: revert
 
     steps:
       - name: Checkout code
