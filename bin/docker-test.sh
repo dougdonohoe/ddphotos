@@ -42,6 +42,7 @@ cleanup() {
     # Belt-and-suspenders: stop any containers using the local image still running on our ports
     docker ps --filter publish="$RUN_PORT"   -q | xargs docker stop &>/dev/null || true
     docker ps --filter publish="$SERVE_PORT" -q | xargs docker stop &>/dev/null || true
+    ls -lR "$TEST_DIR"
     if [ -n "$TEST_DIR" ]; then /bin/rm -rf "$TEST_DIR"; fi
     if [ -n "$TEST_DIR2" ]; then /bin/rm -rf "$TEST_DIR2"; fi
     if [ -n "$TEMP_DECODE_DIR" ]; then /bin/rm -rf "$TEMP_DECODE_DIR"; fi
