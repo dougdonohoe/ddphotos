@@ -42,30 +42,8 @@ cleanup() {
     # Belt-and-suspenders: stop any containers using the local image still running on our ports
     docker ps --filter publish="$RUN_PORT"   -q | xargs docker stop &>/dev/null || true
     docker ps --filter publish="$SERVE_PORT" -q | xargs docker stop &>/dev/null || true
-    # !! IMPORTANT: Docker containers run as root, so any files/dirs they create inside a
-    # !! mounted volume (e.g. TEST_DIR/albums/, TEST_DIR/build/) are root-owned with 700
-    # !! permissions — unreadable and unwritable from the host. This has bitten us 3-4 times.
-    # !!
-    # !! On Mac, Docker's VM layer masks this (writes may appear to succeed locally), but CI
-    # !! runs on Linux where host and container share the real filesystem — failures are real.
-    # !! Always write tests to pass on Linux / CI, not just on Mac.
-    # !!
-    # !! Rules to avoid it:
-    # !!   1. Never write test files into subdirs that Docker created (e.g. TEST_DIR/albums/...).
-    # !!   2. For test fixtures, use TEMP_DECODE_DIR or a fresh mktemp -d (user-owned).
-    # !!   3. If you need Docker output in a specific dir layout, copy it there after the fact.
-    # !!   4. Cleanup below must use Docker to remove root-owned files before /bin/rm -rf works.
-    # Docker creates root-owned files in TEST_DIRs; clear them via Docker before removing the dir
-    if [ -n "$TEST_DIR" ]; then
-        docker run --rm --entrypoint /bin/sh -v "$TEST_DIR":/target "$IMAGE" \
-            -c 'find /target -mindepth 1 -delete' 2>/dev/null || true
-        /bin/rm -rf "$TEST_DIR"
-    fi
-    if [ -n "$TEST_DIR2" ]; then
-        docker run --rm --entrypoint /bin/sh -v "$TEST_DIR2":/target "$IMAGE" \
-            -c 'find /target -mindepth 1 -delete' 2>/dev/null || true
-        /bin/rm -rf "$TEST_DIR2"
-    fi
+    if [ -n "$TEST_DIR" ]; then /bin/rm -rf "$TEST_DIR"; fi
+    if [ -n "$TEST_DIR2" ]; then /bin/rm -rf "$TEST_DIR2"; fi
     if [ -n "$TEMP_DECODE_DIR" ]; then /bin/rm -rf "$TEMP_DECODE_DIR"; fi
     if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR"; fi
     if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi

@@ -1,5 +1,10 @@
 #!/bin/bash
 set -e
+
+# ensure files/dirs created by the container are world-writable so the host user can modify them
+umask 0000
+
+# Capture cmd, default to help, remove it from args
 cmd="${1:-help}"
 if [ "$#" -gt 0 ]; then shift; fi
 
