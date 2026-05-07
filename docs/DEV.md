@@ -231,7 +231,7 @@ The amount of space is set in _Docker Desktop → Settings → Resources → Adv
 
 ## Static Site Examples
 
-Use `bin/deploy-sample-sites.sh` to deploy `init` and `sample` sites to Cloudflare and surge.
+Use `bin/deploy-sample-sites.sh --doit` to deploy `init` and `sample` sites to Cloudflare and surge.
 
 * Surge sites
   * Init: [ddphotos-init.surge.sh↗](https://ddphotos-init.surge.sh) (was [ddphotos-test-docker.surge.sh↗](https://ddphotos-test-docker.surge.sh/), now redirects)
@@ -245,31 +245,33 @@ Use `deploy-sample-sites.sh --verify` to run smoke tests against these sites
 
 ### CI Setup
 
+The `deploy-sample-sites.yml` workflow is triggered when the `docker-release.yml` workflow succeeds.
+It runs `deploy-sample-sites.sh --doit` and then `--verify`.
+
 #### Cloudflare (wrangler)
 
- * CLOUDFLARE_API_TOKEN — create at [dash.cloudflare.com](https://dash.cloudflare.com) > My 
-   Profile > API Tokens; use the "Edit Cloudflare Pages" template
- * CLOUDFLARE_ACCOUNT_ID — visible in the Cloudflare dashboard sidebar
+ * `CLOUDFLARE_API_TOKEN` — create at [dash.cloudflare.com](https://dash.cloudflare.com) 
+   * _My Profile > API Tokens > + Create Token_ 
+   * **Create Custom Token** with **Account > Cloudflare Pages > Edit**
+ * `CLOUDFLARE_ACCOUNT_ID` — visible in the Cloudflare dashboard sidebar
 
 #### Surge
 
- * SURGE_LOGIN — your `surge` email
- * SURGE_TOKEN — run `surge token` locally to print it
+ * `SURGE_LOGIN` — your `surge` email
+ * `SURGE_TOKEN` — run `surge token` locally to print it
 
 ```bash
 gh secret set CLOUDFLARE_ACCOUNT_ID --body "your-account-id"
-gh secret set CLOUDFLARE_API_TOKEN
+gh secret set CLOUDFLARE_API_TOKEN # paste token
 gh secret set SURGE_LOGIN --body "your@email.com"
-gh secret set SURGE_TOKEN
+gh secret set SURGE_TOKEN # paste token
 gh secret list
 ```
 
-Testing
+Manual Trigger
 
 ```bash
 gh workflow run deploy-sample-sites.yml --ref [branch name]
-# then watch the logs:
-gh run watch
 ```
 
 ## Project History

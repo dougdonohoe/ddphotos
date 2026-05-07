@@ -1796,3 +1796,36 @@ script, documented in `docs/MAKEFILE.md`:
 - `ddphotos-patch` — copy `docker/ddphotos` to `~/.local/bin` while preserving the
   `IMAGE=` line from the currently installed script (useful when iterating on the script
   without a full image rebuild)
+
+### 72. 05/07/2026 - CI: Deploy Sample Sites Workflow
+
+Added `.github/workflows/deploy-sample-sites.yml` to automate deployment of the init
+and sample sites to Cloudflare Pages and Surge after each Docker release.
+
+#### Workflow Design
+
+- Triggered by `workflow_run` on successful completion of the **Docker Release** workflow,
+  plus `workflow_dispatch` for manual runs
+- The `if:` condition on the job ensures it skips when Docker Release fails:
+  `github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'`
+- The `workflow_run` trigger matches on the workflow's `name:` field (`Docker Release`),
+  not the filename
+- Installs `wrangler` (with `--ignore-scripts`) and `surge` globally before running
+  `bin/deploy-sample-sites.sh --doit`
+
+#### Auth Secrets
+
+Four GitHub Actions secrets are required, set via `gh secret set`:
+
+- `CLOUDFLARE_API_TOKEN` — custom token with **Account > Cloudflare Pages > Edit**
+  (no matching template exists in the Cloudflare UI; must use Create Custom Token)
+- `CLOUDFLARE_ACCOUNT_ID` — account ID from the Cloudflare dashboard sidebar
+- `SURGE_LOGIN` — surge account email
+- `SURGE_TOKEN` — obtained via `surge token` locally
+
+#### Branch Testing Trick
+
+`workflow_dispatch` only works on workflows registered on the default branch. To test
+on a feature branch without merging, a temporary `push:` trigger was added targeting
+the branch. Once the push registered the workflow, `gh workflow run --ref <branch>`
+worked for subsequent manual triggers. The `push:` trigger was removed before merging.

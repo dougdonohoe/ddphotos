@@ -9,6 +9,9 @@ name: Deploy Sample Sites
 #   SURGE_TOKEN — Surge token (run 'surge token' locally to obtain)
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - deploy-sample-sites
   workflow_run:
     workflows: ["Docker Release"]
     types: [completed]
@@ -40,3 +43,6 @@ jobs:
           SURGE_LOGIN: ${{ secrets.SURGE_LOGIN }}
           SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
         run: bin/deploy-sample-sites.sh --doit
+
+      - name: Verify sample sites
+        run: bin/deploy-sample-sites.sh --verify

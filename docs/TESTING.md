@@ -241,6 +241,11 @@ The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on 
 request to `main`. See that file for all the tests it runs.  Tests are configured to run in parallel
 to minimize CI run time.
 
+The workflow in [.github/workflows/docker-release.yml](../.github/workflows/docker-release.yml)
+runs when a new git version tag is created.  If this succeeds,
+[.github/workflows/deploy-sample-sites.yml](../.github/workflows/deploy-sample-sites.yml) is
+run to deploy latest code to the Cloudflare and Surge sample sites.
+
 ### Testing CI Locally with `act`
 
 It is often helpful to run GitHub CI locally using [`act`↗](https://nektosact.com/).
