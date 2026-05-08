@@ -123,7 +123,7 @@
 					{/if}
 					<dt>Source</dt>
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<dd><a href={gitRepoUrl} target="_blank" rel="noopener">{gitRepoSlug}</a></dd>
+					<dd><a href={gitRepoUrl} target="_blank" rel="noopener">{gitRepoSlug}↗</a></dd>
 				</dl>
 			</div>
 		</div>
@@ -176,33 +176,6 @@
 		font-family: monospace;
 	}
 
-	:global(.back-link) {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		text-decoration: none;
-	}
-
-	:global(.back-link:hover) {
-		text-decoration: underline;
-	}
-
-	:global(.error-content) {
-		text-align: center;
-	}
-
-	:global(.error-content a.back-link) {
-		margin-top: 1.3rem;
-	}
-
-	:global(.error-content h1) {
-		font-size: 4rem;
-		color: var(--text-muted);
-	}
-
-	:global(.error-content p) {
-		font-size: 1.25rem;
-	}
 
 	.app {
 		position: relative;

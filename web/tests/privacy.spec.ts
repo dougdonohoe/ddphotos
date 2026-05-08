@@ -7,8 +7,8 @@ test('privacy page loads and shows correct title', async ({ page }) => {
 	const config = await page.request.get('/albums/config.json').then((r) => r.json());
 	await page.goto('/privacy');
 	await expect(page).toHaveTitle(`Privacy | ${config.siteName}`);
-	await expect(page.locator('h1')).toContainText(config.siteName);
-	await expect(page.locator('h1')).toContainText('Privacy');
+	await expect(page.locator('.card-site-name')).toContainText(config.siteName);
+	await expect(page.locator('.card-title')).toContainText('Privacy');
 });
 
 test('privacy page always shows theme and site ID bullets', async ({ page }) => {

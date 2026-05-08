@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import Shield from 'lucide-svelte/icons/shield';
 	import SecondaryPage from '$lib/components/SecondaryPage.svelte';
 
 	let { data } = $props();
@@ -11,9 +11,7 @@
 	<title>Privacy | {siteName}</title>
 </svelte:head>
 
-<SecondaryPage>
-	<h1>{siteName} - Privacy</h1>
-
+<SecondaryPage icon={Shield} iconColor="blue" title="Privacy" {siteName}>
 	<p>
 		This site stores the following items in your browser's local storage:
 	</p>
@@ -42,10 +40,6 @@
 	</p>
 	<p>
 		DD Photos is open source. You can review the full source code on
-		<a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">GitHub</a>.
+		<a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">GitHub↗</a>.
 	</p>
-
-	<div style="text-align: center; padding-top: 1.5rem">
-		<a href="/" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to albums</a>
-	</div>
 </SecondaryPage>
