@@ -170,6 +170,40 @@
 		color: var(--link-color);
 	}
 
+	:global(.missing-path) {
+		font-style: italic;
+		font-weight: bold;
+		font-family: monospace;
+	}
+
+	:global(.back-link) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		text-decoration: none;
+	}
+
+	:global(.back-link:hover) {
+		text-decoration: underline;
+	}
+
+	:global(.error-content) {
+		text-align: center;
+	}
+
+	:global(.error-content a.back-link) {
+		margin-top: 1.5rem;
+	}
+
+	:global(.error-content h1) {
+		font-size: 4rem;
+		color: var(--text-muted);
+	}
+
+	:global(.error-content p) {
+		font-size: 1.25rem;
+	}
+
 	.app {
 		position: relative;
 		min-height: 100vh;

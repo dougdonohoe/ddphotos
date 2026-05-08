@@ -45,5 +45,7 @@
 		<a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">GitHub</a>.
 	</p>
 
-	<a href="/" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to albums</a>
+	<div style="text-align: center; padding-top: 1.5rem">
+		<a href="/" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to albums</a>
+	</div>
 </SecondaryPage>
