@@ -192,7 +192,7 @@
 	}
 
 	:global(.error-content a.back-link) {
-		margin-top: 1.5rem;
+		margin-top: 1.3rem;
 	}
 
 	:global(.error-content h1) {

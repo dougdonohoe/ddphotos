@@ -9,6 +9,7 @@
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
+	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import BackToTop from '$lib/components/BackToTop.svelte';
 	import OpenGraph from '$lib/components/OpenGraph.svelte';
 	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
@@ -554,8 +555,8 @@
 
 		{#if invalidPhotoIndex !== null}
 			<div class="not-found">
-				<p>No photo #{invalidPhotoIndex} in '{album.title}'.</p>
-				<a href="/albums/{slug}">Back to the album</a>
+				<p>Sorry, there is no photo #{invalidPhotoIndex} in '{album.title}'.</p>
+				<a href="/albums/{slug}" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to the album</a>
 			</div>
 		{/if}
 
@@ -688,7 +689,7 @@
 	}
 
 	.not-found {
-		padding: 3rem 1rem;
+		padding: 1rem 1rem;
 		text-align: center;
 		color: var(--text-muted);
 	}
