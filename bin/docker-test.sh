@@ -113,43 +113,43 @@ PASSWORDS_FILE="$TEST_DIR/config/passwords.yaml"
 # ── 3. Error handling ─────────────────────────────────────────────────────────
 step "Error handling: commands reject unexpected args"
 out=$("${DDPHOTOS_QUIET[@]}" build extra-arg 2>&1) || true
-echo "$out" | grep -q "takes no arguments" || fail "build: expected 'takes no arguments' error"
+echo "$out" | grep -q "takes no arguments" || (echo "$out" && fail "build: expected 'takes no arguments' error")
 pass "build rejects unexpected args"
 
 out=$("$TEST_DIR/ddphotos" --non-interactive serve --foo 2>&1) || true
-echo "$out" | grep -q "takes no arguments" || fail "serve: expected 'takes no arguments' error"
+echo "$out" | grep -q "takes no arguments" || (echo "$out" && fail "serve: expected 'takes no arguments' error")
 pass "serve rejects unexpected args"
 
 out=$("${DDPHOTOS_QUIET[@]}" export --no-such-flag 2>&1) || true
-echo "$out" | grep -q "Unknown option" || fail "export: expected 'Unknown option' error"
+echo "$out" | grep -q "Unknown option" || (echo "$out" && fail "export: expected 'Unknown option' error")
 pass "export rejects unknown flags"
 
 step "Error handling: unknown pre-command option"
 out=$("$TEST_DIR/ddphotos" --no-such-flag build 2>&1) || true
-echo "$out" | grep -q "Unknown option" || fail "ddphotos: expected 'Unknown option' for unknown pre-command flag"
+echo "$out" | grep -q "Unknown option" || (echo "$out" && fail "ddphotos: expected 'Unknown option' for unknown pre-command flag")
 pass "ddphotos rejects unknown pre-command options"
 
 step "Help command"
 out=$("${DDPHOTOS_QUIET[@]}" help 2>&1)
-echo "$out" | grep -q "photogen" || fail "help: missing expected content"
+echo "$out" | grep -q "photogen" || (echo "$out" && fail "help: missing expected content")
 pass "help exits 0 and shows usage"
 
 # ── 4. Pre-photogen error checks ───────────────────────────────────────────────
 step "Error handling: build/run/export/deploy fail before photogen"
 out=$("${DDPHOTOS_QUIET[@]}" build 2>&1) || true
-echo "$out" | grep -q "Run 'photogen' first" || fail "build: expected 'Run photogen first' error when albums dir missing"
+echo "$out" | grep -q "Run 'photogen' first" || (echo "$out" && fail "build: expected 'Run photogen first' error when albums dir missing")
 pass "build: fails correctly when albums dir missing"
 
 out=$("${DDPHOTOS_QUIET[@]}" --non-interactive run 2>&1) || true
-echo "$out" | grep -q "Run 'photogen' first" || fail "run: expected 'Run photogen first' error when albums dir missing"
+echo "$out" | grep -q "Run 'photogen' first" || (echo "$out" && fail "run: expected 'Run photogen first' error when albums dir missing")
 pass "run: fails correctly when albums dir missing"
 
 out=$("${DDPHOTOS_QUIET[@]}" export 2>&1) || true
-echo "$out" | grep -q "Run 'photogen' first" || fail "export: expected 'Run photogen first' error when albums dir missing"
+echo "$out" | grep -q "Run 'photogen' first" || (echo "$out" && fail "export: expected 'Run photogen first' error when albums dir missing")
 pass "export: fails correctly when albums dir missing"
 
 out=$("${DDPHOTOS_QUIET[@]}" deploy 2>&1) || true
-echo "$out" | grep -q "Run 'photogen' first" || fail "deploy: expected 'Run photogen first' error when albums dir missing"
+echo "$out" | grep -q "Run 'photogen' first" || (echo "$out" && fail "deploy: expected 'Run photogen first' error when albums dir missing")
 pass "deploy: fails correctly when albums dir missing"
 
 # ── 5. Photogen ────────────────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ step "Decode"
 ENC_FILE="albums/$SITE_ID/secret/index.enc.json"
 [ -f "$TEST_DIR/$ENC_FILE" ] || fail "$ENC_FILE not found after photogen"
 decoded=$("${DDPHOTOS[@]}" decode "$ENC_FILE")
-echo "$decoded" | grep -q '"photos"' || fail "decoded output missing 'photos' key"
+echo "$decoded" | grep -q '"photos"' || (echo "$decoded" && fail "decoded output missing 'photos' key")
 pass "decode: $ENC_FILE decrypted OK"
 
 # Test 2: files outside DDPHOTOS_DIR — exercises the external-mount path in ddphotos decode.
@@ -178,7 +178,7 @@ mkdir -p "$TEMP_DECODE_DIR/secret"
 
 # (a) explicit --passwords pointing outside DDPHOTOS_DIR
 decoded=$("${DDPHOTOS[@]}" decode --passwords "$TEMP_DECODE_DIR/passwords.yaml" "$TEMP_DECODE_DIR/secret/index.enc.json")
-echo "$decoded" | grep -q '"photos"' || fail "decode --passwords (external): decoded output missing 'photos' key"
+echo "$decoded" | grep -q '"photos"' || (echo "$decoded" && fail "decode --passwords (external): decoded output missing 'photos' key")
 pass "decode --passwords: files outside DDPHOTOS_DIR OK"
 
 # (b) replace embedded pwFile with the temp path; decode should mount it automatically
@@ -186,7 +186,7 @@ sed "s|\"pwFile\":\"[^\"]*\"|\"pwFile\":\"$TEMP_DECODE_DIR/passwords.yaml\"|" \
     "$TEMP_DECODE_DIR/secret/index.enc.json" > "$TEMP_DECODE_DIR/secret/index.enc.json.tmp"
 mv "$TEMP_DECODE_DIR/secret/index.enc.json.tmp" "$TEMP_DECODE_DIR/secret/index.enc.json"
 decoded=$("${DDPHOTOS[@]}" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
-echo "$decoded" | grep -q '"photos"' || fail "decode (external pwFile): decoded output missing 'photos' key"
+echo "$decoded" | grep -q '"photos"' || (echo "$decoded" && fail "decode (external pwFile): decoded output missing 'photos' key")
 pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"
 
 # ── 7. Search-Cover ────────────────────────────────────────────────────────────
@@ -196,7 +196,7 @@ SC_DECODED=$("${DDPHOTOS_QUIET[@]}" decode "$ENC_FILE")
 SC_GRID=$(echo "$SC_DECODED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['photos'][0]['src']['grid'])")
 SC_URL="http://localhost:5173/albums/secret/$SC_GRID"
 SC_OUT=$("${DDPHOTOS[@]}" search-cover "$SC_URL")
-echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover: 'cover: 2024-The-Way-21.jpg' not in output"
+echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || (echo "$SC_OUT" && "search-cover: 'cover: 2024-The-Way-21.jpg' not in output")
 pass "search-cover: found cover file for secret album"
 
 # ── 8. Decode + Search-Cover with external --config-dir ───────────────────────
@@ -221,7 +221,7 @@ sed 's|"pwFile":"/ddphotos/config/passwords.yaml"|"pwFile":"/ddphotos-config/pas
     "$TEST_DIR/$ENC_FILE" > "$EXT_ENC_FILE"
 
 decoded=$("${DDPHOTOS[@]}" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_FILE")
-echo "$decoded" | grep -q '"photos"' || fail "decode --config-dir: decoded output missing 'photos' key"
+echo "$decoded" | grep -q '"photos"' || (echo "$decoded" ** fail "decode --config-dir: decoded output missing 'photos' key")
 pass "decode --config-dir: external config dir mounted correctly"
 
 # search-cover needs the modified enc.json at the album path. Use a fresh
@@ -231,7 +231,7 @@ chmod 755 "$SC_TEST_DIR"
 mkdir -p "$SC_TEST_DIR/albums/$SITE_ID/secret"
 /bin/cp "$EXT_ENC_FILE" "$SC_TEST_DIR/albums/$SITE_ID/secret/index.enc.json"
 SC_OUT=$("${DDPHOTOS[@]}" --dir "$SC_TEST_DIR" --config-dir "$EXT_CONFIG_DIR" search-cover "$SC_URL")
-echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || fail "search-cover --config-dir: 'cover: 2024-The-Way-21.jpg' not in output"
+echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || (echo "$SC_OUT" && fail "search-cover --config-dir: 'cover: 2024-The-Way-21.jpg' not in output")
 pass "search-cover --config-dir: external config dir mounted correctly"
 
 # ── 9. Run (Vite dev server) + Playwright ─────────────────────────────────────
@@ -246,15 +246,15 @@ pass "run + Playwright OK"
 # ── 10. Pre-build error checks ─────────────────────────────────────────────────
 step "Error handling: serve/export/deploy fail before build"
 out=$("${DDPHOTOS_QUIET[@]}" --non-interactive serve 2>&1) || true
-echo "$out" | grep -q "Run 'build' first" || fail "serve: expected 'Run build first' error when build dir missing"
+echo "$out" | grep -q "Run 'build' first" || (echo "$out" && fail "serve: expected 'Run build first' error when build dir missing")
 pass "serve: fails correctly when build dir missing"
 
 out=$("${DDPHOTOS_QUIET[@]}" export 2>&1) || true
-echo "$out" | grep -q "Run 'build' first" || fail "export: expected 'Run build first' error when build dir missing"
+echo "$out" | grep -q "Run 'build' first" || (echo "$out" && fail "export: expected 'Run build first' error when build dir missing")
 pass "export: fails correctly when build dir missing"
 
 out=$("${DDPHOTOS_QUIET[@]}" deploy 2>&1) || true
-echo "$out" | grep -q "Run 'build' first" || fail "deploy: expected 'Run build first' error when build dir missing"
+echo "$out" | grep -q "Run 'build' first" || (echo "$out" && fail "deploy: expected 'Run build first' error when build dir missing")
 pass "deploy: fails correctly when build dir missing"
 
 # ── 11. Build ──────────────────────────────────────────────────────────────────

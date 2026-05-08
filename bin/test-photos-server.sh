@@ -176,6 +176,7 @@ echo ""
 echo "Pages (expect 200):"
 check_status "$BASE"                              200 "Home page"
 check_status "$BASE/privacy"                      200 "Privacy page"
+check_status "$BASE/404.html"                     200 "404 page"
 if [ -n "$ALBUM" ]; then
     check_status "$BASE/albums/$ALBUM"            200 "Album page ($ALBUM)"
 fi
