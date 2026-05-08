@@ -1,16 +1,29 @@
 import { test, expect } from '@playwright/test';
+import { siteCustomCss } from './helpers';
 
 // Custom CSS tests — verify that a custom CSS file is applied site-wide when
-// configured via the -css flag.  All tests are skipped when PLAYWRIGHT_CUSTOM_CSS
-// is not set (no-CSS variant).
+// configured via the -css flag.
+//
+// Tests 1 and 2 derive CSS presence from config.json (programmatic).
+// Tests 3 and 4 require PLAYWRIGHT_CUSTOM_CSS to be set, since they check
+// specific values only meaningful for the known sample custom.css file.
 
 const hasCustomCss = !!process.env.PLAYWRIGHT_CUSTOM_CSS;
 
-test('custom CSS <link> is injected into the page', async ({ page }) => {
-	test.skip(!hasCustomCss, 'no custom CSS configured');
+test('custom CSS <link> is injected into the page', async ({ page, request }) => {
+	const css = await siteCustomCss(request);
+	test.skip(!css, 'no custom CSS configured');
+	await page.goto('/');
+	const link = page.locator(`link[rel="stylesheet"][href*="${css}"]`);
+	await expect(link).toHaveCount(1);
+});
+
+test('custom CSS <link> is NOT present when CSS is not configured', async ({ page, request }) => {
+	const css = await siteCustomCss(request);
+	test.skip(!!css, 'CSS is configured — skipping no-CSS check');
 	await page.goto('/');
 	const link = page.locator('link[rel="stylesheet"][href*="custom.css"]');
-	await expect(link).toHaveCount(1);
+	await expect(link).toHaveCount(0);
 });
 
 test('custom CSS overrides --text-color-2nd on home page', async ({ page }) => {
@@ -34,12 +47,4 @@ test('custom CSS applies border-radius to album cards', async ({ page }) => {
 	await expect(card).toBeVisible();
 	const radius = await card.evaluate((el) => getComputedStyle(el).borderRadius);
 	expect(radius).toBe('16px');
-});
-
-test('custom CSS <link> is NOT present when CSS is not configured', async ({ page }) => {
-	test.skip(hasCustomCss, 'CSS is configured — skipping no-CSS check');
-	test.skip(!!process.env.PLAYWRIGHT_IGNORE_CUSTOM_CSS, 'CSS presence unknown — skipping');
-	await page.goto('/');
-	const link = page.locator('link[rel="stylesheet"][href*="custom.css"]');
-	await expect(link).toHaveCount(0);
 });

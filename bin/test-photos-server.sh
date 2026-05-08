@@ -250,7 +250,7 @@ else
     check_status "$BASE/albums/doesnotexist"          404 "Bad album slug"
     check_status "$BASE/albums/doesnotexist/1"        404 "Bad album slug with photo index"
     check_status "$BASE/nope"                         404 "Unknown path returns 404"
-    check_body   "$BASE/albums/doesnotexist"          "404 - Not Found" "Custom 404 page served for bad album slug"
+    check_body   "$BASE/albums/doesnotexist"          "404 - DD Photos" "Custom 404 page served for bad album slug"
 fi
 
 echo ""

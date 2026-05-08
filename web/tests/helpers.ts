@@ -106,6 +106,21 @@ export async function unlockAlbumIfNeeded(
 }
 
 /**
+ * Return the customCss value from config.json, or null if not set.
+ * Fails open (returns null) on API error so tests surface real failures.
+ */
+export async function siteCustomCss(request: APIRequestContext): Promise<string | null> {
+	try {
+		const resp = await request.get('/albums/config.json');
+		if (!resp.ok()) return null;
+		const config = await resp.json();
+		return config?.customCss || null;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Check whether a specific album slug exists in albums.json.
  * Fails open (returns true) on API error so tests surface real failures.
  */

@@ -144,7 +144,6 @@ the appropriate site variant:
 |--------------------------------|----------------------|------------------------------------------------|
 | `PLAYWRIGHT_PASSWORDS_FILE`    | `bin/run-tests.sh`   | Path to passwords file; enables password tests |
 | `PLAYWRIGHT_CUSTOM_CSS`        | `bin/run-tests.sh`   | Set to `true`; enables CSS tests               |
-| `PLAYWRIGHT_IGNORE_CUSTOM_CSS` | `bin/docker-test.sh` | Set to `true`; skips no-CSS expected test      |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
 `bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,

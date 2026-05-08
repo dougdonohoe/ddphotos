@@ -64,7 +64,6 @@ run_playwright() {
     (
         cd "$REPO_ROOT/web"
         export PLAYWRIGHT_BASE_URL="$base_url"
-        export PLAYWRIGHT_IGNORE_CUSTOM_CSS=1
         [ -n "$passwords_file" ] && export PLAYWRIGHT_PASSWORDS_FILE="$passwords_file"
         npx playwright test
     )
