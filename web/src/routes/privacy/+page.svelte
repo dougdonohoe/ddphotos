@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import SecondaryPage from '$lib/components/SecondaryPage.svelte';
 
 	let { data } = $props();
 	const siteName = $derived(data.siteConfig?.siteName ?? 'DD Photos');
@@ -10,7 +11,7 @@
 	<title>Privacy | {siteName}</title>
 </svelte:head>
 
-<main>
+<SecondaryPage>
 	<h1>{siteName} - Privacy</h1>
 
 	<p>
@@ -45,41 +46,4 @@
 	</p>
 
 	<a href="/" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to albums</a>
-</main>
-
-<style>
-	main {
-		max-width: 600px;
-		margin: 0 auto;
-		padding: 1rem 2rem 2rem;
-	}
-
-	h1 {
-		font-size: 2rem;
-		margin: 0 0 1.5rem 0;
-	}
-
-	p,
-	ul {
-		line-height: 1.2;
-		margin: 0 0 1rem 0;
-	}
-
-	ul {
-		padding-left: 1.5rem;
-	}
-
-	li {
-		margin-bottom: 0.5rem;
-	}
-
-	a {
-		color: var(--link-color);
-	}
-
-	.back-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.35rem;
-	}
-</style>
+</SecondaryPage>

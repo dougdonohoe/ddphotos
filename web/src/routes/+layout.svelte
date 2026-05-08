@@ -247,12 +247,7 @@
 	}
 
 	.footer-link {
-		color: #5a8ec0;
 		text-decoration: none;
-	}
-
-	:global(:root[data-theme='light']) .footer-link {
-		color: var(--link-color);
 	}
 
 	.footer-link:hover {
@@ -265,14 +260,10 @@
 		padding: 0;
 		margin-right: .3rem;
 		cursor: pointer;
-		color: #5a8ec0;
+		color: var(--link-color);
 		display: inline-flex;
 		align-items: center;
 		vertical-align: -2px;
-	}
-
-	:global(:root[data-theme='light']) .about-btn {
-		color: var(--link-color);
 	}
 
 	.about-btn:hover {
