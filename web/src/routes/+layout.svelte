@@ -141,7 +141,7 @@
 		--text-muted: #999;
 		--border-color: #333;
 		--shadow-color: rgba(0, 0, 0, 0.3);
-		--link-color: #88b4e7;
+		--link-color: #5a8ec0;
 		--img-placeholder: #282828; /* dark grey, distinct from #1a1a1a page background */
 	}
 
