@@ -68,7 +68,7 @@ else
         REDIRECT_STATUS=301
     else
         # Apache behind CloudFront: Apache sees HTTP and returns http:// in Location headers
-        REDIRECT_BASE="http://${REMOTE_URL#https://}"
+        REDIRECT_BASE="${REMOTE_URL/#https:\/\//http://}"
         REDIRECT_STATUS=301
     fi
 fi

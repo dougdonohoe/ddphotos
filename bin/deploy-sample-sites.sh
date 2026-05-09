@@ -134,7 +134,8 @@ step() { echo; echo "=== $* ==="; }
 # ---------------------------------------------------------------------------
 _deploy_site() {
     local site="$1"
-    shift
+    local site_url="$2"
+    shift 2
     local site_dir="$DEPLOY_DIR/$site"
 
     step "Site: $site"
@@ -182,7 +183,9 @@ _deploy_site() {
 
     if $DO_PHOTOGEN; then
         echo "photogen"
-        "$site_dir/ddphotos" --show-mounts photogen
+        local site_url_args=()
+        [ -n "$site_url" ] && site_url_args=(-site-url "$site_url")
+        "$site_dir/ddphotos" --show-mounts photogen "${site_url_args[@]}"
     else
         echo "photogen: skipping (--no-photogen set)"
     fi
@@ -244,8 +247,8 @@ SAMPLE_TARGETS=(
     "my-unique-site:"
 )
 
-if $DO_INIT;   then _deploy_site "init"   "${INIT_TARGETS[@]}";   fi
-if $DO_SAMPLE; then _deploy_site "sample" "${SAMPLE_TARGETS[@]}"; fi
+if $DO_INIT;   then _deploy_site "init"   "https://ddphotos-test.donohoe.info" "${INIT_TARGETS[@]}";   fi
+if $DO_SAMPLE; then _deploy_site "sample" ""                                   "${SAMPLE_TARGETS[@]}"; fi
 
 echo
 echo "Done."
