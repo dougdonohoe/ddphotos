@@ -25,8 +25,6 @@ set -e
 
 echo "test-photos-server.sh $* starting ..."
 
-SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
-
 LOCAL=0
 PORT=8080
 REMOTE_URL=""
@@ -70,7 +68,7 @@ else
         REDIRECT_STATUS=301
     else
         # Apache behind CloudFront: Apache sees HTTP and returns http:// in Location headers
-        REDIRECT_BASE="$(echo "$REMOTE_URL" | sed 's|^https://|http://|')"
+        REDIRECT_BASE="http://${REMOTE_URL#https://}"
         REDIRECT_STATUS=301
     fi
 fi
@@ -247,10 +245,10 @@ if [ "$SURGE_MODE" -eq 1 ]; then
     check_status "$BASE/nope"                     200 "Unknown path serves SPA shell"
 else
     echo "404s (expect 404):"
-    check_status "$BASE/albums/doesnotexist"          404 "Bad album slug"
-    check_status "$BASE/albums/doesnotexist/1"        404 "Bad album slug with photo index"
-    check_status "$BASE/nope"                         404 "Unknown path returns 404"
-    check_body   "$BASE/albums/doesnotexist"          "404 Not Found" "Custom 404 page served for bad album slug"
+    check_status "$BASE/albums/doesnotexist"      404 "Bad album slug"
+    check_status "$BASE/albums/doesnotexist/1"    404 "Bad album slug with photo index"
+    check_status "$BASE/nope"                     404 "Unknown path returns 404"
+    check_body   "$BASE/albums/doesnotexist"      "404 Not Found" "Custom 404 page served for bad album slug"
 fi
 
 echo ""

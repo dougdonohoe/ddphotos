@@ -70,6 +70,11 @@ test('album page og:site_name matches siteName from config.json', async ({ page 
 	await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', config.siteName);
 });
 
+test('?boom on home page shows 500 error card', async ({ page }) => {
+	await page.goto('/?boom');
+	await expect(page.locator('.card-title')).toContainText('500 Error');
+});
+
 test('home page has Open Graph image tag pointing to a JPEG', async ({ page }) => {
 	// In the pw-all variant every album is encrypted, so the home page derives no OG
 	// cover image (it only uses non-encrypted albums). Skip rather than expect a tag

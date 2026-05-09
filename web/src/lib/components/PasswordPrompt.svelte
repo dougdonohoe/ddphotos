@@ -7,7 +7,7 @@
 		shakeCount?: number;
 	}
 
-	import Lock from 'lucide-svelte/icons/lock';
+	import PasswordIcon from 'lucide-svelte/icons/key-square';
 
 	let { prefix, name, hint, onunlock, shakeCount = 0 }: Props = $props();
 	let password = $state('');
@@ -35,8 +35,8 @@
 
 <div class="overlay">
 	<div class="card" class:shake={shaking}>
-		<div class="lock-icon">
-			<Lock size={40} strokeWidth={1.75} aria-hidden="true" />
+		<div class="pw-icon">
+			<PasswordIcon size={40} strokeWidth={1.75} aria-hidden="true" />
 		</div>
 		<h2>{prefix ? prefix + ' ' : ''}<span class="name">{name}</span><br>requires a password.</h2>
 		<form onsubmit={handleSubmit}>
@@ -76,7 +76,7 @@
 		text-align: center;
 	}
 
-	.lock-icon {
+	.pw-icon {
 		color: var(--text-muted);
 		margin-bottom: 1rem;
 	}

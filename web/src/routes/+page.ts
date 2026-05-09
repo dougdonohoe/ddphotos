@@ -1,7 +1,13 @@
 import { error } from '@sveltejs/kit';
+import { browser } from '$app/environment';
 import type { AlbumSummary, SiteHtmlContent, MaybeEncrypted, SiteData } from '$lib/types';
 
-export async function load({ fetch, parent }) {
+export async function load({ fetch, parent, url }) {
+	// browser guard prevents url.searchParams access during pre-rendering
+	if (browser && url.searchParams.has('boom')) {
+		error(500, 'Whoops, the lens cap was on!');
+	}
+
 	const { siteConfig } = await parent();
 
 	const albumsRes = await fetch(`/albums/${siteConfig.albumsFile}`);
