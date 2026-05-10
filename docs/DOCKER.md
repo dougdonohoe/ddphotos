@@ -46,16 +46,13 @@ a [Cloudflare account](https://dash.cloudflare.com/login); `wrangler` is bundled
 
 The site will be at https://my-unique-site.pages.dev.
 
-**Quick option — [Surge↗](https://surge.sh)** - free, one command, no server required (requires
-[Node.js](http://nodejs.org/)):
+**Quick option — [Surge↗](https://surge.sh)** - free, one command, no server required (`surge` is
+bundled — no local install needed):
 
 ```bash
-# Install
-npm install --global surge
-
-# Export and deploy (and on 1st time, create account/login)
+# Export and deploy (prompts for login on first run)
 ./ddphotos export --copy
-surge --domain my-unique-site.surge.sh export/my-photos
+./ddphotos surge --domain my-unique-site.surge.sh export/my-photos
 ```
 
 The site will be at https://my-unique-site.surge.sh.
@@ -224,7 +221,7 @@ Use `--copy` to produce real files instead of symlinks — required for services
 
 ```bash
 ddphotos export --copy
-surge --domain my-unique-site.surge.sh export/my-photos
+ddphotos surge --domain my-unique-site.surge.sh export/my-photos
 ```
 
 Use `--cloudflare` for [Cloudflare Pages↗](https://pages.cloudflare.com) — adds a `_worker.js`
@@ -232,7 +229,7 @@ for photo permalink routing (symlinks are followed, so `--copy` is not needed):
 
 ```bash
 ddphotos export --cloudflare
-wrangler pages deploy --project-name my-unique-site export/my-photos
+ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
 See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for details.

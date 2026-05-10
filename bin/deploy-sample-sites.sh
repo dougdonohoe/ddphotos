@@ -99,22 +99,7 @@ fi
 DEPLOY_DIR="$HOME/junk/ddphotos-deploy"
 mkdir -p "$DEPLOY_DIR"
 
-# Source nvm if node not on PATH
-if ! command -v node &>/dev/null; then
-    NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    [ -f "$NVM_SH" ] || { echo "Error: node not found; install Node.js or nvm" >&2; exit 1; }
-    # shellcheck source=/dev/null
-    source "$NVM_SH"
-fi
-
-# Check that required deploy tools are installed (only needed when actually uploading).
-# wrangler is bundled in the Docker image and invoked via 'ddphotos wrangler'; no local install needed.
-if $DOIT && $DO_SURGE; then
-    command -v surge &>/dev/null || {
-        echo "Error: surge not found; install with: npm install --global surge" >&2
-        exit 1
-    }
-fi
+# Both wrangler and surge are bundled in the Docker image via npx; no local install needed.
 
 step() { echo; echo "=== $* ==="; }
 
@@ -220,7 +205,7 @@ _deploy_site() {
             fi
             if $DOIT; then
                 echo "surge: deploy $surge_domain"
-                (cd "$site_dir" && surge --domain "$surge_domain" export/surge)
+                "$site_dir/ddphotos" surge --domain "$surge_domain" export/surge
             else
                 echo "surge: skipping upload (--doit not set)"
             fi

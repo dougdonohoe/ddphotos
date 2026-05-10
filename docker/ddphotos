@@ -202,7 +202,7 @@ host_to_container() {
 
 # For commands that need a config, validate albums.yaml exists before launching Docker.
 case "$cmd" in
-    init|upgrade|help|version|wrangler) ;;
+    init|upgrade|help|version|wrangler|surge) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
@@ -424,6 +424,26 @@ case "$cmd" in
         fi
         ;;
 
+    surge)
+        SURGE_ENV=()
+        for var in SURGE_LOGIN SURGE_TOKEN; do
+            [ -n "${!var}" ] && SURGE_ENV+=(-e "$var=${!var}")
+        done
+        # Surge stores credentials in ~/.netrc. Mount it read-write so surge can write credentials
+        # on first login and read them on subsequent deploys. Create the file first if it doesn't
+        # exist — Docker would otherwise create a directory at that path on bind-mount.
+        [ -f "$HOME/.netrc" ] || { touch "$HOME/.netrc"; chmod 600 "$HOME/.netrc"; }
+        add_mount "$HOME/.netrc" /root/.netrc
+        print_mounts
+        # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
+        docker run --rm "${IT_FLAGS[@]}" \
+            -w /ddphotos \
+            -v ddphotos-npm-cache:/root/.npm \
+            "${MOUNT_FLAGS[@]}" \
+            "${SURGE_ENV[@]}" \
+            "$IMAGE" surge "$@"
+        ;;
+
     upgrade)
         UPGRADE_IMAGE="$IMAGE"
         if [[ "$CURRENT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ -f "$UPGRADE_FILE" ]; then
@@ -477,6 +497,12 @@ case "$cmd" in
         echo "                        'wrangler login' exposes port 8976 and opens the auth URL in your browser"
         echo "                        Credentials cached in Docker volume 'ddphotos-wrangler-config'"
         echo "                        First run downloads wrangler; cached in Docker volume 'ddphotos-npm-cache'"
+        echo "  surge [args]        Run surge (static hosting CLI) via npx; working dir is set to --dir"
+        echo "                        Paths like export/<site-id> resolve relative to --dir"
+        echo "                        Credentials stored in ~/.netrc (mounted read-write into container)"
+        echo "                        Set SURGE_LOGIN and SURGE_TOKEN to authenticate non-interactively"
+        echo "                        Export must use --copy — Surge does not follow symlinks"
+        echo "                        First run downloads surge; cached in Docker volume 'ddphotos-npm-cache'"
         echo "  upgrade             Update this script to match the current 'ddphotos' image"
         echo "  version             Print script location, image, and config paths (no Docker required)"
         echo "                        --image  Also query the image for its version and git info"

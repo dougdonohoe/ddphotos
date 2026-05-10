@@ -108,18 +108,18 @@ for how routing works.
 [Surge↗](https://surge.sh) is a simple, free alternative for hosting static sites.
 Export must use `--copy` since symlinks aren't followed.
 
-Assuming you have `surge` installed (`npm install --global surge`), in Docker mode:
+In Docker mode (`surge` is bundled — no local install needed):
 
 ```bash
 ./ddphotos export --copy
-./surge --domain my-unique-site.surge.sh export/my-photos
+./ddphotos surge --domain my-unique-site.surge.sh export/my-photos
 ```
 
-In developer mode:
+In developer mode (requires `surge` installed locally: `npm install --global surge`):
 
 ```bash
 export.sh --site-id <site-id> --copy
-./surge --domain my-unique-site.surge.sh export/<site-id>
+surge --domain my-unique-site.surge.sh export/<site-id>
 ```
 
 The site will be at https://my-unique-site.surge.sh.

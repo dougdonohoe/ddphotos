@@ -78,7 +78,7 @@ COPY --from=node-builder /app/web/node_modules /app/web/node_modules
 # Docker scripts
 COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
      docker/do-build.sh docker/do-serve.sh docker/do-run.sh docker/do-export.sh docker/do-deploy.sh \
-     docker/do-decode.sh docker/do-search-cover.sh docker/do-wrangler.sh \
+     docker/do-decode.sh docker/do-search-cover.sh docker/do-wrangler.sh docker/do-surge.sh \
      docker/ddphotos docker/cloudflare-worker.js \
      web/setup-htdocs.sh bin/deploy-photos.sh bin/test-photos-server.sh /docker/
 RUN chmod +x /docker/*.sh

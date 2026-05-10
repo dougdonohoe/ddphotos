@@ -10,7 +10,7 @@ if [ "$#" -gt 0 ]; then shift; fi
 
 # Verify the mounted ddphotos script matches the image (only for commands that use it)
 case "$cmd" in
-    photogen|decode|search-cover|build|serve|run|export|deploy|wrangler)
+    photogen|decode|search-cover|build|serve|run|export|deploy|wrangler|surge)
         if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
             echo "WARNING:  The local 'ddphotos' script does not match the image." >&2
             echo "          Run: 'ddphotos upgrade' to fix this." >&2
@@ -30,6 +30,7 @@ case "$cmd" in
     export)       exec /docker/do-export.sh "$@" ;;
     deploy)       exec /docker/do-deploy.sh "$@" ;;
     wrangler)     exec /docker/do-wrangler.sh "$@" ;;
+    surge)        exec /docker/do-surge.sh "$@" ;;
     version)
         echo "Version:  $(cat /docker/VERSION 2>/dev/null || echo unknown)"
         echo "Git:      $(cat /docker/GIT_DESCRIBE 2>/dev/null || echo unknown)"

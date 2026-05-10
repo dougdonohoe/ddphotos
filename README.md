@@ -31,7 +31,7 @@ Then edit `config/albums.yaml` to define your own albums and repeat.
 ./ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 
 ./ddphotos export --copy
-surge --domain my-unique-site.surge.sh export/my-photos
+./ddphotos surge --domain my-unique-site.surge.sh export/my-photos
 ```
 
 See the [Docker Mode](docs/DOCKER.md) page for full details including deploying via `rsync` or to S3.
