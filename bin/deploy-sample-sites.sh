@@ -43,6 +43,7 @@
 #   --help        Show this usage message
 
 set -eo pipefail
+set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -132,6 +133,11 @@ _setup_site() {
         echo "docker: init --script-only ($site_dir exists)"
         docker run "${PULL_FLAG[@]}" --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
     fi
+    # Docker creates config/ as root; make it writable so the host user can write site.env etc.
+    #chmod a+w "$site_dir/config"
+
+    echo "site_dir $site_dir:"
+    ls -Rl $site_dir
 
     if [ "$site" = "sample" ]; then
         echo "config: copy sample/config"
