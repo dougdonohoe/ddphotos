@@ -280,7 +280,7 @@ pass "serve + Playwright + test-photos-server.sh OK"
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Wrangler w/out export"
-out=$("${DDPHOTOS_QUIET[@]}" wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
 echo "$out" | grep -q "Run 'export --cloudflare' first" || (echo "$out" && fail "deploy: expected 'Run export first' error when export dir missing")
 pass "wrangler: fails correctly when export dir missing"
 
@@ -310,7 +310,7 @@ FILE_COUNT=$(find "$EXPORT_DIR" -type f | wc -l | tr -d ' ')
 pass "export --copy OK ($FILE_COUNT files, no symlinks)"
 
 step "Wrangler w/out --cloudflare (_worker.js missing)"
-out=$("${DDPHOTOS_QUIET[@]}" wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
 echo "$out" | grep -q "not just 'export'" || (echo "$out" && fail "deploy: expected 'not just export' error when --cloudflare not used")
 pass "wrangler: fails correctly when _worker.js missing"
 
