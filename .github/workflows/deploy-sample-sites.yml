@@ -30,8 +30,8 @@ jobs:
         with:
           node-version-file: 'web/.nvmrc'
 
-      - name: Install wrangler and surge
-        run: npm install -g wrangler --ignore-scripts && npm install -g surge
+      - name: Install surge
+        run: npm install -g surge
 
       - name: Deploy sample sites
         env:

@@ -107,20 +107,13 @@ if ! command -v node &>/dev/null; then
     source "$NVM_SH"
 fi
 
-# Check that required deploy tools are installed (only needed when actually uploading)
-if $DOIT; then
-    if $DO_CLOUDFLARE; then
-        command -v wrangler &>/dev/null || {
-            echo "Error: wrangler not found; install with: npm install -g wrangler --ignore-scripts" >&2
-            exit 1
-        }
-    fi
-    if $DO_SURGE; then
-        command -v surge &>/dev/null || {
-            echo "Error: surge not found; install with: npm install --global surge" >&2
-            exit 1
-        }
-    fi
+# Check that required deploy tools are installed (only needed when actually uploading).
+# wrangler is bundled in the Docker image and invoked via 'ddphotos wrangler'; no local install needed.
+if $DOIT && $DO_SURGE; then
+    command -v surge &>/dev/null || {
+        echo "Error: surge not found; install with: npm install --global surge" >&2
+        exit 1
+    }
 fi
 
 step() { echo; echo "=== $* ==="; }
@@ -213,7 +206,7 @@ _deploy_site() {
             fi
             if $DOIT; then
                 echo "wrangler: deploy $wrangler_project"
-                (cd "$site_dir" && wrangler pages deploy --project-name "$wrangler_project" export/cloudflare)
+                "$site_dir/ddphotos" wrangler pages deploy --project-name "$wrangler_project" export/cloudflare
             else
                 echo "wrangler: skipping upload (--doit not set)"
             fi
