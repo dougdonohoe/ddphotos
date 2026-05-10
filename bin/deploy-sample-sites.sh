@@ -134,9 +134,6 @@ _setup_site() {
         docker run "${PULL_FLAG[@]}" --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
     fi
 
-    # Temp fix: cp in do-init.sh preserves rw-r--r-- on config files; remove once a new image is released.
-    chmod -R a+w "$site_dir/config"
-
     if [ "$site" = "sample" ]; then
         echo "config: copy sample/config"
         /bin/rm -rf "$site_dir/config"
@@ -181,6 +178,10 @@ _run_s3() {
         "$SCRIPT_DIR/test-photos-server.sh" --remote "$s3_url" --s3
         return
     fi
+
+    # TODO: Temp fix: Docker init creates site.env as root-owned rw-r--r--; delete so we can recreate it.
+    #       Remove once do-init.sh's chmod a+w is in a released image.
+    /bin/rm -f "$site_dir/config/site.env"
     {
         printf 'S3_BUCKET=%s\n' "$s3_bucket"
         [ -n "$s3_cf_id" ] && printf 'CLOUDFRONT_ID=%s\n' "$s3_cf_id"
