@@ -67,6 +67,9 @@ fi
 
 mkdir -p "$CONFIG" "$DDPHOTOS_ALBUMS_DIR" /ddphotos/build /ddphotos/export
 cp /docker/init/* "$CONFIG"
+# umask 0000 makes the directory world-writable, but cp preserves source file permissions (rw-r--r--);
+# make all config files world-writable so the host user can modify them.
+chmod a+w "$CONFIG"/*
 sed -i "s/__SITE_ID__/$SITE_ID/g" "$CONFIG/albums.yaml"
 
 echo "Initialized ddphotos (site-id=$SITE_ID)!"

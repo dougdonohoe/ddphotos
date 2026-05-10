@@ -133,11 +133,9 @@ _setup_site() {
         echo "docker: init --script-only ($site_dir exists)"
         docker run "${PULL_FLAG[@]}" --rm -v "$site_dir":/ddphotos "$IMAGE" init --script-only
     fi
-    # Docker creates config/ as root; make it writable so the host user can write site.env etc.
-    #chmod a+w "$site_dir/config"
 
-    echo "site_dir $site_dir:"
-    ls -Rl $site_dir
+    # Temp fix: cp in do-init.sh preserves rw-r--r-- on config files; remove once a new image is released.
+    chmod -R a+w "$site_dir/config"
 
     if [ "$site" = "sample" ]; then
         echo "config: copy sample/config"
