@@ -9,7 +9,6 @@ IMAGE="ddphotos"
 
 # Setup
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CURRENT_VERSION="${IMAGE##*:}"
 STATE_DIR="${HOME}/.config/ddphotos"
 UPGRADE_FILE="$STATE_DIR/upgrade.txt"
 mkdir -p "$STATE_DIR"
@@ -27,9 +26,13 @@ while [[ "${1:-}" == --?* ]]; do
         --site-env)        OPT_SITE_ENV="$2";     shift 2 ;;
         --non-interactive) NON_INTERACTIVE=true;  shift ;;
         --show-mounts)     SHOW_MOUNTS=true;      shift ;;
+        --dev)             IMAGE="ddphotos";      shift ;;  # use locally-built image instead of pinned release
         *) echo "Unknown option: $1" >&2; echo "Options must appear before the command. Run 'ddphotos help' for usage." >&2; exit 1 ;;
     esac
 done
+
+# Determine current version here (might change in --dev mode)
+CURRENT_VERSION="${IMAGE##*:}"
 
 # Default to help if no cmd
 cmd="${1:-help}"
@@ -475,6 +478,7 @@ case "$cmd" in
         echo "  --config-dir DIR   Config directory override (default: albums-dir/config)"
         echo "  --site-env FILE    Path to site.env for deploy (default: config-dir/site.env)"
         echo "  --show-mounts      Print Docker volume mounts before running the command"
+        echo "  --dev              Use the local 'ddphotos' image instead of the pinned release tag"
         echo ""
         echo "Commands:"
         echo "  init                Initialize config scaffold"
