@@ -32,7 +32,7 @@ while [[ $# -gt 0 ]]; do
         *)
             echo "Unknown flag: $1" >&2
             echo "" >&2
-            echo "Usage: deploy-photos.sh [OPTIONS]" >&2
+            echo "Usage: deploy-photos.sh [options]" >&2
             echo "" >&2
             echo "  --dry-run              Show what would be deployed without transferring files" >&2
             echo "  --s3                   Deploy to S3 (default: rsync; auto-set if S3_BUCKET in site.env)" >&2

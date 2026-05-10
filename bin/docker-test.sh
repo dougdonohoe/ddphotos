@@ -14,6 +14,7 @@ SITE_ID="docker-test-id"  # passed to init via --site-id, verified against album
 RUN_PORT=5173             # Vite host port; matches container default to keep port-mapping consistent
 SERVE_PORT=8090           # Apache host port (maps to container port 80; avoids conflicts with run-tests.sh)
 DO_BUILD=true
+SKIP_PLAYWRIGHT=false
 TEST_DIR=""
 TEST_DIR2=""
 TEMP_DECODE_DIR=""
@@ -25,8 +26,9 @@ SERVE_PID=""
 # --- flags ---
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-build) DO_BUILD=false; shift ;;
-        --help|-\?) echo "Usage: bin/docker-test.sh [--no-build]"; exit 0 ;;
+        --no-build)        DO_BUILD=false;        shift ;;
+        --skip-playwright) SKIP_PLAYWRIGHT=true;  shift ;;
+        --help|-\?) echo "Usage: bin/docker-test.sh [--no-build] [--skip-playwright]"; exit 0 ;;
         *) echo "Unknown flag: $1" >&2; exit 1 ;;
     esac
 done
@@ -60,6 +62,7 @@ if ! command -v node &>/dev/null; then
 fi
 
 run_playwright() {
+    $SKIP_PLAYWRIGHT && { echo "  (Playwright skipped)"; return 0; }
     local base_url="$1" passwords_file="${2:-}"
     (
         cd "$REPO_ROOT/web"
@@ -273,8 +276,13 @@ run_playwright "http://localhost:$SERVE_PORT" "$PASSWORDS_FILE"
 kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true; SERVE_PID=""
 pass "serve + Playwright + test-photos-server.sh OK"
 
-# ── 13. Export (symlink mode) ──────────────────────────────────────────────────
+# ── 13. Export  ──────────────────────────────────────────────────────────────────
 EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
+
+step "Wrangler w/out export"
+out=$("${DDPHOTOS_QUIET[@]}" wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
+echo "$out" | grep -q "Run 'export --cloudflare' first" || (echo "$out" && fail "deploy: expected 'Run export first' error when export dir missing")
+pass "wrangler: fails correctly when export dir missing"
 
 step "Export (symlinks)"
 "${DDPHOTOS[@]}" export
@@ -300,6 +308,11 @@ symlinks=$(find "$EXPORT_DIR" -type l)
 [ -z "$symlinks" ] || fail "export --copy still has symlinks: $symlinks"
 FILE_COUNT=$(find "$EXPORT_DIR" -type f | wc -l | tr -d ' ')
 pass "export --copy OK ($FILE_COUNT files, no symlinks)"
+
+step "Wrangler w/out --cloudflare (_worker.js missing)"
+out=$("${DDPHOTOS_QUIET[@]}" wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
+echo "$out" | grep -q "not just 'export'" || (echo "$out" && fail "deploy: expected 'not just export' error when --cloudflare not used")
+pass "wrangler: fails correctly when _worker.js missing"
 
 step "Export --cloudflare"
 "${DDPHOTOS[@]}" export --cloudflare

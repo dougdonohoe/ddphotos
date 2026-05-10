@@ -50,9 +50,9 @@ chmod +x /ddphotos/ddphotos
 if [ -n "$SCRIPT_ONLY" ]; then
     echo "Standalone 'ddphotos' script installed."
     echo
-    echo "Usage with a separate albums directory:"
+    echo "Use --dir to specify your DD Photos directory (the one with config|albums|build|export):"
     echo
-    echo "  ddphotos --dir ~/my-ddphotos photogen|run|build|serve|export|upgrade|version"
+    echo "  ddphotos --dir ~/my-ddphotos [command]"
     echo
     exit 0
 fi

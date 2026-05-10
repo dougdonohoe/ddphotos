@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
 # https://github.com/dougdonohoe/ddphotos
-set -e
+set -eo pipefail
 
 # IMAGE is replaced at docker build time (see Dockerfile).  In a production
 # build it will be something like dougdonohoe/ddphotos:v.1.##.0.
@@ -202,7 +202,7 @@ host_to_container() {
 
 # For commands that need a config, validate albums.yaml exists before launching Docker.
 case "$cmd" in
-    init|upgrade|help|version) ;;
+    init|upgrade|help|version|wrangler) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
             echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
@@ -251,7 +251,7 @@ case "$cmd" in
             esac
         done
         if [[ $# -ne 1 ]]; then
-            echo "Usage: ddphotos [OPTIONS] decode [--passwords <file>] <file.enc.json>" >&2
+            echo "Usage: ddphotos [options] decode [--passwords <file>] <file.enc.json>" >&2
             exit 1
         fi
 
@@ -289,7 +289,7 @@ case "$cmd" in
 
     search-cover)
         if [[ $# -ne 1 ]]; then
-            echo "Usage: ddphotos [OPTIONS] search-cover <url>" >&2
+            echo "Usage: ddphotos [options] search-cover <url>" >&2
             exit 1
         fi
         print_mounts
@@ -364,6 +364,66 @@ case "$cmd" in
             "$IMAGE" deploy "$@"
         ;;
 
+    wrangler)
+        # Pass Cloudflare credentials from the host environment into the container.
+        # CLOUDFLARE_API_TOKEN is the preferred auth method for non-interactive use;
+        # the others cover legacy global API key auth and explicit account targeting.
+        WRANGLER_ENV=()
+        for var in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_EMAIL CLOUDFLARE_API_KEY; do
+            [ -n "${!var}" ] && WRANGLER_ENV+=(-e "$var=${!var}")
+        done
+        if [[ "${1:-}" == "login" ]]; then
+            # wrangler login runs an OAuth flow:
+            #   1. wrangler starts a temporary HTTP server on port 8976 to receive the callback
+            #   2. the user visits a Cloudflare URL in their browser and approves access
+            #   3. Cloudflare redirects to localhost:8976/oauth/callback
+            #   4. wrangler exchanges the code for a token and saves it to ~/.config/.wrangler/
+            #
+            # Running inside Docker complicates steps 1 and 2:
+            #   - --callback-host 0.0.0.0 makes wrangler bind on all interfaces (not just 127.0.0.1)
+            #     so Docker's port forwarding can reach it
+            #   - -p 8976:8976 forwards localhost:8976 on the host into the container
+            #   - --browser false suppresses wrangler's own browser-open attempt (no display in container)
+            #   - we pipe docker output through the host, detect the https:// URL, and open it ourselves
+            [[ " $* " != *" --callback-host "* ]] && set -- "$@" --callback-host 0.0.0.0
+            [[ " $* " != *" --browser "* ]]       && set -- "$@" --browser false
+            print_mounts
+            # No -it: wrangler login needs no terminal input; piping requires it off.
+            # Merge stderr into stdout (2>&1) so the URL line is visible to the while loop.
+            docker run --rm \
+                -w /ddphotos \
+                -v ddphotos-npm-cache:/root/.npm \
+                -v ddphotos-wrangler-config:/root/.config/.wrangler \
+                -p 8976:8976 \
+                "${MOUNT_FLAGS[@]}" \
+                "${WRANGLER_ENV[@]}" \
+                "$IMAGE" wrangler "$@" 2>&1 | \
+            while IFS= read -r line; do
+                printf '%s\n' "$line"
+                # Auto-open the Cloudflare auth URL in the host browser (open=Mac, xdg-open=Linux)
+                if [[ "$line" =~ (https://[^[:space:]]+) ]]; then
+                    if command -v open >/dev/null 2>&1; then
+                        open "${BASH_REMATCH[1]}"
+                    elif command -v xdg-open >/dev/null 2>&1; then
+                        xdg-open "${BASH_REMATCH[1]}" 2>/dev/null &
+                    fi
+                fi
+            done
+        else
+            # All other wrangler subcommands (pages deploy, whoami, etc.) run normally.
+            # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
+            # Credentials are read from the ddphotos-wrangler-config volume (populated by login).
+            print_mounts
+            docker run --rm "${IT_FLAGS[@]}" \
+                -w /ddphotos \
+                -v ddphotos-npm-cache:/root/.npm \
+                -v ddphotos-wrangler-config:/root/.config/.wrangler \
+                "${MOUNT_FLAGS[@]}" \
+                "${WRANGLER_ENV[@]}" \
+                "$IMAGE" wrangler "$@"
+        fi
+        ;;
+
     upgrade)
         UPGRADE_IMAGE="$IMAGE"
         if [[ "$CURRENT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && [ -f "$UPGRADE_FILE" ]; then
@@ -387,7 +447,7 @@ case "$cmd" in
 
     help|*)
         [ "$cmd" != "help" ] && { echo "Unknown command: '$cmd'" >&2; echo "" >&2; }
-        echo "Usage: ddphotos [OPTIONS] {init|photogen|decode|search-cover|build|serve|run|export|deploy|upgrade} [args]"
+        echo "Usage: ddphotos [options] [command] [args]"
         echo ""
         echo "Options (before command):"
         echo "  --dir DIR          Directory to mount as /ddphotos (default: script location)"
@@ -411,6 +471,12 @@ case "$cmd" in
         echo "                        --cloudflare           Adds _worker.js for Cloudflare Pages photo permalinks"
         echo "                        --export-site-id [id]  Use export/<id>/ as destination instead of export/<site-id>/"
         echo "  deploy              Deploy build and albums to remote host"
+        echo "  wrangler [args]     Run wrangler (Cloudflare CLI) via npx; working dir is set to --dir"
+        echo "                        Paths like export/<site-id> resolve relative to --dir"
+        echo "                        Credentials: use 'wrangler login' or set CLOUDFLARE_API_TOKEN"
+        echo "                        'wrangler login' exposes port 8976 and opens the auth URL in your browser"
+        echo "                        Credentials cached in Docker volume 'ddphotos-wrangler-config'"
+        echo "                        First run downloads wrangler; cached in Docker volume 'ddphotos-npm-cache'"
         echo "  upgrade             Update this script to match the current 'ddphotos' image"
         echo "  version             Print script location, image, and config paths (no Docker required)"
         echo "                        --image  Also query the image for its version and git info"

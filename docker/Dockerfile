@@ -57,8 +57,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=node-builder /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-builder /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 
-# Use a symlink so __dirname-relative paths in npm-cli.js resolve correctly
-RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+# Use symlinks so __dirname-relative paths in npm-cli.js / npx-cli.js resolve correctly
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Apache: enable mod_rewrite, replace default site with ddphotos config
 RUN a2enmod rewrite headers && a2dissite 000-default 2>/dev/null || true \
@@ -77,7 +78,8 @@ COPY --from=node-builder /app/web/node_modules /app/web/node_modules
 # Docker scripts
 COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
      docker/do-build.sh docker/do-serve.sh docker/do-run.sh docker/do-export.sh docker/do-deploy.sh \
-     docker/do-decode.sh docker/do-search-cover.sh docker/ddphotos docker/cloudflare-worker.js \
+     docker/do-decode.sh docker/do-search-cover.sh docker/do-wrangler.sh \
+     docker/ddphotos docker/cloudflare-worker.js \
      web/setup-htdocs.sh bin/deploy-photos.sh bin/test-photos-server.sh /docker/
 RUN chmod +x /docker/*.sh
 
