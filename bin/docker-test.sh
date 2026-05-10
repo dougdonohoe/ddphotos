@@ -281,8 +281,13 @@ EXPORT_DIR="$TEST_DIR/export/$SITE_ID"
 
 step "Wrangler w/out export"
 out=$("${DDPHOTOS_QUIET[@]}" --non-interactive wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
-echo "$out" | grep -q "Run 'export --cloudflare' first" || (echo "$out" && fail "deploy: expected 'Run export first' error when export dir missing")
+echo "$out" | grep -q "Run 'export --cloudflare' first" || (echo "$out" && fail "wrangler: expected 'Run export first' error when export dir missing")
 pass "wrangler: fails correctly when export dir missing"
+
+step "Surge w/out export"
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive surge --domain foo.surge.sh export/$SITE_ID 2>&1) || true
+echo "$out" | grep -q "not found" || (echo "$out" && fail "surge: expected 'Run export first' error when export dir missing")
+pass "surge: fails correctly when export dir is missing"
 
 step "Export (symlinks)"
 "${DDPHOTOS[@]}" export
@@ -313,6 +318,21 @@ step "Wrangler w/out --cloudflare (_worker.js missing)"
 out=$("${DDPHOTOS_QUIET[@]}" --non-interactive wrangler pages deploy --project-name docker-test export/$SITE_ID 2>&1) || true
 echo "$out" | grep -q "not just 'export'" || (echo "$out" && fail "deploy: expected 'not just export' error when --cloudflare not used")
 pass "wrangler: fails correctly when _worker.js missing"
+
+step "Surge w/out --copy (export contains symlinks)"
+# export/alternate was created without --copy so index.html is still a symlink
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive surge --domain foo.surge.sh export/alternate 2>&1) || true
+echo "$out" | grep -q "contains symlinks" || (echo "$out" && fail "surge: expected 'contains symlinks' error")
+pass "surge: fails correctly when export dir contains symlinks"
+
+step "Surge subcommands bypass directory check"
+# 'list' has no '/' so do-surge.sh skips the dir check and passes through to surge
+out=$("${DDPHOTOS_QUIET[@]}" --non-interactive surge list 2>&1) || true
+if echo "$out" | grep -q "Run 'ddphotos export --copy'"; then
+    echo "$out"
+    fail "surge: 'list' subcommand should not trigger directory check"
+fi
+pass "surge: subcommands bypass directory check"
 
 step "Export --cloudflare"
 "${DDPHOTOS[@]}" export --cloudflare
