@@ -43,7 +43,6 @@
 #   --help        Show this usage message
 
 set -eo pipefail
-set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -188,7 +187,7 @@ _run_s3() {
     } > "$site_dir/config/site.env"
     if $DOIT; then
         echo "s3: deploy $s3_bucket"
-        "$site_dir/ddphotos" deploy
+        "$site_dir/ddphotos" deploy --no-server-test # server test done by --verify
     else
         echo "s3: skipping deploy to $s3_bucket (--doit not set)"
     fi
