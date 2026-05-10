@@ -1829,3 +1829,70 @@ Four GitHub Actions secrets are required, set via `gh secret set`:
 on a feature branch without merging, a temporary `push:` trigger was added targeting
 the branch. Once the push registered the workflow, `gh workflow run --ref <branch>`
 worked for subsequent manual triggers. The `push:` trigger was removed before merging.
+
+### 73. 05/10/2026 - Bundle `wrangler` and `surge` as Docker Commands
+
+Added `ddphotos wrangler` and `ddphotos surge` commands so users don't need Node.js,
+nvm, or those tools installed locally.
+
+#### Approach: npx On-Demand
+
+Bundling wrangler directly added ~200MB (it ships `workerd`, a full V8 runtime). Instead,
+tools are downloaded on first use via `npx --yes` and cached in a named Docker volume
+(`ddphotos-npm-cache`). Zero image bloat; subsequent runs are instant from cache.
+
+The Dockerfile adds an `npx` symlink alongside the existing `npm` symlink:
+```dockerfile
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+```
+
+#### New Files
+
+- `docker/do-wrangler.sh` — npx passthrough; validates `pages deploy` arguments
+  (checks deploy directory exists and contains `_worker.js` from `--cloudflare` export)
+- `docker/do-surge.sh` — npx passthrough; validates deploy directory exists and has no
+  symlinks (Surge doesn't follow symlinks); uses a path heuristic to skip the check for
+  Surge subcommands like `list` or `whoami`
+
+#### wrangler Login
+
+OAuth login redirects to `localhost:8976` but the server is inside the container.
+Three-part fix:
+1. Inject `--callback-host 0.0.0.0` so wrangler binds all interfaces
+2. Expose `-p 8976:8976` in the Docker run command
+3. Inject `--browser false`; pipe output and call `open`/`xdg-open` from the host
+   when a URL appears in the output
+
+Credentials persist in a named Docker volume (`ddphotos-wrangler-config`).
+
+Four Cloudflare env vars are forwarded into the container when set:
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (modern token auth),
+`CLOUDFLARE_EMAIL`, `CLOUDFLARE_API_KEY` (legacy global API key).
+
+#### surge Credentials
+
+Surge stores credentials in `~/.netrc`. The wrapper bind-mounts `~/.netrc` read-write
+(creating an empty 600-mode file first if it doesn't exist, to prevent Docker from
+creating a directory at that path). `SURGE_LOGIN`/`SURGE_TOKEN` env vars are forwarded
+for non-interactive CI use.
+
+#### Flag-Value Skipping
+
+Both `do-wrangler.sh` and `do-surge.sh` use a `skip_next` pattern when scanning
+positional arguments so that flag values like `--project-name ddphotos-init` are not
+mistaken for directory paths.
+
+#### CI and deploy-sample-sites.sh
+
+`bin/deploy-sample-sites.sh` updated to call `"$site_dir/ddphotos" wrangler pages deploy ...`
+and `"$site_dir/ddphotos" surge ...` instead of bare `wrangler`/`surge` commands.
+`.github/workflows/deploy-sample-sites.yml` drops the "Setup Node" and "Install wrangler
+and surge" steps entirely — both tools now run through Docker.
+
+#### Documentation
+
+- `README.md` — quick-start commands updated to `./ddphotos wrangler` / `./ddphotos surge`
+- `docs/DOCKER.md` — Cloudflare and Surge sections updated; bundled note added; removed
+  local install requirement for Docker mode
+- `docs/DEPLOY.md` — Docker mode vs developer mode split for both Cloudflare Pages and
+  Surge sections; developer mode still requires local npm install

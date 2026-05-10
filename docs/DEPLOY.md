@@ -86,22 +86,22 @@ not needed).
 In Docker mode (`wrangler` is bundled — no local install needed):
 
 ```bash
-./ddphotos wrangler login   # one-time; credentials cached in Docker volume
 ./ddphotos export --cloudflare
+./ddphotos wrangler login   # one-time; credentials cached in Docker volume
 ./ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
 In developer mode (requires `wrangler` installed locally: `npm install -g wrangler --ignore-scripts`):
 
 ```bash
-wrangler login
 export.sh --site-id <site-id> --cloudflare
+wrangler login
 wrangler pages deploy --project-name my-unique-site export/<site-id>
 ```
 
 The first deploy creates the project automatically and assigns a URL of
 https://my-unique-site.pages.dev. See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker)
-for how routing works.
+for how page routing works.
 
 ### Surge
 
@@ -112,7 +112,8 @@ In Docker mode (`surge` is bundled — no local install needed):
 
 ```bash
 ./ddphotos export --copy
-./ddphotos surge --domain my-unique-site.surge.sh export/my-photos
+# prompts for login on first run; credentials cached in ~/.netrc
+./ddphotos surge --domain my-unique-site.surge.sh export/my-photos  
 ```
 
 In developer mode (requires `surge` installed locally: `npm install --global surge`):
@@ -124,7 +125,7 @@ surge --domain my-unique-site.surge.sh export/<site-id>
 
 The site will be at https://my-unique-site.surge.sh.
 
-See [Surge](DEPLOYMENT-SERVERS.md#surge) for routing behavior and known limitations.
+See [Surge](DEPLOYMENT-SERVERS.md#surge) for page routing behavior and known limitations.
 
 ## Apache + rsync
 
