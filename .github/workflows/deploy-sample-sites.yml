@@ -3,10 +3,13 @@ name: Deploy Sample Sites
 # Triggered manually or automatically after a successful Docker Release.
 #
 # Required GitHub Actions secrets:
-#   CLOUDFLARE_API_TOKEN — Cloudflare API token with Cloudflare Pages: Edit permission
+#   CLOUDFLARE_API_TOKEN  — Cloudflare API token with Cloudflare Pages: Edit permission
 #   CLOUDFLARE_ACCOUNT_ID — Cloudflare account ID
-#   SURGE_LOGIN — Surge account email
-#   SURGE_TOKEN — Surge token (run 'surge token' locally to obtain)
+#   SURGE_LOGIN           — Surge account email
+#   SURGE_TOKEN           — Surge token (run 'surge token' locally to obtain)
+#   DDPHOTOS_DEPLOY_ROLE_ARN     — IAM role ARN for OIDC deploy (from Terraform output)
+#   DDPHOTOS_CF_ID               — CloudFront distribution ID for ddphotos.donohoe.info
+#   DDPHOTOS_TEST_CF_ID          — CloudFront distribution ID for ddphotos-test.donohoe.info
 on:
   workflow_dispatch:
   workflow_run:
@@ -15,6 +18,10 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+  id-token: write   # required for OIDC AWS authentication
 
 jobs:
   deploy:
@@ -25,12 +32,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DDPHOTOS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
       - name: Deploy sample sites
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SURGE_LOGIN: ${{ secrets.SURGE_LOGIN }}
           SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+          DDPHOTOS_CF_ID: ${{ secrets.DDPHOTOS_CF_ID }}
+          DDPHOTOS_TEST_CF_ID: ${{ secrets.DDPHOTOS_TEST_CF_ID }}
         run: bin/deploy-sample-sites.sh --doit
 
       - name: Verify sample sites

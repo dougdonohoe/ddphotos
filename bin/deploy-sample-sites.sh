@@ -6,29 +6,37 @@
 #   - sample: the sample site in this repo (sample/)
 #
 # Usage:
-#   bin/deploy-sample-sites.sh [--init] [--sample] [--surge] [--cloudflare] [--dev] [--doit]
+#   bin/deploy-sample-sites.sh [--init] [--sample] [--surge] [--cloudflare] [--s3] [--dev] [--doit]
 #
 # Sites:
 #   Surge:
-#     Init:     https://ddphotos-init.surge.sh (old, now redirects https://ddphotos-test-docker.surge.sh/)
+#     Init:     https://ddphotos-init.surge.sh   (old, now redirects https://ddphotos-test-docker.surge.sh/)
 #     Sample:   https://ddphotos-sample.surge.sh (old, now redirects https://ddphotos-test-sample.surge.sh/)
 #   Cloudflare:
 #     Init:     https://ddphotos-init.pages.dev
 #     Sample:   https://ddphotos-sample.pages.dev
 #     Sample 2: https://my-unique-site.pages.dev/
+#   S3/CloudFront:
+#     Init:     https://ddphotos-test.donohoe.info  (bucket: ddphotos-test-donohoe-info)
+#     Sample:   https://ddphotos.donohoe.info       (bucket: ddphotos-donohoe-info)
 #
 # With no site flags, both sites are deployed.
-# With no provider flags, both providers are used.
+# With no provider flags, all providers are used.
 # Flags combine: --cloudflare --sample deploys only sample to Cloudflare.
-# Without --doit, everything runs except the final surge/wrangler upload.
+# Without --doit, everything runs except the final surge/wrangler/S3 upload.
+#
+# S3 credentials: set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_SESSION_TOKEN in the
+# environment, or configure ~/.aws. CloudFront invalidation requires DDPHOTOS_CF_ID
+# (sample site) and DDPHOTOS_TEST_CF_ID (init site) to be set.
 #
 # Options:
 #   --init        Deploy init site only
 #   --sample      Deploy sample site only
 #   --surge       Deploy to surge.sh only
 #   --cloudflare  Deploy to Cloudflare Pages only
+#   --s3          Deploy to S3/CloudFront only
 #   --dev         Use local 'ddphotos' image (default: dougdonohoe/ddphotos:latest)
-#   --doit        Actually upload to surge/wrangler (default: dry-run, skips upload)
+#   --doit        Actually upload to surge/wrangler/S3 (default: dry-run, skips upload)
 #   --no-photogen Skip the photogen step
 #   --no-build    Skip the build step
 #   --verify      Instead of deploying, verify each site via test-photos-server.sh
@@ -49,6 +57,7 @@ INIT_EXPLICIT=false
 SAMPLE_EXPLICIT=false
 SURGE_EXPLICIT=false
 CLOUDFLARE_EXPLICIT=false
+S3_EXPLICIT=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -56,20 +65,22 @@ while [[ $# -gt 0 ]]; do
         --sample)      SAMPLE_EXPLICIT=true;           shift ;;
         --surge)       SURGE_EXPLICIT=true;            shift ;;
         --cloudflare)  CLOUDFLARE_EXPLICIT=true;       shift ;;
+        --s3)          S3_EXPLICIT=true;               shift ;;
         --dev)         IMAGE="ddphotos"; PULL_FLAG=(); shift ;;
         --doit)        DOIT=true;                      shift ;;
         --no-photogen) DO_PHOTOGEN=false;              shift ;;
         --no-build)    DO_BUILD=false;                 shift ;;
         --verify)      VERIFY=true;                    shift ;;
         --help|-h)
-            echo "Usage: bin/deploy-sample-sites.sh [--init] [--sample] [--surge] [--cloudflare] [--dev] [--doit]"
+            echo "Usage: bin/deploy-sample-sites.sh [--init] [--sample] [--surge] [--cloudflare] [--s3] [--dev] [--doit]"
             echo ""
             echo "  --init        Deploy init site only (default: both sites)"
             echo "  --sample      Deploy sample site only (default: both sites)"
             echo "  --surge       Deploy to surge.sh only (default: both providers)"
             echo "  --cloudflare  Deploy to Cloudflare Pages only (default: both providers)"
+            echo "  --s3          Deploy to S3/CloudFront only (default: both providers)"
             echo "  --dev         Use local 'ddphotos' image (default: dougdonohoe/ddphotos:latest)"
-            echo "  --doit        Actually upload to surge/wrangler (default: dry-run, skips upload)"
+            echo "  --doit        Actually upload to surge/wrangler/S3 (default: dry-run, skips upload)"
             echo "  --no-photogen Skip the photogen step"
             echo "  --no-build    Skip the build step"
             echo "  --verify      Instead of deploying, verify each site via test-photos-server.sh"
@@ -88,12 +99,14 @@ else
     DO_SAMPLE=true
 fi
 
-if $SURGE_EXPLICIT || $CLOUDFLARE_EXPLICIT; then
+if $SURGE_EXPLICIT || $CLOUDFLARE_EXPLICIT || $S3_EXPLICIT; then
     DO_SURGE=$SURGE_EXPLICIT
     DO_CLOUDFLARE=$CLOUDFLARE_EXPLICIT
+    DO_S3=$S3_EXPLICIT
 else
     DO_SURGE=true
     DO_CLOUDFLARE=true
+    DO_S3=true
 fi
 
 DEPLOY_DIR="$HOME/junk/ddphotos-deploy"
@@ -103,42 +116,12 @@ mkdir -p "$DEPLOY_DIR"
 
 step() { echo; echo "=== $* ==="; }
 
-# ---------------------------------------------------------------------------
-# Build and deploy one site to one or more targets.
-# Usage: _deploy_site <site> "<wrangler-project>:<surge-domain>" [...]
-#
-# Each target is a colon-separated pair; surge-domain may be empty to skip surge.
-# photogen and build run once, then all targets are deployed.
-# ---------------------------------------------------------------------------
-_deploy_site() {
-    local site="$1"
-    local site_url="$2"
-    shift 2
+# Docker init, config copy, photogen, build — runs once per site before any provider deploy.
+# Usage: _setup_site <site> <site_url>
+#   site_url: passed to photogen -site-url (empty to use config default)
+_setup_site() {
+    local site="$1" site_url="$2"
     local site_dir="$DEPLOY_DIR/$site"
-
-    step "Site: $site"
-
-    if $VERIFY; then
-        for target in "$@"; do
-            local wrangler_project="${target%%:*}"
-            local surge_domain="${target#*:}"
-
-            if $DO_CLOUDFLARE; then
-                local url="https://${wrangler_project}.pages.dev"
-                echo
-                echo "=== Validating $site @ cloudflare: $url ==="
-                "$SCRIPT_DIR/test-photos-server.sh" --remote "$url" --cloudflare
-            fi
-
-            if $DO_SURGE && [ -n "$surge_domain" ]; then
-                local url="https://${surge_domain}"
-                echo
-                echo "=== Validating $site @ surge: $url ==="
-                "$SCRIPT_DIR/test-photos-server.sh" --remote "$url" --surge
-            fi
-        done
-        return
-    fi
 
     mkdir -p "$site_dir"
 
@@ -157,6 +140,13 @@ _deploy_site() {
         # Fix relative base path to absolute so Docker can mount the sample source directory
         sed -i.bak "s|sample: sample/source|sample: $REPO_ROOT/sample/source|" "$site_dir/config/albums.yaml"
         /bin/rm "$site_dir/config/albums.yaml.bak"
+    else
+        # Replace the default placeholder domain written by 'ddphotos init' with the real site URL
+        if [ -n "$site_url" ]; then
+            local domain="${site_url#https://}"
+            sed -i.bak "s/your-ddphotos\.example\.com/$domain/" "$site_dir/config/albums.yaml"
+            /bin/rm "$site_dir/config/albums.yaml.bak"
+        fi
     fi
 
     if $DO_PHOTOGEN; then
@@ -174,59 +164,98 @@ _deploy_site() {
     else
         echo "build: skipping (--no-build set)"
     fi
+}
 
-    # Export once per provider, then deploy to each target
-    local cf_exported=false
-    local surge_exported=false
+# Deploy or verify: S3/CloudFront
+# Usage: _run_s3 <site> <s3_bucket> <s3_cf_id> <s3_url>
+#   s3_cf_id: CloudFront distribution ID (empty skips invalidation)
+_run_s3() {
+    local site="$1" s3_bucket="$2" s3_cf_id="$3" s3_url="$4"
+    local site_dir="$DEPLOY_DIR/$site"
+    if $VERIFY; then
+        echo; echo "=== Validating $site @ s3: $s3_url ==="
+        "$SCRIPT_DIR/test-photos-server.sh" --remote "$s3_url" --s3
+        return
+    fi
+    {
+        printf 'S3_BUCKET=%s\n' "$s3_bucket"
+        [ -n "$s3_cf_id" ] && printf 'CLOUDFRONT_ID=%s\n' "$s3_cf_id"
+    } > "$site_dir/config/site.env"
+    if $DOIT; then
+        echo "s3: deploy $s3_bucket"
+        "$site_dir/ddphotos" deploy
+    else
+        echo "s3: skipping deploy to $s3_bucket (--doit not set)"
+    fi
+}
 
-    for target in "$@"; do
-        local wrangler_project="${target%%:*}"
-        local surge_domain="${target#*:}"
-
-        if $DO_CLOUDFLARE; then
-            if ! $cf_exported; then
-                echo "export: cloudflare"
-                "$site_dir/ddphotos" --show-mounts export --cloudflare --export-site-id cloudflare
-                cf_exported=true
-            fi
-            if $DOIT; then
-                echo "wrangler: deploy $wrangler_project"
-                "$site_dir/ddphotos" --non-interactive wrangler pages deploy --project-name "$wrangler_project" export/cloudflare
-            else
-                echo "wrangler: skipping upload (--doit not set)"
-            fi
+# Deploy or verify: Cloudflare Pages
+# Usage: _run_cloudflare <site> <wrangler_project> [<wrangler_project2> ...]
+_run_cloudflare() {
+    local site="$1"; shift
+    local site_dir="$DEPLOY_DIR/$site"
+    if $VERIFY; then
+        for project in "$@"; do
+            echo; echo "=== Validating $site @ cloudflare: https://${project}.pages.dev ==="
+            "$SCRIPT_DIR/test-photos-server.sh" --remote "https://${project}.pages.dev" --cloudflare
+        done
+        return
+    fi
+    local exported=false
+    for project in "$@"; do
+        if ! $exported; then
+            echo "export: cloudflare"
+            "$site_dir/ddphotos" --show-mounts export --cloudflare --export-site-id cloudflare
+            exported=true
         fi
-
-        if $DO_SURGE && [ -n "$surge_domain" ]; then
-            if ! $surge_exported; then
-                echo "export: surge"
-                "$site_dir/ddphotos" --show-mounts export --copy --export-site-id surge
-                surge_exported=true
-            fi
-            if $DOIT; then
-                echo "surge: deploy $surge_domain"
-                "$site_dir/ddphotos" --non-interactive surge --domain "$surge_domain" export/surge
-            else
-                echo "surge: skipping upload (--doit not set)"
-            fi
+        if $DOIT; then
+            echo "wrangler: deploy $project"
+            "$site_dir/ddphotos" --non-interactive wrangler pages deploy --project-name "$project" export/cloudflare
+        else
+            echo "wrangler: skipping upload to $project (--doit not set)"
         fi
     done
+}
+
+# Deploy or verify: Surge
+# Usage: _run_surge <site> <surge_domain>
+_run_surge() {
+    local site="$1" surge_domain="$2"
+    local site_dir="$DEPLOY_DIR/$site"
+    if $VERIFY; then
+        echo; echo "=== Validating $site @ surge: https://${surge_domain} ==="
+        "$SCRIPT_DIR/test-photos-server.sh" --remote "https://${surge_domain}" --surge
+        return
+    fi
+    echo "export: surge"
+    "$site_dir/ddphotos" --show-mounts export --copy --export-site-id surge
+    if $DOIT; then
+        echo "surge: deploy $surge_domain"
+        "$site_dir/ddphotos" --non-interactive surge --domain "$surge_domain" export/surge
+    else
+        echo "surge: skipping upload to $surge_domain (--doit not set)"
+    fi
 }
 
 ##
 ## Deploy
 ##
 
-INIT_TARGETS=(
-    "ddphotos-init:ddphotos-init.surge.sh"
-)
-SAMPLE_TARGETS=(
-    "ddphotos-sample:ddphotos-sample.surge.sh"
-    "my-unique-site:"
-)
+if $DO_INIT; then
+    step "Site: init"
+    $VERIFY || _setup_site "init" "https://ddphotos-test.donohoe.info"
+    $DO_S3         && _run_s3         "init" "ddphotos-test-donohoe-info" "${DDPHOTOS_TEST_CF_ID:-}" "https://ddphotos-test.donohoe.info"
+    $DO_CLOUDFLARE && _run_cloudflare "init" "ddphotos-init"
+    $DO_SURGE      && _run_surge      "init" "ddphotos-init.surge.sh"
+fi
 
-if $DO_INIT;   then _deploy_site "init"   "https://ddphotos-test.donohoe.info" "${INIT_TARGETS[@]}";   fi
-if $DO_SAMPLE; then _deploy_site "sample" ""                                   "${SAMPLE_TARGETS[@]}"; fi
+if $DO_SAMPLE; then
+    step "Site: sample"
+    $VERIFY || _setup_site "sample" ""
+    $DO_S3         && _run_s3         "sample" "ddphotos-donohoe-info" "${DDPHOTOS_CF_ID:-}" "https://ddphotos.donohoe.info"
+    $DO_CLOUDFLARE && _run_cloudflare "sample" "ddphotos-sample" "my-unique-site"
+    $DO_SURGE      && _run_surge      "sample" "ddphotos-sample.surge.sh"
+fi
 
 echo
 echo "Done."
