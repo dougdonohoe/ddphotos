@@ -83,18 +83,20 @@ unlimited bandwidth. Photo permalink routing requires a `_worker.js` — use `--
 instead of `--copy` to generate it automatically (symlinks are followed, so `--copy` is
 not needed).
 
-Assuming you have `wrangler` installed (`npm install -g wrangler --ignore-scripts`), in Docker mode:
+In Docker mode (`wrangler` is bundled — no local install needed):
 
 ```bash
+./ddphotos wrangler login   # one-time; credentials cached in Docker volume
 ./ddphotos export --cloudflare
-wrangler pages deploy --project-name my-unique-site export/my-photos
+./ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
-In developer mode:
+In developer mode (requires `wrangler` installed locally: `npm install -g wrangler --ignore-scripts`):
 
 ```bash
+wrangler login
 export.sh --site-id <site-id> --cloudflare
-wrangler pages deploy --project-name my-unique-site export/<site-id> 
+wrangler pages deploy --project-name my-unique-site export/<site-id>
 ```
 
 The first deploy creates the project automatically and assigns a URL of

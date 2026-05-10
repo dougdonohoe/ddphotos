@@ -28,7 +28,7 @@ Then edit `config/albums.yaml` to define your own albums and repeat.
 
 ```bash
 ./ddphotos export --cloudflare
-wrangler pages deploy --project-name my-unique-site export/my-photos
+./ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 
 ./ddphotos export --copy
 surge --domain my-unique-site.surge.sh export/my-photos

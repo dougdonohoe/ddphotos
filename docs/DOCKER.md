@@ -33,16 +33,15 @@ cd ~/my-ddphotos
 ### 4. Deploy
 
 **Quick option — [Cloudflare Pages↗](https://pages.cloudflare.com)** - free, unlimited bandwidth (requires
-[Node.js](http://nodejs.org/) and a [Cloudflare account](https://dash.cloudflare.com/login)):
+a [Cloudflare account](https://dash.cloudflare.com/login); `wrangler` is bundled — no local install needed):
 
 ```bash
-# Install and login
-npm install -g wrangler --ignore-scripts
-wrangler login
+# One-time login (opens browser; credentials cached for future deploys)
+./ddphotos wrangler login
 
 # Export and deploy
 ./ddphotos export --cloudflare
-wrangler pages deploy --project-name my-unique-site export/my-photos
+./ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
 The site will be at https://my-unique-site.pages.dev.
