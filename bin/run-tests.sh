@@ -95,16 +95,16 @@ fi
 #             --css <file> -> site-id "sample-css"
 #             (no flags) -> site-id "sample"
 SITE_ID="sample"
-PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -doit"
+PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -doit)
 if [ -n "$PASSWORDS_FILE" ]; then
     BASENAME=$(basename "$PASSWORDS_FILE" .yaml)  # e.g. "passwords-all"
     VARIANT="${BASENAME#passwords-}"               # e.g. "all"
     SITE_ID="sample-pw-${VARIANT}"
-    PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -passwords $PASSWORDS_FILE -site-id $SITE_ID -doit"
+    PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -passwords "$PASSWORDS_FILE" -site-id "$SITE_ID" -doit)
 fi
 if [ -n "$CSS_FILE" ]; then
     SITE_ID="sample-css"
-    PHOTOGEN_FLAGS="-config-dir sample/config -resize -index -clean -css $CSS_FILE -site-id $SITE_ID -doit"
+    PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -css "$CSS_FILE" -site-id "$SITE_ID" -doit)
 fi
 
 ALBUMS_DIR="$(pwd)/albums"
@@ -133,8 +133,7 @@ if $CI_MODE && [ -d "$ALBUMS_DIR/$SITE_ID" ]; then
 else
     echo ""
     echo "=== Generating sample data (site-id: $SITE_ID) ==="
-    # shellcheck disable=SC2086
-    go run cmd/photogen/photogen.go $PHOTOGEN_FLAGS
+    go run cmd/photogen/photogen.go "${PHOTOGEN_FLAGS[@]}"
 fi
 
 # --- helper: run Playwright against a base URL ---

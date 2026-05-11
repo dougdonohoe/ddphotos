@@ -106,11 +106,10 @@ DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
 if [ "$SKIP_PHOTOGEN" = true ]; then
     echo "Skipping photogen (--no-photogen)"
 else
-    PHOTOGEN_ARGS="-resize -index -clean -doit"
-    [ -n "$CONFIG_DIR" ]       && PHOTOGEN_ARGS="--config-dir $CONFIG_DIR $PHOTOGEN_ARGS"
-    [ -n "$DDPHOTOS_SITE_ID" ] && PHOTOGEN_ARGS="-site-id $DDPHOTOS_SITE_ID $PHOTOGEN_ARGS"
-    # shellcheck disable=SC2086
-    go run ./cmd/photogen $PHOTOGEN_ARGS
+    PHOTOGEN_ARGS=(-resize -index -clean -doit)
+    [ -n "$CONFIG_DIR" ]       && PHOTOGEN_ARGS=(--config-dir "$CONFIG_DIR" "${PHOTOGEN_ARGS[@]}")
+    [ -n "$DDPHOTOS_SITE_ID" ] && PHOTOGEN_ARGS=(-site-id "$DDPHOTOS_SITE_ID" "${PHOTOGEN_ARGS[@]}")
+    go run ./cmd/photogen "${PHOTOGEN_ARGS[@]}"
 fi
 
 # Read site URL from config.json (written by photogen)
@@ -244,16 +243,15 @@ if [ "$SKIP_RSYNC" = true ]; then
 elif [ "$S3_MODE" = true ]; then
     [ "$DRY_RUN" = true ] && echo "=== DRY RUN: aws s3 sync will not transfer any files ==="
 
-    S3_SYNC_OPTS="--delete"
-    [ "$DRY_RUN" = true ] && S3_SYNC_OPTS="$S3_SYNC_OPTS --dryrun"
+    S3_SYNC_OPTS=(--delete)
+    [ "$DRY_RUN" = true ] && S3_SYNC_OPTS+=(--dryrun)
 
     # Deploy app files + pre-rendered album HTML/JSON.
     # Pass 1: sync web build, protecting albums/ image/JSON data (managed by Pass 2 below).
     # --exclude "albums/*" prevents uploading or deleting album images/JSON from S3.
     # --include "albums/*.html" re-includes pre-rendered SvelteKit album pages (last rule wins).
-    # shellcheck disable=SC2086
     aws s3 sync "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/" \
-        $S3_SYNC_OPTS --exclude "albums/*" --include "albums/*.html"
+        "${S3_SYNC_OPTS[@]}" --exclude "albums/*" --include "albums/*.html"
 
     # Deploy album data — two passes to set different Cache-Control headers.
     #
@@ -263,27 +261,25 @@ elif [ "$S3_MODE" = true ]; then
     #   default size+timestamp comparison reliably detects changes. --size-only would
     #   silently skip re-encrypted JSON files since AES-GCM output size is key-independent.
     # --exclude=*.html: don't delete pre-rendered .html pages synced above.
-    # shellcheck disable=SC2086
     aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
-        $S3_SYNC_OPTS --exclude "*.html" --exclude "*.webp" \
+        "${S3_SYNC_OPTS[@]}" --exclude "*.html" --exclude "*.webp" \
         --cache-control "no-cache"
 
     # Pass 2b: WebP photos — immutable; photogen gives them a deterministic UUID name
     #   derived from HMAC(key, filename), so key rotation renames all files.
     #   photogen skips existing WebP files (preserving timestamp), so unchanged files are
     #   never re-uploaded. Regenerated files (after manual delete) get a new timestamp.
-    # shellcheck disable=SC2086
     aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
-        $S3_SYNC_OPTS \
+        "${S3_SYNC_OPTS[@]}" \
         --exclude "*" --include "*.webp" \
         --cache-control "max-age=31536000,immutable"
 
     _post_deploy s3
 else
-    RSYNC_OPTS="-avz --checksum --delete"
-    RSYNC_OPTS_ALBUMS="-avz --delete"
-    [ "$DRY_RUN" = true ] && RSYNC_OPTS="$RSYNC_OPTS --dry-run"
-    [ "$DRY_RUN" = true ] && RSYNC_OPTS_ALBUMS="$RSYNC_OPTS_ALBUMS --dry-run"
+    RSYNC_OPTS=(-avz --checksum --delete)
+    RSYNC_OPTS_ALBUMS=(-avz --delete)
+    [ "$DRY_RUN" = true ] && RSYNC_OPTS+=(--dry-run)
+    [ "$DRY_RUN" = true ] && RSYNC_OPTS_ALBUMS+=(--dry-run)
 
     [ "$DRY_RUN" = true ] && echo "=== DRY RUN: rsync will not transfer any files ==="
 
@@ -293,8 +289,7 @@ else
     # --filter='protect albums/**': prevent --delete from touching albums/ content (hero.jpg,
     #   sitemap.xml, images, JSON) — those files are managed by the second rsync pass below.
     #   Note: 'protect' only suppresses deletion; it still transfers new files from the source.
-    # shellcheck disable=SC2086
-    rsync $RSYNC_OPTS \
+    rsync "${RSYNC_OPTS[@]}" \
         --filter='protect albums/**' \
         "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "$RSYNC_HOST":"$RSYNC_DEST"
 
@@ -302,9 +297,8 @@ else
     # No --checksum: photogen preserves timestamps on existing files, so size+time is a
     #   reliable change signal and content comparison is unnecessary overhead.
     # --exclude=*.html: don't delete pre-rendered .html pages synced above
-    # shellcheck disable=SC2086
-    rsync $RSYNC_OPTS_ALBUMS \
-        --exclude=*.html \
+    rsync "${RSYNC_OPTS_ALBUMS[@]}" \
+        "--exclude=*.html" \
         "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" \
         "$RSYNC_HOST":"${RSYNC_DEST}albums/"
 
