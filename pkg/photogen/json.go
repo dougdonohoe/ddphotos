@@ -360,7 +360,7 @@ func (c *Config) WriteBuildMeta(configDir string) error {
 		fmt.Printf("DRYRUN: would write %s\n", outputPath)
 		return nil
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, dirPerms); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
 	}
 	return writeJSON(outputPath, SiteBuildMeta{ConfigDir: absConfigDir})
