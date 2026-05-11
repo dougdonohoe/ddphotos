@@ -309,6 +309,31 @@ func TestWriteConfigJSON(t *testing.T) {
 	})
 }
 
+func TestWriteBuildMeta(t *testing.T) {
+	t.Parallel()
+
+	t.Run("writes configDir as absolute path", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		configDir := t.TempDir()
+		require.NoError(t, makeSiteCfg(dir, nil).WriteBuildMeta(configDir))
+
+		data, err := os.ReadFile(filepath.Join(dir, ".build", "testsite.json"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"configDir"`)
+		assert.Contains(t, string(data), configDir)
+	})
+
+	t.Run("dryrun skips write", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		cfg := makeSiteCfg(dir, nil)
+		cfg.DryRun = true
+		require.NoError(t, cfg.WriteBuildMeta(dir))
+		assert.NoFileExists(t, filepath.Join(dir, ".build", "testsite.json"))
+	})
+}
+
 func TestWriteHTMLFile(t *testing.T) {
 	t.Parallel()
 

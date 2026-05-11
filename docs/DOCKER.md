@@ -183,11 +183,15 @@ ddphotos run
 
 ### `build`
 
-Builds the static site output into `build/`.
+Builds the static site output into `build/<site-id>`.
 
 ```bash
 ddphotos build
 ```
+
+If your `config` directory has a
+`static` sub-directory, any files in there are copied to the root
+of the build.  This is useful for files like `humans.txt` or `llms.txt`.
 
 ### `serve`
 

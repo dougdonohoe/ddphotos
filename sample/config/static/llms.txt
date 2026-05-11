@@ -1,0 +1,21 @@
+# DD Photos
+
+> Beautiful and fast self-hosted photo galleries. No subscriptions, no lock-in, deploys in minutes.
+
+DD Photos is a free, open-source tool for building self-hosted static photo galleries.
+Your photos stay on your own storage. No database required. Deploy with a single Docker command
+to Cloudflare Pages, Surge, or any static host.
+
+## Links
+
+- Homepage and Demo: https://ddphotos.donohoe.info
+- GitHub: https://github.com/dougdonohoe/ddphotos
+
+## Key facts
+
+- License: open source (AGPL v3)
+- Pricing: free
+- Stack: Go + `libvips` (image processing/indexing), SvelteKit (gallery UI), Docker
+- Deployment targets: Cloudflare Pages (via Wrangler), Surge, S3, rsync/Apache, any static host
+- Input: local photo directories + albums.yaml config
+- Output: fully static site, no server runtime or database required

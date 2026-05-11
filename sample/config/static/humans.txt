@@ -1,0 +1,19 @@
+/* TEAM */
+
+Developer, Designer: Doug Donohoe
+GitHub: github.com/dougdonohoe
+Site: donohoe.info
+Location: Pittsburgh, PA, USA
+
+Photography: Doug and Cindy Donohoe
+Location: Pittsburgh, PA, USA
+
+/* THANKS */
+
+Built with Go, SvelteKit, libvips, and Docker.
+Travel photos taken across 25 years of adventures together.
+
+/* SITE */
+
+Language: English
+Standards: HTML5, CSS3

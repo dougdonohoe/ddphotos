@@ -12,10 +12,10 @@ All are described below.
 
 It is important to understand that the web root is assembled from two independent sources:
 
-| Source              | Contents                                                                         | Maps to             |
-|---------------------|----------------------------------------------------------------------------------|---------------------|
-| `build/<site-id>/`  | SvelteKit output: HTML shell, JS/CSS bundles, pre-rendered `albums/*.html` pages | web root `/`        |
-| `albums/<site-id>/` | photogen output: WebP images, JSON indexes, hero images, `sitemap.xml`           | web root `/albums/` |
+| Source              | Contents                                                                                                                               | Maps to             |
+|---------------------|----------------------------------------------------------------------------------------------------------------------------------------|---------------------|
+| `build/<site-id>/`  | SvelteKit output: HTML shell, JS/CSS bundles, pre-rendered `albums/*.html` pages; static root files from `config/static/` (if present) | web root `/`        |
+| `albums/<site-id>/` | photogen output: WebP images, JSON indexes, hero images, `sitemap.xml`                                                                 | web root `/albums/` |
 
 ![Web root assembly](deploy-tree.png)
 

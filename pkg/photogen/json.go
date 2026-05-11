@@ -341,6 +341,31 @@ func (c *Config) WriteConfigJSON() error {
 	return nil
 }
 
+// SiteBuildMeta is the structure for albums/.build/<site-id>.json.
+// Written by photogen; read by the Vite build plugin. Never synced to the server.
+type SiteBuildMeta struct {
+	ConfigDir string `json:"configDir"`
+}
+
+// WriteBuildMeta writes albums/.build/<site-id>.json with the absolute config directory path.
+// The Vite build plugin reads this to locate static root files (configDir/static/).
+func (c *Config) WriteBuildMeta(configDir string) error {
+	absConfigDir, err := filepath.Abs(configDir)
+	if err != nil {
+		return fmt.Errorf("resolve config dir: %w", err)
+	}
+	dir := filepath.Join(c.OutputRoot, ".build")
+	outputPath := filepath.Join(dir, c.SiteID+".json")
+	if c.DryRun {
+		fmt.Printf("DRYRUN: would write %s\n", outputPath)
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("create %s: %w", dir, err)
+	}
+	return writeJSON(outputPath, SiteBuildMeta{ConfigDir: absConfigDir})
+}
+
 // WriteHTMLFile writes html.json (or html.enc.json if the site is encrypted) into the site output dir.
 // No-op if all three HTML fields are empty.
 func (c *Config) WriteHTMLFile() error {

@@ -106,6 +106,10 @@ docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init --site-id "$SITE_ID"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 pass "ddphotos script and config created at $TEST_DIR"
 
+# Create static/llms.txt to verify build copies static files (below)
+mkdir "$TEST_DIR/config/static"
+touch "$TEST_DIR/config/static/llms.txt"
+
 VALIDATE_SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$TEST_DIR/config/albums.yaml")
 [ "$VALIDATE_SITE_ID" = "$SITE_ID" ] || fail "SITE_ID mismatch: expected '$SITE_ID', got '$VALIDATE_SITE_ID' in config/albums.yaml"
 pass "site ID '$SITE_ID' written correctly to config/albums.yaml"
@@ -277,6 +281,10 @@ step "Build"
 "${DDPHOTOS[@]}" build
 [ -d "$TEST_DIR/build/$SITE_ID" ] || fail "build/$SITE_ID not created"
 pass "build/$SITE_ID created"
+[ -f "$TEST_DIR/build/$SITE_ID/index.html" ] || fail "build/$SITE_ID/index.html not created"
+pass "build/$SITE_ID/index.html created"
+[ -f "$TEST_DIR/build/$SITE_ID/llms.txt" ] || fail "build/$SITE_ID/llms.txt not created"
+pass "build/$SITE_ID/llms.txt created"
 
 # ── 12. Serve (Apache) + Playwright + test-photos-server.sh ───────────────────
 step "Serve — Apache on port $SERVE_PORT"

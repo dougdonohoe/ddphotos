@@ -137,7 +137,9 @@ DDPHOTOS_SITE_ID=<site-id> make web-npm-build
 ```
 
 This deletes and recreates the `build/<site-id>` directory, which will have all
-the files needed to run the site.
+the files needed to run the site.  If your `config` directory has a 
+`static` sub-directory, any files in there are copied to the root
+of the build.  This is useful for files like `humans.txt` or `llms.txt`.
 
 To run the built site using Docker, choose Apache or nginx:
 

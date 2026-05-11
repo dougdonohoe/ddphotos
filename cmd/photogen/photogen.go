@@ -246,13 +246,16 @@ func main() {
 		}
 	}
 
-	// Write albums.json, config.json, sitemap.xml, and custom CSS if index generation is enabled
+	// Write albums.json, config.json, sitemap.xml, custom CSS, and build metadata if index generation is enabled
 	if cfg.Index {
 		if err := cfg.WriteAlbumsIndex(summaries); err != nil {
 			fmt.Printf("Error writing albums index: %s\n", err)
 		}
 		if err := cfg.WriteConfigJSON(); err != nil {
 			fmt.Printf("Error writing config.json: %s\n", err)
+		}
+		if err := cfg.WriteBuildMeta(*configDir); err != nil {
+			fmt.Printf("Error writing build metadata: %s\n", err)
 		}
 		if err := cfg.WriteHTMLFile(); err != nil {
 			fmt.Printf("Error writing html file: %s\n", err)

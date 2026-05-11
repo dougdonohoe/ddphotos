@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, createReadStream, statSync } from 'fs';
+import { readFileSync, existsSync, createReadStream, statSync, cpSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -33,16 +33,20 @@ function loadDefaultsEnv() {
 }
 loadDefaultsEnv();
 
+const siteId = process.env.DDPHOTOS_SITE_ID ?? 'sample';
+
 // Full path to the active site's album data: DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID
 // Paths in defaults.env are repo-root-relative; absolute paths are used as-is.
 function resolveAlbumsDir(): string {
 	const albumsDir = process.env.DDPHOTOS_ALBUMS_DIR ?? 'albums';
-	const siteId = process.env.DDPHOTOS_SITE_ID ?? 'sample';
 	const root = resolve(__dirname, '..');
 	const base = albumsDir.startsWith('/') ? albumsDir : resolve(root, albumsDir);
 	return join(base, siteId);
 }
 const albumsDir = resolveAlbumsDir();
+
+// Build metadata written by photogen: albums/.build/<site-id>.json
+const buildMetaPath = join(dirname(albumsDir), '.build', `${siteId}.json`);
 
 process.env.VITE_BUILD_TIME = new Date().toISOString();
 
@@ -87,6 +91,20 @@ export default defineConfig({
 	plugins: [
 		...httpsPlugin,
 		sveltekit(),
+		{
+			name: 'static-root-files',
+			closeBundle() {
+				if (!existsSync(buildMetaPath)) return;
+				let meta: { configDir?: string };
+				try { meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8')); } catch { return; }
+				if (!meta.configDir) return;
+				const staticDir = join(meta.configDir, 'static');
+				if (!existsSync(staticDir)) return;
+				const buildDir = resolve(__dirname, '..', 'build', siteId);
+				cpSync(staticDir, buildDir, { recursive: true });
+				console.log(`[static-root] copied ${staticDir} → ${buildDir}`);
+			}
+		},
 		{
 			name: 'albums-dev-server',
 			configureServer(server) {
