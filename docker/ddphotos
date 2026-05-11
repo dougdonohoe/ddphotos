@@ -361,7 +361,7 @@ case "$cmd" in
         [ -n "$DDPHOTOS_SITE_ENV" ]   && DEPLOY_ENV+=(-e "DDPHOTOS_SITE_ENV=$DDPHOTOS_SITE_ENV")
         print_mounts
         docker run --rm \
-            -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
+            -e SITE_ID="$DDPHOTOS_SITE_ID" \
             "${MOUNT_FLAGS[@]}" \
             "${DEPLOY_ENV[@]}" \
             "$IMAGE" deploy "$@"

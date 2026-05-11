@@ -258,6 +258,7 @@ The script uses `set -eo pipefail` — any failure aborts before deployment.
 | `--no-server-test`      | Skip both the local and post-deploy server routing tests                                                                |
 | `--no-playwright`       | Skip Playwright tests (both local and production)                                                                       |
 | `--config-dir`          | Directory containing `albums.yaml`, `descriptions.txt`, and (by default) `site.env`                                     |
+| `--site-id`             | Site ID (overrides albums.yaml)                                                                                         |
 | `--site-env`            | Path to `site.env` — overrides `--config-dir/site.env` when the two live in different locations                         |
 
 ```bash

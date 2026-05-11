@@ -13,8 +13,9 @@ SKIP_PLAYWRIGHT=false
 SKIP_SERVER_TEST=false
 DRY_RUN=false
 S3_MODE=false
-CONFIG_DIR=""
+CONFIG_DIR="config"
 SITE_ENV_ARG=""
+SITE_ID_ARG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --no-photogen)       SKIP_PHOTOGEN=true; shift ;;
@@ -29,6 +30,8 @@ while [[ $# -gt 0 ]]; do
         --config-dir=*)      CONFIG_DIR="${1#*=}"; shift ;;
         --site-env)          SITE_ENV_ARG="$2"; shift 2 ;;
         --site-env=*)        SITE_ENV_ARG="${1#*=}"; shift ;;
+        --site-id)           SITE_ID_ARG="$2"; shift 2 ;;
+        --site-id=*)         SITE_ID_ARG="${1#*=}"; shift ;;
         *)
             echo "Unknown flag: $1" >&2
             echo "" >&2
@@ -38,6 +41,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --s3                   Deploy to S3 (default: rsync; auto-set if S3_BUCKET in site.env)" >&2
             echo "  --config-dir DIR       Config directory (default: config/)" >&2
             echo "  --site-env FILE        Path to site.env (default: config-dir/site.env)" >&2
+            echo "  --site-id ID           Site ID (overrides albums.yaml)" >&2
             echo "  --no-photogen          Skip photogen step" >&2
             echo "  --no-build             Skip build step" >&2
             echo "  --no-pre-deploy-tests  Skip pre-deploy server and Playwright tests" >&2
@@ -57,22 +61,35 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 cd "$REPO_ROOT"
 
-# Resolve CONFIG_DIR and SITE_ENV_ARG to absolute paths (relative paths break after subsequent cd's)
-[ -n "$CONFIG_DIR" ]    && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
-[ -n "$SITE_ENV_ARG" ]  && SITE_ENV_ARG="$(cd "$(dirname "$SITE_ENV_ARG")" && pwd)/$(basename "$SITE_ENV_ARG")"
+# Verify CONFIG_DIR exists
+[ -d "$CONFIG_DIR" ] || { echo "Error: config dir '$CONFIG_DIR' not found"; exit 1; }
 
-# Resolve site.env: --site-env takes priority, then --config-dir/site.env, then config/site.env
+# Resolve CONFIG_DIR and SITE_ENV_ARG to absolute paths (relative paths break after subsequent cd's)
+CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
+[ -n "$SITE_ENV_ARG" ] && SITE_ENV_ARG="$(cd "$(dirname "$SITE_ENV_ARG")" && pwd)/$(basename "$SITE_ENV_ARG")"
+
+# Resolve and source site.env: --site-env takes priority, then $CONFIG_DIR/site.env
 if [ -n "$SITE_ENV_ARG" ]; then
     SITE_ENV="$SITE_ENV_ARG"
-elif [ -n "$CONFIG_DIR" ]; then
-    SITE_ENV="$CONFIG_DIR/site.env"
 else
-    SITE_ENV="config/site.env"
+    SITE_ENV="$CONFIG_DIR/site.env"
 fi
-[ -f "$SITE_ENV" ] || { echo "Error: $SITE_ENV not found"; exit 1; }
+[ -f "$SITE_ENV" ] || { echo "Error: site environment file '$SITE_ENV' not found"; exit 1; }
 source "$SITE_ENV"
 
-# Load defaults.env as a fallback for vars not already set (e.g. DDPHOTOS_ALBUMS_DIR, DDPHOTOS_SITE_ID)
+# Determine <site-id>
+# --site-id takes highest precedence over all other sources
+# Fall back to albums.yaml settings.id if SITE_ID not yet set
+# NOTE: we explicitly *do not* use DDPHOTOS_SITE_ID env var.  It's either --site-id or from albums.yaml
+[ -n "$SITE_ID_ARG" ] && SITE_ID="$SITE_ID_ARG"
+if [ -z "$SITE_ID" ]; then
+    ALBUMS_YAML="$CONFIG_DIR/albums.yaml"
+    if [ -f "$ALBUMS_YAML" ]; then
+        SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$ALBUMS_YAML")
+    fi
+fi
+
+# Load defaults.env as a fallback for vars not already set (e.g. DDPHOTOS_ALBUMS_DIR)
 DEFAULTS_ENV="$(dirname "$SDIR")/config/defaults.env"
 if [ -f "$DEFAULTS_ENV" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
@@ -83,9 +100,14 @@ if [ -f "$DEFAULTS_ENV" ]; then
     done < "$DEFAULTS_ENV"
 fi
 
-# These must be set — either by the caller, site.env, or defaults.env
+# These must be set:
+#   DDPHOTOS_ALBUMS_DIR from environment or defaults.env
+#   SITE_ID from --site-id or albums.yaml
 [ -n "$DDPHOTOS_ALBUMS_DIR" ] || { echo "Error: DDPHOTOS_ALBUMS_DIR not set (not in environment or config/defaults.env)"; exit 1; }
-[ -n "$DDPHOTOS_SITE_ID" ]    || { echo "Error: DDPHOTOS_SITE_ID not set (not in environment or config/defaults.env)"; exit 1; }
+[ -n "$SITE_ID" ]    || { echo "Error: <site id> not set (not in --site-id or $CONFIG_DIR/albums.yaml)"; exit 1; }
+
+# Resolve DDPHOTOS_ALBUMS_DIR to absolute path
+DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
 
 # These must be set in site.env — guard early so a missing value can't
 # cause rsync --delete to target the wrong (or empty) remote path.
@@ -99,21 +121,27 @@ else
     [[ "$RSYNC_DEST" == */ ]] || RSYNC_DEST="${RSYNC_DEST}/"
 fi
 
-# Resolve DDPHOTOS_ALBUMS_DIR to absolute path
-DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
+###
+### Begin deploy actions here
+###
+
+echo "Deploying $SITE_ID ..."
+echo "  Config dir: $CONFIG_DIR"
+echo "  Site env:   $SITE_ENV"
+echo "  Albums dir: $DDPHOTOS_ALBUMS_DIR"
+echo
 
 # Generate photos
 if [ "$SKIP_PHOTOGEN" = true ]; then
     echo "Skipping photogen (--no-photogen)"
 else
-    PHOTOGEN_ARGS=(-resize -index -clean -doit)
-    [ -n "$CONFIG_DIR" ]       && PHOTOGEN_ARGS=(--config-dir "$CONFIG_DIR" "${PHOTOGEN_ARGS[@]}")
-    [ -n "$DDPHOTOS_SITE_ID" ] && PHOTOGEN_ARGS=(-site-id "$DDPHOTOS_SITE_ID" "${PHOTOGEN_ARGS[@]}")
+    PHOTOGEN_ARGS=(-site-id "$SITE_ID" -resize -index -clean -doit)
+    [ -n "$CONFIG_DIR" ] && PHOTOGEN_ARGS=(--config-dir "$CONFIG_DIR" "${PHOTOGEN_ARGS[@]}")
     go run ./cmd/photogen "${PHOTOGEN_ARGS[@]}"
 fi
 
 # Read site URL from config.json (written by photogen)
-CONFIG_JSON="$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/config.json"
+CONFIG_JSON="$DDPHOTOS_ALBUMS_DIR/$SITE_ID/config.json"
 [ -f "$CONFIG_JSON" ] || { echo "Error: $CONFIG_JSON not found — run photogen first"; exit 1; }
 SITE_URL=$(python3 -c "import json; print(json.load(open('$CONFIG_JSON'))['siteUrl'])")
 [ -n "$SITE_URL" ] || { echo "Error: siteUrl not found in $CONFIG_JSON"; exit 1; }
@@ -134,7 +162,7 @@ else
         # shellcheck source=/dev/null
         source "$NVM_SH"
     fi
-    DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" npm run build
+    DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build
 fi
 
 # Docker cleanup (used in tests)
@@ -169,9 +197,9 @@ _pre_deploy() {
         else
             echo "Starting local Docker container for testing..."
             docker run -d --rm -p 8080:80 \
-                -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
+                -e DDPHOTOS_SITE_ID="$SITE_ID" \
                 -v "$REPO_ROOT/build":/build:ro \
-                -v "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID":/albums:ro \
+                -v "$DDPHOTOS_ALBUMS_DIR/$SITE_ID":/albums:ro \
                 photos-apache > /dev/null
             DOCKER_STARTED=true
             sleep 1
@@ -250,7 +278,7 @@ elif [ "$S3_MODE" = true ]; then
     # Pass 1: sync web build, protecting albums/ image/JSON data (managed by Pass 2 below).
     # --exclude "albums/*" prevents uploading or deleting album images/JSON from S3.
     # --include "albums/*.html" re-includes pre-rendered SvelteKit album pages (last rule wins).
-    aws s3 sync "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/" \
+    aws s3 sync "$REPO_ROOT/build/$SITE_ID/" "s3://$S3_BUCKET/" \
         "${S3_SYNC_OPTS[@]}" --exclude "albums/*" --include "albums/*.html"
 
     # Deploy album data — two passes to set different Cache-Control headers.
@@ -261,7 +289,7 @@ elif [ "$S3_MODE" = true ]; then
     #   default size+timestamp comparison reliably detects changes. --size-only would
     #   silently skip re-encrypted JSON files since AES-GCM output size is key-independent.
     # --exclude=*.html: don't delete pre-rendered .html pages synced above.
-    aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
+    aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" "s3://$S3_BUCKET/albums/" \
         "${S3_SYNC_OPTS[@]}" --exclude "*.html" --exclude "*.webp" \
         --cache-control "no-cache"
 
@@ -269,7 +297,7 @@ elif [ "$S3_MODE" = true ]; then
     #   derived from HMAC(key, filename), so key rotation renames all files.
     #   photogen skips existing WebP files (preserving timestamp), so unchanged files are
     #   never re-uploaded. Regenerated files (after manual delete) get a new timestamp.
-    aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" "s3://$S3_BUCKET/albums/" \
+    aws s3 sync "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" "s3://$S3_BUCKET/albums/" \
         "${S3_SYNC_OPTS[@]}" \
         --exclude "*" --include "*.webp" \
         --cache-control "max-age=31536000,immutable"
@@ -291,7 +319,7 @@ else
     #   Note: 'protect' only suppresses deletion; it still transfers new files from the source.
     rsync "${RSYNC_OPTS[@]}" \
         --filter='protect albums/**' \
-        "$REPO_ROOT/build/$DDPHOTOS_SITE_ID/" "$RSYNC_HOST":"$RSYNC_DEST"
+        "$REPO_ROOT/build/$SITE_ID/" "$RSYNC_HOST":"$RSYNC_DEST"
 
     # Deploy album data (images + JSON) independently.
     # No --checksum: photogen preserves timestamps on existing files, so size+time is a
@@ -299,7 +327,7 @@ else
     # --exclude=*.html: don't delete pre-rendered .html pages synced above
     rsync "${RSYNC_OPTS_ALBUMS[@]}" \
         "--exclude=*.html" \
-        "$DDPHOTOS_ALBUMS_DIR/$DDPHOTOS_SITE_ID/" \
+        "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" \
         "$RSYNC_HOST":"${RSYNC_DEST}albums/"
 
     _post_deploy

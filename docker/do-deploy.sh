@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
+SITE_ID="${SITE_ID:-site-id-undefined}"
 CONFIG_DIR="${DDPHOTOS_CONFIG_DIR:-/ddphotos/config}"
 SITE_ENV="${DDPHOTOS_SITE_ENV:-$CONFIG_DIR/site.env}"
 
@@ -44,18 +44,18 @@ if [ -n "$(find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null)" ]; then
 fi
 
 export REPO_ROOT="/ddphotos"
-export DDPHOTOS_SITE_ID="$SITE_ID"
 
-echo "Deploying: $SITE_ID"
-echo "  Config:   $CONFIG_DIR"
-echo "  Site env: $SITE_ENV"
-echo ""
+echo "Deploying $SITE_ID ..."
+echo "  Config:     $CONFIG_DIR"
+echo "  Site env:   $SITE_ENV"
+echo "  Extra args: $*"
 
 exec /docker/deploy-photos.sh \
     --no-photogen \
     --no-build \
     --no-pre-deploy-tests \
     --no-playwright \
+    --site-id "$SITE_ID" \
     --config-dir "$CONFIG_DIR" \
     --site-env "$SITE_ENV" \
     "$@"
