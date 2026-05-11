@@ -107,7 +107,8 @@ if [ "$SKIP_PHOTOGEN" = true ]; then
     echo "Skipping photogen (--no-photogen)"
 else
     PHOTOGEN_ARGS="-resize -index -clean -doit"
-    [ -n "$CONFIG_DIR" ] && PHOTOGEN_ARGS="--config-dir $CONFIG_DIR $PHOTOGEN_ARGS"
+    [ -n "$CONFIG_DIR" ]       && PHOTOGEN_ARGS="--config-dir $CONFIG_DIR $PHOTOGEN_ARGS"
+    [ -n "$DDPHOTOS_SITE_ID" ] && PHOTOGEN_ARGS="-site-id $DDPHOTOS_SITE_ID $PHOTOGEN_ARGS"
     # shellcheck disable=SC2086
     go run ./cmd/photogen $PHOTOGEN_ARGS
 fi
