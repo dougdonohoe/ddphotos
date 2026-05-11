@@ -89,7 +89,7 @@ RUN chmod +x /app/bin/search-cover.sh
 
 # Init templates and placeholder album directory
 COPY docker/init/ /docker/init/
-COPY docker/hero.webp /docker/hero.webp
+COPY docker/hero.webp /ddphotos-hero/hero.webp
 COPY sample/source/theway/2024-The-Way-14.jpg /ddphotos-init/
 COPY sample/source/theway/2024-The-Way-20.jpg /ddphotos-init/
 COPY sample/source/theway/2024-The-Way-24.jpg /ddphotos-init/

@@ -115,27 +115,30 @@ if [ -n "$OPT_SITE_ENV" ]; then
     add_mount "$OPT_SITE_ENV" "$DDPHOTOS_SITE_ENV" ro
 fi
 
-# Parse the 'bases:' section from albums.yaml and add mounts for external photo dirs.
+# Parse albums.yaml and add mounts for external photo dirs:
+#   - bases: section values that are absolute paths
+#   - album source: values that are absolute paths (no base)
+#   - hero image: values that are absolute paths (no base)
 # Paths already inside DDPHOTOS_DIR are skipped (covered by the main /ddphotos mount).
 build_config_bases_mounts() {
     local config="$CONFIG_HOST_DIR/albums.yaml"
     [ -f "$config" ] || return 0
-    local in_bases=false
+    local in_bases=false path
     while IFS= read -r line; do
-        # Look for the "bases:" section header; once found, start processing lines below it
+        # Track the bases: section header
         if [[ "$line" =~ ^bases: ]]; then
             in_bases=true
             continue
         fi
+        # A line starting at column 0 with a letter/underscore exits the bases: section
+        if $in_bases && [[ "$line" =~ ^[a-zA-Z_] ]]; then
+            in_bases=false
+        fi
+        # Skip comment lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
         if $in_bases; then
-            # A line starting with a letter/underscore is a new top-level YAML key — we've
-            # left the bases: section, so stop
-            [[ "$line" =~ ^[a-zA-Z_] ]] && break
-            # Skip comment lines
-            [[ "$line" =~ ^[[:space:]]*# ]] && continue
             # Extract the value from a "  name: /some/path" line:
             # strip everything up to and including the first colon, then strip leading whitespace
-            local path
             path="${line#*:}"
             path="${path#"${path%%[^[:space:]]*}"}"
             # Expand leading ~ to $HOME
@@ -143,6 +146,22 @@ build_config_bases_mounts() {
             # Only mount absolute paths that fall outside DDPHOTOS_DIR (which is already mounted)
             if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
                 add_mount "$path" "$path" ro
+            fi
+        else
+            # Outside bases: — look for album source: or hero image: with absolute paths.
+            # album source: is a directory; hero image: is a file. Both are mounted at their
+            # exact host path so the container sees them at the same absolute path.
+            if [[ "$line" =~ ^[[:space:]]+(source|image):[[:space:]]*(.*) ]]; then
+                path="${BASH_REMATCH[2]}"
+                # Strip surrounding quotes if present
+                [[ "$path" == \"*\" ]] && path="${path:1:${#path}-2}"
+                [[ "$path" == \'*\' ]] && path="${path:1:${#path}-2}"
+                path="${path/#\~/$HOME}"
+                # Skip /ddphotos* and /docker* paths — container-internal placeholders
+                # used in the init template (e.g. /ddphotos-init) and older templates.
+                if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]] && [[ "$path" != /ddphotos* ]] && [[ "$path" != /docker* ]]; then
+                    add_mount "$path" "$path" ro
+                fi
             fi
         fi
     done < "$config"

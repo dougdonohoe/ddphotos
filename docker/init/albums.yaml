@@ -7,6 +7,9 @@
 # Define bases pointing to where your source photos live. The ddphotos wrapper
 # script reads these paths and mounts them automatically into Docker.
 #
+# NOTE: paths starting with /ddphotos are container-internal — they point to
+# sample data bundled in the Docker image, not directories on your machine.
+#
 # Examples:
 #
 #   bases:
@@ -45,7 +48,7 @@ settings:
   site_overview_html: >-
     Welcome to my <span class="accent">photo gallery</span>.
   hero:
-    image: /docker/hero.webp
+    image: /ddphotos-hero/hero.webp
     crop: center
 
 # Uncomment and edit bases to point to your photo directories.

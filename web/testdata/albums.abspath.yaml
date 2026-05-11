@@ -1,0 +1,18 @@
+# Test file used by docker-test.sh to validate absolute path handling in 'ddphotos photogen'
+settings:
+  id: test-abs-path
+  site_name: "Test Absolute Path"
+  site_url: https://absolute-path.example.com
+  site_description: "Test absolute path"
+  copyright_owner: "Sir Absolute Path"
+  copyright_year: 1968
+
+  hero:
+    image: _REPO_ROOT_/sample/source/theway/2024-The-Way-13.jpg
+    crop: center
+
+albums:
+  - slug: the-way
+    name: The Way
+    source: _REPO_ROOT_/sample/source/theway
+    cover: 2024-The-Way-14.jpg

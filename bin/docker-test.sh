@@ -19,6 +19,7 @@ TEST_DIR=""
 TEST_DIR2=""
 TEMP_DECODE_DIR=""
 EXT_CONFIG_DIR=""
+ABS_CONFIG_DIR=""
 SC_TEST_DIR=""
 RUN_PID=""
 SERVE_PID=""
@@ -48,6 +49,7 @@ cleanup() {
     if [ -n "$TEST_DIR2" ]; then /bin/rm -rf "$TEST_DIR2"; fi
     if [ -n "$TEMP_DECODE_DIR" ]; then /bin/rm -rf "$TEMP_DECODE_DIR"; fi
     if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR"; fi
+    if [ -n "$ABS_CONFIG_DIR" ]; then /bin/rm -rf "$ABS_CONFIG_DIR"; fi
     if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi
 }
 trap cleanup EXIT
@@ -160,6 +162,17 @@ step "Photogen"
 [ -d "$TEST_DIR/albums/$SITE_ID" ] || fail "albums/$SITE_ID not created"
 ALBUM_COUNT=$(find "$TEST_DIR/albums/$SITE_ID" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
 pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
+
+# Test photogen with absolute source and hero image paths outside DDPHOTOS_DIR.
+# Exercises build_config_bases_mounts() handling of source: and image: with absolute paths.
+step "Photogen: absolute source paths"
+ABS_SITE_ID="test-abs-path"
+ABS_CONFIG_DIR=$(mktemp -d)
+sed "s|_REPO_ROOT_|$REPO_ROOT|g" "$REPO_ROOT/web/testdata/albums.abspath.yaml" > "$ABS_CONFIG_DIR/albums.yaml"
+"${DDPHOTOS[@]}" --config-dir "$ABS_CONFIG_DIR" photogen
+[ -d "$TEST_DIR/albums/$ABS_SITE_ID/the-way" ] || fail "albums/$ABS_SITE_ID/the-way not created"
+[ -f "$TEST_DIR/albums/$ABS_SITE_ID/hero.jpg" ] || fail "albums/$ABS_SITE_ID/hero.jpg not created"
+pass "photogen with absolute source paths OK (album dir and hero.jpg created)"
 
 # ── 6. Decode ──────────────────────────────────────────────────────────────────
 step "Decode"
