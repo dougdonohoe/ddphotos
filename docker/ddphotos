@@ -38,8 +38,16 @@ CURRENT_VERSION="${IMAGE##*:}"
 cmd="${1:-help}"
 shift 2>/dev/null || true
 
-# DDPHOTOS_DIR: directory mounted as /ddphotos; defaults to script location
-DDPHOTOS_DIR="${DDPHOTOS_DIR:-$SCRIPT_DIR}"
+# DDPHOTOS_DIR: directory mounted as /ddphotos.
+# Default: script location if it contains config/albums.yaml (in-repo usage, or ddphotos init setup),
+# otherwise current working directory (installed standalone in e.g. ~/.local/bin).
+if [ -z "$DDPHOTOS_DIR" ]; then
+    if [ -f "$SCRIPT_DIR/config/albums.yaml" ]; then
+        DDPHOTOS_DIR="$SCRIPT_DIR"
+    else
+        DDPHOTOS_DIR="$(pwd)"
+    fi
+fi
 
 # CONFIG_HOST_DIR: host path to config directory (normalized)
 if [ -n "$OPT_CONFIG_DIR" ]; then
@@ -509,7 +517,7 @@ case "$cmd" in
         echo "Usage: ddphotos [options] [command] [args]"
         echo ""
         echo "Options (before command):"
-        echo "  --dir DIR          Directory to mount as /ddphotos (default: script location)"
+        echo "  --dir DIR          Directory to mount as /ddphotos (default: current directory, or script location if it contains config/albums.yaml)"
         echo "  --site-id ID       Site ID override (default: settings.id from albums.yaml)"
         echo "  --config-dir DIR   Config directory override (default: albums-dir/config)"
         echo "  --site-env FILE    Path to site.env for deploy (default: config-dir/site.env)"
