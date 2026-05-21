@@ -50,9 +50,10 @@ type HeroEntry struct {
 type AlbumEntry struct {
 	Slug            string `yaml:"slug"`
 	Name            string `yaml:"name"`
-	Base            string `yaml:"base"`   // optional key into Bases map
-	Source          string `yaml:"source"` // path joined to base, or absolute/configDir-relative
-	Cover           string `yaml:"cover"`  // optional cover photo filename override
+	Base            string `yaml:"base"`        // optional key into Bases map
+	Source          string `yaml:"source"`      // path joined to base, or absolute/configDir-relative
+	Cover           string `yaml:"cover"`       // optional cover photo filename override
+	Description     string `yaml:"description"` // optional inline description; takes precedence over descriptions file
 	ManualSortOrder bool   `yaml:"manual_sort_order"`
 	Recurse         bool   `yaml:"recurse"` // if true, collect photos from subdirectories recursively
 }
@@ -128,6 +129,10 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+		desc := a.Description
+		if desc == "" {
+			desc = descriptions[a.Slug]
+		}
 		configs = append(configs, &AlbumConfig{
 			Slug:            a.Slug,
 			Name:            a.Name,
@@ -135,7 +140,7 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 			Cover:           a.Cover,
 			ManualSortOrder: a.ManualSortOrder,
 			Recurse:         a.Recurse,
-			Description:     descriptions[a.Slug],
+			Description:     desc,
 		})
 	}
 

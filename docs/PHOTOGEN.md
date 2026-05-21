@@ -29,7 +29,7 @@ bin/photogen -resize -index -clean -doit  # developer mode
 
 | Flag          | Default       | Description                                                                                                                          |
 |---------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `-config-dir` | `config`      | Directory containing the albums YAML and descriptions files                                                                          |
+| `-config-dir` | `config`      | Directory containing `albums.yaml` and optional supporting files                                                                     |
 | `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                                                                      |
 | `-resize`     | `false`       | Generate resized WebP image variants                                                                                                 |
 | `-index`      | `false`       | Generate JSON index files and sitemap.xml                                                                                            |

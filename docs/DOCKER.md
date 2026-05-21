@@ -365,9 +365,8 @@ After `init`, your ddphotos directory looks like this:
 my-ddphotos/
   ddphotos           ← wrapper script
   config/
-    albums.yaml      ← album definitions and site settings
+    albums.yaml      ← album definitions, site settings, and descriptions
     custom.css       ← optional CSS overrides
-    descriptions.txt ← per-album descriptions
     passwords.yaml   ← optional password protection
     site.env         ← deploy credentials
   albums/            ← photogen output (generated, not edited)

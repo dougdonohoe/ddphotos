@@ -38,7 +38,6 @@ settings:
   copyright_owner: Your Name
   copyright_year: 2026
   allow_crawling: false
-  descriptions: descriptions.txt
   css: custom.css
   passwords: passwords.yaml
   site_title_html: >-
@@ -63,11 +62,14 @@ albums:
     name: Replace Me
     source: /ddphotos-init
     cover: 2024-The-Way-14.jpg
+    description: Edit config/albums.yaml to replace this placeholder with your own albums (also update the site settings). Then run 'ddphotos photogen' and 'ddphotos run' again.
 
   - slug: secret
     name: Secret
     source: /ddphotos-secret
+    description: This album has a password.
 
   - slug: empty
     name: Empty
     source: /ddphotos-empty
+    description: This album doesn't have any photos in it.
