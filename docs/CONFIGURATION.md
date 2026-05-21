@@ -3,22 +3,20 @@
 A DD Photos site is driven by three config files. Both Docker and developer modes
 use the same files — only the path conventions differ.
 
-| File               | Required | Purpose                                       |
-|--------------------|----------|-----------------------------------------------|
-| `albums.yaml`      | yes      | Albums, site settings, photo base paths       |
-| `descriptions.txt` | no       | Per-album descriptions shown on the home page |
-| `site.env`         | no       | Deploy credentials                            |
+| File               | Required | Purpose                                 |
+|--------------------|----------|-----------------------------------------|
+| `albums.yaml`      | yes      | Albums, site settings, photo base paths |
+| `site.env`         | no       | Deploy credentials                      |
 
-**Docker mode:** `ddphotos init` creates a `config/` directory with starter versions of
-the first two, ready to edit directly — no copying needed (you'll create a `site.env` when
-you are ready to deploy).
+**Docker mode:** `ddphotos init` creates a `config/` directory with a starter `albums.yaml`,
+ready to edit directly — no copying needed (you'll create a `site.env` when you are ready
+to deploy).
 
 **Developer mode:** The repo's `config/` directory contains example files. Copy and edit
 them to get started:
 
 ```bash
 cp config/albums.example.yaml config/albums.yaml
-cp config/descriptions.example.txt config/descriptions.txt
 cp config/site.example.env config/site.env
 ```
 
@@ -44,7 +42,6 @@ settings:
   site_description: "My photos"          # required
   copyright_owner: "Your Name"           # required
   copyright_year: 2020                   # required
-  descriptions: descriptions.txt         # path to descriptions file (relative to config dir)
   allow_crawling: false                  # set true to allow search engine indexing
   site_title_html: "<b>My Photos</b>"    # optional HTML for home page title
   site_subtitle_html: "Since 2010"       # optional HTML below the title
@@ -59,8 +56,8 @@ settings:
 | `site_description`   | yes      | Meta description and OG description for the home page                                             |
 | `copyright_owner`    | yes      | Name shown in the footer copyright line                                                           |
 | `copyright_year`     | yes      | Start year shown in the footer copyright line                                                     |
-| `descriptions`       | no       | Path to the descriptions file, relative to the config dir (default: `descriptions.txt`)           |
-| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`) |
+| `descriptions`       | no       | Path to a [descriptions file](#descriptionstext), relative to the config dir; see that section for details |
+| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)          |
 | `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted                  |
 | `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font                                              |
 | `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions)                     |
@@ -223,11 +220,35 @@ HMAC keys and produce different filenames) automatically invalidates stale cache
 
 ---
 
-## descriptions.txt
+## Album Descriptions
 
-Per-album descriptions shown on the home page album cards. Referenced from `albums.yaml`
-via `settings.descriptions`. See [config/descriptions.example.txt](../config/descriptions.example.txt)
-for the format.
+Per-album descriptions are shown on the home page album cards and on each album page.
+The preferred way to set them is inline in `albums.yaml`:
+
+```yaml
+albums:
+  - slug: patagonia
+    name: Patagonia
+    source: /photos/patagonia
+    description: Two weeks hiking the Torres del Paine circuit.
+```
+
+### descriptions.txt
+
+As an alternative, descriptions can be kept in a separate file and referenced from
+`albums.yaml` via `settings.descriptions`:
+
+```yaml
+settings:
+  descriptions: descriptions.txt
+```
+
+This is useful when you want to share one descriptions file across multiple config
+files. See [config/descriptions.example.txt](../config/descriptions.example.txt) for
+the format.
+
+When both an inline `description:` and a `descriptions.txt` entry exist for the same
+album, the inline value takes precedence.
 
 ---
 

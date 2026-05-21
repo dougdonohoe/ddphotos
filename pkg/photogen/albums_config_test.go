@@ -245,6 +245,72 @@ albums:
 		require.ErrorContains(t, err, "does not exist")
 	})
 
+	t.Run("inline description used when no descriptions file", func(t *testing.T) {
+		configDir := t.TempDir()
+		photoDir := t.TempDir()
+
+		af := parseYAML(t, configDir, fmt.Sprintf(`
+albums:
+  - slug: myalbum
+    name: My Album
+    source: %s
+    description: Inline description here.
+`, photoDir))
+
+		configs, err := af.ToAlbumConfigs(configDir)
+		require.NoError(t, err)
+		assert.Equal(t, "Inline description here.", configs[0].Description)
+	})
+
+	t.Run("inline description takes precedence over descriptions file", func(t *testing.T) {
+		configDir := t.TempDir()
+		photoDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(
+			filepath.Join(configDir, "descriptions.txt"),
+			[]byte("myalbum  From the file.\n"),
+			0o644,
+		))
+
+		af := parseYAML(t, configDir, fmt.Sprintf(`
+settings:
+  descriptions: descriptions.txt
+albums:
+  - slug: myalbum
+    name: My Album
+    source: %s
+    description: Inline wins.
+`, photoDir))
+
+		configs, err := af.ToAlbumConfigs(configDir)
+		require.NoError(t, err)
+		assert.Equal(t, "Inline wins.", configs[0].Description)
+	})
+
+	t.Run("descriptions file used when inline description is absent", func(t *testing.T) {
+		configDir := t.TempDir()
+		photoDir := t.TempDir()
+
+		require.NoError(t, os.WriteFile(
+			filepath.Join(configDir, "descriptions.txt"),
+			[]byte("myalbum  From the file.\n"),
+			0o644,
+		))
+
+		af := parseYAML(t, configDir, fmt.Sprintf(`
+settings:
+  descriptions: descriptions.txt
+albums:
+  - slug: myalbum
+    name: My Album
+    source: %s
+`, photoDir))
+
+		configs, err := af.ToAlbumConfigs(configDir)
+		require.NoError(t, err)
+		assert.Equal(t, "From the file.", configs[0].Description)
+	})
+
 	t.Run("album with no description gets empty string", func(t *testing.T) {
 		configDir := t.TempDir()
 		photoDir := t.TempDir()

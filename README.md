@@ -76,7 +76,7 @@ define captions for each photo.  This file can also be used to define the
 album's sort order, if order-by-date isn't sufficient.
 
 With DD Photos, you define where your albums live in an `albums.yaml` file.
-In a separate `descriptions.txt` you provide a short description of each album.
+Each album entry can include a short `description:` field shown on the home page.
 
 Once you have defined where your photos live, you run the `photogen` tool,
 which resizes the photos for web viewing and generates index files that
