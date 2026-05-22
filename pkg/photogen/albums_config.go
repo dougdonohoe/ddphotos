@@ -52,7 +52,7 @@ type AlbumEntry struct {
 	Name            string `yaml:"name"`
 	Base            string `yaml:"base"`        // optional key into Bases map
 	Source          string `yaml:"source"`      // path joined to base, or absolute/configDir-relative
-	Cover           string `yaml:"cover"`       // optional cover photo filename override
+	Cover           string `yaml:"cover"`       // optional cover photo source-relative path (e.g. "subfolder/photo.jpg")
 	Description     string `yaml:"description"` // optional inline description; takes precedence over descriptions file
 	ManualSortOrder bool   `yaml:"manual_sort_order"`
 	Recurse         bool   `yaml:"recurse"` // if true, collect photos from subdirectories recursively

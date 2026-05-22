@@ -107,15 +107,16 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 
 	// warn once if configured cover is not found
 	if ap.AlbumConfig.Cover != "" {
+		fullCover := filepath.ToSlash(filepath.Join(filepath.Base(ap.AlbumConfig.Path), ap.AlbumConfig.Cover))
 		found := false
 		for _, p := range ap.Photos {
-			if p.FileName == ap.AlbumConfig.Cover {
+			if p.SourcePath == fullCover {
 				found = true
 				break
 			}
 		}
 		if !found {
-			ap.warnf("  WARN: cover %q not found in album, using first photo\n", ap.AlbumConfig.Cover)
+			ap.warnf("  WARN: cover source path %q not found in album, using first photo\n", ap.AlbumConfig.Cover)
 		}
 	}
 
@@ -481,8 +482,9 @@ func (ap *AlbumProcessor) coverPhoto() *Photo {
 		return nil
 	}
 	if ap.AlbumConfig.Cover != "" {
+		fullCover := filepath.ToSlash(filepath.Join(filepath.Base(ap.AlbumConfig.Path), ap.AlbumConfig.Cover))
 		for _, p := range ap.Photos {
-			if p.FileName == ap.AlbumConfig.Cover {
+			if p.SourcePath == fullCover {
 				return p
 			}
 		}

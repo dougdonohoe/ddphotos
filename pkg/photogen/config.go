@@ -78,7 +78,8 @@ type AlbumConfig struct {
 	Name string
 	// Path is the absolute or repo-relative directory containing original photos.
 	Path string
-	// Cover is the filename of the cover photo (optional, defaults to first photo).
+	// Cover is the source-relative path of the cover photo (e.g. "subfolder/photo.jpg"),
+	// optional — defaults to the first photo.
 	Cover string
 	// ManualSortOrder, if true, uses the order from photogen.txt (if present)
 	// instead of sorting photos by EXIF date.

@@ -35,7 +35,7 @@ albums:
     name: Uganda
     base: sample
     source: uganda
-    cover: subfolder_img_840_d.jpg
+    cover: subfolder/img_840_d.jpg
     manual_sort_order: true
     recurse: true
     description: >-

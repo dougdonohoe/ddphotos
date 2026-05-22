@@ -102,10 +102,11 @@ for p in photos:
         sp = p.get('sourcePath', '')
         if sp:
             print('  sourcePath: ' + sp)
-        print('  fileName:   ' + p.get('fileName', '') + '')
         print('')
         print('Use for cover:')
-        print('  cover: ' + p.get('fileName', ''))
+        # sourcePath is relative to the base dir (includes album dir prefix); strip it
+        cover_path = sp.split('/', 1)[1] if '/' in sp else sp
+        print('  cover: ' + cover_path)
         print('')
         sys.exit(0)
 print('WARN: ' + src + ' not found in index', file=sys.stderr)

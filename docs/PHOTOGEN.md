@@ -112,10 +112,10 @@ Subfolders not listed in `photogen.txt` are appended alphabetically at the end w
 a warning. Photos not listed are date-sorted and appended at the end of their group
 with a warning.
 
-**Cover photo**: when `cover` is set on a recursive album, use the prefixed filename
-(e.g. `cover: craigs_img001.jpg`). If omitted, the first collected photo is used.
-The prefixed filename is in the `fileName` field of `index.json`. To find it from an
-original filename, use `sourcePath` (see below) or grep the decoded index.
+**Cover photo**: when `cover` is set on a recursive album, use the source-relative path
+(e.g. `cover: craigs/img001.jpg`). If omitted, the first collected photo is used.
+The source-relative path is in the `sourcePath` field of `index.json`. To find it from an
+original filename, grep the decoded index or use `bin/search-cover.sh` (see below).
 
 **Working example**: the sample Uganda album (`sample/source/uganda/`) uses `recurse: true`
 with a `subfolder/` subdirectory. Its root `photogen.txt` uses `subfolder` as a placeholder
@@ -173,7 +173,7 @@ The correct password is selected automatically from the filename:
 ## Finding a Cover Photo (`search-cover.sh`)
 
 When browsing the site, and you want to set a photo as an album cover, you need its
-`fileName` value for the `cover:` field in `albums.yaml`. The easiest way to get it is
+source-relative path for the `cover:` field in `albums.yaml`. The easiest way to get it is
 to right-click the photo, copy the image URL, and pass it to `bin/search-cover.sh`:
 
 ```bash
@@ -182,8 +182,7 @@ bin/search-cover.sh <url>
 
 The script parses the album slug and image path from the URL, locates the album's
 `index.json` (or `index.enc.json` for encrypted albums — decoded automatically via
-`cmd/decode`), and searches for the matching `src` entry to print the `fileName`, `id`,
-and `sourcePath`.
+`cmd/decode`), and searches for the matching `src` entry to print the `id` and `sourcePath`.
 
 The search is scoped to `DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID` (defaults from
 `config/defaults.env`). Override to search a different site:
@@ -203,8 +202,7 @@ Searching...
 Found:
   id:         subfolder_img_840_d
   sourcePath: uganda/subfolder/img_840_d.jpg
-  fileName:   subfolder_img_840_d.jpg
 
 Use for cover:
-  cover: subfolder_img_840_d.jpg
+  cover: subfolder/img_840_d.jpg
 ```

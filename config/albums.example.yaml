@@ -99,7 +99,7 @@ albums:
     name: Patagonia               # Human-readable album title
     base: drive                   # References bases.drive above
     source: 2026-Patagonia        # Joined to base path
-    cover: Patagonia-042.jpg      # Optional: filename of cover photo (defaults to first)
+    cover: Patagonia-042.jpg      # Optional: source-relative path of cover photo (defaults to first)
     description: >-               # Optional short description shown on the home page
       Two weeks hiking the Torres del Paine circuit and kayaking among glaciers.
     manual_sort_order: true       # If true, order follows photogen.txt in the source directory
