@@ -27,12 +27,12 @@ done
 EXPORT_DIR="/ddphotos/export/$EXPORT_SITE_ID"
 
 if [ ! -d "$DDPHOTOS_ALBUMS_DIR/$SITE_ID" ]; then
-    echo "Error: $DDPHOTOS_ALBUMS_DIR/$SITE_ID not found. Run 'photogen' first."
+    echo "Error: $DDPHOTOS_ALBUMS_DIR/$SITE_ID not found. Run 'photogen' first." >&2
     exit 1
 fi
 
 if [ ! -d "/ddphotos/build/$SITE_ID" ]; then
-    echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first."
+    echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first." >&2
     exit 1
 fi
 

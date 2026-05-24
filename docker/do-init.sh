@@ -2,7 +2,7 @@
 set -e
 
 if [ ! -d "/ddphotos" ]; then
-    echo "Error: /ddphotos is not mounted. Add: -v ~/my-ddphotos:/ddphotos"
+    echo "Error: /ddphotos is not mounted. Add: -v ~/my-ddphotos:/ddphotos" >&2
     exit 1
 fi
 
@@ -61,7 +61,7 @@ fi
 CONFIG="/ddphotos/config"
 
 if [ -f "$CONFIG/albums.yaml" ]; then
-    echo "Error: $CONFIG/albums.yaml already exists. Remove it to re-initialize."
+    echo "Error: $CONFIG/albums.yaml already exists. Remove it to re-initialize." >&2
     exit 1
 fi
 

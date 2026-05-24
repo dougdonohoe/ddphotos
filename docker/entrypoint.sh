@@ -12,7 +12,7 @@ if [ "$#" -gt 0 ]; then shift; fi
 case "$cmd" in
     photogen|decode|search-cover|build|serve|run|export|deploy|wrangler|surge)
         if [ -f /ddphotos-script-dir/ddphotos ] && ! diff -q /docker/ddphotos /ddphotos-script-dir/ddphotos > /dev/null 2>&1; then
-            echo "WARNING:  The local 'ddphotos' script does not match the image." >&2
+            echo "Warning:  The local 'ddphotos' script does not match the image." >&2
             echo "          Run: 'ddphotos upgrade' to fix this." >&2
             echo "" >&2
         fi

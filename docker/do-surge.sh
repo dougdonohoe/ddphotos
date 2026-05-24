@@ -23,10 +23,10 @@ done
 # Bare words like 'list', 'whoami', 'login' are surge subcommands, not directories.
 if [ -n "$DEPLOY_DIR" ] && [[ "$DEPLOY_DIR" == */* || "$DEPLOY_DIR" == "." || "$DEPLOY_DIR" == ".." ]]; then
     if [ ! -d "$DEPLOY_DIR" ]; then
-        echo "Error: $DEPLOY_DIR not found. Run 'ddphotos export --copy' first."
+        echo "Error: $DEPLOY_DIR not found. Run 'ddphotos export --copy' first." >&2
         exit 1
     elif [ -L "$DEPLOY_DIR/index.html" ]; then
-        echo "Error: $DEPLOY_DIR contains symlinks. Run 'ddphotos export --copy' (not just 'export') — Surge does not follow symlinks."
+        echo "Error: $DEPLOY_DIR contains symlinks. Run 'ddphotos export --copy' (not just 'export') — Surge does not follow symlinks." >&2
         exit 1
     fi
 fi

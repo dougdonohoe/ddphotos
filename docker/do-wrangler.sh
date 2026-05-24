@@ -23,10 +23,10 @@ if [[ "${1:-}" == "pages" && "${2:-}" == "deploy" ]]; then
     done
     if [ -n "$DEPLOY_DIR" ]; then
         if [ ! -d "$DEPLOY_DIR" ]; then
-            echo "Error: $DEPLOY_DIR not found. Run 'export --cloudflare' first."
+            echo "Error: $DEPLOY_DIR not found. Run 'export --cloudflare' first." >&2
             exit 1
         elif [ ! -f "$DEPLOY_DIR/_worker.js" ]; then
-            echo "Error: $DEPLOY_DIR/_worker.js not found. Run 'export --cloudflare' (not just 'export')."
+            echo "Error: $DEPLOY_DIR/_worker.js not found. Run 'export --cloudflare' (not just 'export')." >&2
             exit 1
         fi
     fi

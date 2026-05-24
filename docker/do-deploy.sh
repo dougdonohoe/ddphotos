@@ -6,8 +6,8 @@ CONFIG_DIR="${DDPHOTOS_CONFIG_DIR:-/ddphotos/config}"
 SITE_ENV="${DDPHOTOS_SITE_ENV:-$CONFIG_DIR/site.env}"
 
 if [ ! -f "$SITE_ENV" ]; then
-    echo "Error: $SITE_ENV not found."
-    echo "Create it with RSYNC_HOST, RSYNC_DEST (rsync) or S3_BUCKET (S3) and optional CLOUDFRONT_ID."
+    echo "Error: $SITE_ENV not found." >&2
+    echo "Create it with RSYNC_HOST, RSYNC_DEST (rsync) or S3_BUCKET (S3) and optional CLOUDFRONT_ID." >&2
     exit 1
 fi
 
@@ -24,22 +24,22 @@ ALBUMS_CONFIG="$DDPHOTOS_ALBUMS_DIR/$SITE_ID/config.json"
 BUILD_INDEX="/ddphotos/build/$SITE_ID/index.html"
 
 if [ ! -f "$ALBUMS_CONFIG" ]; then
-    echo "Error: album data not found at $ALBUMS_CONFIG. Run 'photogen' first."
+    echo "Error: album data not found at $ALBUMS_CONFIG. Run 'photogen' first." >&2
     exit 1
 fi
 
 if [ -n "$(find "$CONFIG_DIR" -maxdepth 1 -type f -newer "$ALBUMS_CONFIG" ! -name "site.env" 2>/dev/null)" ]; then
-    echo "Error: config is newer than album data. Run 'photogen' before 'deploy'."
+    echo "Error: config is newer than album data. Run 'photogen' before 'deploy'." >&2
     exit 1
 fi
 
 if [ ! -f "$BUILD_INDEX" ]; then
-    echo "Error: build output not found. Run 'build' first."
+    echo "Error: build output not found. Run 'build' first." >&2
     exit 1
 fi
 
 if [ -n "$(find "$ALBUMS_CONFIG" -newer "$BUILD_INDEX" 2>/dev/null)" ]; then
-    echo "Error: album data is newer than build output. Run 'build' before 'deploy'."
+    echo "Error: album data is newer than build output. Run 'build' before 'deploy'." >&2
     exit 1
 fi
 

@@ -10,7 +10,7 @@ fi
 SITE_ID="${DDPHOTOS_SITE_ID:-site-id-undefined}"
 
 if [ ! -d "/ddphotos/build/$SITE_ID" ]; then
-    echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first."
+    echo "Error: /ddphotos/build/$SITE_ID not found. Run 'build' first." >&2
     exit 1
 fi
 

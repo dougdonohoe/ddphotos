@@ -247,16 +247,16 @@ case "$cmd" in
     init|upgrade|help|version|wrangler|surge) ;;
     *)
         if [ ! -f "$CONFIG_HOST_DIR/albums.yaml" ]; then
-            echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml"
-            echo
+            echo "Error: no config found at $CONFIG_HOST_DIR/albums.yaml" >&2
+            echo >&2
             if [ "$DDPHOTOS_DIR" = "$SCRIPT_DIR" ]; then
-                echo "'ddphotos' is installed in $SCRIPT_DIR."
-                echo "Since you are running 'ddphotos' standalone, you must specify the"
-                echo "DD Photos site directory (the one containing your 'config' dir):"
-                echo "  ddphotos --dir ~/my-ddphotos $cmd"
+                echo "'ddphotos' is installed in $SCRIPT_DIR." >&2
+                echo "Since you are running 'ddphotos' standalone, you must specify the" >&2
+                echo "DD Photos site directory (the one containing your 'config' dir):" >&2
+                echo "  ddphotos --dir ~/my-ddphotos $cmd" >&2
             else
-                echo "Run init to initialize the DD Photos site:"
-                echo "  ddphotos --dir $DDPHOTOS_DIR init"
+                echo "Run init to initialize the DD Photos site:" >&2
+                echo "  ddphotos --dir $DDPHOTOS_DIR init" >&2
             fi
             exit 1
         fi
