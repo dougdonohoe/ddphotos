@@ -109,6 +109,6 @@ for p in photos:
         print('  cover: ' + cover_path)
         print('')
         sys.exit(0)
-print('WARN: ' + src + ' not found in index', file=sys.stderr)
+print('Warning: ' + src + ' not found in index', file=sys.stderr)
 sys.exit(1)
 " "$src_path"

@@ -62,7 +62,7 @@ fi
 cd "$REPO_ROOT"
 
 # Verify CONFIG_DIR exists
-[ -d "$CONFIG_DIR" ] || { echo "Error: config dir '$CONFIG_DIR' not found"; exit 1; }
+[ -d "$CONFIG_DIR" ] || { echo "Error: config dir '$CONFIG_DIR' not found" >&2; exit 1; }
 
 # Resolve CONFIG_DIR and SITE_ENV_ARG to absolute paths (relative paths break after subsequent cd's)
 CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
@@ -74,7 +74,7 @@ if [ -n "$SITE_ENV_ARG" ]; then
 else
     SITE_ENV="$CONFIG_DIR/site.env"
 fi
-[ -f "$SITE_ENV" ] || { echo "Error: site environment file '$SITE_ENV' not found"; exit 1; }
+[ -f "$SITE_ENV" ] || { echo "Error: site environment file '$SITE_ENV' not found" >&2; exit 1; }
 source "$SITE_ENV"
 
 # Determine <site-id>
@@ -103,8 +103,8 @@ fi
 # These must be set:
 #   DDPHOTOS_ALBUMS_DIR from environment or defaults.env
 #   SITE_ID from --site-id or albums.yaml
-[ -n "$DDPHOTOS_ALBUMS_DIR" ] || { echo "Error: DDPHOTOS_ALBUMS_DIR not set (not in environment or config/defaults.env)"; exit 1; }
-[ -n "$SITE_ID" ]    || { echo "Error: <site id> not set (not in --site-id or $CONFIG_DIR/albums.yaml)"; exit 1; }
+[ -n "$DDPHOTOS_ALBUMS_DIR" ] || { echo "Error: DDPHOTOS_ALBUMS_DIR not set (not in environment or config/defaults.env)" >&2; exit 1; }
+[ -n "$SITE_ID" ]    || { echo "Error: <site id> not set (not in --site-id or $CONFIG_DIR/albums.yaml)" >&2; exit 1; }
 
 # Resolve DDPHOTOS_ALBUMS_DIR to absolute path
 DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
@@ -112,10 +112,10 @@ DDPHOTOS_ALBUMS_DIR="$(cd "$DDPHOTOS_ALBUMS_DIR" && pwd)"
 # These must be set in site.env — guard early so a missing value can't
 # cause rsync --delete to target the wrong (or empty) remote path.
 if [ "$S3_MODE" = true ]; then
-    [ -n "$S3_BUCKET" ] || { echo "Error: S3_BUCKET not set in $SITE_ENV"; exit 1; }
+    [ -n "$S3_BUCKET" ] || { echo "Error: S3_BUCKET not set in $SITE_ENV" >&2; exit 1; }
 else
-    [ -n "$RSYNC_HOST" ]  || { echo "Error: RSYNC_HOST not set in $SITE_ENV"; exit 1; }
-    [ -n "$RSYNC_DEST" ]  || { echo "Error: RSYNC_DEST not set in $SITE_ENV"; exit 1; }
+    [ -n "$RSYNC_HOST" ]  || { echo "Error: RSYNC_HOST not set in $SITE_ENV" >&2; exit 1; }
+    [ -n "$RSYNC_DEST" ]  || { echo "Error: RSYNC_DEST not set in $SITE_ENV" >&2; exit 1; }
     # Ensure RSYNC_DEST ends with / so rsync targets an explicit directory path,
     # never a bare or empty string that could default to the remote home directory.
     [[ "$RSYNC_DEST" == */ ]] || RSYNC_DEST="${RSYNC_DEST}/"
@@ -142,13 +142,13 @@ fi
 
 # Read site URL from config.json (written by photogen)
 CONFIG_JSON="$DDPHOTOS_ALBUMS_DIR/$SITE_ID/config.json"
-[ -f "$CONFIG_JSON" ] || { echo "Error: $CONFIG_JSON not found — run photogen first"; exit 1; }
+[ -f "$CONFIG_JSON" ] || { echo "Error: $CONFIG_JSON not found — run photogen first" >&2; exit 1; }
 SITE_URL=$(python3 -c "import json; print(json.load(open('$CONFIG_JSON'))['siteUrl'])")
-[ -n "$SITE_URL" ] || { echo "Error: siteUrl not found in $CONFIG_JSON"; exit 1; }
+[ -n "$SITE_URL" ] || { echo "Error: siteUrl not found in $CONFIG_JSON" >&2; exit 1; }
 DEFAULT_URL="https://your-ddphotos.example.com"
 [ "$SITE_URL" = "$DEFAULT_URL" ] && {
-    echo "Error: 'site_url' in albums.yaml is still the default '$DEFAULT_URL'."
-    echo "       Set it to your actual site URL before deploying or pass -site-url [ur] to photogen"
+    echo "Error: 'site_url' in albums.yaml is still the default '$DEFAULT_URL'." >&2
+    echo "       Set it to your actual site URL before deploying or pass -site-url [ur] to photogen" >&2
     exit 1
 }
 
