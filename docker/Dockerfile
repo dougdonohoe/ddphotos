@@ -29,11 +29,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends binutils \
     && rm -rf /var/lib/apt/lists/*
 
 # npm 10.9.7 (bundled with node:22) can't self-upgrade due to missing promise-retry.
-# The normal way (npm install -g npm@11.15.0) fails; install via registry tarball instead.
+# The normal way (npm install -g npm@11.16.0) fails; install via registry tarball instead.
 RUN node -e "\
 const https=require('https'),fs=require('fs');\
 function dl(u,cb){https.get(u,r=>{if(r.statusCode>=300&&r.statusCode<400)return dl(r.headers.location,cb);const f=fs.createWriteStream('/tmp/npm.tgz');r.pipe(f);f.on('finish',cb);});}\
-dl('https://registry.npmjs.org/npm/-/npm-11.15.0.tgz',()=>process.exit(0));" \
+dl('https://registry.npmjs.org/npm/-/npm-11.16.0.tgz',()=>process.exit(0));" \
     && tar -xz -C /tmp -f /tmp/npm.tgz \
     && /bin/rm -rf /usr/local/lib/node_modules/npm \
     && mv /tmp/package /usr/local/lib/node_modules/npm \
