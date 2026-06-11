@@ -42,6 +42,28 @@ func TestResizeImage_AllSizes(t *testing.T) {
 	}
 }
 
+func TestResizeImage_HEIC(t *testing.T) {
+	inputPath := filepath.Join("testdata", "landscape-1.heic")
+	tmpDir := t.TempDir()
+
+	for _, size := range AllSizes() {
+		t.Run(string(size), func(t *testing.T) {
+			outputPath := filepath.Join(tmpDir, string(size)+".webp")
+
+			result, err := ResizeImage(inputPath, outputPath, size, false, false)
+			require.NoError(t, err)
+			assert.True(t, result.Written)
+
+			meta, err := ReadPhotoMetadata(outputPath)
+			require.NoError(t, err)
+
+			cfg, _ := GetSizeConfig(size)
+			assert.LessOrEqual(t, meta.Width, cfg.MaxDimension)
+			assert.LessOrEqual(t, meta.Height, cfg.MaxDimension)
+		})
+	}
+}
+
 func TestResizeImage_Portrait(t *testing.T) {
 	inputPath := filepath.Join("testdata", "portrait-1.jpg")
 	tmpDir := t.TempDir()
@@ -279,6 +301,20 @@ func TestResizeHeroJPEG_Write(t *testing.T) {
 	t.Logf("hero: %dx%d", meta.Width, meta.Height)
 }
 
+func TestResizeHeroJPEG_HEIC(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "hero.jpg")
+
+	result, err := ResizeHeroJPEG(filepath.Join("testdata", "landscape-1.heic"), outputPath, "center", false, false)
+	require.NoError(t, err)
+	assert.True(t, result.Written)
+
+	meta, err := ReadPhotoMetadata(outputPath)
+	require.NoError(t, err)
+	assert.Equal(t, heroWidth, meta.Width)
+	assert.Equal(t, heroHeight, meta.Height)
+}
+
 func TestResizeHeroJPEG_CropVariants(t *testing.T) {
 	for _, crop := range []string{"top", "bottom", "center", ""} {
 		t.Run("crop="+crop, func(t *testing.T) {
@@ -336,6 +372,20 @@ func TestResizeHeroJPEG_DryRun(t *testing.T) {
 
 	_, err = os.Stat(outputPath)
 	assert.True(t, os.IsNotExist(err))
+}
+
+func TestResizeHeroJPEG_TooSmall(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "hero.jpg")
+	inputPath := filepath.Join("testdata", "no-exif.jpg")
+
+	_, err := ResizeHeroJPEG(inputPath, outputPath, "center", false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), inputPath)
+	assert.Contains(t, err.Error(), "too small for hero")
+
+	_, statErr := os.Stat(outputPath)
+	assert.True(t, os.IsNotExist(statErr))
 }
 
 func TestResizeHeroJPEG_InputNotFound(t *testing.T) {

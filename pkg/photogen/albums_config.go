@@ -100,6 +100,11 @@ func (af *AlbumsFile) validate() error {
 		if h.Image == "" {
 			return fmt.Errorf("hero: image is required")
 		}
+		if ext := strings.ToLower(filepath.Ext(h.Image)); ext != "" {
+			if _, ok := allowedPhotoExtensions[ext]; !ok {
+				return fmt.Errorf("hero: image %q has unsupported extension %q", h.Image, ext)
+			}
+		}
 		if h.Base != "" && filepath.IsAbs(h.Image) {
 			return fmt.Errorf("hero: image is an absolute path — remove base or use a relative path")
 		}

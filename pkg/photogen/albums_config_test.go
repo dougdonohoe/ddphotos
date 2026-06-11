@@ -434,6 +434,17 @@ albums: []
 		require.ErrorContains(t, err, "image is an absolute path")
 	})
 
+	t.Run("unsupported image extension is an error", func(t *testing.T) {
+		af := writeYAML(t, `
+settings:
+  hero:
+    image: hero.gif
+albums: []
+`)
+		_, err := LoadAlbumsFile(af)
+		require.ErrorContains(t, err, "unsupported extension")
+	})
+
 	t.Run("hero image does not exist", func(t *testing.T) {
 		configDir := t.TempDir()
 		af := parseYAML(t, configDir, `

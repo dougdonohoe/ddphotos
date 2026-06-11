@@ -243,6 +243,7 @@ func main() {
 	if cfg.Resize {
 		if err := cfg.WriteHeroJPEG(); err != nil {
 			fmt.Printf("Error writing hero JPEG: %s\n", err)
+			exit.SetExitRequestedWithError(err)
 		}
 	}
 

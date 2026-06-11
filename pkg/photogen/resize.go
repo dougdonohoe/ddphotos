@@ -187,6 +187,13 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 	}
 	defer img.Close()
 
+	// Image must be at least as large as the hero target in both dimensions; smaller
+	// images can't be cropped to heroWidth x heroHeight without upscaling artifacts.
+	if img.Width() < heroWidth || img.Height() < heroHeight {
+		return nil, fmt.Errorf("%s: image is %dx%d, too small for hero (minimum %dx%d)",
+			inputPath, img.Width(), img.Height(), heroWidth, heroHeight)
+	}
+
 	// Scale so the image covers the target dimensions (both width >= heroWidth and height >= heroHeight).
 	wScale := float64(heroWidth) / float64(img.Width())
 	hScale := float64(heroHeight) / float64(img.Height())
@@ -196,7 +203,7 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 	}
 	if scale < 1.0 {
 		if err := img.Resize(scale, vips.KernelLanczos3); err != nil {
-			return nil, fmt.Errorf("resize: %w", err)
+			return nil, fmt.Errorf("%s: resize: %w", inputPath, err)
 		}
 	}
 
@@ -218,7 +225,7 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 		y = 0
 	}
 	if err := img.ExtractArea(x, y, heroWidth, heroHeight); err != nil {
-		return nil, fmt.Errorf("crop: %w", err)
+		return nil, fmt.Errorf("%s: crop: %w", inputPath, err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(outputPath), dirPerms); err != nil {
@@ -231,7 +238,7 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 
 	buf, _, err := img.ExportJpeg(ep)
 	if err != nil {
-		return nil, fmt.Errorf("export jpeg: %w", err)
+		return nil, fmt.Errorf("%s: export jpeg: %w", inputPath, err)
 	}
 	if err := os.WriteFile(outputPath, buf, filePerms); err != nil {
 		return nil, fmt.Errorf("write file: %w", err)

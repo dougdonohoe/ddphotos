@@ -44,6 +44,7 @@ FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips \
+    libheif1 \
     ca-certificates \
     curl \
     apache2 \
