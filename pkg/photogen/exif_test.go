@@ -123,6 +123,14 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantOrient: "portrait",
 			wantDate:   "2005-01-13", // from DateTime (no DateTimeOriginal or DateTimeDigitized)
 		},
+		{
+			name:       "heic",
+			filename:   "landscape-1.heic",
+			wantWidth:  4032,
+			wantHeight: 3024,
+			wantOrient: "landscape",
+			wantDate:   "2023-04-21", // from DateTimeOriginal
+		},
 	}
 
 	for _, tc := range tests {

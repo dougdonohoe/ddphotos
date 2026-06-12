@@ -2,12 +2,10 @@ package photogen
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/rwcarlsen/goexif/exif"
 
 	"github.com/dougdonohoe/ddphotos/pkg/exit"
 )
@@ -43,7 +41,7 @@ func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 	height := img.Height()
 
 	// Read date taken from EXIF (best effort - zero time if not available)
-	dateTaken := readDateTaken(path)
+	dateTaken := readDateTaken(img)
 
 	return &PhotoMetadata{
 		Width:       width,
@@ -53,25 +51,14 @@ func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 	}, nil
 }
 
-// readDateTaken extracts the photo capture date from EXIF data.
+// readDateTaken extracts the photo capture date from EXIF data via libvips, which reads
+// EXIF from any container format (JPEG, TIFF, HEIC, etc).
 // Tries DateTimeOriginal first, then DateTimeDigitized, then DateTime (TIFF tag
 // often set by image editors like Photoshop). Returns zero time if no date found.
-func readDateTaken(path string) time.Time {
-	f, err := os.Open(path)
-	if err != nil {
-		return time.Time{}
-	}
-	defer f.Close()
-
-	x, err := exif.Decode(f)
-	if err != nil {
-		return time.Time{}
-	}
-
-	for _, field := range []exif.FieldName{
-		exif.DateTimeOriginal, exif.DateTimeDigitized, exif.DateTime} {
-		if tag, err := x.Get(field); err == nil {
-			if dt, err := parseExifDateTime(tag.String()); err == nil {
+func readDateTaken(img *vips.ImageRef) time.Time {
+	for _, field := range []string{"exif-ifd2-DateTimeOriginal", "exif-ifd2-DateTimeDigitized", "exif-ifd0-DateTime"} {
+		if val := img.GetString(field); val != "" {
+			if dt, err := parseExifDateTime(val); err == nil {
 				return dt
 			}
 		}
@@ -79,10 +66,15 @@ func readDateTaken(path string) time.Time {
 	return time.Time{}
 }
 
-// parseExifDateTime parses EXIF date format "2024:01:15 10:30:45" (with quotes).
+// parseExifDateTime parses EXIF date format "2024:01:15 10:30:45". libvips returns exif
+// fields formatted as "<value> (<value>, Type, N components, N bytes)", so only the
+// portion before the first " (" is used.
 // EXIF timestamps carry no timezone; they reflect the camera's local clock. We treat
 // them as UTC (the only sensible default) and normalize explicitly with .UTC().
 func parseExifDateTime(s string) (time.Time, error) {
+	if i := strings.Index(s, " ("); i != -1 {
+		s = s[:i]
+	}
 	s = strings.Trim(s, "\"")
 	t, err := time.ParseInLocation("2006:01:02 15:04:05", s, time.UTC)
 	if err != nil {
