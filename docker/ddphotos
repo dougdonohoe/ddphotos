@@ -3,6 +3,15 @@
 # https://github.com/dougdonohoe/ddphotos
 set -eo pipefail
 
+# On Windows (Git Bash/MSYS or Cygwin), a bash started from cmd/PowerShell or a
+# .cmd wrapper may inherit only the Windows PATH, leaving the Unix coreutils
+# (dirname, awk, sed, ...) unreachable. Under MSYS/Cygwin they live at /usr/bin,
+# which is mapped independently of PATH, so restoring it here is safe. Uses only
+# builtins so it runs before the first external command (dirname, just below).
+case "$OSTYPE" in
+    msys|cygwin) command -v dirname >/dev/null 2>&1 || PATH="/usr/bin:/bin:$PATH" ;;
+esac
+
 # IMAGE is replaced at docker build time (see Dockerfile).  In a production
 # build it will be something like dougdonohoe/ddphotos:v.1.##.0.
 IMAGE="ddphotos"

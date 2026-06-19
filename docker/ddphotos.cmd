@@ -5,49 +5,38 @@ rem https://github.com/dougdonohoe/ddphotos
 rem
 rem ddphotos.cmd - Windows launcher for the 'ddphotos' bash wrapper.
 rem
-rem Git\bin\bash.exe, when run from cmd/Explorer, inherits the Windows PATH,
-rem which does not include Git's Unix tools (dirname, awk, sed, grep, find,
-rem sort, curl, ...). This launcher locates Git for Windows, prepends its
-rem usr\bin and bin to PATH, then runs the 'ddphotos' bash script that lives
-rem next to this file.
+rem Finds a Git for Windows bash.exe and uses it to run the 'ddphotos' bash
+rem script next to this file. (ddphotos repairs its own PATH for the Unix tools.)
 rem
-rem To skip the search, set DDPHOTOS_BASH to the full path of bash.exe (e.g.
-rem the path a frontend already confirmed with the user). If it points to a
-rem real file it is used directly; otherwise the search below runs as a fallback.
+rem Set DDPHOTOS_BASH to a bash.exe full path to skip the search.
 
 set "BASH="
 
-rem 1. Caller-supplied bash.exe via DDPHOTOS_BASH (skips the search).
-if defined DDPHOTOS_BASH (
-    if exist "%DDPHOTOS_BASH%" (
-        set "BASH=%DDPHOTOS_BASH%"
-    ) else (
-        echo Warning: DDPHOTOS_BASH "%DDPHOTOS_BASH%" not found; searching for Git Bash. 1>&2
-    )
-)
+rem 1. Caller-supplied bash.exe (e.g. a frontend already confirmed the path).
+if defined DDPHOTOS_BASH if exist "%DDPHOTOS_BASH%" set "BASH=%DDPHOTOS_BASH%"
 
-rem 2. Search standard Git for Windows install locations.
+rem 2. Standard Git for Windows locations. Literal C:\ paths cover callers with a
+rem    reduced environment (e.g. a JVM) that lacks %ProgramFiles% / %LOCALAPPDATA%.
 if not defined BASH (
-    for %%G in ("%ProgramFiles%\Git" "%ProgramFiles(x86)%\Git" "%LOCALAPPDATA%\Programs\Git") do (
+    for %%G in (
+        "%ProgramFiles%\Git"
+        "%ProgramFiles(x86)%\Git"
+        "%LOCALAPPDATA%\Programs\Git"
+        "C:\Program Files\Git"
+        "C:\Program Files (x86)\Git"
+    ) do (
         if not defined BASH if exist "%%~G\bin\bash.exe" set "BASH=%%~G\bin\bash.exe"
     )
 )
 
 rem 3. Fall back to bash.exe on PATH.
-if not defined BASH (
-    for %%B in (bash.exe) do set "BASH=%%~$PATH:B"
-)
+if not defined BASH for %%B in (bash.exe) do if not defined BASH if exist "%%~$PATH:B" set "BASH=%%~$PATH:B"
 
 if not defined BASH (
     echo Error: Git Bash not found. Install Git for Windows: https://git-scm.com/download/win 1>&2
     echo        Or set DDPHOTOS_BASH to the full path of bash.exe. 1>&2
     exit /b 1
 )
-
-rem Prepend the Git Unix tools (usr\bin and bin, relative to bash.exe) to PATH
-rem so dirname/awk/sed/etc. resolve.
-for %%B in ("%BASH%") do set "BINDIR=%%~dpB"
-set "PATH=%BINDIR%..\usr\bin;%BINDIR%;%PATH%"
 
 "%BASH%" "%~dp0ddphotos" %*
 exit /b %ERRORLEVEL%

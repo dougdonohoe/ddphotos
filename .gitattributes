@@ -1,0 +1,13 @@
+# Normalize text line endings. Files are stored LF in the repo; the rules
+# below control what gets written to the working tree on checkout, regardless
+# of OS, editor, or core.autocrlf.
+* text=auto
+
+# Windows batch launchers must be CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Shell scripts and the extensionless 'ddphotos' wrapper must stay LF
+# (they run under Git Bash / the Linux container; a stray CR breaks them).
+*.sh            text eol=lf
+docker/ddphotos text eol=lf
