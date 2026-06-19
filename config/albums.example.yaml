@@ -83,13 +83,15 @@ settings:
   # default_theme: dark
 
 # Named source base paths. Albums reference these by name via the 'base' key.
-# Defining bases here lets you swap root paths between configs (e.g., prod vs.
-# laptop) without touching individual album entries.
+# Defining bases here makes your album definitions shorter.  They can refer
+# to an absolute path or a relative path to the root DD Photos folder.
 bases:
   # Example: photos on an external drive
   drive: /Volumes/MyDrive/Photos
   # Example: photos in a cloud-synced folder
   cloud: /Users/me/Dropbox/Photos
+  # Example: folder under the root DD Photos folder (i.e., a sibling to 'config')
+  local: photos
 
 albums:
   # ------------------------------------------------------------------

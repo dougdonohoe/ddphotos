@@ -159,6 +159,14 @@ build_config_bases_mounts() {
             path="${path#"${path%%[^[:space:]]*}"}"
             # Expand leading ~ to $HOME
             path="${path/#\~/$HOME}"
+            # Reject container-internal paths. /ddphotos* and /docker* are mount points
+            # inside the Docker image (e.g. the bundled sample data), not real folders on
+            # this machine — using one as a base never works the way the user expects.
+            if [[ "$path" == /ddphotos* ]] || [[ "$path" == /docker* ]]; then
+                echo "Error: base path '$path' in $config is a container-internal path." >&2
+                echo "       A base must be a folder that exists on this machine." >&2
+                exit 1
+            fi
             # Only mount absolute paths that fall outside DDPHOTOS_DIR (which is already mounted)
             if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
                 add_mount "$path" "$path" ro

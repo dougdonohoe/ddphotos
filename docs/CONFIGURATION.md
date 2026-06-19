@@ -48,19 +48,45 @@ settings:
   site_overview_html: "Welcome!"         # optional HTML above album cards
 ```
 
-| Setting              | Required | Description                                                                                       |
-|----------------------|----------|---------------------------------------------------------------------------------------------------|
-| `id`                 | yes      | Names the output directory; must be lowercase letters, digits, and hyphens                        |
-| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                   |
-| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags               |
-| `site_description`   | yes      | Meta description and OG description for the home page                                             |
-| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                           |
-| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                     |
-| `descriptions`       | no       | Path to a [descriptions file](#descriptionstext), relative to the config dir; see that section for details |
-| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)          |
-| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted                  |
-| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font                                              |
-| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions)                     |
+| Setting              | Required | Description                                                                                                  |
+|----------------------|----------|--------------------------------------------------------------------------------------------------------------|
+| `id`                 | yes      | Names the output directory; must be lowercase letters, digits, and hyphens                                   |
+| `site_name`          | yes      | Site title shown in the browser tab and OG tags                                                              |
+| `site_url`           | yes      | Canonical base URL (e.g. `https://photos.example.com`); used in sitemap and OG tags                          |
+| `site_description`   | yes      | Meta description and OG description for the home page                                                        |
+| `copyright_owner`    | yes      | Name shown in the footer copyright line                                                                      |
+| `copyright_year`     | yes      | Start year shown in the footer copyright line                                                                |
+| `descriptions`       | no       | Path to a [descriptions file](#album-descriptions), relative to the config dir; see that section for details |
+| `allow_crawling`     | no       | Set to `true` to allow search engine crawling; adds `Sitemap:` to `robots.txt` (default: `false`)            |
+| `site_title_html`    | no       | HTML for the site title on the home page; falls back to `site_name` when omitted                             |
+| `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font                                                         |
+| `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions)                                |
+
+### Source Bases
+
+The `bases:` block defines named paths to where your source photos live. Albums (and
+the hero image) reference a base by name via the `base:` key, so you can keep album
+entries short and change a root path in one place:
+
+```yaml
+bases:
+  drive: /Volumes/MyDrive/Photos   # absolute path (e.g. an external drive)
+  cloud: /Users/me/Dropbox/Photos  # absolute path (e.g. a cloud-synced folder)
+  local: photos                    # relative to the root DD Photos folder (sibling of config/)
+
+albums:
+  - slug: patagonia
+    name: Patagonia
+    base: drive                    # references bases.drive
+    source: 2026-Patagonia         # joined to the base path -> /Volumes/MyDrive/Photos/2026-Patagonia
+```
+
+Each base value is either an absolute path or a path relative to the root DD Photos
+folder. An album's `source:` is joined to its named base; an album with no `base:` must
+give an absolute path in `source:`.
+
+In **Docker mode**, the `ddphotos` wrapper script reads these base paths and mounts them
+into the container automatically, so the paths you list must exist on your machine.
 
 ### How Config Reaches the Frontend
 

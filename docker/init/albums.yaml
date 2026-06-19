@@ -2,27 +2,32 @@
 #
 # See https://github.com/dougdonohoe/ddphotos/blob/main/docs/DOCKER.md for full documentation.
 # See https://github.com/dougdonohoe/ddphotos/blob/main/config/albums.example.yaml for
-#     specification of this file.
+#     the full documentation and specification of this 'albums.yaml' file.
 #
-# Define bases pointing to where your source photos live. The ddphotos wrapper
-# script reads these paths and mounts them automatically into Docker.
 #
 # NOTE: paths starting with /ddphotos are container-internal — they point to
 # sample data bundled in the Docker image, not directories on your machine.
+# They are only meant to be used with this example starter site - your bases,
+# album sources and hero image paths should all be paths on your machine.
+#
+# Define bases pointing to where your source photos live. The ddphotos wrapper
+# script reads these paths and mounts them automatically into Docker.  Bases
+# can be absolute paths or relative (if underneath the root DD Photos folder).
 #
 # Examples:
 #
 #   bases:
 #     dropbox: /Users/anseladams/Dropbox/Vacations   # Dropbox or iCloud folder
 #     t7: /T7/Photos                                 # external drive
+#     local: photos                                  # A folder under the DD Photos folder
 #
 # Then reference a base in each album:
 #
 #   albums:
 #     - slug: hawaii-2024
 #       title: Hawaii 2024
-#       base: dropbox
-#       source: hawaii-2024   # subfolder under the base path
+#       base: t7
+#       source: hawaii-2024   # subfolder under the base path - this is /T7/Photos/hawaii-2024
 #
 # Once you have edited this file, run:
 #   ./ddphotos photogen
@@ -50,7 +55,7 @@ settings:
     image: /ddphotos-hero/hero.webp
     crop: center
 
-# Uncomment and edit bases to point to your photo directories.
+# Uncomment and edit bases to point to your root photo directories.
 # Here are two examples:
 #
 #bases:
