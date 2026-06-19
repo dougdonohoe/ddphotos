@@ -31,3 +31,6 @@ memory/
 
 # Cloudflare
 .wrangler
+
+# IDE
+.idea

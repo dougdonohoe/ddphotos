@@ -351,7 +351,13 @@ fi
 
 case "$cmd" in
     init)
-        "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" init "$@"
+        # Under Git Bash/Cygwin, also install the ddphotos.cmd Windows launcher.
+        # (The container can't detect the host OS, so we signal it with --windows.)
+        INIT_ARGS=("$@")
+        if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] && [[ " $* " != *" --windows "* ]]; then
+            INIT_ARGS+=(--windows)
+        fi
+        "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" init "${INIT_ARGS[@]}"
         ;;
 
     decode)
