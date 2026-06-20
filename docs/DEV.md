@@ -229,6 +229,49 @@ docker system prune # get all the bytes possible
 
 The amount of space is set in _Docker Desktop → Settings → Resources → Advanced → Disk usage limit_.
 
+## Windows
+
+On Windows the `ddphotos` script runs under Git Bash (MSYS), and `ddphotos.cmd` is a thin
+wrapper that locates `bash.exe` and hands off to it. `photogen` itself almost always runs
+inside the Linux Docker container. The native Java wizard writes **Windows-style** paths
+into `config/albums.yaml` (`bases:`, album `source:`, hero `image:`), e.g.:
+
+```yaml
+bases:
+  dropbox: C:\Users\name\Dropbox\Photos
+```
+
+### Path translation convention
+
+Those Windows paths have to cross two boundaries — the Docker `-v` flag (which wants the
+host side in Windows form) and the Linux container (which needs a Unix path). Both sides
+share one convention for the container location of a Windows folder:
+
+```
+C:\Users\name\Dropbox\Photos   ->   /mnt/c/Users/name/Dropbox/Photos
+```
+
+(drive letter lowercased under `/mnt/<drive>/`, backslashes turned into forward slashes —
+the WSL convention).
+
+There are two coordinated translations, both **no-ops on macOS/Linux**:
+
+- **`docker/ddphotos` (host side).** `add_mount` normalizes the host (left) side of every
+  `-v` with `cygpath -w`, because Git Bash hands us Unix paths (`/c/Users/...`) but Docker
+  Desktop needs Windows paths (`C:\Users\...`). For mounts of photo folders, the container
+  (right) side is produced by `to_container_path`, which maps `C:\...` → `/mnt/<drive>/...`.
+  `is_abs_path` additionally recognizes drive-letter paths as absolute so Windows bases are
+  actually mounted. All of this is gated on `OSTYPE` being `msys`/`cygwin`.
+
+- **`pkg/photogen` (container side).** `winToUnixPath` in `pkg/photogen/winpath.go` applies
+  the same `C:\...` → `/mnt/<drive>/...` mapping when resolving paths, so `photogen` reads
+  from exactly where the bash side mounted the folder. It is gated on
+  `runtime.GOOS != "windows"` (native Windows runs need no translation) and is called from
+  `resolveFSPath` in `pkg/photogen/albums_config.go`, which feeds album image loading,
+  resizing, hero processing, and the custom CSS path.
+
+**The two mappings must stay byte-for-byte in sync** — if you change one, change the other.
+
 ## Static Site Examples
 
 Use `bin/deploy-sample-sites.sh --doit` to deploy `init` and `sample` sites to S3, Cloudflare and surge.

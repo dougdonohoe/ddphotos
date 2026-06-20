@@ -161,7 +161,10 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 	}
 
 	if af.Settings.CustomCSS != "" {
-		cssPath := filepath.Join(configDir, af.Settings.CustomCSS)
+		cssPath := winToUnixPath(af.Settings.CustomCSS)
+		if !filepath.IsAbs(cssPath) {
+			cssPath = filepath.Join(configDir, cssPath)
+		}
 		if _, err := os.Stat(cssPath); err != nil {
 			return nil, fmt.Errorf("css: file %q does not exist", cssPath)
 		}
@@ -176,9 +179,9 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 // paths are anchored to the working directory. If base is empty and relPath is relative,
 // it is anchored to configDir. errContext is prepended to any returned error.
 func (af *AlbumsFile) resolveFSPath(configDir, base, relPath, errContext string) (string, error) {
-	resolved := relPath
+	resolved := winToUnixPath(relPath)
 	if base != "" {
-		basePath := af.Bases[base]
+		basePath := winToUnixPath(af.Bases[base])
 		if !filepath.IsAbs(basePath) {
 			cwd, err := os.Getwd()
 			if err != nil {
@@ -186,7 +189,7 @@ func (af *AlbumsFile) resolveFSPath(configDir, base, relPath, errContext string)
 			}
 			basePath = filepath.Join(cwd, basePath)
 		}
-		resolved = filepath.Join(basePath, relPath)
+		resolved = filepath.Join(basePath, resolved)
 	} else if !filepath.IsAbs(resolved) {
 		resolved = filepath.Join(configDir, resolved)
 	}

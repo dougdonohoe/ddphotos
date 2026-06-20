@@ -89,13 +89,36 @@ MOUNT_FLAGS=()  # -v args, kept in sync by add_mount
 MOUNT_SEQ=0     # used when passing mounts as args
 
 add_mount() {
-    MOUNT_FROM+=("$1")
+    # Docker Desktop's -v wants the host (left) side in Windows form (C:\Users\...).
+    # Under Git Bash/MSYS our paths are Unix form (/c/Users/...), so normalize the host
+    # side with cygpath -w, which also leaves an already-Windows path untouched. Only the
+    # host side is translated; $2 is always a container path chosen by the caller.
+    local from="$1"
+    case "$OSTYPE" in msys|cygwin) from="$(cygpath -w "$from")" ;; esac
+    MOUNT_FROM+=("$from")
     MOUNT_TO+=("$2")
     MOUNT_OPTS+=("${3:-}")
     if [ -n "${3:-}" ]; then
-        MOUNT_FLAGS+=(-v "$1:$2:$3")
+        MOUNT_FLAGS+=(-v "$from:$2:$3")
     else
-        MOUNT_FLAGS+=(-v "$1:$2")
+        MOUNT_FLAGS+=(-v "$from:$2")
+    fi
+}
+
+# True if $1 is an absolute path: a Unix path (/...) or a Windows drive path (C:\... or C:/...).
+is_abs_path() { [[ "$1" == /* ]] || [[ "$1" =~ ^[A-Za-z]:[\\/] ]]; }
+
+# Map a host folder to its container mount point. A Windows base from albums.yaml
+# (C:\Users\name\Dropbox) is invalid as a container target, so translate it to
+# /mnt/<drive>/... (mirrors winToUnixPath in pkg/photogen/winpath.go). Unix paths
+# (macOS/Linux) are returned unchanged.
+to_container_path() {
+    local p="$1"
+    if [[ "$p" =~ ^([A-Za-z]):[\\/](.*)$ ]]; then
+        local d="${BASH_REMATCH[1]}" rest="${BASH_REMATCH[2]//\\//}"
+        echo "/mnt/${d,,}/$rest"
+    else
+        echo "$p"
     fi
 }
 
@@ -177,8 +200,8 @@ build_config_bases_mounts() {
                 exit 1
             fi
             # Only mount absolute paths that fall outside DDPHOTOS_DIR (which is already mounted)
-            if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
-                add_mount "$path" "$path" ro
+            if is_abs_path "$path" && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
+                add_mount "$path" "$(to_container_path "$path")" ro
             fi
         else
             # Outside bases: — look for album source: or hero image: with absolute paths.
@@ -192,8 +215,8 @@ build_config_bases_mounts() {
                 path="${path/#\~/$HOME}"
                 # Skip /ddphotos* and /docker* paths — container-internal placeholders
                 # used in the init template (e.g. /ddphotos-init) and older templates.
-                if [[ "$path" == /* ]] && [[ "$path" != "$DDPHOTOS_DIR"* ]] && [[ "$path" != /ddphotos* ]] && [[ "$path" != /docker* ]]; then
-                    add_mount "$path" "$path" ro
+                if is_abs_path "$path" && [[ "$path" != "$DDPHOTOS_DIR"* ]] && [[ "$path" != /ddphotos* ]] && [[ "$path" != /docker* ]]; then
+                    add_mount "$path" "$(to_container_path "$path")" ro
                 fi
             fi
         fi
