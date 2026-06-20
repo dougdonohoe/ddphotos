@@ -251,8 +251,8 @@ share one convention for the container location of a Windows folder:
 C:\Users\name\Dropbox\Photos   ->   /mnt/c/Users/name/Dropbox/Photos
 ```
 
-(drive letter lowercased under `/mnt/<drive>/`, backslashes turned into forward slashes —
-the WSL convention).
+The drive letter is lowercased under `/mnt/<drive>/` and backslashes turned into forward slashes
+(the WSL convention).
 
 There are two coordinated translations, both **no-ops on macOS/Linux**:
 
