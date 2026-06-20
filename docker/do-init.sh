@@ -26,17 +26,20 @@ fi
 
 SCRIPT_ONLY=""
 SITE_ID="my-photos"
+WINDOWS=""
 while [[ "${1:-}" == --* ]]; do
     case "$1" in
         --script-only) SCRIPT_ONLY=1; shift ;;
         --site-id) SITE_ID="$2"; shift 2 ;;
+        --windows) WINDOWS=1; shift ;;
         *)
             echo "Unknown option: $1" >&2
             echo "" >&2
-            echo "Usage: ddphotos init [--script-only] [--site-id ID]" >&2
+            echo "Usage: ddphotos init [--script-only] [--site-id ID] [--windows]" >&2
             echo "" >&2
             echo "  --script-only    Install just the 'ddphotos' wrapper script, skip config scaffold" >&2
             echo "  --site-id ID     Site ID written into albums.yaml (default: my-photos)" >&2
+            echo "  --windows        Also install the 'ddphotos.cmd' Windows launcher" >&2
             exit 1
             ;;
     esac
@@ -45,6 +48,12 @@ done
 # Always copy script
 cp /docker/ddphotos /ddphotos/ddphotos
 chmod +x /ddphotos/ddphotos
+
+# On Windows hosts, also install the .cmd launcher (the host can't be detected
+# from inside the container, so the caller signals it with --windows).
+if [ -n "$WINDOWS" ]; then
+    cp /docker/ddphotos.cmd /ddphotos/ddphotos.cmd
+fi
 
 # --script-only: install just the ddphotos wrapper script, skip config scaffold
 if [ -n "$SCRIPT_ONLY" ]; then

@@ -21,6 +21,8 @@ TEMP_DECODE_DIR=""
 EXT_CONFIG_DIR=""
 ABS_CONFIG_DIR=""
 SC_TEST_DIR=""
+WIN_CONFIG_DIR=""
+WIN_OUT_DIR=""
 RUN_PID=""
 SERVE_PID=""
 
@@ -51,6 +53,8 @@ cleanup() {
     if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR"; fi
     if [ -n "$ABS_CONFIG_DIR" ]; then /bin/rm -rf "$ABS_CONFIG_DIR"; fi
     if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi
+    if [ -n "$WIN_CONFIG_DIR" ]; then /bin/rm -rf "$WIN_CONFIG_DIR"; fi
+    if [ -n "$WIN_OUT_DIR" ];    then /bin/rm -rf "$WIN_OUT_DIR";    fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -177,6 +181,41 @@ sed "s|_REPO_ROOT_|$REPO_ROOT|g" "$REPO_ROOT/web/testdata/albums.abspath.yaml" >
 [ -d "$TEST_DIR/albums/$ABS_SITE_ID/the-way" ] || fail "albums/$ABS_SITE_ID/the-way not created"
 [ -f "$TEST_DIR/albums/$ABS_SITE_ID/hero.jpg" ] || fail "albums/$ABS_SITE_ID/hero.jpg not created"
 pass "photogen with absolute source paths OK (album dir and hero.jpg created)"
+
+# ── 5b. Photogen: Windows-style C:\ path mapping ───────────────────────────────
+# A Windows drive path (C:\Users\...) in albums.yaml must map to the container
+# location /mnt/c/Users/... — the shared convention between bash to_container_path
+# (docker/ddphotos) and Go winToUnixPath (pkg/photogen/winpath.go). A real mount of
+# a C:\ host path is impossible on macOS/Linux (cygpath host-side translation is
+# Windows-only), so the two translation halves are validated separately.
+
+step "Photogen: Windows path mapping (bash host side)"
+WIN_CONFIG_DIR=$(mktemp -d)
+/bin/cp "$REPO_ROOT/web/testdata/albums.winpath.yaml" "$WIN_CONFIG_DIR/albums.yaml"
+# --show-mounts prints the mount table before the (expected-to-fail) docker run,
+# so we capture that output and ignore the failure.
+win_out=$("${DDPHOTOS[@]}" --config-dir "$WIN_CONFIG_DIR" photogen 2>&1) || true
+echo "$win_out" | grep -qF 'C:\Users\test\photos -> /mnt/c/Users/test/photos' \
+    || (echo "$win_out" && fail "windows path: base not mapped to /mnt/c/Users/test/photos")
+pass "windows path: bash maps C:\\Users\\test\\photos -> /mnt/c/Users/test/photos"
+
+step "Photogen: Windows path mapping (container side, real photos)"
+# Simulate what the Windows wrapper sets up on a real Windows host: the sample album
+# mounted at the translated container location, and the config dir whose base is
+# C:\Users\test\photos. photogen's winToUnixPath must translate that base to
+# /mnt/c/Users/test/photos and read the real photos mounted there.
+WIN_OUT_DIR=$(mktemp -d)
+chmod 755 "$WIN_OUT_DIR"
+docker run --rm \
+    -v "$WIN_OUT_DIR":/ddphotos \
+    -v "$WIN_CONFIG_DIR":/ddphotos-config:ro \
+    -v "$REPO_ROOT/sample/source/theway":/mnt/c/Users/test/photos/theway:ro \
+    -e DDPHOTOS_CONFIG_DIR=/ddphotos-config \
+    -e DDPHOTOS_SITE_ID=test-winpath \
+    "$IMAGE" photogen
+[ -d "$WIN_OUT_DIR/albums/test-winpath/the-way" ] \
+    || fail "windows path: albums/test-winpath/the-way not created"
+pass "windows path: photogen read photos via C:\\ base mapped to /mnt/c/..."
 
 # ── 6. Decode ──────────────────────────────────────────────────────────────────
 step "Decode"

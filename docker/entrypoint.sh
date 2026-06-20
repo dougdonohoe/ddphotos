@@ -46,6 +46,14 @@ case "$cmd" in
             /bin/mv -f "${SCRIPT}.new" "$SCRIPT"
             echo "The 'ddphotos' script was upgraded ($VERSION)."
         fi
+        # On Windows installs, also refresh the ddphotos.cmd launcher if present
+        # (only updated when it already exists, so Mac/Linux installs are untouched).
+        CMD=/ddphotos-script-dir/ddphotos.cmd
+        if [ -f "$CMD" ] && ! diff -q /docker/ddphotos.cmd "$CMD" > /dev/null 2>&1; then
+            /bin/cp /docker/ddphotos.cmd "${CMD}.new"
+            /bin/mv -f "${CMD}.new" "$CMD"
+            echo "The 'ddphotos.cmd' launcher was upgraded ($VERSION)."
+        fi
         ;;
     help|*)
         [ "$cmd" != "help" ] && { echo "Unknown command: '$cmd'" >&2; echo >&2; }

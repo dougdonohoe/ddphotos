@@ -10,14 +10,38 @@ If you don't have Docker installed, click on the **Download Docker Desktop** but
 [Docker Getting Started↗](https://www.docker.com/get-started/) page to download the appropriate
 installer for your machine.  Install it and then start _Docker.app_ (Mac) or _Docker Desktop_ (Windows/Linux).
 
+### 1-w1. Git for Windows
+
+Windows users also needs to install [Git For Windows↗](https://git-scm.com/download/win).  This is
+needed so that the internal `ddphotos` bash and linux style commands work. 
+
+**NOTE**: It is perfectly **OK** to just accept all the default options (there are a lot of screens!).
+
+### 1-w2. Windows Note
+
+**IMPORTANT WINDOWS NOTE**
+
+We are just adding Windows support now and will improve out docs
+soon, but commands seen in here can be adapted to Windows following
+these rules:
+
+* Run commands in the `Terminal` app running `Windows PowerShell`
+* Instead of `./ddphotos` use `.\ddphotos.cmd`.
+* In place of `~` use `$HOME`
+
 ### 2. Initialize Scaffolding
 
 Initialize a dedicated working directory that contains both the `ddphotos` script and
 a starter config:
 
 ```bash
-mkdir ~/my-ddphotos
-docker run --rm -v ~/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
+mkdir $HOME/my-ddphotos
+
+# Mac/Linux
+docker run --rm -v $HOME/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
+
+# Windows - also installs `ddphotos.cmd` wrapper
+docker run --rm -v $HOME/my-ddphotos:/ddphotos dougdonohoe/ddphotos init --windows
 ```
 
 ### 3. Generate, run, build, and serve the starter site

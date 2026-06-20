@@ -1,0 +1,21 @@
+# Test file used by docker-test.sh to validate Windows path (C:\...) handling.
+# The 'windrive' base is a Windows drive path; it must map to /mnt/c/Users/test/photos
+# on both sides: bash to_container_path (docker/ddphotos) and Go winToUnixPath
+# (pkg/photogen/winpath.go). Keep those two translations in sync.
+settings:
+  id: test-winpath
+  site_name: "Test Windows Path"
+  site_url: https://winpath.example.com
+  site_description: "Test windows path"
+  copyright_owner: "Sir Windows Path"
+  copyright_year: 1985
+
+bases:
+  windrive: C:\Users\test\photos
+
+albums:
+  - slug: the-way
+    name: The Way
+    base: windrive
+    source: theway
+    cover: 2024-The-Way-14.jpg
