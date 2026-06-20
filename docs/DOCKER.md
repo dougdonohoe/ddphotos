@@ -15,7 +15,7 @@ installer for your machine.  Install it and then start _Docker.app_ (Mac) or _Do
 Windows users also needs to install [Git For Windows↗](https://git-scm.com/download/win).  This is
 needed so that the internal `ddphotos` bash and linux style commands work. 
 
-**NOTE**: It is perfectly **OK** to just accepted all the default options (there are a lot of screens!).
+**NOTE**: It is perfectly **OK** to just accept all the default options (there are a lot of screens!).
 
 ### 1-w2. Windows Note
 
