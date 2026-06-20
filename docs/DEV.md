@@ -272,6 +272,18 @@ There are two coordinated translations, both **no-ops on macOS/Linux**:
 
 **The two mappings must stay byte-for-byte in sync** — if you change one, change the other.
 
+### MSYS argument path conversion
+
+Git Bash also rewrites bare Unix-looking arguments before handing them to a native
+(non-MSYS) program like `docker.exe`. A standalone `-w /ddphotos` becomes
+`-w 'C:/Program Files/Git/ddphotos'` (the MSYS install root prepended), and the container
+fails to start with *"the working directory '...' is invalid"*. The `wrangler` and `surge`
+commands pass `-w /ddphotos`, so they run under the `DOCKER_NOPATHCONV` prefix
+(`env MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'`, empty off Windows) which disables that
+conversion. The `-v` mounts are unaffected because their host side is already a Windows
+path from `cygpath`. Commands like `photogen` avoid the issue entirely by `cd`-ing inside
+the container instead of passing `-w`.
+
 ## Static Site Examples
 
 Use `bin/deploy-sample-sites.sh --doit` to deploy `init` and `sample` sites to S3, Cloudflare and surge.

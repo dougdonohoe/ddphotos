@@ -255,6 +255,17 @@ SERVE_PORT="${SERVE_PORT:-8000}"
 RUN_PORT="${RUN_PORT:-5173}"
 IT_FLAGS=(); $NON_INTERACTIVE || IT_FLAGS=(-it)
 
+# Command prefix that disables Git Bash/MSYS automatic POSIX->Windows path conversion.
+# MSYS rewrites a bare container path argument such as `-w /ddphotos` into
+# `C:/Program Files/Git/ddphotos` (the MSYS install root + the path), which Docker then
+# rejects with "the working directory '...' is invalid". Use this prefix on docker runs
+# that pass container paths as standalone args (e.g. -w); the -v mounts are unaffected
+# because their host side is already a Windows path from cygpath. Empty on macOS/Linux.
+DOCKER_NOPATHCONV=()
+case "$OSTYPE" in
+    msys|cygwin) DOCKER_NOPATHCONV=(env MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*') ;;
+esac
+
 # Resolve a path to absolute. Relative paths are anchored to DDPHOTOS_DIR.
 abs_path() {
     local p="$1"
@@ -540,7 +551,7 @@ case "$cmd" in
             print_mounts
             # No -it: wrangler login needs no terminal input; piping requires it off.
             # Merge stderr into stdout (2>&1) so the URL line is visible to the while loop.
-            "$DOCKER" run --rm \
+            "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
                 -w /ddphotos \
                 -v ddphotos-npm-cache:/root/.npm \
                 -v ddphotos-wrangler-config:/root/.config/.wrangler \
@@ -564,7 +575,7 @@ case "$cmd" in
             # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
             # Credentials are read from the ddphotos-wrangler-config volume (populated by login).
             print_mounts
-            "$DOCKER" run --rm "${IT_FLAGS[@]}" \
+            "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${IT_FLAGS[@]}" \
                 -w /ddphotos \
                 -v ddphotos-npm-cache:/root/.npm \
                 -v ddphotos-wrangler-config:/root/.config/.wrangler \
@@ -586,7 +597,7 @@ case "$cmd" in
         add_mount "$HOME/.netrc" /root/.netrc
         print_mounts
         # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
-        "$DOCKER" run --rm "${IT_FLAGS[@]}" \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${IT_FLAGS[@]}" \
             -w /ddphotos \
             -v ddphotos-npm-cache:/root/.npm \
             "${MOUNT_FLAGS[@]}" \
