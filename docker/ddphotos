@@ -255,6 +255,11 @@ SERVE_PORT="${SERVE_PORT:-8000}"
 RUN_PORT="${RUN_PORT:-5173}"
 IT_FLAGS=(); $NON_INTERACTIVE || IT_FLAGS=(-it)
 
+# A frontend (e.g. the GUI) can set DDPHOTOS_CONTAINER_NAME so the long-running serve/run
+# containers get a deterministic --name, letting it later 'docker stop'/'docker kill' them by
+# name instead of trying to discover the container from the process tree. Empty when unset.
+NAME_FLAGS=(); [ -n "${DDPHOTOS_CONTAINER_NAME:-}" ] && NAME_FLAGS=(--name "$DDPHOTOS_CONTAINER_NAME")
+
 # Command prefix that disables Git Bash/MSYS automatic POSIX->Windows path conversion.
 # MSYS rewrites a bare container path argument such as `-w /ddphotos` into
 # `C:/Program Files/Git/ddphotos` (the MSYS install root + the path), which Docker then
@@ -513,7 +518,7 @@ case "$cmd" in
     serve)
         print_mounts
         publish_flags "$SERVE_PORT:80"
-        "$DOCKER" run --rm "${IT_FLAGS[@]}" \
+        "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
             "${MOUNT_FLAGS[@]}" \
@@ -524,7 +529,7 @@ case "$cmd" in
     run)
         print_mounts
         publish_flags "$RUN_PORT:5173"
-        "$DOCKER" run --rm "${IT_FLAGS[@]}" \
+        "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
             "${MOUNT_FLAGS[@]}" \
