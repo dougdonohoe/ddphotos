@@ -266,6 +266,37 @@ case "$OSTYPE" in
     msys|cygwin) DOCKER_NOPATHCONV=(env MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*') ;;
 esac
 
+# Build docker -p publish flags for a HOST:CONTAINER port mapping into PUBLISH_FLAGS.
+# The default IPv4 publish (-p HOST:CONTAINER, i.e. 0.0.0.0) is what macOS/Linux use and
+# also keeps LAN access working. On Windows, "localhost" resolves to IPv6 ::1 first, but
+# Docker Desktop only publishes on the IPv4 stack, so localhost:PORT fails in the browser
+# (127.0.0.1 works). Adding a second publish on the IPv6 loopback ([::1]) makes localhost
+# reach the container regardless of how Windows resolves it — needed because the Vite dev
+# server and especially `wrangler login` (which always redirects to
+# http://localhost:8976/oauth/callback) hand the user a localhost URL we cannot rewrite.
+publish_flags() {
+    local map="$1"
+    PUBLISH_FLAGS=(-p "$map")
+    case "$OSTYPE" in msys|cygwin) PUBLISH_FLAGS+=(-p "[::1]:$map") ;; esac
+}
+
+# Open a URL in the host's default browser across macOS (open), Linux (xdg-open) and
+# Windows/Git Bash (no open/xdg-open — fall back to PowerShell's Start-Process, then
+# cmd's start). Best-effort: does nothing if no opener is found, since callers also print
+# the URL. MSYS_NO_PATHCONV stops Git Bash mangling the URL passed to the native opener.
+open_url() {
+    local url="$1"
+    if command -v open >/dev/null 2>&1; then
+        open "$url"
+    elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$url" >/dev/null 2>&1 &
+    elif command -v powershell.exe >/dev/null 2>&1; then
+        MSYS_NO_PATHCONV=1 powershell.exe -NoProfile -Command "Start-Process '$url'" >/dev/null 2>&1
+    elif command -v cmd.exe >/dev/null 2>&1; then
+        MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' cmd.exe /c start "" "$url" >/dev/null 2>&1
+    fi
+}
+
 # Resolve a path to absolute. Relative paths are anchored to DDPHOTOS_DIR.
 abs_path() {
     local p="$1"
@@ -481,21 +512,23 @@ case "$cmd" in
 
     serve)
         print_mounts
+        publish_flags "$SERVE_PORT:80"
         "$DOCKER" run --rm "${IT_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
             "${MOUNT_FLAGS[@]}" \
-            -p "$SERVE_PORT":80 \
+            "${PUBLISH_FLAGS[@]}" \
             "$IMAGE" serve "$@"
         ;;
 
     run)
         print_mounts
+        publish_flags "$RUN_PORT:5173"
         "$DOCKER" run --rm "${IT_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
             "${MOUNT_FLAGS[@]}" \
-            -p "$RUN_PORT":5173 \
+            "${PUBLISH_FLAGS[@]}" \
             "$IMAGE" run "$@"
         ;;
 
@@ -543,31 +576,31 @@ case "$cmd" in
             # Running inside Docker complicates steps 1 and 2:
             #   - --callback-host 0.0.0.0 makes wrangler bind on all interfaces (not just 127.0.0.1)
             #     so Docker's port forwarding can reach it
-            #   - -p 8976:8976 forwards localhost:8976 on the host into the container
+            #   - -p 8976:8976 forwards localhost:8976 on the host into the container. On Windows
+            #     publish_flags adds an IPv6 loopback ([::1]) publish too, because Cloudflare always
+            #     redirects to http://localhost:8976/oauth/callback and Windows resolves localhost
+            #     to ::1 first — without it the post-login callback never reaches the container.
             #   - --browser false suppresses wrangler's own browser-open attempt (no display in container)
             #   - we pipe docker output through the host, detect the https:// URL, and open it ourselves
             [[ " $* " != *" --callback-host "* ]] && set -- "$@" --callback-host 0.0.0.0
             [[ " $* " != *" --browser "* ]]       && set -- "$@" --browser false
             print_mounts
+            publish_flags "8976:8976"
             # No -it: wrangler login needs no terminal input; piping requires it off.
             # Merge stderr into stdout (2>&1) so the URL line is visible to the while loop.
             "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
                 -w /ddphotos \
                 -v ddphotos-npm-cache:/root/.npm \
                 -v ddphotos-wrangler-config:/root/.config/.wrangler \
-                -p 8976:8976 \
+                "${PUBLISH_FLAGS[@]}" \
                 "${MOUNT_FLAGS[@]}" \
                 "${WRANGLER_ENV[@]}" \
                 "$IMAGE" wrangler "$@" 2>&1 | \
             while IFS= read -r line; do
                 printf '%s\n' "$line"
-                # Auto-open the Cloudflare auth URL in the host browser (open=Mac, xdg-open=Linux)
+                # Auto-open the Cloudflare auth URL in the host browser (macOS/Linux/Windows).
                 if [[ "$line" =~ (https://[^[:space:]]+) ]]; then
-                    if command -v open >/dev/null 2>&1; then
-                        open "${BASH_REMATCH[1]}"
-                    elif command -v xdg-open >/dev/null 2>&1; then
-                        xdg-open "${BASH_REMATCH[1]}" 2>/dev/null &
-                    fi
+                    open_url "${BASH_REMATCH[1]}"
                 fi
             done
         else
