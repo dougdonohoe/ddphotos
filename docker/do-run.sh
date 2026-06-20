@@ -16,6 +16,10 @@ fi
 
 export DDPHOTOS_SITE_ID="$SITE_ID"
 
+# Inside the container, Vite's "Network" URL is the container's internal IP, which
+# isn't reachable from the host — suppress it (see makeLogger in web/vite.config.ts).
+export DDPHOTOS_HIDE_NETWORK_URL=1
+
 # npm commands run from web dir
 cd /app/web
 

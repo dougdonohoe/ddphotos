@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, createLogger } from 'vite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -84,7 +84,25 @@ const httpsPlugin = process.env.VITE_HTTPS
 	? [(await import('@vitejs/plugin-basic-ssl')).default()]
 	: [];
 
+// When DDPHOTOS_HIDE_NETWORK_URL is set (Docker runs via docker/do-run.sh), the
+// "Network" URL Vite prints is the container's internal IP, which isn't reachable
+// from the host. Suppress that one line while keeping host:true so the forwarded
+// port still works. Unset (e.g. `make web-npm-run-dev` on a dev box) keeps the
+// Network URL, which is useful for phone/LAN access.
+function makeLogger() {
+	if (!process.env.DDPHOTOS_HIDE_NETWORK_URL) return undefined;
+	const logger = createLogger();
+	const origInfo = logger.info.bind(logger);
+	logger.info = (msg, options) => {
+		// eslint-disable-next-line no-control-regex
+		if (/Network:/.test(msg.replace(/\x1b\[[0-9;]*m/g, ''))) return;
+		origInfo(msg, options);
+	};
+	return logger;
+}
+
 export default defineConfig({
+	customLogger: makeLogger(),
 	server: {
 		host: true // Listen on all interfaces (allows phone access via IP)
 	},
