@@ -11,7 +11,7 @@
 **NEW** - The brand-new [DD Photos desktop app↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md)
 is the easiest way to run DD Photos - it requires the least technical jujitsu!  We highly recommend starting there.
 
-![config.png](images/config.png)
+![config.png](images/ddphotos-app/config.png)
 
 ## Docker Quick Start
 
