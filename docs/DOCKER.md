@@ -1,6 +1,6 @@
 # Docker Mode
 
-The easiest way to run ddphotos is via Docker — no Go, Node, or libvips installation required.
+The easiest way to run `ddphotos` is via Docker — no Go, Node, or libvips installation required.
 
 ## Quick Start
 

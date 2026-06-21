@@ -8,14 +8,15 @@ settings:
   allow_crawling: true
   descriptions: descriptions.txt
   site_title_html: >-
-    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>
+    <a href="https://github.com/dougdonohoe/ddphotos-app" target="_blank" rel="noopener">DD Photos</a>
   site_subtitle_html: >-
     Self-host your memories. No subscriptions, no lock-in, yours forever.
   site_overview_html: >-
-    These albums are from the sample site bundled with
-    <a href="https://github.com/dougdonohoe/ddphotos/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>,
-    a free and open-source self-hosted photo gallery.
-    Browse the photos below, then publish your own albums. One Docker command to get started.
+    These albums are an example of what you can publish using the 
+    <a href="https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>
+    application, a free and open-source self-hosted photo gallery.
+    Browse the photos below, then <a href="https://github.com/dougdonohoe/ddphotos-app/releases">download</a> the app 
+    to publish your own albums.
   hero:
     image: theway/2024-The-Way-13.jpg
     base: sample

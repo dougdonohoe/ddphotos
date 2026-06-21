@@ -6,9 +6,16 @@
 [![CI](https://github.com/dougdonohoe/ddphotos/actions/workflows/ci.yml/badge.svg)](https://github.com/dougdonohoe/ddphotos/actions)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+## DD Photos App
+
+**NEW** - The brand-new [DD Photos desktop app↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md)
+is the easiest way to run DD Photos - it requires the least technical jujitsu!  We highly recommend starting there.
+
+![config.png](images/config.png)
+
 ## Docker Quick Start
 
-The easiest way to run DD Photos is via [Docker↗](https://www.docker.com/get-started/) — no Go, 
+The second-easiest way to run DD Photos is via [Docker↗](https://www.docker.com/get-started/) — no Go, 
 Node, or `libvips` required.  Try the starter site:
 
 ```bash
