@@ -11,10 +11,10 @@ If you don't have Docker installed, click on the **Download Docker Desktop** but
 [Docker Getting Started↗](https://www.docker.com/get-started/) page to download the appropriate
 installer for your machine.  Install it and then start _Docker.app_ (Mac) or _Docker Desktop_ (Windows/Linux).
 
-### 1-w1. Windows Setup
+### 1w. Windows Setup
 
-Windows users also needs to install [Git For Windows↗](https://git-scm.com/download/win).  This is
-needed so that the internal `ddphotos` bash and linux style commands work. **NOTE**: It is
+Windows users also need to install [Git For Windows↗](https://git-scm.com/download/win).  This is 
+so that the internal `ddphotos` bash and linux-style commands work. **NOTE**: It is
 perfectly **OK** to just accept all the default options (there are a lot of screens!).
 
 To adapt these docs for Windows:
