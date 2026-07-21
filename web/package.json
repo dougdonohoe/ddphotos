@@ -26,7 +26,7 @@
 		"@types/justified-layout": "^4.1.4",
 		"@types/node": "^22",
 		"@vitejs/plugin-basic-ssl": "^2.3.0",
-		"eslint": "^9.39.2",
+		"eslint": "^10.7.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
 		"globals": "^17.3.0",
