@@ -18,8 +18,10 @@
 
 <SecondaryPage {icon} {iconColor} title={errorTitle} {siteName}>
 	{#if status === 404}
-		<p>It seems <span id="missing-path" class="missing-path"></span> was not found. Maybe that film
-		hasn't been developed yet?</p>
+		<p>
+			It seems <span id="missing-path" class="missing-path"></span> was not found. Maybe that film hasn't
+			been developed yet?
+		</p>
 	{:else}
 		<p>Doh! {message || 'Something went wrong'}</p>
 	{/if}

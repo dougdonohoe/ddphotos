@@ -51,10 +51,7 @@ export async function decryptJSON(encryptedBlob: string, password: string): Prom
 }
 
 // Returns the decrypted value, or null if the password is wrong or data is malformed.
-export async function tryDecrypt(
-	encryptedBlob: string,
-	password: string
-): Promise<unknown | null> {
+export async function tryDecrypt(encryptedBlob: string, password: string): Promise<unknown | null> {
 	try {
 		return await decryptJSON(encryptedBlob, password);
 	} catch {

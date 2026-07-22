@@ -19,7 +19,8 @@ export function loadPasswords(): Passwords {
 	if (!file) return { all: null, allHint: null, albums: {}, albumHints: {} };
 	const content = fs.readFileSync(file, 'utf-8');
 	const parsed = yaml.load(content) as Record<string, unknown>;
-	if (!parsed || typeof parsed !== 'object') return { all: null, allHint: null, albums: {}, albumHints: {} };
+	if (!parsed || typeof parsed !== 'object')
+		return { all: null, allHint: null, albums: {}, albumHints: {} };
 
 	const site = parsed['site'] as Record<string, string> | undefined;
 	const all: string | null = site?.password ?? null;
@@ -74,8 +75,14 @@ export async function unlockAlbum(page: Page, password: string): Promise<void> {
 export async function unlockSiteIfNeeded(page: Page, passwords: Passwords): Promise<void> {
 	if (!passwords.all) return;
 	const result = await Promise.race([
-		page.locator('.albums').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'unlocked'),
-		page.locator('.fullscreen-overlay').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'locked'),
+		page
+			.locator('.albums')
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.then(() => 'unlocked'),
+		page
+			.locator('.fullscreen-overlay')
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.then(() => 'locked')
 	]).catch(() => 'timeout');
 	if (result !== 'locked') return;
 	await unlockSite(page, passwords.all);
@@ -98,8 +105,14 @@ export async function unlockAlbumIfNeeded(
 	const pw = passwords.albums[slug] ?? passwords.all;
 	if (!pw) return;
 	const result = await Promise.race([
-		page.locator('.gallery').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'unlocked'),
-		page.locator('.fullscreen-overlay').waitFor({ state: 'visible', timeout: 15_000 }).then(() => 'locked'),
+		page
+			.locator('.gallery')
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.then(() => 'unlocked'),
+		page
+			.locator('.fullscreen-overlay')
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.then(() => 'locked')
 	]).catch(() => 'timeout');
 	if (result !== 'locked') return;
 	await unlockAlbum(page, pw);
@@ -177,7 +190,7 @@ export async function slugFromCard(card: Locator): Promise<string> {
  */
 export async function waitForHydration(page: Page): Promise<void> {
 	await page.waitForFunction(() => {
-		const v = (window as any).__svelte?.v;
+		const v = (window as Window & { __svelte?: { v?: unknown } }).__svelte?.v;
 		return v instanceof Set && v.size > 0;
 	});
 

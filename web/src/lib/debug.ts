@@ -23,5 +23,8 @@ export function debug(...args: unknown[]): void {
 	const message = `[${ctx}][${n}] ${args.map(format).join(' ')}`;
 	console.log(`[debug] ${message}`);
 	if (!browser) return;
-	navigator.sendBeacon('/api/debug', new Blob([JSON.stringify({ message })], { type: 'application/json' }));
+	navigator.sendBeacon(
+		'/api/debug',
+		new Blob([JSON.stringify({ message })], { type: 'application/json' })
+	);
 }

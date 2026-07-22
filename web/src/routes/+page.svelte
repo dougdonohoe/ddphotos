@@ -34,7 +34,9 @@
 	// Unpack siteData into flat reactive locals so the rest of this component reads cleanly.
 	const siteId = $derived(data.siteData.siteId);
 	const albumsEncrypted = $derived(data.siteData.albums.encrypted);
-	const encryptedAlbumsBlob = $derived(data.siteData.albums.encrypted ? data.siteData.albums.blob : null);
+	const encryptedAlbumsBlob = $derived(
+		data.siteData.albums.encrypted ? data.siteData.albums.blob : null
+	);
 	const loadedAlbums = $derived(data.siteData.albums.encrypted ? null : data.siteData.albums.data);
 	const siteHint = $derived(data.siteData.albums.encrypted ? data.siteData.albums.hint : undefined);
 	const _html = $derived(data.siteData.html);
@@ -85,7 +87,10 @@
 		if (albums && (pendingScroll > 0 || pendingFocusSlug)) {
 			const y = pendingScroll;
 			const slug = pendingFocusSlug;
-			untrack(() => { pendingScroll = 0; pendingFocusSlug = null; }); // clear without re-triggering
+			untrack(() => {
+				pendingScroll = 0;
+				pendingFocusSlug = null;
+			}); // clear without re-triggering
 			requestAnimationFrame(() => {
 				document.documentElement.style.visibility = '';
 				if (y > 0) window.scrollTo(0, y);
@@ -186,7 +191,9 @@
 			document.documentElement.style.visibility = 'hidden';
 			// Failsafe: if $effect never fires (e.g. albums stays null due to error), unhide.
 			const UNHIDE_TIMEOUT_MS = 2000;
-			setTimeout(() => { document.documentElement.style.visibility = ''; }, UNHIDE_TIMEOUT_MS);
+			setTimeout(() => {
+				document.documentElement.style.visibility = '';
+			}, UNHIDE_TIMEOUT_MS);
 		}
 
 		// Clear stale cover cache if the siteId or keyId changed (key rotation renames all image files).
@@ -203,7 +210,7 @@
 		unlocking = true;
 
 		const sitePw = getStoredPassword(siteKey(siteId));
-		if (sitePw && await applyDecrypted(sitePw)) {
+		if (sitePw && (await applyDecrypted(sitePw))) {
 			unlocking = false;
 			return;
 		}
@@ -240,7 +247,10 @@
 		// offsetTop/offsetLeft give layout positions unaffected by CSS transforms
 		// (hover applies translateY(-4px), which would corrupt getBoundingClientRect()).
 		const rects = allCards.map((c) => ({
-			left: c.offsetLeft, top: c.offsetTop, width: c.offsetWidth, height: c.offsetHeight
+			left: c.offsetLeft,
+			top: c.offsetTop,
+			width: c.offsetWidth,
+			height: c.offsetHeight
 		}));
 		const targetIndex = navigateCursor(rects, currentIndex, direction);
 		if (targetIndex !== null) {
@@ -263,7 +273,10 @@
 		const allCards = Array.from(document.querySelectorAll<HTMLElement>('.album-card'));
 		const currentIndex = allCards.indexOf(e.currentTarget as HTMLElement);
 		if (currentIndex !== -1) {
-			navigateCardCursor(currentIndex, e.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down');
+			navigateCardCursor(
+				currentIndex,
+				e.key.slice(5).toLowerCase() as 'left' | 'right' | 'up' | 'down'
+			);
 		}
 	}
 
@@ -283,16 +296,20 @@
 	{#if data.siteConfig?.heroImage}
 		<div class="hero" style:background-image="url('/albums/{data.siteConfig.heroImage}')">
 			<div class="hero-overlay">
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
 				<h1>{@html siteTitleHtml}</h1>
 				{#if siteSubtitleHtml}
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
 					<p class="site-subtitle">{@html siteSubtitleHtml}</p>
 				{/if}
 			</div>
 		</div>
 	{:else}
 		<header>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
 			<h1>{@html siteTitleHtml}</h1>
 			{#if siteSubtitleHtml}
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
 				<p class="site-subtitle">{@html siteSubtitleHtml}</p>
 			{/if}
 		</header>
@@ -302,11 +319,14 @@
 {#if albums}
 	<main>
 		{#if siteOverviewHtml}
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
 			<div class="site-overview">{@html siteOverviewHtml}</div>
 		{/if}
 		<div class="albums">
 			{#each albums as album (album.slug)}
-				<a href={resolve(`/albums/${album.slug}`)} class="album-card"
+				<a
+					href={resolve(`/albums/${album.slug}`)}
+					class="album-card"
 					data-slug={album.slug}
 					onkeydown={handleCardKeydown}
 				>
@@ -344,9 +364,13 @@
 					<div class="album-info">
 						<h2>{album.title}</h2>
 						{#if album.description}
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -- album photogen.txt, HTML is intentional -->
 							<p class="description">{@html album.description}</p>
 						{/if}
-						<p class="meta">{album.count} {album.count === 1 ? 'photo' : 'photos'}{album.dateSpan ? ` · ${album.dateSpan}` : ''}</p>
+						<p class="meta">
+							{album.count}
+							{album.count === 1 ? 'photo' : 'photos'}{album.dateSpan ? ` · ${album.dateSpan}` : ''}
+						</p>
 					</div>
 				</a>
 			{/each}
@@ -360,12 +384,7 @@
 
 {#if browser && albumsEncrypted && !albums && !unlocking}
 	<div class="fullscreen-overlay">
-		<PasswordPrompt
-			name={siteName}
-			hint={siteHint}
-			{shakeCount}
-			onunlock={handleUnlock}
-		/>
+		<PasswordPrompt name={siteName} hint={siteHint} {shakeCount} onunlock={handleUnlock} />
 	</div>
 {/if}
 
@@ -507,7 +526,9 @@
 		overflow: hidden;
 		background: var(--bg-secondary);
 		box-shadow: 0 2px 8px var(--shadow-color);
-		transition: transform 0.2s, box-shadow 0.2s;
+		transition:
+			transform 0.2s,
+			box-shadow 0.2s;
 		display: flex;
 		flex-direction: column;
 	}

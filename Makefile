@@ -82,6 +82,16 @@ web-nvm-install:
 web-npm-install:
 	$(NODE_INIT) cd web && npm install
 
+.PHONY: web-lint
+## web-lint: check formatting (prettier) and lint (eslint) in web/
+web-lint:
+	$(NODE_INIT) cd web && npm run lint
+
+.PHONY: web-format
+## web-format: reformat web/ sources with prettier
+web-format:
+	$(NODE_INIT) cd web && npm run format
+
 .PHONY: web-playwright-install
 ## web-playwright-install: install Playwright and browser binaries (one-time setup)
 web-playwright-install:

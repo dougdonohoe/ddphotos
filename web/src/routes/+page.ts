@@ -22,7 +22,7 @@ export async function load({ fetch, parent, url }) {
 			if (siteConfig.htmlFile.endsWith('.enc.json')) {
 				html = { encrypted: true, blob: await htmlRes.text() };
 			} else {
-				html = { encrypted: false, data: await htmlRes.json() as SiteHtmlContent };
+				html = { encrypted: false, data: (await htmlRes.json()) as SiteHtmlContent };
 			}
 		}
 	}
@@ -31,7 +31,7 @@ export async function load({ fetch, parent, url }) {
 	if (siteConfig.albumsFile.endsWith('.enc.json')) {
 		albums = { encrypted: true, blob: await albumsRes.text(), hint: siteConfig.siteHint };
 	} else {
-		albums = { encrypted: false, data: await albumsRes.json() as AlbumSummary[] };
+		albums = { encrypted: false, data: (await albumsRes.json()) as AlbumSummary[] };
 	}
 
 	const siteData: SiteData = { siteId: siteConfig.siteId, albums, html };

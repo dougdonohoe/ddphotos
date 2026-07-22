@@ -28,7 +28,11 @@ export async function load({ params, fetch }) {
 		// unlocked by either the site password or a per-album password.
 		const indexRes = await fetch(`/albums/${params.slug}/index.enc.json`);
 		if (!indexRes.ok) error(404, `Album "${params.slug}" not found`);
-		album = { encrypted: true, blob: await indexRes.text(), hint: config.albumHints?.[params.slug] };
+		album = {
+			encrypted: true,
+			blob: await indexRes.text(),
+			hint: config.albumHints?.[params.slug]
+		};
 	} else {
 		// albums.json is plain; check the encrypted flag for this album before deciding
 		// which index file to fetch (index.json vs index.enc.json).
@@ -39,11 +43,17 @@ export async function load({ params, fetch }) {
 		}
 
 		const indexEncrypted = albumMeta?.encrypted ?? false;
-		const indexRes = await fetch(`/albums/${params.slug}/${indexEncrypted ? 'index.enc.json' : 'index.json'}`);
+		const indexRes = await fetch(
+			`/albums/${params.slug}/${indexEncrypted ? 'index.enc.json' : 'index.json'}`
+		);
 		if (!indexRes.ok) error(404, `Album "${params.slug}" not found`);
 
 		if (indexEncrypted) {
-			album = { encrypted: true, blob: await indexRes.text(), hint: config.albumHints?.[params.slug] };
+			album = {
+				encrypted: true,
+				blob: await indexRes.text(),
+				hint: config.albumHints?.[params.slug]
+			};
 		} else {
 			let data: AlbumIndex;
 			try {
@@ -60,11 +70,12 @@ export async function load({ params, fetch }) {
 	const albumData: AlbumData = {
 		siteId: config.siteId,
 		slug: params.slug,
-		albumTitle: albumMeta?.title ?? params.slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+		albumTitle:
+			albumMeta?.title ?? params.slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
 		dateSpan: albumMeta?.dateSpan ?? '',
 		description: albumMeta?.description ?? '',
 		photoIndex: params.index ? parseInt(params.index) - 1 : null,
-		album,
+		album
 	};
 	return { albumData };
 }

@@ -11,14 +11,21 @@
 	}
 
 	onMount(() => {
-		const onScroll = () => { show = window.scrollY > 600; };
+		const onScroll = () => {
+			show = window.scrollY > 600;
+		};
 		window.addEventListener('scroll', onScroll, { passive: true });
 		return () => window.removeEventListener('scroll', onScroll);
 	});
 </script>
 
 {#if show}
-	<button class="back-to-top" class:mobile-only={mobileOnly} onclick={scrollToTop} aria-label="Back to top">
+	<button
+		class="back-to-top"
+		class:mobile-only={mobileOnly}
+		onclick={scrollToTop}
+		aria-label="Back to top"
+	>
 		<ArrowUpToLine size={20} strokeWidth={2.5} aria-hidden="true" />
 	</button>
 {/if}
@@ -41,7 +48,9 @@
 		justify-content: center;
 		box-shadow: 0 2px 8px var(--shadow-color);
 		opacity: 0.9;
-		transition: opacity 0.2s, transform 0.2s;
+		transition:
+			opacity 0.2s,
+			transform 0.2s;
 	}
 
 	:global(:root[data-theme='light'] .back-to-top) {

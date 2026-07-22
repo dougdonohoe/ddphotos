@@ -5,7 +5,11 @@ export type Direction = 'left' | 'right' | 'up' | 'down';
 // Rects can come from justified-layout boxes or getBoundingClientRect() — both expose the same
 // {left, top, width, height} shape. A 10px tolerance on row matching handles sub-pixel rounding
 // from CSS grid layouts (justified-layout emits exact values so tolerance has no effect there).
-export function navigateCursor(rects: Rect[], currentIndex: number, direction: Direction): number | null {
+export function navigateCursor(
+	rects: Rect[],
+	currentIndex: number,
+	direction: Direction
+): number | null {
 	const count = rects.length;
 	if (count === 0) return null;
 
@@ -18,7 +22,7 @@ export function navigateCursor(rects: Rect[], currentIndex: number, direction: D
 
 	const candidates = rects
 		.map((rect, i) => ({ rect, i }))
-		.filter(({ rect }) => isUp ? rect.top < current.top : rect.top > current.top);
+		.filter(({ rect }) => (isUp ? rect.top < current.top : rect.top > current.top));
 	if (candidates.length === 0) return null;
 
 	const nearestRowTop = isUp
