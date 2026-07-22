@@ -205,7 +205,7 @@ test('site password dialog shows hint', async ({ page }) => {
 });
 
 test('album password dialog shows hint', async ({ page }) => {
-	const firstAlbumHint = firstAlbumSlug ? pw.albumHints[firstAlbumSlug] ?? null : null;
+	const firstAlbumHint = firstAlbumSlug ? (pw.albumHints[firstAlbumSlug] ?? null) : null;
 	test.skip(!firstAlbumSlug || !firstAlbumHint, 'no per-album password or hint configured');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
@@ -228,5 +228,7 @@ test('per-album encrypted album shows lock icon not cover before unlock', async 
 	const placeholder = card.locator('.album-cover-placeholder');
 	const bgImage = await placeholder.evaluate((el) => getComputedStyle(el).backgroundImage);
 	// Either no background-image at all, or 'none'
-	expect(['none', '']).toContain(bgImage.trim() === '' ? '' : bgImage === 'none' ? 'none' : 'other');
+	expect(['none', '']).toContain(
+		bgImage.trim() === '' ? '' : bgImage === 'none' ? 'none' : 'other'
+	);
 });

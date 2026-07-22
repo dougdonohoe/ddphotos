@@ -48,7 +48,7 @@ async function waitForHydration(page) {
 		const v = window.__svelte?.v;
 		return v instanceof Set && v.size > 0;
 	});
-	if (await page.locator('.gallery').count() > 0) {
+	if ((await page.locator('.gallery').count()) > 0) {
 		await page.locator('.gallery.layout-ready').waitFor();
 	}
 }
@@ -76,9 +76,13 @@ async function waitForAlbumImages(page) {
 	// the `loaded` class is applied — no mid-transition screenshot artifacts.
 	await page.addStyleTag({ content: '.photo img { transition: none !important; }' });
 
-	await page.waitForFunction(() => {
-		return document.querySelectorAll('.photo img.loaded').length >= 3;
-	}, null, { timeout: 15000 });
+	await page.waitForFunction(
+		() => {
+			return document.querySelectorAll('.photo img.loaded').length >= 3;
+		},
+		null,
+		{ timeout: 15000 }
+	);
 }
 
 /**
@@ -106,7 +110,10 @@ async function applyTheme(page, theme) {
  * (matches the stroke applied by bin/generate-screenshot-composite.py).
  */
 async function capture(page, filename) {
-	await page.addStyleTag({ content: 'body::after { content: ""; position: fixed; inset: 0; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.20); pointer-events: none; z-index: 99999; }' });
+	await page.addStyleTag({
+		content:
+			'body::after { content: ""; position: fixed; inset: 0; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.20); pointer-events: none; z-index: 99999; }'
+	});
 	const fullPath = path.join(outDir, filename);
 	await page.screenshot({ path: fullPath, fullPage: false });
 	console.log(`  ✓  ${fullPath}`);
@@ -139,10 +146,10 @@ async function run() {
 
 		const shots = [
 			// [theme, route, filename, extraSetup]
-			['dark',  '/',                          'home-dark.png',     waitForHomeImages],
-			['light', '/',                          'home-light.png',    waitForHomeImages],
-			['dark',  `/albums/${albumSlug}`,       'album-dark.png',    waitForAlbumImages],
-			['light', `/albums/${albumSlug}`,       'album-light.png',   waitForAlbumImages],
+			['dark', '/', 'home-dark.png', waitForHomeImages],
+			['light', '/', 'home-light.png', waitForHomeImages],
+			['dark', `/albums/${albumSlug}`, 'album-dark.png', waitForAlbumImages],
+			['light', `/albums/${albumSlug}`, 'album-light.png', waitForAlbumImages]
 			// Lightbox is handled separately below
 		];
 
@@ -174,15 +181,18 @@ async function run() {
 			await page.locator('.pswp').waitFor({ state: 'visible' });
 
 			// Wait for the full-res image inside PhotoSwipe to load
-			await page.waitForFunction(() => {
-				const img = document.querySelector('.pswp__img:not(.pswp__img--placeholder)');
-				return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
-			}, null, { timeout: 15000 });
+			await page.waitForFunction(
+				() => {
+					const img = document.querySelector('.pswp__img:not(.pswp__img--placeholder)');
+					return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
+				},
+				null,
+				{ timeout: 15000 }
+			);
 
 			await capture(page, 'lightbox-dark.png');
 			await ctx.close();
 		}
-
 	} finally {
 		await browser.close();
 	}

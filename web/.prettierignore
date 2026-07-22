@@ -7,3 +7,10 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Local editor/tool settings (gitignored)
+.claude/
+
+# Test fixtures: these mirror real user albums.yaml config, which uses
+# double-quoted strings like the examples in config/. Leave them alone.
+/testdata/

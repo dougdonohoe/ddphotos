@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded, albumExists } from './helpers';
+import {
+	waitForHydration,
+	loadPasswords,
+	unlockSiteIfNeeded,
+	unlockAlbumIfNeeded,
+	albumExists
+} from './helpers';
 
 const pw = loadPasswords();
 
@@ -14,7 +20,9 @@ test.beforeAll(async ({ request }) => {
 // close the lightbox and return to the album URL, NOT navigate to a prior page
 // (e.g. the album list) or leave the lightbox hanging open.
 
-test('back button after opening photo closes lightbox and returns to album URL', async ({ page }) => {
+test('back button after opening photo closes lightbox and returns to album URL', async ({
+	page
+}) => {
 	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);

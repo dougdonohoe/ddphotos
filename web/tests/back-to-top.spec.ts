@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { loadPasswords, unlockSiteIfNeeded, unlockAlbumIfNeeded, albumExists } from './helpers';
 
 const pw = loadPasswords();
@@ -14,9 +14,9 @@ const DESKTOP = { width: 1280, height: 800 };
 // Scroll past the 600px threshold and fire the scroll event.
 // Everything runs in one evaluate call so the layout reflow from min-height is applied
 // synchronously (via getBoundingClientRect) before scrollTo reads the page dimensions.
-async function simulateScroll(page: any, y = 700) {
+async function simulateScroll(page: Page, y = 700) {
 	await page.evaluate((scrollY: number) => {
-		document.body.style.minHeight = (scrollY + 1000) + 'px';
+		document.body.style.minHeight = scrollY + 1000 + 'px';
 		document.body.getBoundingClientRect(); // force synchronous layout
 		window.scrollTo(0, scrollY);
 		window.dispatchEvent(new Event('scroll'));

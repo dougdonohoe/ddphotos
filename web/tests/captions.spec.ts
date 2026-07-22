@@ -10,8 +10,8 @@ test.beforeAll(async ({ request }) => {
 
 // Caption tests verify the rendering mechanism works (rAF fix, animate=false fix),
 // not specific caption text — so they work against any site (sample or prod).
-const ALBUM   = 'antarctica';
-const PHOTO_N = 1;    // 1-based (matches URL /albums/antarctica/1)
+const ALBUM = 'antarctica';
+const PHOTO_N = 1; // 1-based (matches URL /albums/antarctica/1)
 
 // Helper: assert that at least one caption element has non-empty visible text.
 // PhotoSwipe maintains 3 holders (prev/current/next), each with a .pswp-caption;
@@ -26,7 +26,10 @@ test('caption shows when clicking a photo from the grid (animate=true path)', as
 	await unlockAlbumIfNeeded(page, ALBUM, pw);
 	await waitForHydration(page);
 
-	await page.locator('.photo').nth(PHOTO_N - 1).click();
+	await page
+		.locator('.photo')
+		.nth(PHOTO_N - 1)
+		.click();
 
 	// Lightbox should open.
 	await expect(page.locator('.pswp')).toBeVisible();
@@ -35,7 +38,9 @@ test('caption shows when clicking a photo from the grid (animate=true path)', as
 	await expectCaptionVisible(page);
 });
 
-test('caption shows when loading a photo permalink directly (animate=false path)', async ({ page }) => {
+test('caption shows when loading a photo permalink directly (animate=false path)', async ({
+	page
+}) => {
 	test.skip(!hasAntarctica, 'antarctica album not present');
 	// Direct URL open: onMount calls openLightbox(..., false) before the router
 	// is fully initialised — exercises the `if (animate) replaceState(...)` fix.
@@ -62,7 +67,10 @@ test('caption updates when navigating to prev/next photo', async ({ page }) => {
 	await page.goto(`/albums/${ALBUM}`);
 	await unlockAlbumIfNeeded(page, ALBUM, pw);
 	await waitForHydration(page);
-	await page.locator('.photo').nth(PHOTO_N - 1).click();
+	await page
+		.locator('.photo')
+		.nth(PHOTO_N - 1)
+		.click();
 	await expect(page.locator('.pswp')).toBeVisible();
 	await expectCaptionVisible(page);
 

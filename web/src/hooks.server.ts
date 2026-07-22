@@ -36,9 +36,11 @@ export const handleFetch: HandleFetch = async ({ request, fetch }) => {
 			const body = readFileSync(filePath);
 			const ext = filePath.split('.').pop() ?? '';
 			const contentType =
-				ext === 'json' ? 'application/json' :
-				ext === 'webp' ? 'image/webp' :
-				'application/octet-stream';
+				ext === 'json'
+					? 'application/json'
+					: ext === 'webp'
+						? 'image/webp'
+						: 'application/octet-stream';
 			return new Response(body, { headers: { 'Content-Type': contentType } });
 		}
 	}

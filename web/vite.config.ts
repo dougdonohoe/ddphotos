@@ -68,7 +68,9 @@ function gitRemote(): { slug: string; url: string } {
 	const match = raw.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
 	if (!match) return { slug: raw, url: raw };
 	const slug = match[1];
-	const host = raw.includes('github.com') ? 'https://github.com' : 'https://' + (raw.match(/[@/]([^/:@]+\.com)/)?.[1] ?? 'github.com');
+	const host = raw.includes('github.com')
+		? 'https://github.com'
+		: 'https://' + (raw.match(/[@/]([^/:@]+\.com)/)?.[1] ?? 'github.com');
 	return { slug, url: `${host}/${slug}` };
 }
 if (!process.env.VITE_GIT_REPO_SLUG) {
@@ -114,7 +116,11 @@ export default defineConfig({
 			closeBundle() {
 				if (!existsSync(buildMetaPath)) return;
 				let meta: { configDir?: string };
-				try { meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8')); } catch { return; }
+				try {
+					meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8'));
+				} catch {
+					return;
+				}
 				if (!meta.configDir) return;
 				const staticDir = join(meta.configDir, 'static');
 				if (!existsSync(staticDir)) return;
@@ -147,7 +153,9 @@ export default defineConfig({
 							const { message } = JSON.parse(body);
 							const ts = new Date().toISOString().slice(11, 23);
 							console.log(`[${ts}] [debug] ${message}`);
-						} catch {}
+						} catch {
+							// Malformed debug payload: ignore it and still return 200 below.
+						}
 						res.writeHead(200, { 'Content-Type': 'application/json' });
 						res.end('{"ok":true}');
 					});
@@ -157,7 +165,11 @@ export default defineConfig({
 				server.middlewares.use('/albums', (req, res, next) => {
 					const filePath = join(albumsDir, decodeURIComponent(req.url ?? '/'));
 					let stat;
-					try { stat = statSync(filePath); } catch { return next(); }
+					try {
+						stat = statSync(filePath);
+					} catch {
+						return next();
+					}
 					if (!stat.isFile()) return next();
 					createReadStream(filePath).pipe(res);
 				});

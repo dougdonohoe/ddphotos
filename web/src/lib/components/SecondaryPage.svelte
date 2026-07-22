@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { Pathname } from '$app/types';
+	import { resolve } from '$app/paths';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 
 	let {
@@ -16,7 +18,7 @@
 		iconColor?: 'blue' | 'amber' | 'red' | 'gray';
 		title: string;
 		siteName: string;
-		backHref?: string;
+		backHref?: Pathname;
 		children: Snippet;
 	} = $props();
 </script>
@@ -34,7 +36,7 @@
 		</div>
 		<div class="card-body">
 			{@render children()}
-			<a href={backHref} class="card-back">
+			<a href={resolve(backHref)} class="card-back">
 				<ArrowLeft size={12} aria-hidden="true" />Back to albums
 			</a>
 		</div>
@@ -74,10 +76,22 @@
 		flex-shrink: 0;
 	}
 
-	:global(.card-icon--blue)  { background: rgba(59, 130, 246, 0.1);  color: rgb(59, 130, 246); }
-	:global(.card-icon--amber) { background: rgba(245, 158, 11, 0.1);  color: rgb(245, 158, 11); }
-	:global(.card-icon--red)   { background: rgba(239, 68, 68, 0.1);   color: rgb(239, 68, 68); }
-	:global(.card-icon--gray)  { background: rgba(107, 114, 128, 0.1); color: rgb(107, 114, 128); }
+	:global(.card-icon--blue) {
+		background: rgba(59, 130, 246, 0.1);
+		color: rgb(59, 130, 246);
+	}
+	:global(.card-icon--amber) {
+		background: rgba(245, 158, 11, 0.1);
+		color: rgb(245, 158, 11);
+	}
+	:global(.card-icon--red) {
+		background: rgba(239, 68, 68, 0.1);
+		color: rgb(239, 68, 68);
+	}
+	:global(.card-icon--gray) {
+		background: rgba(107, 114, 128, 0.1);
+		color: rgb(107, 114, 128);
+	}
 
 	.card-site-name {
 		font-size: 0.75rem;
@@ -124,7 +138,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.3rem;
-		margin-top: .25rem;
+		margin-top: 0.25rem;
 		font-size: 12px;
 		color: var(--link-color);
 		text-decoration: none;

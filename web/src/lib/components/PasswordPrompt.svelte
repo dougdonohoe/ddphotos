@@ -38,9 +38,10 @@
 		<div class="pw-icon">
 			<PasswordIcon size={40} strokeWidth={1.75} aria-hidden="true" />
 		</div>
-		<h2>{prefix ? prefix + ' ' : ''}<span class="name">{name}</span><br>requires a password.</h2>
+		<h2>{prefix ? prefix + ' ' : ''}<span class="name">{name}</span><br />requires a password.</h2>
 		<form onsubmit={handleSubmit}>
-			<!-- svelte-ignore a11y_autofocus — intentional: this is an explicit password dialog -->
+			<!-- Intentional: this is an explicit password dialog, so focusing the input is expected. -->
+			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				type="password"
 				placeholder="Password"

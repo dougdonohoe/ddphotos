@@ -45,6 +45,9 @@ jobs:
       - name: Go build, test, vet
         run: make build test vet
 
+      - name: Web lint (prettier + eslint)
+        run: make web-lint
+
       - name: Install Playwright Chromium
         run: make web-playwright-install
 

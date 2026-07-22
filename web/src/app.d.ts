@@ -19,6 +19,7 @@ interface ImportMetaEnv {
 // import.meta.env variables. IntelliJ incorrectly reports this as unused because
 // it doesn't recognize the Vite module augmentation pattern.
 // noinspection JSUnusedLocalSymbols
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- ambient type augmentation, not runtime code
 interface ImportMeta {
 	readonly env: ImportMetaEnv;
 }

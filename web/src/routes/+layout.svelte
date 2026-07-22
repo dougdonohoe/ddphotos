@@ -8,6 +8,7 @@
 	import Info from 'lucide-svelte/icons/info';
 	import X from 'lucide-svelte/icons/x';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 
 	let { children, data } = $props();
 
@@ -29,7 +30,11 @@
 		const month = d.getMonth() + 1;
 		const day = d.getDate();
 		const year = d.getFullYear();
-		const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+		const time = d.toLocaleTimeString('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
 		return `${month}/${day}/${year} at ${time}`;
 	}
 
@@ -43,8 +48,12 @@
 
 	let showAbout = $state(false);
 
-	function openAbout() { showAbout = true; }
-	function closeAbout() { showAbout = false; }
+	function openAbout() {
+		showAbout = true;
+	}
+	function closeAbout() {
+		showAbout = false;
+	}
 	function handleOverlayClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) closeAbout();
 	}
@@ -74,11 +83,7 @@
 	{#if data.siteConfig?.customCss}
 		<link rel="stylesheet" href="/albums/{data.siteConfig.customCss}" />
 	{/if}
-	<div
-		class="top-controls"
-		class:ready={!pageEncrypted || $footerReady}
-		class:over-hero={hasHero}
-	>
+	<div class="top-controls" class:ready={!pageEncrypted || $footerReady} class:over-hero={hasHero}>
 		{#if hasEncryption}
 			<button class="control-btn" onclick={logout} aria-label="Log out">
 				<LogOut size={16} aria-hidden="true" />
@@ -88,15 +93,26 @@
 	</div>
 	{@render children()}
 	<footer class:ready={!pageEncrypted || $footerReady}>
-		<div>{#if data.siteConfig?.copyrightYear && data.siteConfig.copyrightYear < new Date().getFullYear()}
-				Copyright © {data.siteConfig.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.
+		<div>
+			{#if data.siteConfig?.copyrightYear && data.siteConfig.copyrightYear < new Date().getFullYear()}
+				Copyright © {data.siteConfig.copyrightYear}-{new Date().getFullYear()}. {data.siteConfig
+					?.copyrightOwner}.
 			{:else}
 				Copyright © {new Date().getFullYear()}. {data.siteConfig?.copyrightOwner}.
-			{/if}</div>
+			{/if}
+		</div>
 		<div class="built-with">
-			<button class="about-btn" onclick={openAbout} aria-label="About this site"><Info size={16} aria-hidden="true" /></button>
-			Built with joy by <a class="footer-link" href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>
-				· <a class="footer-link" href="/privacy">Privacy</a>
+			<button class="about-btn" onclick={openAbout} aria-label="About this site"
+				><Info size={16} aria-hidden="true" /></button
+			>
+			Built with joy by
+			<a
+				class="footer-link"
+				href="https://github.com/dougdonohoe/ddphotos"
+				target="_blank"
+				rel="noopener">DD Photos</a
+			>
+			· <a class="footer-link" href={resolve('/privacy')}>Privacy</a>
 		</div>
 	</footer>
 
@@ -105,7 +121,9 @@
 			<div class="modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
 				<div class="modal-header">
 					<span id="about-title"><Info size={25} aria-hidden="true" /> About DD Photos</span>
-					<button class="modal-close" onclick={closeAbout} aria-label="Close"><X size={20} aria-hidden="true" /></button>
+					<button class="modal-close" onclick={closeAbout} aria-label="Close"
+						><X size={20} aria-hidden="true" /></button
+					>
 				</div>
 				<dl class="modal-body">
 					<dt>Built</dt>
@@ -162,7 +180,9 @@
 		background-color: var(--bg-color);
 		color: var(--text-color);
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-		transition: background-color 0.2s, color 0.2s;
+		transition:
+			background-color 0.2s,
+			color 0.2s;
 	}
 
 	:global(a) {
@@ -174,7 +194,6 @@
 		font-weight: bold;
 		font-family: monospace;
 	}
-
 
 	.app {
 		position: relative;
@@ -264,7 +283,7 @@
 		background: none;
 		border: none;
 		padding: 0;
-		margin-right: .3rem;
+		margin-right: 0.3rem;
 		cursor: pointer;
 		color: var(--link-color);
 		display: inline-flex;

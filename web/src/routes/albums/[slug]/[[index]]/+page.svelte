@@ -6,6 +6,7 @@
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto, replaceState, pushState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
@@ -30,13 +31,17 @@
 	let { data } = $props();
 
 	// Unpack albumData into flat reactive locals so the rest of this component reads cleanly.
-	const siteId         = $derived(data.albumData.siteId);
-	const slug           = $derived(data.albumData.slug);
-	const photoIndex     = $derived(data.albumData.photoIndex);
-	const albumEncrypted    = $derived(data.albumData.album.encrypted);
-	const encryptedAlbumBlob = $derived(data.albumData.album.encrypted ? data.albumData.album.blob : null);
-	const loadedAlbum    = $derived(data.albumData.album.encrypted ? null : data.albumData.album.data);
-	const albumHint      = $derived(data.albumData.album.encrypted ? data.albumData.album.hint : undefined);
+	const siteId = $derived(data.albumData.siteId);
+	const slug = $derived(data.albumData.slug);
+	const photoIndex = $derived(data.albumData.photoIndex);
+	const albumEncrypted = $derived(data.albumData.album.encrypted);
+	const encryptedAlbumBlob = $derived(
+		data.albumData.album.encrypted ? data.albumData.album.blob : null
+	);
+	const loadedAlbum = $derived(data.albumData.album.encrypted ? null : data.albumData.album.data);
+	const albumHint = $derived(
+		data.albumData.album.encrypted ? data.albumData.album.hint : undefined
+	);
 
 	// Client-decrypted album (null until the user's stored password or manual entry works).
 	let decryptedAlbum = $state<AlbumIndex | null>(null);
@@ -55,7 +60,10 @@
 	// static HTML — this is fine since JS will correct it immediately on hydration.)
 	let unlocking = $state(false);
 	$effect.pre(() => {
-		if (albumEncrypted && (getStoredPassword(albumKey(siteId, slug)) || getStoredPassword(siteKey(siteId)))) {
+		if (
+			albumEncrypted &&
+			(getStoredPassword(albumKey(siteId, slug)) || getStoredPassword(siteKey(siteId)))
+		) {
 			unlocking = true;
 		}
 	});
@@ -90,13 +98,11 @@
 	let imageLoaded = $state<boolean[]>([]); // true once the browser fires the load event
 	let slowMode = $state(browser && new URLSearchParams(window.location.search).has('slow')); // true when ?slow is in the URL
 	let layoutReady = $state(false); // true after onMount measures the real container width
-	let lastEffectSlug = '';          // non-reactive: tracks which slug $effect last reset imageLoaded for
-	let lastEffectPhotosLen = 0;     // non-reactive: tracks last known photo count to detect album load
+	let lastEffectSlug = ''; // non-reactive: tracks which slug $effect last reset imageLoaded for
+	let lastEffectPhotosLen = 0; // non-reactive: tracks last known photo count to detect album load
 	// 1-based photo number for display when the route index is out of range; null otherwise.
 	let invalidPhotoIndex = $derived(
-		album !== null &&
-			photoIndex !== null &&
-			(photoIndex < 0 || photoIndex >= album.photos.length)
+		album !== null && photoIndex !== null && (photoIndex < 0 || photoIndex >= album.photos.length)
 			? photoIndex + 1
 			: null
 	);
@@ -217,15 +223,16 @@
 				if (pushedHistoryEntry) {
 					history.go(-1);
 				} else {
-					replaceState(`/albums/${slug}`, {});
+					replaceState(resolve(`/albums/${slug}`), {});
 				}
 
 				const focusIdx = pendingFocusIndex;
 				pendingFocusIndex = null;
 				// Cache the button to focus (queried once, before the guard loop starts).
-				const focusBtn = (focusIdx !== null && container)
-					? (container.querySelectorAll<HTMLElement>('.photo')[focusIdx] ?? null)
-					: null;
+				const focusBtn =
+					focusIdx !== null && container
+						? (container.querySelectorAll<HTMLElement>('.photo')[focusIdx] ?? null)
+						: null;
 
 				// Run a guard loop for 750ms to fight both PhotoSwipe's built-in focus
 				// restoration (fires first frame) and SvelteKit's async focus reset (fires
@@ -292,14 +299,14 @@
 		//
 		// Skip for animate=false (permalink open): URL already has the photo index.
 		if (animate) {
-			pushState(`/albums/${slug}/${index + 1}`, {});
+			pushState(resolve(`/albums/${slug}/${index + 1}`), {});
 			pushedHistoryEntry = true;
 		}
 		pswp.on('change', () => {
 			// SvelteKit's replaceState keeps the photo URL current as the user navigates.
 			// Uses replaceState (not pushState) so every photo doesn't add a history entry
 			// — back always jumps directly to the album rather than stepping photo-by-photo.
-			replaceState(`/albums/${slug}/${pswp.currIndex + 1}`, {});
+			replaceState(resolve(`/albums/${slug}/${pswp.currIndex + 1}`), {});
 			// Store the target scroll so the current photo will be centered when the
 			// lightbox closes. Applied via afterNavigate (history.go(-1) case) or directly
 			// in the close handler (replaceState case) — both fire after SvelteKit's own
@@ -362,16 +369,23 @@
 			};
 			// beforeZoomTo fires at the start of any zoom animation — fade out immediately
 			pswp.on('beforeZoomTo', () => {
-				if (captionFadeTimer) { clearTimeout(captionFadeTimer); captionFadeTimer = null; }
+				if (captionFadeTimer) {
+					clearTimeout(captionFadeTimer);
+					captionFadeTimer = null;
+				}
 				setCaptionOpacity('0');
 			});
 			// zoomPanUpdate fires during pinch and after tap-zoom settles
 			pswp.on('zoomPanUpdate', () => {
 				const slide = pswp.currSlide;
-				const isZoomed = slide !== undefined && slide.currZoomLevel > slide.zoomLevels.initial * 1.01;
+				const isZoomed =
+					slide !== undefined && slide.currZoomLevel > slide.zoomLevels.initial * 1.01;
 				if (isZoomed) {
 					// Covers pinch-to-zoom (beforeZoomTo doesn't fire for pinch)
-					if (captionFadeTimer) { clearTimeout(captionFadeTimer); captionFadeTimer = null; }
+					if (captionFadeTimer) {
+						clearTimeout(captionFadeTimer);
+						captionFadeTimer = null;
+					}
 					setCaptionOpacity('0');
 				} else if (!captionFadeTimer) {
 					captionFadeTimer = setTimeout(() => {
@@ -382,7 +396,10 @@
 			});
 			// Reset caption opacity when navigating between slides
 			pswp.on('change', () => {
-				if (captionFadeTimer) { clearTimeout(captionFadeTimer); captionFadeTimer = null; }
+				if (captionFadeTimer) {
+					clearTimeout(captionFadeTimer);
+					captionFadeTimer = null;
+				}
 				setCaptionOpacity('1');
 				requestAnimationFrame(updateAll);
 			});
@@ -441,9 +458,7 @@
 			// Build the full array in one assignment — avoids reading imageSrcs
 			// inside the effect (which would create a dependency and cause an
 			// infinite update loop when the assignment then triggers a re-run).
-			imageSrcs = photos.map(
-				(photo: Photo) => `/albums/${slug}/${photo.src.grid}`
-			);
+			imageSrcs = photos.map((photo: Photo) => `/albums/${slug}/${photo.src.grid}`);
 		}
 	});
 
@@ -475,7 +490,7 @@
 		const handleKeydown = (e: KeyboardEvent) => {
 			// Ignore ESC if lightbox is open or was just closed (same ESC keypress)
 			if (e.key === 'Escape' && !lightboxOpen && Date.now() - lightboxClosedAt > 300) {
-				goto('/');
+				goto(resolve('/'));
 			}
 		};
 		updateWidth();
@@ -516,9 +531,7 @@
 <OpenGraph
 	title="{albumTitle} | {data.siteConfig.siteName}"
 	description={plainDescription ||
-		(album
-			? `${album.photos.length} photos from the '${albumTitle}' album`
-			: albumTitle)}
+		(album ? `${album.photos.length} photos from the '${albumTitle}' album` : albumTitle)}
 	url="{data.siteConfig.siteUrl}/albums/{slug}"
 	siteName={data.siteConfig.siteName}
 	image={album ? `${data.siteConfig.siteUrl}/albums/${slug}/cover.jpg` : undefined}
@@ -527,9 +540,10 @@
 {#if album}
 	<main>
 		<header>
-			<a href="/">← Albums</a>
+			<a href={resolve('/')}>← Albums</a>
 			<h1>{albumTitle}</h1>
 			{#if description}
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- album photogen.txt, HTML is intentional -->
 				<p class="description">{@html description}</p>
 			{/if}
 			<p class="meta">
@@ -539,8 +553,12 @@
 
 		{#if invalidPhotoIndex !== null}
 			<div class="not-found">
-				<p>Sorry, there is no photo No. {invalidPhotoIndex} in this album.  Maybe we lost the negative?</p>
-				<a href="/albums/{slug}" class="back-link"><ArrowLeft size={16} aria-hidden="true" />Back to '{album.title}'</a>
+				<p>
+					Sorry, there is no photo No. {invalidPhotoIndex} in this album. Maybe we lost the negative?
+				</p>
+				<a href={resolve(`/albums/${slug}`)} class="back-link"
+					><ArrowLeft size={16} aria-hidden="true" />Back to '{album.title}'</a
+				>
 			</div>
 		{/if}
 
@@ -550,7 +568,7 @@
 			style="height: {Math.ceil(layout().containerHeight)}px;"
 			class:layout-ready={layoutReady}
 		>
-			{#each album.photos as photo, i}
+			{#each album.photos as photo, i (photo.id)}
 				{@const box = layout().boxes[i]}
 				<button
 					class="photo"
@@ -594,7 +612,7 @@
 	<main class="loading-page">
 		{#if !albumEncrypted}
 			<header>
-				<a href="/">← Albums</a>
+				<a href={resolve('/')}>← Albums</a>
 				<h1>{albumTitle}</h1>
 			</header>
 		{/if}
@@ -760,7 +778,9 @@
 		text-align: center;
 		opacity: 0;
 		transform: translateY(4px);
-		transition: opacity 0.25s ease, transform 0.25s ease;
+		transition:
+			opacity 0.25s ease,
+			transform 0.25s ease;
 		pointer-events: none;
 	}
 

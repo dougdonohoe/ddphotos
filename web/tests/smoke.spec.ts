@@ -52,14 +52,20 @@ test('album page has correct Open Graph tags', async ({ page }) => {
 	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^Antarctica/);
 	await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
 	// og:image must be a JPEG (not WebP) — iMessage and many crawlers don't support WebP previews
-	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /antarctica\/cover\.jpg$/);
+	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+		'content',
+		/antarctica\/cover\.jpg$/
+	);
 });
 
 test('home page og:site_name matches siteName from config.json', async ({ page }) => {
 	const config = await page.request.get('/albums/config.json').then((r) => r.json());
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
-	await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', config.siteName);
+	await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
+		'content',
+		config.siteName
+	);
 });
 
 test('album page og:site_name matches siteName from config.json', async ({ page }) => {
@@ -67,7 +73,10 @@ test('album page og:site_name matches siteName from config.json', async ({ page 
 	const config = await page.request.get('/albums/config.json').then((r) => r.json());
 	await page.goto('/albums/antarctica');
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
-	await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', config.siteName);
+	await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute(
+		'content',
+		config.siteName
+	);
 });
 
 test('?boom on home page shows 500 error card', async ({ page }) => {
