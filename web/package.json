@@ -44,5 +44,8 @@
 		"justified-layout": "^4.1.0",
 		"lucide-svelte": "^1.0.1",
 		"photoswipe": "^5.4.4"
+	},
+	"allowScripts": {
+		"fsevents": false
 	}
 }
