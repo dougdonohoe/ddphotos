@@ -73,8 +73,9 @@ if ! command -v node &>/dev/null; then
     fi
     # shellcheck source=/dev/null
     source "$NVM_SH"
-    # Activate the version specified in web/.nvmrc
-    (cd web && nvm use --silent)
+    # Activate the version specified in web/.nvmrc. Not in a subshell: nvm use
+    # only changes PATH for the shell it runs in.
+    nvm use --silent "$(cat web/.nvmrc)"
 fi
 
 # Resolve passwords file to absolute path

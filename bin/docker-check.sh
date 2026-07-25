@@ -60,7 +60,7 @@ HASH_FILE="$WEB/.docker-hash-$SERVER"
 expected=$(cat $HASH_INPUTS | shasum -a 256 | cut -d' ' -f1)
 
 _build() {
-    docker build -t "$IMAGE" -f "$DOCKERFILE" --label "ddphotos.hash=$expected" "$WEB/"
+    docker build --pull -t "$IMAGE" -f "$DOCKERFILE" --label "ddphotos.hash=$expected" "$WEB/"
     echo "$expected" > "$HASH_FILE"
 }
 

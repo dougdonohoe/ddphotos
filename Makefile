@@ -31,12 +31,14 @@ override DDPHOTOS_ALBUMS_DIR := $(abspath $(patsubst ~/%,$(HOME)/%,$(DDPHOTOS_AL
 #   never has it). NVM_SH is derived from NVM_DIR if set (e.g. Homebrew install), else ~/.nvm.
 #   Override NVM_SH if your nvm lives elsewhere and NVM_DIR is not set.
 # - If 'node' is already on PATH (system install, volta, fnm, etc.),
-#   NODE_INIT is empty and node is used directly. Otherwise, nvm is sourced from NVM_SH.
+#   NODE_INIT is empty and node is used directly. Otherwise, nvm is sourced from NVM_SH
+#   and switched to the version in web/.nvmrc (sourcing alone activates nvm's default
+#   alias, which is not necessarily the version this repo wants).
 NVM_SH ?= $(or $(NVM_DIR),$(HOME)/.nvm)/nvm.sh
 NVM_INIT := . "$(NVM_SH)" &&
 NODE := $(shell command -v node 2>/dev/null)
 ifndef NODE
-NODE_INIT := . "$(NVM_SH)" &&
+NODE_INIT := . "$(NVM_SH)" && nvm use --silent $(shell cat web/.nvmrc) &&
 endif
 
 # 1st item is default, so 'make' with no arguments shows help
@@ -72,10 +74,10 @@ clean-cache:
 	go clean -cache
 
 .PHONY: web-nvm-install
-## web-nvm-install: install the Node version specified in web/.nvmrc
+## web-nvm-install: install the Node version in web/.nvmrc and the npm in web/.npm-version
 web-nvm-install:
 	@test -f "$(NVM_SH)" || { echo "nvm not found at $(NVM_SH). Install it from https://github.com/nvm-sh/nvm#installing-and-updating"; exit 1; }
-	$(NVM_INIT) cd web && nvm install
+	$(NVM_INIT) cd web && nvm install && npm install -g npm@$$(cat .npm-version)
 
 .PHONY: web-npm-install
 ## web-npm-install: install npm dependencies in web/
@@ -125,7 +127,7 @@ web-docker-build-nginx:
 .PHONY: web-docker-build-apache-ssh
 ## web-docker-build-apache-ssh: build the Apache+SSH Docker image used for rsync testing
 web-docker-build-apache-ssh:
-	docker build -t photos-apache-ssh -f web/apache-ssh.dockerfile web/
+	docker build --pull -t photos-apache-ssh -f web/apache-ssh.dockerfile web/
 
 .PHONY: _check-docker-schema-apache
 _check-docker-schema-apache:
@@ -313,8 +315,9 @@ DDPHOTOS_IMAGE  ?= ddphotos
 .PHONY: docker-build
 ## docker-build: build the ddphotos Docker image
 docker-build:
-	docker build -t $(DDPHOTOS_IMAGE) \
+	docker build --pull -t $(DDPHOTOS_IMAGE) \
 		--build-arg NODE_VERSION=$$(cat web/.nvmrc) \
+		--build-arg NPM_VERSION=$$(cat web/.npm-version) \
 		--build-arg DDPHOTOS_GIT_DESCRIBE="$$(git describe --tags --long --dirty --always 2>/dev/null || echo unknown)" \
 		-f docker/Dockerfile .
 

@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-ARG NODE_VERSION=22
+ARG NODE_VERSION=24
+ARG NPM_VERSION=12.0.1
 
 # ── Stage 1: Build photogen (Go + libvips) ────────────────────────────────────
 FROM golang:1.25-bookworm AS go-builder
@@ -20,6 +21,9 @@ RUN CGO_ENABLED=1 go build -o /decode ./cmd/decode/decode.go
 # ── Stage 2: Pre-install Node dependencies ────────────────────────────────────
 FROM node:${NODE_VERSION}-bookworm-slim AS node-builder
 
+# Global ARGs are not visible inside a stage without re-declaring them
+ARG NPM_VERSION
+
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 
@@ -28,15 +32,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends binutils \
     && strip /usr/local/bin/node \
     && rm -rf /var/lib/apt/lists/*
 
-# npm 10.9.7 (bundled with node:22) can't self-upgrade due to missing promise-retry.
-# The normal way (npm install -g npm@12.0.1) fails; install via registry tarball instead.
-RUN node -e "\
-const https=require('https'),fs=require('fs');\
-function dl(u,cb){https.get(u,r=>{if(r.statusCode>=300&&r.statusCode<400)return dl(r.headers.location,cb);const f=fs.createWriteStream('/tmp/npm.tgz');r.pipe(f);f.on('finish',cb);});}\
-dl('https://registry.npmjs.org/npm/-/npm-12.0.1.tgz',()=>process.exit(0));" \
-    && tar -xz -C /tmp -f /tmp/npm.tgz \
-    && /bin/rm -rf /usr/local/lib/node_modules/npm \
-    && mv /tmp/package /usr/local/lib/node_modules/npm \
+# Pin npm to the version in web/.npm-version so local dev, CI and Docker agree.
+# (Historical note: npm <= 10.9.7 could not self-upgrade past npm 11.12.0, since it
+# deleted promise-retry out from under the running process. Fixed in npm 10.9.8 /
+# arborist 8.0.5, see https://github.com/npm/cli/pull/9152. Builds must pull a
+# current base image.)
+RUN npm install -g npm@${NPM_VERSION} \
     && npm ci
 
 # ── Stage 3: Runtime image ────────────────────────────────────────────────────
