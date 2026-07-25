@@ -51,7 +51,7 @@ export interface SiteConfig {
 	keyId?: string;
 	siteHint?: string;
 	albumHints?: Record<string, string>;
-	encrypted?: boolean;
+	encrypted?: boolean; // true if any password is configured (site or per-album); false for a key-only passwords file
 	heroImage?: string;
 	customCss?: string;
 	defaultTheme?: string;

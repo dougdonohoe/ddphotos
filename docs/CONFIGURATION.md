@@ -196,8 +196,14 @@ albums:
 | `albums.<slug>.password` | Per-album password; encrypts only that album's `index.json`. Falls back to `site.password` if not set                                                             |
 | `albums.<slug>.hint`     | Optional hint shown in that album's password dialog                                                                                                               |
 
-Sample passwords files are in `sample/config/` — `passwords-all.yaml` (full site) and
-`passwords-uganda.yaml` (single album). Both contain demo-only passwords and a prominent WARNING header.
+Sample passwords files are in `sample/config/` — `passwords-all.yaml` (full site),
+`passwords-uganda.yaml` (single album), and `passwords-keyonly.yaml` (a test fixture with a
+`key` but no passwords, so nothing is encrypted). The first two contain demo-only passwords.
+
+A passwords file that declares no `site.password` and no `albums.<slug>.password` protects
+nothing: the `key` only applies to albums that have a password, so every album stays public
+and filenames stay unobfuscated. Such a site is reported as unencrypted in `config.json`,
+which means no logout button is shown.
 
 #### Frontend Behavior (Encrypted Sites)
 

@@ -146,20 +146,21 @@ the appropriate site variant:
 | `PLAYWRIGHT_CUSTOM_CSS`        | `bin/run-tests.sh`   | Set to `true`; enables CSS tests               |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
-`bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
+`bin/test-all.sh` runs five variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
+`passwords-keyonly.yaml` (a passwords file that declares no passwords, so nothing is encrypted),
 and `custom-css` (with `sample/config/custom.css` injected).
 
 ```bash
-# Run all 4 variants against dev + Apache + nginx (default; recommended locally)
+# Run all 5 variants against dev + Apache + nginx (default; recommended locally)
 bin/test-all.sh
 
-# Run all 4 variants against Apache only (mirrors CI)
+# Run all 5 variants against Apache only (mirrors CI)
 bin/test-all.sh --mode apache
 
-# Run all 4 variants against nginx only
+# Run all 5 variants against nginx only
 bin/test-all.sh --mode nginx
 
-# Run all 4 variants against dev server, Apache, and nginx
+# Run all 5 variants against dev server, Apache, and nginx
 bin/test-all.sh --mode all
 
 # Run a single variant against Apache (no password)
@@ -181,7 +182,7 @@ bin/run-tests.sh --mode dev --test tests/privacy.spec.ts
 ### Sanity Check
 
 A good sanity check verifies against Apache (which requires a build), and tests
-both password and no-password sites.  It's quicker than running all 4 variants against
+both password and no-password sites.  It's quicker than running all 5 variants against
 dev, Apache and nginx:
 
 ```bash

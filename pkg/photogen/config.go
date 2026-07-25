@@ -156,6 +156,11 @@ func (c *Config) HasPerAlbumPassword(slug string) bool {
 	return c.Encrypt != nil && c.Encrypt.HasPerAlbumPassword(slug)
 }
 
+// HasAnyPassword reports whether any password is configured, site-wide or per-album.
+func (c *Config) HasAnyPassword() bool {
+	return c.Encrypt != nil && c.Encrypt.HasAnyPassword()
+}
+
 // JsonNames returns the output filename and its counterpart for a JSON artifact.
 // When the site is encrypted, the primary file gets the ".enc.json" suffix.
 func (c *Config) JsonNames(base string) (output, counterpart string) {

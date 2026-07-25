@@ -217,6 +217,11 @@ sample-photogen-pw-all:
 sample-photogen-pw-uganda:
 	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -passwords sample/config/passwords-uganda.yaml -site-id sample-pw-uganda -doit
 
+.PHONY: sample-photogen-pw-keyonly
+## sample-photogen-pw-keyonly: run photogen using sample images, passwords file with no passwords
+sample-photogen-pw-keyonly:
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -passwords sample/config/passwords-keyonly.yaml -site-id sample-pw-keyonly -doit
+
 .PHONY: sample-photogen-css
 ## sample-photogen-css: run photogen using sample images with custom CSS injected
 sample-photogen-css:
