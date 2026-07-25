@@ -74,10 +74,10 @@ clean-cache:
 	go clean -cache
 
 .PHONY: web-nvm-install
-## web-nvm-install: install the Node version specified in web/.nvmrc
+## web-nvm-install: install the Node version in web/.nvmrc and the npm in web/.npm-version
 web-nvm-install:
 	@test -f "$(NVM_SH)" || { echo "nvm not found at $(NVM_SH). Install it from https://github.com/nvm-sh/nvm#installing-and-updating"; exit 1; }
-	$(NVM_INIT) cd web && nvm install
+	$(NVM_INIT) cd web && nvm install && npm install -g npm@$$(cat .npm-version)
 
 .PHONY: web-npm-install
 ## web-npm-install: install npm dependencies in web/

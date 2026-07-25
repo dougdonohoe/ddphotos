@@ -19,6 +19,18 @@ The Go structs in `pkg/photogen/json.go` (`AlbumIndex`, `AlbumSummary`, `PhotoIn
 define the JSON schema consumed by the frontend. Their TypeScript counterparts live in
 `web/src/lib/types.ts`. **When changing a JSON field in either place, update the other.**
 
+## Node/npm version sync requirement
+
+`web/.nvmrc` (Node major) and `web/.npm-version` (exact npm version) are the single sources of
+truth. Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/run-tests.sh`, and the
+three `setup-node` steps in `.github/workflows/ci.yml`. **Do not hardcode either version anywhere
+else.**
+
+One exception, which must be updated by hand: the `engines.node` field in `web/package.json`.
+Paired with `engine-strict=true` in `web/.npmrc`, it makes `npm install`/`npm ci` hard-fail on the
+wrong Node, so a machine whose `nvm` default has drifted cannot silently install with it.
+**When bumping `web/.nvmrc`, bump `engines.node` to match.**
+
 ## Commands
 
 ```bash
