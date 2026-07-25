@@ -31,7 +31,7 @@ trap cleanup EXIT
 # Build Docker image if missing
 docker image inspect "$IMAGE" >/dev/null 2>&1 || {
     echo "=== Building $IMAGE ==="
-    docker build -t "$IMAGE" -f web/apache-ssh.dockerfile web/
+    docker build --pull -t "$IMAGE" -f web/apache-ssh.dockerfile web/
 }
 
 # Build temp config dir.

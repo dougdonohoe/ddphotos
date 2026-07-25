@@ -24,7 +24,7 @@
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@types/js-yaml": "^4.0.9",
 		"@types/justified-layout": "^4.1.4",
-		"@types/node": "^22",
+		"@types/node": "^24",
 		"@vitejs/plugin-basic-ssl": "^2.3.0",
 		"eslint": "^10.7.0",
 		"eslint-config-prettier": "^10.1.8",
