@@ -53,6 +53,7 @@ func TestLoadEncryptConfig_KeyOnly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "secret", ec.HMACKey)
 	assert.False(t, ec.IsSiteEncrypted())
+	assert.False(t, ec.HasAnyPassword())
 }
 
 func TestEncryptConfigValidate(t *testing.T) {

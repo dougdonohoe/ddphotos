@@ -273,7 +273,7 @@ type SiteConfig struct {
 	KeyID           string            `json:"keyId,omitempty"` // short fingerprint of the HMAC key; changes when the key changes
 	SiteHint        string            `json:"siteHint,omitempty"`
 	AlbumHints      map[string]string `json:"albumHints,omitempty"`
-	Encrypted       bool              `json:"encrypted,omitempty"`    // true if any encryption is configured
+	Encrypted       bool              `json:"encrypted,omitempty"`    // true if any password is configured (site or per-album); false for a key-only passwords file
 	HeroImage       string            `json:"heroImage,omitempty"`    // "hero.jpg" if a hero image is configured
 	CustomCSS       string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
 	DefaultTheme    string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
@@ -315,7 +315,9 @@ func (c *Config) WriteConfigJSON() error {
 		AllowCrawling:   c.AllowCrawling,
 	}
 	if c.Encrypt != nil {
-		cfg.Encrypted = true
+		// Note this is not `true` just because a passwords file exists: a key-only file
+		// obfuscates filenames but leaves every album readable, so nothing is protected.
+		cfg.Encrypted = c.Encrypt.HasAnyPassword()
 		cfg.SiteHint = c.Encrypt.SiteHint
 		if len(c.Encrypt.AlbumHints) > 0 {
 			cfg.AlbumHints = c.Encrypt.AlbumHints

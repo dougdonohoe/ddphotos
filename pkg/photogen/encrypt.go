@@ -109,7 +109,7 @@ func checkPasswordLen(name, p string) error {
 //   - passwords must be at least minPasswordLen characters
 //   - empty per-album password values are rejected (they silently override site with no encryption)
 func (ec *EncryptConfig) Validate() error {
-	if ec.HMACKey == "" && (ec.IsSiteEncrypted() || len(ec.AlbumPasswords) > 0) {
+	if ec.HMACKey == "" && ec.HasAnyPassword() {
 		return fmt.Errorf("passwords file: key is required when any album is encrypted")
 	}
 	if ec.SitePassword != "" {
@@ -150,6 +150,12 @@ func (ec *EncryptConfig) HasPerAlbumPassword(slug string) bool {
 // IsSiteEncrypted reports whether albums.json is encrypted (i.e., site.password is set).
 func (ec *EncryptConfig) IsSiteEncrypted() bool {
 	return ec.SitePassword != ""
+}
+
+// HasAnyPassword reports whether any password is configured, site-wide or per-album.
+// False for a "key only" passwords file, which obfuscates filenames but protects nothing.
+func (ec *EncryptConfig) HasAnyPassword() bool {
+	return ec.IsSiteEncrypted() || len(ec.AlbumPasswords) > 0
 }
 
 // PhotoWebPName returns the output WebP filename for a source photo.

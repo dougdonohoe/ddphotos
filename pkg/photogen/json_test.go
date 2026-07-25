@@ -285,6 +285,19 @@ func TestWriteConfigJSON(t *testing.T) {
 		assert.NotContains(t, string(data), `"htmlFile"`)
 	})
 
+	t.Run("key-only passwords file is not marked encrypted", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{HMACKey: "secret", AlbumPasswords: map[string]string{}}
+		require.NoError(t, makeSiteCfg(dir, encrypt).WriteConfigJSON())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), `"encrypted"`, "a key-only file protects nothing")
+		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
+		assert.Contains(t, string(data), `"keyId"`, "key ID must still be emitted for key-only sites")
+	})
+
 	t.Run("unencrypted with HTML fields references html.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
