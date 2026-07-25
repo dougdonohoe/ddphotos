@@ -16,7 +16,7 @@ func TestLoadEncryptConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "passwords.yaml")
 
-	content := `# WARNING: demo only
+	content := `# Sample passwords
 key: my-hmac-key
 site:
   password: site-pass
