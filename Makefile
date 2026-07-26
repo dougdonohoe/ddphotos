@@ -84,6 +84,16 @@ web-nvm-install:
 web-npm-install:
 	$(NODE_INIT) cd web && npm install
 
+.PHONY: web-npm-audit
+## web-npm-audit: run npm audit in web
+web-npm-audit:
+	$(NODE_INIT) cd web && npm audit
+
+.PHONY: web-npm-audit-fix
+## web-npm-audit-fix: run npm audit fix in web
+web-npm-audit-fix:
+	$(NODE_INIT) cd web && npm audit fix
+
 .PHONY: web-lint
 ## web-lint: check formatting (prettier) and lint (eslint) in web/
 web-lint:
