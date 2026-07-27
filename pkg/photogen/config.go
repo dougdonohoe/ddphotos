@@ -66,6 +66,9 @@ type Config struct {
 	SiteSubtitleHTML string
 	// SiteOverviewHTML is HTML shown above the album cards on the home page.
 	SiteOverviewHTML string
+	// MetaCache caches photo metadata between runs so unchanged photos are not
+	// re-decoded. nil disables caching.
+	MetaCache *MetaCache
 	// expectedFiles tracks files generated in this run (for --clean).
 	expectedFiles map[string]bool
 }
@@ -228,6 +231,14 @@ func (c *Config) Summary() string {
 		cssDesc = c.CustomCSS
 	}
 
+	cacheDesc := "disabled"
+	if c.MetaCache != nil {
+		cacheDesc = fmt.Sprintf("%s (%d entries)", c.MetaCache.path, c.MetaCache.Len())
+		if c.Force {
+			cacheDesc += " [rebuilding: -force]"
+		}
+	}
+
 	lines := []string{
 		fmt.Sprintf("  output:   %s", c.SiteOutputPath()),
 		fmt.Sprintf("  resize:   %s", on(c.Resize)),
@@ -235,6 +246,7 @@ func (c *Config) Summary() string {
 		fmt.Sprintf("  force:    %s", on(c.Force)),
 		fmt.Sprintf("  clean:    %s", on(c.Clean)),
 		fmt.Sprintf("  workers:  %d", c.Workers()),
+		fmt.Sprintf("  cache:    %s", cacheDesc),
 		fmt.Sprintf("  site_url: %s", c.SiteURL),
 		fmt.Sprintf("  encrypt:  %s", encryptDesc),
 		fmt.Sprintf("  hero:     %s", heroDesc),

@@ -70,6 +70,15 @@ var (
 	heroOnly   = flag.Bool("hero-only", false, "regenerate hero image only, skipping all album and index processing")
 )
 
+// saveMetaCache persists the photo metadata cache, reporting failures as warnings
+// rather than errors: a cache that could not be written only costs time on the next
+// run, it does not invalidate anything that was generated.
+func saveMetaCache(cfg *photogen.Config) {
+	if err := cfg.MetaCache.Save(); err != nil {
+		fmt.Printf("WARN: could not save metadata cache: %s\n", err)
+	}
+}
+
 func main() {
 	flag.Parse()
 	exit.HandleSignal()
@@ -132,6 +141,12 @@ func main() {
 		SiteOverviewHTML: settings.SiteOverviewHTML,
 	}
 
+	// Photo metadata (dimensions, orientation, EXIF date) is cached between runs so
+	// unchanged photos are not re-decoded. -force means "redo everything", so it
+	// re-reads every photo and rewrites those entries.
+	cfg.MetaCache = photogen.LoadMetaCache(photogen.MetaCachePath(cfg.OutputRoot))
+	cfg.MetaCache.SetRefresh(*force)
+
 	// -passwords overrides settings.passwords; fall back to YAML setting if flag not provided
 	passwordsPath := *passwords
 	if passwordsPath == "" && settings.Passwords != "" {
@@ -181,8 +196,10 @@ func main() {
 		}
 		cfg.Force = true
 		if err := cfg.WriteHeroJPEG(); err != nil {
+			saveMetaCache(cfg)
 			exit.Fatal("Error writing hero JPEG", err)
 		}
+		saveMetaCache(cfg)
 		exit.ExitWithStatus(nil)
 	}
 
@@ -229,6 +246,7 @@ func main() {
 	for i, albumConfig := range albums {
 		if exit.ExitRequested() {
 			fmt.Println("Exit requested, stopping.")
+			saveMetaCache(cfg)
 			exit.ExitWithStatus(nil)
 		}
 		album := photogen.NewAlbumProcessor(cfg, albumConfig)
@@ -246,6 +264,9 @@ func main() {
 			exit.SetExitRequestedWithError(err)
 		}
 	}
+
+	// Saved after the hero so its stamp is recorded too.
+	saveMetaCache(cfg)
 
 	// Write albums.json, config.json, sitemap.xml, custom CSS, and build metadata if index generation is enabled
 	if cfg.Index {

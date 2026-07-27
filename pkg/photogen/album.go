@@ -6,7 +6,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
+
+// defaultMetadataWorkers is the concurrency used when there is no Config to ask
+// (unit tests construct AlbumProcessors directly).
+const defaultMetadataWorkers = 4
 
 var allowedPhotoExtensions = map[string]struct{}{
 	".jpg":  {},
@@ -201,6 +206,68 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 	return nil
 }
 
+// readMetadata reads metadata for one photo, going through the Config's metadata cache
+// when there is one. A nil Config (unit tests) or nil cache reads directly.
+func (ap *AlbumProcessor) readMetadata(path string) (*PhotoMetadata, error) {
+	if ap.Config == nil {
+		return ReadPhotoMetadata(path)
+	}
+	return ap.Config.MetaCache.Metadata(path)
+}
+
+// fillMetadata populates PhotoMetadata for each photo concurrently. Decoding images is
+// by far the most expensive part of a run that has nothing to resize, so it is spread
+// across the same number of workers used for resizing.
+//
+// Each goroutine writes only to its own *Photo, so the slice needs no locking; the
+// metadata cache guards its own map. Errors are collected by index and the
+// lowest-index one is returned, so a failure is reported deterministically rather than
+// depending on which worker lost the race.
+func (ap *AlbumProcessor) fillMetadata(photos []*Photo) error {
+	if len(photos) == 0 {
+		return nil
+	}
+
+	numWorkers := defaultMetadataWorkers
+	if ap.Config != nil {
+		numWorkers = ap.Config.Workers()
+	}
+	if numWorkers > len(photos) {
+		numWorkers = len(photos)
+	}
+
+	errs := make([]error, len(photos))
+	indexes := make(chan int, len(photos))
+	for i := range photos {
+		indexes <- i
+	}
+	close(indexes)
+
+	var wg sync.WaitGroup
+	for range numWorkers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range indexes {
+				meta, err := ap.readMetadata(photos[i].AbsolutePath)
+				if err != nil {
+					errs[i] = fmt.Errorf("read metadata for %s: %w", photos[i].AbsolutePath, err)
+					continue
+				}
+				photos[i].PhotoMetadata = meta
+			}
+		}()
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // collectPhotosRecursive collects photos from dir, optionally recursing into subdirectories.
 // relDir is the path of dir relative to the album root (empty string for the root itself).
 // Photos in subdirectories get a prefixed ID and FileName derived from the relative path
@@ -247,18 +314,17 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string, recurse boo
 		}
 
 		fullPath := filepath.Join(dir, name)
-		photo := &Photo{
+		localPhotos = append(localPhotos, &Photo{
 			ID:           photoID,
 			FileName:     outputName,
 			AbsolutePath: fullPath,
 			SourcePath:   filepath.ToSlash(filepath.Join(relDir, name)),
-		}
-		meta, err := ReadPhotoMetadata(fullPath)
-		if err != nil {
-			return nil, fmt.Errorf("read metadata for %s: %w", fullPath, err)
-		}
-		photo.PhotoMetadata = meta
-		localPhotos = append(localPhotos, photo)
+		})
+	}
+
+	// Metadata is filled in before any sorting below, since sort order depends on dates.
+	if err := ap.fillMetadata(localPhotos); err != nil {
+		return nil, err
 	}
 
 	// Subdirectories default to alphabetical order.
@@ -506,11 +572,22 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 	}
 	outputPath := ap.OutputPath("cover.jpg")
 	ap.Config.TrackFile(outputPath)
-	// Always force-regenerate cover.jpg: the output filename is fixed, so a source
-	// change won't trigger normal skip logic. Covers are few and cheap to redo.
+
+	// cover.jpg has a fixed output name, so "the file exists" is not enough to skip it:
+	// the album's cover can be pointed at a different photo. The cache stamps the output
+	// with the source that produced it, which makes the skip safe. Without a cache this
+	// falls through to the unconditional regeneration it replaces.
+	if !ap.Config.Force && ap.Config.MetaCache.DerivedUpToDate(outputPath, cover.AbsolutePath, "") {
+		fmt.Printf("  exists: %s (cover jpeg)\n", outputPath)
+		return nil
+	}
+
 	result, err := ResizeCoverJPEG(cover.AbsolutePath, outputPath, true, ap.Config.DryRun)
 	if err != nil {
 		return fmt.Errorf("write cover jpeg: %w", err)
+	}
+	if result.Written {
+		ap.Config.MetaCache.RecordDerived(outputPath, cover.AbsolutePath, "")
 	}
 	fmt.Printf("  %s\n", result.Message)
 	return nil
