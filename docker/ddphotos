@@ -571,6 +571,10 @@ case "$cmd" in
         for var in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_EMAIL CLOUDFLARE_API_KEY; do
             [ -n "${!var}" ] && WRANGLER_ENV+=(-e "$var=${!var}")
         done
+        # Wrangler colors its output even with no TTY, so non-interactive consumers (e.g. the
+        # Java GUI console) receive raw ANSI escapes. NO_COLOR must be set inside the container:
+        # Docker does not forward host environment variables automatically.
+        $NON_INTERACTIVE && WRANGLER_ENV+=(-e NO_COLOR=1)
         if [[ "${1:-}" == "login" ]]; then
             # wrangler login runs an OAuth flow:
             #   1. wrangler starts a temporary HTTP server on port 8976 to receive the callback
@@ -628,6 +632,8 @@ case "$cmd" in
         for var in SURGE_LOGIN SURGE_TOKEN; do
             [ -n "${!var}" ] && SURGE_ENV+=(-e "$var=${!var}")
         done
+        # See the wrangler branch: suppress ANSI color for non-interactive consumers.
+        $NON_INTERACTIVE && SURGE_ENV+=(-e NO_COLOR=1)
         # Surge stores credentials in ~/.netrc. Mount it read-write so surge can write credentials
         # on first login and read them on subsequent deploys. Create the file first if it doesn't
         # exist — Docker would otherwise create a directory at that path on bind-mount.
