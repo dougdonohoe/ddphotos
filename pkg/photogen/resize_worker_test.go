@@ -51,6 +51,23 @@ func TestResizePhotos_SkipExisting(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestResizePhotos_SkipExistingWithoutReadingSource proves the skip happens before any
+// work is dispatched: the source file is removed after the first run, so a second run
+// that still tried to open it would fail.
+func TestResizePhotos_SkipExistingWithoutReadingSource(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "landscape-1.jpg")
+	data, err := os.ReadFile(filepath.Join("testdata", "landscape-1.jpg"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(src, data, 0644))
+
+	ap := newTestProcessor(t, []*Photo{{FileName: "landscape-1.jpg", AbsolutePath: src}})
+	require.NoError(t, ap.ResizePhotos())
+
+	require.NoError(t, os.Remove(src))
+	assert.NoError(t, ap.ResizePhotos(), "existing outputs must be skipped without opening the source")
+}
+
 func TestResizePhotos_DryRun(t *testing.T) {
 	ap := newTestProcessor(t, []*Photo{
 		{FileName: "landscape-1.jpg", AbsolutePath: filepath.Join("testdata", "landscape-1.jpg")},

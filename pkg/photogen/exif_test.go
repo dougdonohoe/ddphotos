@@ -147,6 +147,25 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			assert.False(t, meta.DateTaken.IsZero(), "expected date to be set")
 			assert.Equal(t, tc.wantDate, meta.DateTaken.Format("2006-01-02"))
 			t.Logf("%s: date taken = %s", tc.filename, meta.DateTaken.Format("2006-01-02 15:04:05"))
+
+			// Values served from the cache, including across a save/load round trip, must
+			// match the direct read exactly. Dimensions in particular are post-AutoRotate
+			// canonical values, so a cache that lost the rotation would show up here.
+			cachePath := filepath.Join(t.TempDir(), MetaCacheFileName)
+			mc := NewMetaCache(cachePath)
+
+			fresh, err := mc.Metadata(path)
+			require.NoError(t, err)
+			assert.Equal(t, meta, fresh, "cache miss must match a direct read")
+
+			cached, err := mc.Metadata(path)
+			require.NoError(t, err)
+			assert.Equal(t, meta, cached, "cache hit must match a direct read")
+
+			require.NoError(t, mc.Save())
+			reloaded, err := LoadMetaCache(cachePath).Metadata(path)
+			require.NoError(t, err)
+			assert.Equal(t, meta, reloaded, "reloaded cache must match a direct read")
 		})
 	}
 }

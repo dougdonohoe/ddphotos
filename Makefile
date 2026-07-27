@@ -54,9 +54,11 @@ build:
 	go build -ldflags "-X main.repoRoot=$(PWD)" ./...
 
 .PHONY: test
-## test: run `go test`
+## test: run `go test` (with the race detector)
+# -race catches data races in the concurrent resize and metadata workers. It needs cgo,
+# which is already required by govips, and roughly doubles the runtime.
 test:
-	go test -v -cover ./...
+	go test -v -race -cover ./...
 
 .PHONY: vet
 ## vet: run `go vet`

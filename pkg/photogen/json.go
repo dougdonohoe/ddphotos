@@ -420,14 +420,25 @@ func (c *Config) WriteHeroJPEG() error {
 		return nil
 	}
 	outputPath := c.SiteOutputPath("hero.jpg")
-	// Always force-regenerate hero.jpg: the output filename is fixed, so a source
-	// change won't trigger normal skip logic.
+	c.TrackFile(outputPath)
+
+	// hero.jpg has a fixed output name, so "the file exists" is not enough to skip it:
+	// the configured hero image and its crop can both change. The cache stamps the
+	// output with the source and crop that produced it, which makes the skip safe.
+	// Without a cache this falls through to the unconditional regeneration it replaces.
+	if !c.Force && c.MetaCache.DerivedUpToDate(outputPath, c.Hero.ImagePath, c.Hero.Crop) {
+		fmt.Printf("  exists: %s (hero jpeg)\n", outputPath)
+		return nil
+	}
+
 	result, err := ResizeHeroJPEG(c.Hero.ImagePath, outputPath, c.Hero.Crop, true, c.DryRun)
 	if err != nil {
 		return err
 	}
+	if result.Written {
+		c.MetaCache.RecordDerived(outputPath, c.Hero.ImagePath, c.Hero.Crop)
+	}
 	fmt.Println(result.Message)
-	c.TrackFile(outputPath)
 	return nil
 }
 

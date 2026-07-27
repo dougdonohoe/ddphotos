@@ -35,7 +35,7 @@ bin/photogen -resize -index -clean -doit  # developer mode
 | `-index`      | `false`       | Generate JSON index files and sitemap.xml                                                                                            |
 | `-out`        | *(from env)*  | Albums directory override (overrides `DDPHOTOS_ALBUMS_DIR`)                                                                          |
 | `-limit N`    | `0` (all)     | Limit photos per album (useful during development)                                                                                   |
-| `-force`      | `false`       | Regenerate files even if they already exist                                                                                          |
+| `-force`      | `false`       | Regenerate files even if they already exist; also re-reads photo metadata instead of using the [cache](#metadata-cache)              |
 | `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                                                                   |
 | `-album`      | `""` (all)    | Comma-separated album slugs to process                                                                                               |
 | `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                                                                            |
@@ -44,6 +44,37 @@ bin/photogen -resize -index -clean -doit  # developer mode
 | `-css`        | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](CONFIGURATION.md#custom-css))                                    |
 | `-clean`      | `false`       | Remove stale files from processed album directories after a run (requires `-resize`)                                                 |
 | `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation (see [Hero Image](CONFIGURATION.md#hero-image)) |
+
+## Metadata Cache
+
+Re-running `photogen` after adding a few photos should only cost what those new photos
+need. To make that true, photogen keeps a cache at `<albums-dir>/.build/metadata-cache.json`.
+
+It records two things, both keyed by the source file's modification time and size:
+
+- **Photo metadata** (dimensions, orientation, EXIF date). Without the cache every photo
+  is decoded on every run just to recover four values, even when nothing needs resizing.
+- **Stamps for fixed-name outputs** (`cover.jpg`, `hero.jpg`). These cannot use the normal
+  "output already exists, skip it" rule, because the same filename is produced from a
+  source that may have been swapped, so they used to be re-encoded on every run. The stamp
+  records which source and settings produced the file, making the skip safe.
+
+Anything that changes is picked up automatically: editing or replacing a source photo,
+pointing an album at a different `cover`, changing the hero `image` or `crop`, or deleting
+a generated file all trigger a regeneration. The cache only ever suppresses work that would
+have produced an identical file.
+
+Notes:
+
+- The cache is shared by every site ID under the same albums directory, since photo
+  metadata does not depend on which site is being generated.
+- It lives outside `<albums-dir>/<id>/`, so it is never deployed, never served, and never
+  touched by `-clean`.
+- It is written in dry-run mode too. It is a local performance artifact rather than site
+  output, so writing it does not conflict with `-doit`, and it means repeated dry-runs are
+  fast as well.
+- `-force` re-reads everything and rewrites the cache. To discard it entirely, delete
+  `<albums-dir>/.build/metadata-cache.json`; it is rebuilt on the next run.
 
 ## Photo Descriptions (`photogen.txt`)
 
