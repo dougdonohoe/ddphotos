@@ -62,6 +62,30 @@ test('caption shows when loading a photo permalink directly (animate=false path)
 	await expectCaptionVisible(page);
 });
 
+test('lightbox caption uses balanced line wrapping', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
+	await page.goto(`/albums/${ALBUM}`);
+	await unlockAlbumIfNeeded(page, ALBUM, pw);
+	await waitForHydration(page);
+	await page
+		.locator('.photo')
+		.nth(PHOTO_N - 1)
+		.click();
+	await expect(page.locator('.pswp')).toBeVisible();
+	await expectCaptionVisible(page);
+
+	// Guards against text-wrap: balance being dropped from the caption rule — without it
+	// a wrapped caption strands its last word on a line by itself. Asserts the property
+	// is applied rather than measuring line boxes: sample captions are short enough that
+	// they don't wrap at the test viewport, so a geometric check would assert nothing.
+	const textWrap = await page
+		.locator('.pswp-caption')
+		.filter({ hasText: /\S/ })
+		.first()
+		.evaluate((el) => getComputedStyle(el).textWrap || getComputedStyle(el).textWrapStyle);
+	expect(textWrap).toBe('balance');
+});
+
 test('caption updates when navigating to prev/next photo', async ({ page }) => {
 	test.skip(!hasAntarctica, 'antarctica album not present');
 	await page.goto(`/albums/${ALBUM}`);

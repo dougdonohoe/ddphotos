@@ -786,6 +786,10 @@
 		font-size: 0.78rem;
 		line-height: 1.2;
 		text-align: center;
+		/* Even out line lengths when a caption wraps, rather than leaving a lone
+		   trailing word. Ignored by browsers without support, and browsers stop
+		   balancing past a handful of lines — both fall back to normal wrapping. */
+		text-wrap: balance;
 		opacity: 0;
 		transform: translateY(4px);
 		transition:
@@ -874,6 +878,8 @@
 		font-size: 0.9rem;
 		line-height: 1.2;
 		text-align: center;
+		/* See .photo-caption — evens out wrapped lines instead of orphaning a word. */
+		text-wrap: balance;
 		pointer-events: none;
 		z-index: 10;
 		transition: opacity 0.3s ease;
