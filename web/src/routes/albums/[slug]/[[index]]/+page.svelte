@@ -266,7 +266,9 @@
 				isButton: true,
 				title: 'Copy link',
 				html: linkSVG,
-				onClick: (event, el) => {
+				// _event is unused — the underscore marks that intentionally. It can't just be
+				// dropped, since `el` is the second positional argument.
+				onClick: (_event, el) => {
 					navigator.clipboard
 						.writeText(window.location.href)
 						.then(() => {
@@ -357,7 +359,8 @@
 					// the viewport from document.documentElement.clientWidth (exposed as
 					// pswp.viewportSize — unlike window.innerWidth it excludes the scrollbar, which
 					// otherwise leaves a gap at each edge), caps the fit zoom at 1 so images smaller
-					// than the viewport aren't upscaled, and ceils the displayed size.
+					// than the viewport aren't upscaled, and rounds the displayed size up to whole
+					// pixels.
 					const vp = pswp.viewportSize;
 					const scale = Math.min(1, vp.x / item.w, vp.y / item.h);
 					const sideInset = Math.floor((vp.x - Math.ceil(item.w * scale)) / 2);
@@ -412,7 +415,7 @@
 				// vertical one leaves it behind. bounds.center.y is the at-rest pan position
 				// (the same zero point PhotoSwipe measures the drag against). Applied even
 				// while zoomed — the caption is invisible then, and the offset converges back
-				// to zero on its own as the zoom-out animation recentres the pan.
+				// to zero on its own as the zoom-out animation re-centers the pan.
 				const dragHolder = holders.find((h: ItemHolder) => h.slide === slide);
 				const dragEl = dragHolder?.el.querySelector('.pswp-caption') as HTMLElement | null;
 				if (dragEl) {
