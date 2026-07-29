@@ -352,8 +352,20 @@
 					}
 					el.textContent = item.caption;
 					el.style.display = '';
-					const scale = Math.min(window.innerWidth / item.w, window.innerHeight / item.h);
-					el.style.bottom = `${Math.floor((window.innerHeight - item.h * scale) / 2)}px`;
+					// Inset the caption to the displayed photo box rather than the viewport, so it
+					// spans exactly the image's edges. Mirrors PhotoSwipe's own geometry: it sizes
+					// the viewport from document.documentElement.clientWidth (exposed as
+					// pswp.viewportSize — unlike window.innerWidth it excludes the scrollbar, which
+					// otherwise leaves a gap at each edge), caps the fit zoom at 1 so images smaller
+					// than the viewport aren't upscaled, and ceils the displayed size.
+					const vp = pswp.viewportSize;
+					const scale = Math.min(1, vp.x / item.w, vp.y / item.h);
+					const sideInset = Math.floor((vp.x - Math.ceil(item.w * scale)) / 2);
+					el.style.bottom = `${Math.floor((vp.y - Math.ceil(item.h * scale)) / 2)}px`;
+					el.style.left = `${sideInset}px`;
+					el.style.right = `${sideInset}px`;
+					// Drop any leftover vertical-drag offset (see zoomPanUpdate below).
+					el.style.transform = '';
 				});
 			};
 
@@ -392,6 +404,20 @@
 						captionFadeTimer = null;
 						setCaptionOpacity('1');
 					}, 0);
+				}
+				// Glue the caption to the photo during a vertical drag-to-close gesture.
+				// PhotoSwipe moves only the slide's own container for that gesture, and the
+				// caption lives in the item holder outside it — a horizontal swipe moves the
+				// whole main-scroll container and takes the caption along for free, but a
+				// vertical one leaves it behind. bounds.center.y is the at-rest pan position
+				// (the same zero point PhotoSwipe measures the drag against). Applied even
+				// while zoomed — the caption is invisible then, and the offset converges back
+				// to zero on its own as the zoom-out animation recentres the pan.
+				const dragHolder = holders.find((h: ItemHolder) => h.slide === slide);
+				const dragEl = dragHolder?.el.querySelector('.pswp-caption') as HTMLElement | null;
+				if (dragEl) {
+					const dy = slide ? slide.pan.y - slide.bounds.center.y : 0;
+					dragEl.style.transform = dy ? `translate3d(0, ${dy}px, 0)` : '';
 				}
 			});
 			// Reset caption opacity when navigating between slides
@@ -776,6 +802,10 @@
 		font-size: 0.78rem;
 		line-height: 1.2;
 		text-align: center;
+		/* Even out line lengths when a caption wraps, rather than leaving a lone
+		   trailing word. Ignored by browsers without support, and browsers stop
+		   balancing past a handful of lines — both fall back to normal wrapping. */
+		text-wrap: balance;
 		opacity: 0;
 		transform: translateY(4px);
 		transition:
@@ -852,19 +882,29 @@
 		pointer-events: none;
 	}
 
-	/* Lightbox caption — bottom set dynamically in JS to align with photo bottom edge */
+	/* Lightbox caption — bottom/left/right set dynamically in JS to match the photo's
+	   displayed box. The 0 values here are the pre-measurement fallback. */
 	:global(.pswp-caption) {
 		position: absolute;
 		left: 0;
 		right: 0;
-		padding: 1.5rem 3rem 0.75rem;
+		padding: 1.5rem 1rem 0.75rem;
 		background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
 		color: white;
 		font-size: 0.9rem;
 		line-height: 1.2;
 		text-align: center;
+		/* See .photo-caption — evens out wrapped lines instead of orphaning a word. */
+		text-wrap: balance;
 		pointer-events: none;
 		z-index: 10;
 		transition: opacity 0.3s ease;
+	}
+
+	/* Larger lightbox caption on desktop, where there's room for it */
+	@media (min-width: 769px) {
+		:global(.pswp-caption) {
+			font-size: 1.2rem;
+		}
 	}
 </style>
