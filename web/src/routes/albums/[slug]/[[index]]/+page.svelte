@@ -364,6 +364,8 @@
 					el.style.bottom = `${Math.floor((vp.y - Math.ceil(item.h * scale)) / 2)}px`;
 					el.style.left = `${sideInset}px`;
 					el.style.right = `${sideInset}px`;
+					// Drop any leftover vertical-drag offset (see zoomPanUpdate below).
+					el.style.transform = '';
 				});
 			};
 
@@ -402,6 +404,20 @@
 						captionFadeTimer = null;
 						setCaptionOpacity('1');
 					}, 0);
+				}
+				// Glue the caption to the photo during a vertical drag-to-close gesture.
+				// PhotoSwipe moves only the slide's own container for that gesture, and the
+				// caption lives in the item holder outside it — a horizontal swipe moves the
+				// whole main-scroll container and takes the caption along for free, but a
+				// vertical one leaves it behind. bounds.center.y is the at-rest pan position
+				// (the same zero point PhotoSwipe measures the drag against). Applied even
+				// while zoomed — the caption is invisible then, and the offset converges back
+				// to zero on its own as the zoom-out animation recentres the pan.
+				const dragHolder = holders.find((h: ItemHolder) => h.slide === slide);
+				const dragEl = dragHolder?.el.querySelector('.pswp-caption') as HTMLElement | null;
+				if (dragEl) {
+					const dy = slide ? slide.pan.y - slide.bounds.center.y : 0;
+					dragEl.style.transform = dy ? `translate3d(0, ${dy}px, 0)` : '';
 				}
 			});
 			// Reset caption opacity when navigating between slides
