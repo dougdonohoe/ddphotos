@@ -148,7 +148,7 @@ the appropriate site variant:
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
 `bin/test-all.sh` runs five variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
 `passwords-keyonly.yaml` (a passwords file that declares no passwords, so nothing is encrypted),
-and `custom-css` (with `sample/config/custom.css` injected).
+and `custom-css` (with `sample/config/custom-example.css` injected).
 
 ```bash
 # Run all 5 variants against dev + Apache + nginx (default; recommended locally)
@@ -173,7 +173,7 @@ bin/run-tests.sh --mode nginx
 bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
 
 # Run custom CSS variant against dev server
-bin/run-tests.sh --css sample/config/custom.css --mode dev
+bin/run-tests.sh --css sample/config/custom-example.css --mode dev
 
 # Run a single test file against dev server (useful for debugging a specific test)
 bin/run-tests.sh --mode dev --test tests/privacy.spec.ts

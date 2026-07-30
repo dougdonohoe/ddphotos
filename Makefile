@@ -239,17 +239,17 @@ sample-photogen-pw-keyonly:
 .PHONY: sample-photogen-css
 ## sample-photogen-css: run photogen using sample images with custom CSS injected
 sample-photogen-css:
-	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -site-id sample-css -doit
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom-example.css -site-id sample-css -doit
 
 .PHONY: sample-photogen-demo-1
 ## sample-photogen-demo-1: run photogen using sample images with custom CSS and all albums password-protected
 sample-photogen-demo-1:
-	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -passwords sample/config/passwords-all.yaml -site-id sample-demo-1 -doit
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom-example.css -passwords sample/config/passwords-all.yaml -site-id sample-demo-1 -doit
 
 .PHONY: sample-photogen-demo-2
 ## sample-photogen-demo-2: run photogen using sample images with custom CSS and uganda album password-protected
 sample-photogen-demo-2:
-	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom.css -passwords sample/config/passwords-uganda.yaml -site-id sample-demo-2 -doit
+	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom-example.css -passwords sample/config/passwords-uganda.yaml -site-id sample-demo-2 -doit
 
 .PHONY: sample-demo-1
 ## sample-demo-1: one-step demo with custom CSS + password protection — photogen's and runs dev server

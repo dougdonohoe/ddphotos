@@ -6,7 +6,7 @@
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
-# --css        Path to a custom CSS file (e.g. sample/config/custom.css).
+# --css        Path to a custom CSS file (e.g. sample/config/custom-example.css).
 #              Omit for the no-CSS variant.
 # --mode       Which server to test against: dev, apache, nginx, or all (default: all).
 #              dev    — Vite dev server on port 5174
@@ -31,7 +31,7 @@ usage() {
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
     echo "                      Omit for the no-password variant."
-    echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom.css)."
+    echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom-example.css)."
     echo "                      Omit for the no-CSS variant."
     echo "  --mode <mode>       Server to test against: dev, apache, nginx, or all (default: all)."
     echo "                        dev    — Vite dev server on port 5174"

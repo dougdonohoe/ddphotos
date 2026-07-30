@@ -1,6 +1,10 @@
 /* DD Photos custom styles — sample site demo
-   This file is copied to the site output by photogen (-index) and injected
-   site-wide as a <link> after the built-in styles.
+   Not referenced by albums.yaml (settings.css is unset there, so the default
+   sample site has no custom CSS). Instead this file is passed explicitly via
+   photogen's -css flag by the sample-photogen-css / sample-photogen-demo-*
+   Makefile targets and by the custom-css test variant in bin/test-all.sh.
+   photogen (-index) copies it to the site output as custom.css, where the
+   frontend injects it site-wide as a <link> after the built-in styles.
 
    CSS custom properties are the cleanest override path: they cascade naturally
    and cover both dark and light themes with minimal specificity issues. */

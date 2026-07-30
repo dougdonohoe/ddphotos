@@ -6,7 +6,7 @@ import { siteCustomCss } from './helpers';
 //
 // Tests 1 and 2 derive CSS presence from config.json (programmatic).
 // Tests 3 and 4 require PLAYWRIGHT_CUSTOM_CSS to be set, since they check
-// specific values only meaningful for the known sample custom.css file.
+// specific values only meaningful for the known sample custom-example.css file.
 
 const hasCustomCss = !!process.env.PLAYWRIGHT_CUSTOM_CSS;
 
