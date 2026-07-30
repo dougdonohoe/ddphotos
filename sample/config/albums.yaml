@@ -15,7 +15,7 @@ settings:
     These albums are an example of what you can publish using the 
     <a href="https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>
     application, a free and open-source self-hosted photo gallery.
-    Browse the photos below, then <a href="https://github.com/dougdonohoe/ddphotos-app/releases">download</a> the app 
+    Browse the photos below, then <a href="https://github.com/dougdonohoe/ddphotos-app#installation">download</a> the app 
     to publish your own albums.
   hero:
     image: theway/2024-The-Way-13.jpg
