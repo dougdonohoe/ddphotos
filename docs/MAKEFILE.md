@@ -31,7 +31,7 @@ as defined in `config/defaults.env`.
 | `web-playwright-test-apache`  | Run Playwright e2e tests (starts Docker/Apache on port 8083, runs, stops)                     |
 | `web-playwright-test-nginx`   | Run Playwright e2e tests (starts Docker/nginx on port 8084, runs, stops)                      |
 | `web-playwright-test-dev`     | Run Playwright e2e tests (against Vite dev server)                                            |
-| `web-playwright-test-all`     | Run `bin/test-all.sh` across all password/CSS variants                                        |
+| `web-playwright-test-all`     | Run `bin/test-all.sh` across all password/CSS/customization variants                          |
 | `web-sanity-test`             | Quick sanity check: Apache, no-passwords + all-passwords (companion to `make build test vet`) |
 | `sample-photogen`             | Run photogen using `sample/config/albums.yaml`                                                |
 | `sample-photogen-pw-all`      | Run photogen using sample config, all albums password-protected                               |

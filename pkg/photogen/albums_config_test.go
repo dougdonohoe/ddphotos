@@ -95,102 +95,6 @@ func TestLoadAlbumsFile(t *testing.T) {
 	})
 }
 
-func TestCustomizationsAlbumNav(t *testing.T) {
-	t.Parallel()
-
-	// A minimal albums section so only the customizations block is under test.
-	const albums = `
-albums:
-  - slug: a
-    name: A
-    source: /tmp/photos
-`
-
-	t.Run("absent block yields no nav", func(t *testing.T) {
-		af, err := LoadAlbumsFile(writeYAML(t, albums))
-		require.NoError(t, err)
-		assert.Empty(t, af.Customizations.AlbumNav)
-	})
-
-	t.Run("parses all fields", func(t *testing.T) {
-		af, err := LoadAlbumsFile(writeYAML(t, `customizations:
-  album_nav:
-    - label: Back to Maps
-      href: https://example.com/
-      id: back-to-maps
-      new_tab: true
-    - label: All Albums
-      href: /
-`+albums))
-		require.NoError(t, err)
-		require.Len(t, af.Customizations.AlbumNav, 2)
-
-		l := af.Customizations.AlbumNav[0]
-		assert.Equal(t, "Back to Maps", l.Label)
-		assert.Equal(t, "https://example.com/", l.Href)
-		assert.Equal(t, "back-to-maps", l.ID)
-		assert.True(t, l.NewTab)
-
-		l = af.Customizations.AlbumNav[1]
-		assert.Equal(t, "All Albums", l.Label)
-		assert.Equal(t, "/", l.Href)
-		assert.Empty(t, l.ID, "id is optional")
-		assert.False(t, l.NewTab, "new_tab defaults to false")
-	})
-
-	t.Run("accepts a mailto href", func(t *testing.T) {
-		_, err := LoadAlbumsFile(writeYAML(t, `customizations:
-  album_nav:
-    - label: Email
-      href: mailto:me@example.com
-`+albums))
-		require.NoError(t, err)
-	})
-
-	invalid := []struct {
-		name    string
-		nav     string
-		wantErr string
-	}{
-		{
-			name:    "missing label",
-			nav:     "    - href: /\n",
-			wantErr: "label is required",
-		},
-		{
-			name:    "missing href",
-			nav:     "    - label: Nowhere\n",
-			wantErr: "href is required",
-		},
-		{
-			name:    "relative href",
-			nav:     "    - label: Albums\n      href: albums/foo\n",
-			wantErr: `must start with "/"`,
-		},
-		{
-			name:    "id starting with a digit",
-			nav:     "    - label: Maps\n      href: /\n      id: 1st-link\n",
-			wantErr: "must start with a letter",
-		},
-		{
-			name:    "id with invalid characters",
-			nav:     "    - label: Maps\n      href: /\n      id: back to maps\n",
-			wantErr: "must start with a letter",
-		},
-		{
-			name:    "duplicate ids",
-			nav:     "    - label: One\n      href: /\n      id: dup\n    - label: Two\n      href: /x\n      id: dup\n",
-			wantErr: `duplicate id "dup"`,
-		},
-	}
-	for _, tc := range invalid {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := LoadAlbumsFile(writeYAML(t, "customizations:\n  album_nav:\n"+tc.nav+albums))
-			require.ErrorContains(t, err, tc.wantErr)
-		})
-	}
-}
-
 func TestLoadAlbumDescriptions(t *testing.T) {
 	t.Parallel()
 
@@ -622,13 +526,13 @@ albums:
 			0o644,
 		))
 
-		configs, af, err := LoadAlbumConfigs(configDir, "albums.yaml")
+		configs, settings, err := LoadAlbumConfigs(configDir, "albums.yaml")
 		require.NoError(t, err)
 		require.Len(t, configs, 1)
 		assert.Equal(t, "myalbum", configs[0].Slug)
 		assert.Equal(t, "A great album.", configs[0].Description)
 		assert.Equal(t, photoDir, configs[0].Path)
-		assert.Equal(t, "https://my.example.com", af.Settings.SiteURL)
+		assert.Equal(t, "https://my.example.com", settings.SiteURL)
 	})
 
 	t.Run("missing albums file", func(t *testing.T) {

@@ -27,23 +27,25 @@ bin/photogen -resize -index -clean -doit  # developer mode
 
 ## CLI Flags
 
-| Flag          | Default       | Description                                                                                                                          |
-|---------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `-config-dir` | `config`      | Directory containing `albums.yaml` and optional supporting files                                                                     |
-| `-doit`       | `false`       | Write files; without this, runs in dry-run mode                                                                                      |
-| `-resize`     | `false`       | Generate resized WebP image variants                                                                                                 |
-| `-index`      | `false`       | Generate JSON index files and sitemap.xml                                                                                            |
-| `-out`        | *(from env)*  | Albums directory override (overrides `DDPHOTOS_ALBUMS_DIR`)                                                                          |
-| `-limit N`    | `0` (all)     | Limit photos per album (useful during development)                                                                                   |
-| `-force`      | `false`       | Regenerate files even if they already exist; also re-reads photo metadata instead of using the [cache](#metadata-cache)              |
-| `-workers N`  | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                                                                   |
-| `-album`      | `""` (all)    | Comma-separated album slugs to process                                                                                               |
-| `-site-url`   | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                                                                            |
-| `-site-id`    | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config                                                  |
-| `-passwords`  | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Password Protection](CONFIGURATION.md#password-protection))             |
-| `-css`        | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](CONFIGURATION.md#custom-css))                                    |
-| `-clean`      | `false`       | Remove stale files from processed album directories after a run (requires `-resize`)                                                 |
-| `-hero-only`  | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation (see [Hero Image](CONFIGURATION.md#hero-image)) |
+| Flag                | Default       | Description                                                                                                                                          |
+|---------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `-config-dir`       | `config`      | Directory containing `albums.yaml` and optional supporting files                                                                                     |
+| `-doit`             | `false`       | Write files; without this, runs in dry-run mode                                                                                                      |
+| `-resize`           | `false`       | Generate resized WebP image variants                                                                                                                 |
+| `-index`            | `false`       | Generate JSON index files and sitemap.xml                                                                                                            |
+| `-out`              | *(from env)*  | Albums directory override (overrides `DDPHOTOS_ALBUMS_DIR`)                                                                                          |
+| `-limit N`          | `0` (all)     | Limit photos per album (useful during development)                                                                                                   |
+| `-force`            | `false`       | Regenerate files even if they already exist; also re-reads photo metadata instead of using the [cache](#metadata-cache)                              |
+| `-workers N`        | `0` (auto)    | Concurrent resize workers (auto = NumCPU/2, min 2)                                                                                                   |
+| `-album`            | `""` (all)    | Comma-separated album slugs to process                                                                                                               |
+| `-site-url`         | *(from YAML)* | Sitemap base URL override (overrides `settings.site_url`)                                                                                            |
+| `-site-id`          | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config                                                                  |
+| `-passwords`        | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Password Protection](CONFIGURATION.md#password-protection))                             |
+| `-css`              | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](CONFIGURATION.md#custom-css))                                                    |
+| `-customization`    | *(auto)*      | Path to a customization file; overrides the default `<config-dir>/customization.yaml` (see [customization.yaml](CONFIGURATION.md#customizationyaml)) |
+| `-no-customization` | `false`       | Ignore `customization.yaml` even when present                                                                                                        |
+| `-clean`            | `false`       | Remove stale files from processed album directories after a run (requires `-resize`)                                                                 |
+| `-hero-only`        | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation (see [Hero Image](CONFIGURATION.md#hero-image))                 |
 
 ## Metadata Cache
 

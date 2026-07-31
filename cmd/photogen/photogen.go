@@ -53,21 +53,23 @@ func loadDefaultsEnv() {
 }
 
 var (
-	configDir  = flag.String("config-dir", "config", "directory containing albums YAML and descriptions files")
-	outputDir  = flag.String("out", "", "albums directory override (overrides DDPHOTOS_ALBUMS_DIR env var)")
-	doit       = flag.Bool("doit", false, "do actual work; otherwise log planned work without writing any files")
-	limit      = flag.Int("limit", 0, "limit number of photos per album (0 = no limit)")
-	force      = flag.Bool("force", false, "regenerate output files even if they already exist")
-	resize     = flag.Bool("resize", false, "generate resized image variants (grid, full)")
-	index      = flag.Bool("index", false, "generate JSON index files (albums.json and per-album index.json)")
-	siteURL    = flag.String("site-url", "", "base URL for sitemap generation (overrides YAML site_url)")
-	numWorkers = flag.Int("workers", 0, "number of concurrent resize workers (0 = auto: NumCPU/2, min 2)")
-	albumFlag  = flag.String("album", "", "comma-separated list of album slugs to process (empty = all)")
-	siteID     = flag.String("site-id", "", "override settings.id from albums YAML")
-	passwords  = flag.String("passwords", "", "path to passwords file; overrides settings.passwords in albums YAML")
-	css        = flag.String("css", "", "path to custom CSS file; overrides settings.css in albums YAML")
-	clean      = flag.Bool("clean", false, "remove stale output files not generated in this run")
-	heroOnly   = flag.Bool("hero-only", false, "regenerate hero image only, skipping all album and index processing")
+	configDir       = flag.String("config-dir", "config", "directory containing albums YAML and descriptions files")
+	outputDir       = flag.String("out", "", "albums directory override (overrides DDPHOTOS_ALBUMS_DIR env var)")
+	doit            = flag.Bool("doit", false, "do actual work; otherwise log planned work without writing any files")
+	limit           = flag.Int("limit", 0, "limit number of photos per album (0 = no limit)")
+	force           = flag.Bool("force", false, "regenerate output files even if they already exist")
+	resize          = flag.Bool("resize", false, "generate resized image variants (grid, full)")
+	index           = flag.Bool("index", false, "generate JSON index files (albums.json and per-album index.json)")
+	siteURL         = flag.String("site-url", "", "base URL for sitemap generation (overrides YAML site_url)")
+	numWorkers      = flag.Int("workers", 0, "number of concurrent resize workers (0 = auto: NumCPU/2, min 2)")
+	albumFlag       = flag.String("album", "", "comma-separated list of album slugs to process (empty = all)")
+	siteID          = flag.String("site-id", "", "override settings.id from albums YAML")
+	passwords       = flag.String("passwords", "", "path to passwords file; overrides settings.passwords in albums YAML")
+	css             = flag.String("css", "", "path to custom CSS file; overrides settings.css in albums YAML")
+	clean           = flag.Bool("clean", false, "remove stale output files not generated in this run")
+	heroOnly        = flag.Bool("hero-only", false, "regenerate hero image only, skipping all album and index processing")
+	customization   = flag.String("customization", "", "path to customization file; overrides the default <config-dir>/"+photogen.DefaultCustomizationFile)
+	noCustomization = flag.Bool("no-customization", false, "ignore "+photogen.DefaultCustomizationFile+" even if present")
 )
 
 // saveMetaCache persists the photo metadata cache, reporting failures as warnings
@@ -84,11 +86,15 @@ func main() {
 	exit.HandleSignal()
 	loadDefaultsEnv()
 
-	albums, albumsFile, err := photogen.LoadAlbumConfigs(*configDir, "albums.yaml")
+	albums, settings, err := photogen.LoadAlbumConfigs(*configDir, "albums.yaml")
 	if err != nil {
 		exit.Fatal("Error loading config", err)
 	}
-	settings := &albumsFile.Settings
+
+	customizations, err := photogen.ResolveCustomizations(*configDir, *customization, *noCustomization)
+	if err != nil {
+		exit.Fatal("Error loading customizations", err)
+	}
 
 	// CLI flags override YAML settings when provided
 	resolvedSiteID := settings.ID
@@ -140,7 +146,7 @@ func main() {
 		SiteTitleHTML:    settings.SiteTitleHTML,
 		SiteSubtitleHTML: settings.SiteSubtitleHTML,
 		SiteOverviewHTML: settings.SiteOverviewHTML,
-		AlbumNav:         albumsFile.Customizations.AlbumNav,
+		AlbumNav:         customizations.AlbumNav,
 	}
 
 	// Photo metadata (dimensions, orientation, EXIF date) is cached between runs so

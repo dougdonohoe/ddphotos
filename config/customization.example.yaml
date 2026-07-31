@@ -1,0 +1,38 @@
+# =============================================================================
+# photogen site customization — example
+# =============================================================================
+# Copy this file to customization.yaml alongside albums.yaml and edit it.
+# photogen picks it up automatically when it is present; there is nothing to
+# reference from albums.yaml.
+#
+#   -customization <file>   use a different file instead of this default
+#   -no-customization       ignore customization.yaml even if present
+#
+# Everything here is optional and purely cosmetic — without this file the site
+# looks exactly as it does by default. It is deliberately a separate file from
+# albums.yaml so that tools which manage albums.yaml (such as the DD Photos
+# desktop app) never need to know about it.
+# =============================================================================
+
+# Replaces the "← Albums" link in each album page's header. Omit to keep it.
+#
+# Each link needs 'label' and 'href'. 'href' must either start with "/" (a path
+# on this site, resolved against the site root and navigated client-side) or
+# include a scheme such as https:// — a bare relative path like "albums/foo" is
+# rejected because it would resolve differently depending on the current page.
+#
+# The optional 'id' becomes the anchor's HTML id, so custom CSS can style that
+# one link (e.g. "#back-to-maps"). Ids must start with a letter, contain only
+# letters, digits, hyphens or underscores, and be unique within the list.
+#
+# These links travel in config.json, which is never encrypted — do not put a
+# private URL here on a password-protected site.
+#
+# album_nav:
+#   - label: Back to Maps
+#     href: https://example.com/
+#     id: back-to-maps
+#     new_tab: true
+#   - label: All Albums
+#     href: /
+#     id: back-to-albums

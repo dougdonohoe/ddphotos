@@ -161,15 +161,15 @@ S3+CloudFront using `aws s3 sync`. See [Deployment](docs/DEPLOY.md) for setup de
 
 These documents are primarily meant for users of DD Photos:
 
-| Document                                               | Description                                                                        |
-|--------------------------------------------------------|------------------------------------------------------------------------------------|
-| [Docker Mode](docs/DOCKER.md)                          | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                |
-| [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `descriptions.txt`, `site.env`, and how config reaches the frontend |
-| [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, recursive albums                        |
-| [Rebuilding a Site](docs/SCRAPE.md)                    | Turn a deployed site back into a config directory you can build                    |
-| [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                             |
-| [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, CloudFront, and Cloudflare Pages routing rules                      |
-| [Environment Variables](docs/ENV.md)                   | Deployment variables                                                               |
+| Document                                               | Description                                                                          |
+|--------------------------------------------------------|--------------------------------------------------------------------------------------|
+| [Docker Mode](docs/DOCKER.md)                          | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                  |
+| [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `customization.yaml`, `site.env`, and how config reaches the frontend |
+| [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, recursive albums                          |
+| [Rebuilding a Site](docs/SCRAPE.md)                    | Turn a deployed site back into a config directory you can build                      |
+| [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                               |
+| [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, CloudFront, and Cloudflare Pages routing rules                        |
+| [Environment Variables](docs/ENV.md)                   | Deployment variables                                                                 |
 
 These documents are primarily meant for developers of DD Photos:
 
