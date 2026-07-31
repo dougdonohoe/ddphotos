@@ -26,6 +26,11 @@ truth. Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/run-
 three `setup-node` steps in `.github/workflows/ci.yml`. **Do not hardcode either version anywhere
 else.**
 
+`docker/Dockerfile` takes both as **required** build args (`NODE_VERSION`, `NPM_VERSION`) with no
+defaults, so it cannot carry a stale copy of either version. It is built only via `make
+docker-build` and `bin/docker-push.sh`, which read the two files and pass the values in; a bare
+`docker build -f docker/Dockerfile .` fails by design. **Do not give those ARGs default values.**
+
 One exception, which must be updated by hand: the `engines.node` field in `web/package.json`.
 Paired with `engine-strict=true` in `web/.npmrc`, it makes `npm install`/`npm ci` hard-fail on the
 wrong Node, so a machine whose `nvm` default has drifted cannot silently install with it.

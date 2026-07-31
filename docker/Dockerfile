@@ -1,7 +1,13 @@
 # syntax=docker/dockerfile:1
+# check=skip=InvalidDefaultArgInFrom
+# (NODE_VERSION is intentionally defaultless — see below — which trips that lint check.
+#  The two directives above must stay adjacent: a comment ends parser-directive parsing.)
 
-ARG NODE_VERSION=24
-ARG NPM_VERSION=12.0.1
+# Required build args, deliberately without defaults: web/.nvmrc and web/.npm-version are the
+# single source of truth, and a stale default here would silently build a mis-versioned image.
+# Use `make docker-build` (or bin/docker-push.sh), which reads both files and passes them in.
+ARG NODE_VERSION
+ARG NPM_VERSION
 
 # ── Stage 1: Build photogen (Go + libvips) ────────────────────────────────────
 FROM golang:1.25-bookworm AS go-builder
@@ -37,7 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends binutils \
 # deleted promise-retry out from under the running process. Fixed in npm 10.9.8 /
 # arborist 8.0.5, see https://github.com/npm/cli/pull/9152. Builds must pull a
 # current base image.)
-RUN npm install -g npm@${NPM_VERSION} \
+RUN : "${NPM_VERSION:?required build arg — run 'make docker-build', or pass the value in web/.npm-version}" \
+    && npm install -g npm@${NPM_VERSION} \
     && npm ci
 
 # ── Stage 3: Runtime image ────────────────────────────────────────────────────
