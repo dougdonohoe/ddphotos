@@ -84,10 +84,11 @@ func main() {
 	exit.HandleSignal()
 	loadDefaultsEnv()
 
-	albums, settings, err := photogen.LoadAlbumConfigs(*configDir, "albums.yaml")
+	albums, albumsFile, err := photogen.LoadAlbumConfigs(*configDir, "albums.yaml")
 	if err != nil {
 		exit.Fatal("Error loading config", err)
 	}
+	settings := &albumsFile.Settings
 
 	// CLI flags override YAML settings when provided
 	resolvedSiteID := settings.ID
@@ -139,6 +140,7 @@ func main() {
 		SiteTitleHTML:    settings.SiteTitleHTML,
 		SiteSubtitleHTML: settings.SiteSubtitleHTML,
 		SiteOverviewHTML: settings.SiteOverviewHTML,
+		AlbumNav:         albumsFile.Customizations.AlbumNav,
 	}
 
 	// Photo metadata (dimensions, orientation, EXIF date) is cached between runs so

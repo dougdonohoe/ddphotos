@@ -1,0 +1,73 @@
+# Test-only config dir that exercises customizations.album_nav.
+#
+# Kept separate from sample/config so the public sample site (and the album screenshots
+# in docs/SCREENSHOTS.md) keep the default "← Albums" header link. Everything apart from
+# the customizations block mirrors sample/config/albums.yaml, so the whole Playwright
+# suite can run against this variant. photogen always reads "albums.yaml" from the
+# config dir, which is why this is a directory rather than a second file next to it.
+#
+# Used by: bin/run-tests.sh --album-nav
+
+settings:
+  id: sample-album-nav
+  site_name: "DD Photos Sample Albums"
+  site_url: https://ddphotos.donohoe.info
+  site_description: "DD Photos - Your memories, your way. No subscriptions, no lock-in, deploys in minutes with Docker."
+  copyright_owner: "Doug and Cindy Donohoe"
+  copyright_year: 2001
+  allow_crawling: true
+  descriptions: ../config/descriptions.txt   # shared with sample/config, not duplicated
+  site_title_html: >-
+    <a href="https://github.com/dougdonohoe/ddphotos-app" target="_blank" rel="noopener">DD Photos</a>
+  site_subtitle_html: >-
+    Self-host your memories. No subscriptions, no lock-in, yours forever.
+  site_overview_html: >-
+    These albums are an example of what you can publish using the
+    <a href="https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>
+    application, a free and open-source self-hosted photo gallery.
+    Browse the photos below, then <a href="https://github.com/dougdonohoe/ddphotos-app#installation">download</a> the app
+    to publish your own albums.
+  hero:
+    image: theway/2024-The-Way-13.jpg
+    base: sample
+    crop: center
+
+# Replaces the default "← Albums" link on every album page. Covers both link kinds:
+# an internal path resolved against the site root, and an external URL in a new tab.
+customizations:
+  album_nav:
+    - label: All Albums
+      href: /
+      id: back-to-albums
+    - label: About DD Photos
+      href: https://github.com/dougdonohoe/ddphotos
+      id: about-ddphotos
+      new_tab: true
+
+bases:
+  sample: sample/source
+
+albums:
+  - slug: the-way
+    name: The Way
+    base: sample
+    source: theway
+    cover: 2024-The-Way-14.jpg
+
+  - slug: uganda
+    name: Uganda
+    base: sample
+    source: uganda
+    cover: subfolder/img_840_d.jpg
+    manual_sort_order: true
+    recurse: true
+    description: >-
+      Tracking mountain gorillas deep in the jungle and spotting tree-climbing lions, elephants, and hippos on safari
+      on our first visit to Africa.
+
+  - slug: antarctica
+    name: Antarctica
+    base: sample
+    source: antarctica
+    cover: neko_harbour_01.jpg
+    manual_sort_order: true

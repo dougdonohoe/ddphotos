@@ -17,6 +17,10 @@ import {
 //
 // Album names and slugs are read dynamically from the home page so these tests
 // work against any site (sample, dev, or prod) without hardcoding album names.
+//
+// The header's back link is located by href rather than by its "← Albums" text: a site
+// that sets customizations.album_nav replaces that link with its own label, but any nav
+// pointing home still has href="/".
 
 const pw = loadPasswords();
 
@@ -42,7 +46,7 @@ test('navigating from one album to another shows correct content', async ({ page
 	await expect(page.locator('h1')).toHaveText(firstName);
 
 	// Client-side navigate to second album via the back link + album card click
-	await page.locator('header a', { hasText: '← Albums' }).click();
+	await page.locator('header a[href="/"]').click();
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: secondName }).click();
 	await unlockAlbumIfNeeded(page, secondSlug, pw);
@@ -65,7 +69,7 @@ test('lightbox works correctly after cross-album navigation', async ({ page }) =
 	await unlockAlbumIfNeeded(page, firstSlug, pw);
 	await expect(page.locator('h1')).toHaveText(firstName);
 
-	await page.locator('header a', { hasText: '← Albums' }).click();
+	await page.locator('header a[href="/"]').click();
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: secondName }).click();
 	await unlockAlbumIfNeeded(page, secondSlug, pw);
@@ -96,13 +100,13 @@ test('navigating through multiple albums maintains correct state', async ({ page
 	await unlockAlbumIfNeeded(page, firstSlug, pw);
 	await expect(page.locator('h1')).toHaveText(firstName);
 
-	await page.locator('header a', { hasText: '← Albums' }).click();
+	await page.locator('header a[href="/"]').click();
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: secondName }).click();
 	await unlockAlbumIfNeeded(page, secondSlug, pw);
 	await expect(page.locator('h1')).toHaveText(secondName);
 
-	await page.locator('header a', { hasText: '← Albums' }).click();
+	await page.locator('header a[href="/"]').click();
 	await unlockSiteIfNeeded(page, pw);
 	await page.locator('.album-card', { hasText: thirdName }).click();
 	await unlockAlbumIfNeeded(page, thirdSlug, pw);

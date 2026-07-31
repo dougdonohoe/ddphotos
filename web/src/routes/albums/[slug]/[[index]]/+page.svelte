@@ -6,7 +6,7 @@
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto, replaceState, pushState } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
@@ -53,6 +53,9 @@
 	let description = $derived(data.albumData.description || album?.description || '');
 	let plainDescription = $derived(description.replace(/<[^>]*>/g, ''));
 	let dateSpan = $derived(data.albumData.dateSpan || album?.dateSpan || '');
+	// Header navigation configured via customizations.album_nav; empty means the default
+	// "← Albums" link. Rides in config.json, so it is available before any decryption.
+	let albumNav = $derived(data.siteConfig?.albumNav ?? []);
 	// True while we're silently trying stored passwords so we don't flash the prompt.
 	// $effect.pre runs synchronously before Svelte's first DOM commit in the browser,
 	// so if a stored password exists we set unlocking=true before the prompt ever renders.
@@ -566,10 +569,36 @@
 	image={album ? `${data.siteConfig.siteUrl}/albums/${slug}/cover.jpg` : undefined}
 />
 
+<!-- Header navigation: the configured album_nav links, or the built-in back link.
+     album_nav hrefs come from albums.yaml, so they are plain strings and cannot go
+     through resolve(), which only accepts SvelteKit's typed Pathname. Site-root-relative
+     ones are prefixed with `base` instead, which is what resolve() would do for them;
+     hence the eslint-disable on the anchor below. -->
+{#snippet headerNav()}
+	{#if albumNav.length > 0}
+		<nav class="album-nav">
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- see note above -->
+			{#each albumNav as link (link.id || link.href)}
+				<a
+					href={link.href.includes('://') || link.href.startsWith('mailto:')
+						? link.href
+						: base + link.href}
+					id={link.id || undefined}
+					target={link.newTab ? '_blank' : undefined}
+					rel={link.newTab ? 'noopener' : undefined}>{link.label}</a
+				>
+			{/each}
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		</nav>
+	{:else}
+		<a href={resolve('/')}>← Albums</a>
+	{/if}
+{/snippet}
+
 {#if album}
 	<main>
 		<header>
-			<a href={resolve('/')}>← Albums</a>
+			{@render headerNav()}
 			<h1>{albumTitle}</h1>
 			{#if description}
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- album photogen.txt, HTML is intentional -->
@@ -641,7 +670,7 @@
 	<main class="loading-page">
 		{#if !albumEncrypted}
 			<header>
-				<a href={resolve('/')}>← Albums</a>
+				{@render headerNav()}
 				<h1>{albumTitle}</h1>
 			</header>
 		{/if}
@@ -694,6 +723,15 @@
 
 	header a:hover {
 		color: var(--text-color);
+	}
+
+	/* Configured album_nav links. They inherit the `header a` styling above, so an
+	   unstyled config looks like the default back link; custom CSS targets them by id. */
+	.album-nav {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
 	}
 
 	header h1 {

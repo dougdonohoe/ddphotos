@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { type APIRequestContext, type Page, type Locator } from '@playwright/test';
+import type { NavLink } from '../src/lib/types';
 
 export interface Passwords {
 	all: string | null;
@@ -130,6 +131,21 @@ export async function siteCustomCss(request: APIRequestContext): Promise<string 
 		return config?.customCss || null;
 	} catch {
 		return null;
+	}
+}
+
+/**
+ * Return the albumNav array from config.json, or an empty array if not configured.
+ * Fails open (returns []) on API error so tests surface real failures.
+ */
+export async function siteAlbumNav(request: APIRequestContext): Promise<NavLink[]> {
+	try {
+		const resp = await request.get('/albums/config.json');
+		if (!resp.ok()) return [];
+		const config = await resp.json();
+		return config?.albumNav ?? [];
+	} catch {
+		return [];
 	}
 }
 

@@ -8,6 +8,7 @@
 #              Omit for the no-password variant.
 # --css        Path to a custom CSS file (e.g. sample/config/custom-example.css).
 #              Omit for the no-CSS variant.
+# --album-nav  Use sample/config-album-nav, which sets customizations.album_nav.
 # --mode       Which server to test against: dev, apache, nginx, or all (default: all).
 #              dev    — Vite dev server on port 5174
 #              apache — static build + Docker/Apache on port 8083
@@ -22,15 +23,17 @@ set -eo pipefail
 
 PASSWORDS_FILE=""
 CSS_FILE=""
+ALBUM_NAV=false
 MODE="all"
 CI_MODE=false
 
 usage() {
-    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--mode dev|apache|nginx|all] [--ci]"
+    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--album-nav] [--mode dev|apache|nginx|all] [--ci]"
     echo ""
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
     echo "                      Omit for the no-password variant."
+    echo "  --album-nav         Use sample/config-album-nav (exercises customizations.album_nav)."
     echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom-example.css)."
     echo "                      Omit for the no-CSS variant."
     echo "  --mode <mode>       Server to test against: dev, apache, nginx, or all (default: all)."
@@ -49,6 +52,7 @@ while [[ $# -gt 0 ]]; do
         --passwords=*) PASSWORDS_FILE="${1#*=}"; shift ;;
         --css)         CSS_FILE="$2"; shift 2 ;;
         --css=*)       CSS_FILE="${1#*=}"; shift ;;
+        --album-nav)   ALBUM_NAV=true; shift ;;
         --mode)        MODE="$2"; shift 2 ;;
         --mode=*)      MODE="${1#*=}"; shift ;;
         --ci)          CI_MODE=true; shift ;;
@@ -94,6 +98,7 @@ fi
 # Convention: passwords-all.yaml -> site-id "sample-pw-all"
 #             passwords-uganda.yaml -> site-id "sample-pw-uganda"
 #             --css <file> -> site-id "sample-css"
+#             --album-nav -> site-id "sample-album-nav"
 #             (no flags) -> site-id "sample"
 SITE_ID="sample"
 PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -doit)
@@ -106,6 +111,11 @@ fi
 if [ -n "$CSS_FILE" ]; then
     SITE_ID="sample-css"
     PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -css "$CSS_FILE" -site-id "$SITE_ID" -doit)
+fi
+# album_nav lives in albums.yaml, not a CLI flag, so this variant uses its own config dir.
+if $ALBUM_NAV; then
+    SITE_ID="sample-album-nav"
+    PHOTOGEN_FLAGS=(-config-dir sample/config-album-nav -resize -index -clean -site-id "$SITE_ID" -doit)
 fi
 
 ALBUMS_DIR="$(pwd)/albums"

@@ -82,6 +82,24 @@ settings:
   # Accepts "light" or "dark". Defaults to "dark" when omitted.
   # default_theme: dark
 
+# Optional presentation overrides. The whole block can be omitted; leaving it out
+# leaves the site looking exactly as it does by default.
+# customizations:
+#   # Replaces the "← Albums" link in each album page's header. Omit to keep it.
+#   # Each link needs 'label' and 'href'; 'href' must start with "/" (a path on this
+#   # site) or include a scheme such as https://. The optional 'id' becomes the
+#   # anchor's HTML id so custom CSS can style that one link (e.g. "#back-to-maps").
+#   # These links travel in config.json, which is never encrypted — do not put a
+#   # private URL here on a password-protected site.
+#   album_nav:
+#     - label: Back to Maps
+#       href: https://example.com/
+#       id: back-to-maps
+#       new_tab: true
+#     - label: All Albums
+#       href: /
+#       id: back-to-albums
+
 # Named source base paths. Albums reference these by name via the 'base' key.
 # Defining bases here makes your album definitions shorter.  They can refer
 # to an absolute path or a relative path to the root DD Photos folder.

@@ -94,15 +94,15 @@ into the container automatically, so the paths you list must exist on your machi
 never reads `albums.yaml` directly — instead, `photogen` processes it and writes a set of
 static JSON files that the browser fetches at runtime:
 
-| File                                            | Content                                                                | Encrypted when                            |
-|-------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------|
-| `config.json`                                   | Site ID, hero/CSS filenames, password hints, which albums file to load | Never — always plaintext (bootstrap file) |
-| `html.json` / `html.enc.json`                   | `site_title_html`, `site_subtitle_html`, `site_overview_html`          | Site password is set                      |
-| `albums.json` / `albums.enc.json`               | Album list with names, slugs, descriptions, date ranges, cover photos  | Site password is set                      |
-| `<album>/index.json` / `<album>/index.enc.json` | Per-album photo list: filenames, dimensions, dates, captions           | Album or site password is set             |
-| `sitemap.xml`                                   | URLs for each album, built from `site_url`                             | Never                                     |
-| `hero.jpg`                                      | Cropped hero banner image                                              | Never                                     |
-| `custom.css`                                    | Copied from the file named in `settings.css`                           | Never                                     |
+| File                                            | Content                                                                           | Encrypted when                            |
+|-------------------------------------------------|-----------------------------------------------------------------------------------|-------------------------------------------|
+| `config.json`                                   | Site ID, hero/CSS filenames, password hints, album nav, which albums file to load | Never — always plaintext (bootstrap file) |
+| `html.json` / `html.enc.json`                   | `site_title_html`, `site_subtitle_html`, `site_overview_html`                     | Site password is set                      |
+| `albums.json` / `albums.enc.json`               | Album list with names, slugs, descriptions, date ranges, cover photos             | Site password is set                      |
+| `<album>/index.json` / `<album>/index.enc.json` | Per-album photo list: filenames, dimensions, dates, captions                      | Album or site password is set             |
+| `sitemap.xml`                                   | URLs for each album, built from `site_url`                                        | Never                                     |
+| `hero.jpg`                                      | Cropped hero banner image                                                         | Never                                     |
+| `custom.css`                                    | Copied from the file named in `settings.css`                                      | Never                                     |
 
 `config.json` is the one file the frontend always fetches first, in plaintext, to
 bootstrap the page. It tells the browser what site it is, whether albums are encrypted,
@@ -110,7 +110,9 @@ where to find the hero and CSS, and what hints to show before a password is ente
 
 The three `*_html` fields are the only settings that are encrypted when a site password
 is set, since they may contain private links or contact details. All other settings
-travel via `config.json` which is always plaintext.
+travel via `config.json` which is always plaintext — including
+[`customizations.album_nav`](#customizations), so do not put a private URL in a nav link
+on a password-protected site.
 
 ### Hero Image
 
@@ -149,6 +151,66 @@ settings:
 site-wide as a `<link>` after the built-in styles, so any rules inside it take effect as
 normal cascade overrides. Redefining CSS custom properties (e.g. `--bg-color`,
 `--text-color-2nd`) is the cleanest approach — no specificity battles needed.
+
+### Customizations
+
+`customizations:` is a top-level block, a sibling of `settings:`, holding optional
+changes to the site's chrome. The whole block can be omitted; leaving it out gives you the
+default layout.
+
+#### album_nav
+
+By default, every album page's header starts with a `← Albums` link back to the home page
+(which is the album list). Setting `album_nav` **replaces** that link with your own:
+
+```yaml
+customizations:
+  album_nav:
+    - label: Back to Maps
+      href: https://example.com/
+      id: back-to-maps
+      new_tab: true
+    - label: All Albums
+      href: /
+      id: back-to-albums
+```
+
+| Key       | Required | Description                                                                            |
+|-----------|----------|----------------------------------------------------------------------------------------|
+| `label`   | yes      | Link text                                                                              |
+| `href`    | yes      | Either a path starting with `/` (a page on this site) or a full URL including a scheme |
+| `id`      | no       | HTML `id` on the anchor, so [custom CSS](#custom-css) can style that one link          |
+| `new_tab` | no       | Open in a new tab (adds `target="_blank" rel="noopener"`); default `false`             |
+
+Links whose `href` starts with `/` are resolved against the site root and navigate
+client-side, so they stay fast and keep working if the site moves. A bare relative path
+such as `albums/foo` is rejected, since it would resolve differently depending on which
+page the visitor is on.
+
+The links inherit the header's default link styling, so a bare config looks like the
+stock header. Give a link an `id` to style it on its own:
+
+```css
+#back-to-maps {
+	display: inline-block;
+	padding: 0.45rem 0.9rem;
+	border: 1px solid rgba(74, 222, 128, 0.5);
+	border-radius: 999px;
+	background: rgba(74, 222, 128, 0.14);
+	color: inherit;
+	font-weight: 700;
+	text-decoration: none;
+}
+```
+
+An `id` selector outranks the built-in `header a` rule, so no `!important` is needed.
+Ids must start with a letter, contain only letters, digits, hyphens or underscores, and
+be unique within the list — `photogen` rejects anything else so a typo cannot silently
+produce a selector that never matches.
+
+Nav links travel in `config.json`, which is never encrypted. That keeps them working for
+a visitor who unlocked with only a per-album password, but it also means the labels and
+URLs are public even on a password-protected site.
 
 ### Password Protection
 

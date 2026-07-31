@@ -66,6 +66,7 @@ run_variant "passwords-all.yaml"     --passwords sample/config/passwords-all.yam
 run_variant "passwords-uganda.yaml"  --passwords sample/config/passwords-uganda.yaml
 run_variant "passwords-keyonly.yaml" --passwords sample/config/passwords-keyonly.yaml
 run_variant "custom-css"             --css sample/config/custom-example.css
+run_variant "album-nav"              --album-nav
 
 echo ""
 echo "All variants passed."
