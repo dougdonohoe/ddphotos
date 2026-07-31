@@ -19,6 +19,7 @@ memory/
 
 # Python virtualenv
 .venv/
+__pycache__/
 
 # photogen output
 /albums

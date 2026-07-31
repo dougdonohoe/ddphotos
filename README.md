@@ -166,6 +166,7 @@ These documents are primarily meant for users of DD Photos:
 | [Docker Mode](docs/DOCKER.md)                          | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                |
 | [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `descriptions.txt`, `site.env`, and how config reaches the frontend |
 | [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, recursive albums                        |
+| [Rebuilding a Site](docs/SCRAPE.md)                    | Turn a deployed site back into a config directory you can build                    |
 | [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                             |
 | [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, CloudFront, and Cloudflare Pages routing rules                      |
 | [Environment Variables](docs/ENV.md)                   | Deployment variables                                                               |
