@@ -1,6 +1,7 @@
 package photogen
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -319,6 +320,38 @@ func TestWriteConfigJSON(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(data), `"htmlFile": "html.enc.json"`)
 		assert.NotContains(t, string(data), `"siteTitleHtml"`, "HTML fields must not appear in config.json")
+	})
+
+	t.Run("no albumNav key when not configured", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeSiteCfg(dir, nil).WriteConfigJSON())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), `"albumNav"`)
+	})
+
+	t.Run("albumNav is emitted, in plaintext even when encrypted", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		cfg := makeSiteCfg(dir, &EncryptConfig{SitePassword: "passw0rd"})
+		cfg.AlbumNav = []NavLink{
+			{Label: "Back to Maps", Href: "https://example.com/", ID: "back-to-maps", NewTab: true},
+			{Label: "All Albums", Href: "/"},
+		}
+		require.NoError(t, cfg.WriteConfigJSON())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
+		require.NoError(t, err)
+
+		var got SiteConfig
+		require.NoError(t, json.Unmarshal(data, &got))
+		require.Len(t, got.AlbumNav, 2)
+		assert.Equal(t, cfg.AlbumNav, got.AlbumNav, "nav survives the round trip verbatim")
+		// Optional fields are omitted rather than serialized as zero values.
+		assert.NotContains(t, string(data), `"id": ""`)
+		assert.NotContains(t, string(data), `"newTab": false`)
 	})
 }
 

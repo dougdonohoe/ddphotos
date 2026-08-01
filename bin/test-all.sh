@@ -5,6 +5,7 @@
 #   3. passwords-uganda.yaml (Uganda album only)
 #   4. passwords-keyonly.yaml (passwords file with no passwords — nothing encrypted)
 #   5. custom-css (sample/config/custom-example.css injected)
+#   6. album-nav (customization.yaml replacing the album page's "← Albums" link)
 #
 # Usage:
 #   bin/test-all.sh [--mode dev|apache|nginx|all] [--ci]
@@ -25,6 +26,7 @@ usage() {
     echo "  3. passwords-uganda.yaml (Uganda album only)"
     echo "  4. passwords-keyonly.yaml (passwords file with no passwords — nothing encrypted)"
     echo "  5. custom-css (sample/config/custom-example.css injected)"
+    echo "  6. album-nav (customization.yaml replacing the album page's \"← Albums\" link)"
     echo ""
     echo "Options:"
     echo "  --mode <mode>  Server to test against: dev, apache, nginx, or all (default: all)."
@@ -66,6 +68,7 @@ run_variant "passwords-all.yaml"     --passwords sample/config/passwords-all.yam
 run_variant "passwords-uganda.yaml"  --passwords sample/config/passwords-uganda.yaml
 run_variant "passwords-keyonly.yaml" --passwords sample/config/passwords-keyonly.yaml
 run_variant "custom-css"             --css sample/config/custom-example.css
+run_variant "album-nav"              --customization sample/config/customization-album-nav.yaml
 
 echo ""
 echo "All variants passed."

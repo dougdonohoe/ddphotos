@@ -66,6 +66,9 @@ type Config struct {
 	SiteSubtitleHTML string
 	// SiteOverviewHTML is HTML shown above the album cards on the home page.
 	SiteOverviewHTML string
+	// AlbumNav replaces the default "← Albums" link in the album page header. Empty means
+	// the default link is used.
+	AlbumNav []NavLink
 	// MetaCache caches photo metadata between runs so unchanged photos are not
 	// re-decoded. nil disables caching.
 	MetaCache *MetaCache

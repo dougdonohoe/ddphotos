@@ -38,6 +38,14 @@ export interface AlbumSummary {
 	encrypted?: boolean;
 }
 
+// Mirrors Go's NavLink in pkg/photogen/albums_config.go.
+export interface NavLink {
+	label: string;
+	href: string;
+	id?: string;
+	newTab?: boolean;
+}
+
 // Mirrors Go's SiteConfig in pkg/photogen/json.go.
 export interface SiteConfig {
 	siteId: string;
@@ -56,6 +64,7 @@ export interface SiteConfig {
 	customCss?: string;
 	defaultTheme?: string;
 	htmlFile?: string; // "html.json" or "html.enc.json" when HTML fields are configured
+	albumNav?: NavLink[]; // replaces the album page's "← Albums" link when set
 }
 
 // Mirrors Go's SiteHTMLContent in pkg/photogen/json.go.

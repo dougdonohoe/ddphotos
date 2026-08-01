@@ -146,21 +146,22 @@ the appropriate site variant:
 | `PLAYWRIGHT_CUSTOM_CSS`        | `bin/run-tests.sh`   | Set to `true`; enables CSS tests               |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
-`bin/test-all.sh` runs five variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
+`bin/test-all.sh` runs six variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
 `passwords-keyonly.yaml` (a passwords file that declares no passwords, so nothing is encrypted),
-and `custom-css` (with `sample/config/custom-example.css` injected).
+`custom-css` (with `sample/config/custom-example.css` injected), and `album-nav` (with
+`sample/config/customization-album-nav.yaml`, which replaces each album page's "← Albums" link).
 
 ```bash
-# Run all 5 variants against dev + Apache + nginx (default; recommended locally)
+# Run all 6 variants against dev + Apache + nginx (default; recommended locally)
 bin/test-all.sh
 
-# Run all 5 variants against Apache only (mirrors CI)
+# Run all 6 variants against Apache only (mirrors CI)
 bin/test-all.sh --mode apache
 
-# Run all 5 variants against nginx only
+# Run all 6 variants against nginx only
 bin/test-all.sh --mode nginx
 
-# Run all 5 variants against dev server, Apache, and nginx
+# Run all 6 variants against dev server, Apache, and nginx
 bin/test-all.sh --mode all
 
 # Run a single variant against Apache (no password)
@@ -174,6 +175,9 @@ bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
 
 # Run custom CSS variant against dev server
 bin/run-tests.sh --css sample/config/custom-example.css --mode dev
+
+# Run album-nav variant against dev server
+bin/run-tests.sh --customization sample/config/customization-album-nav.yaml --mode dev
 
 # Run a single test file against dev server (useful for debugging a specific test)
 bin/run-tests.sh --mode dev --test tests/privacy.spec.ts

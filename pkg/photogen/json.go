@@ -278,6 +278,7 @@ type SiteConfig struct {
 	CustomCSS       string            `json:"customCss,omitempty"`    // "custom.css" if a CSS override is configured
 	DefaultTheme    string            `json:"defaultTheme,omitempty"` // "light" or "dark"; omitted when dark (the built-in default)
 	HTMLFile        string            `json:"htmlFile,omitempty"`     // "html.json" or "html.enc.json" when HTML fields are configured
+	AlbumNav        []NavLink         `json:"albumNav,omitempty"`     // replaces the album page's "← Albums" link when set
 }
 
 // SiteHTMLContent is the structure for html.json / html.enc.json.
@@ -336,6 +337,10 @@ func (c *Config) WriteConfigJSON() error {
 	if c.SiteTitleHTML != "" || c.SiteSubtitleHTML != "" || c.SiteOverviewHTML != "" {
 		cfg.HTMLFile, _ = c.JsonNames("html")
 	}
+	// Nav links ride in config.json rather than html.json: the album page already has
+	// config.json from the layout load, and it stays readable when a visitor unlocked with
+	// only a per-album password (they hold no site key to decrypt html.enc.json with).
+	cfg.AlbumNav = c.AlbumNav
 	if err := writeJSON(outputPath, cfg); err != nil {
 		return err
 	}

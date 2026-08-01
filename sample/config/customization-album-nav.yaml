@@ -1,0 +1,17 @@
+# Test-only customization file exercising album_nav.
+#
+# Not named customization.yaml, so the default sample site (and the album screenshots in
+# docs/SCREENSHOTS.md) keep the stock "← Albums" header link. Passed explicitly instead:
+#
+#   bin/run-tests.sh --customization sample/config/customization-album-nav.yaml
+#
+# Covers both link kinds: an internal path resolved against the site root, and an external
+# URL opened in a new tab.
+album_nav:
+  - label: All Albums
+    href: /
+    id: back-to-albums
+  - label: About DD Photos
+    href: https://github.com/dougdonohoe/ddphotos
+    id: about-ddphotos
+    new_tab: true
