@@ -163,11 +163,14 @@ if [ -n "$OPT_SITE_ENV" ]; then
     add_mount "$OPT_SITE_ENV" "$DDPHOTOS_SITE_ENV" ro
 fi
 
-# Parse albums.yaml and add mounts for external photo dirs:
+# Parse albums.yaml and add mounts for photo dirs given as absolute paths:
 #   - bases: section values that are absolute paths
 #   - album source: values that are absolute paths (no base)
 #   - hero image: values that are absolute paths (no base)
-# Paths already inside DDPHOTOS_DIR are skipped (covered by the main /ddphotos mount).
+# Each is mounted at its own host path so the container resolves it to the same
+# string photogen reads from the YAML. This includes paths inside DDPHOTOS_DIR:
+# the main /ddphotos mount exposes their contents, but not under the host path the
+# YAML names, so without a mount here photogen fails with "path does not exist".
 build_config_bases_mounts() {
     local config="$CONFIG_HOST_DIR/albums.yaml"
     [ -f "$config" ] || return 0
@@ -199,8 +202,7 @@ build_config_bases_mounts() {
                 echo "       A base must be a folder that exists on this machine." >&2
                 exit 1
             fi
-            # Only mount absolute paths that fall outside DDPHOTOS_DIR (which is already mounted)
-            if is_abs_path "$path" && [[ "$path" != "$DDPHOTOS_DIR"* ]]; then
+            if is_abs_path "$path"; then
                 add_mount "$path" "$(to_container_path "$path")" ro
             fi
         else
@@ -215,7 +217,7 @@ build_config_bases_mounts() {
                 path="${path/#\~/$HOME}"
                 # Skip /ddphotos* and /docker* paths — container-internal placeholders
                 # used in the init template (e.g. /ddphotos-init) and older templates.
-                if is_abs_path "$path" && [[ "$path" != "$DDPHOTOS_DIR"* ]] && [[ "$path" != /ddphotos* ]] && [[ "$path" != /docker* ]]; then
+                if is_abs_path "$path" && [[ "$path" != /ddphotos* ]] && [[ "$path" != /docker* ]]; then
                     add_mount "$path" "$(to_container_path "$path")" ro
                 fi
             fi
