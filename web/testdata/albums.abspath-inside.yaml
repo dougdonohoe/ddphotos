@@ -1,0 +1,21 @@
+# Test file used by docker-test.sh to validate absolute paths that point INSIDE
+# DDPHOTOS_DIR. The main /ddphotos mount exposes these files' contents, but not under
+# the host path written below, so build_config_bases_mounts() must still mount them at
+# their own host path. _DDPHOTOS_DIR_ is substituted with the host DDPHOTOS_DIR.
+settings:
+  id: test-abs-inside
+  site_name: "Test Absolute Path Inside"
+  site_url: https://absolute-path-inside.example.com
+  site_description: "Test absolute path inside DDPHOTOS_DIR"
+  copyright_owner: "Sir Absolute Path"
+  copyright_year: 1968
+
+  hero:
+    image: _DDPHOTOS_DIR_/photos/theway/2024-The-Way-13.jpg
+    crop: center
+
+albums:
+  - slug: the-way
+    name: The Way
+    source: _DDPHOTOS_DIR_/photos/theway
+    cover: 2024-The-Way-14.jpg

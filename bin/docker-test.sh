@@ -182,6 +182,20 @@ sed "s|_REPO_ROOT_|$REPO_ROOT|g" "$REPO_ROOT/web/testdata/albums.abspath.yaml" >
 [ -f "$TEST_DIR/albums/$ABS_SITE_ID/hero.jpg" ] || fail "albums/$ABS_SITE_ID/hero.jpg not created"
 pass "photogen with absolute source paths OK (album dir and hero.jpg created)"
 
+# Same, but for absolute paths pointing INSIDE DDPHOTOS_DIR. These need their own mount
+# too: /ddphotos exposes the contents, but not under the host path the YAML names, so
+# skipping them makes photogen fail with "path does not exist".
+step "Photogen: absolute source paths inside DDPHOTOS_DIR"
+INSIDE_SITE_ID="test-abs-inside"
+INSIDE_CONFIG_DIR="$TEST_DIR/config-abs-inside"
+mkdir -p "$INSIDE_CONFIG_DIR" "$TEST_DIR/photos/theway"
+/bin/cp "$REPO_ROOT"/sample/source/theway/*.jpg "$TEST_DIR/photos/theway/"
+sed "s|_DDPHOTOS_DIR_|$TEST_DIR|g" "$REPO_ROOT/web/testdata/albums.abspath-inside.yaml" > "$INSIDE_CONFIG_DIR/albums.yaml"
+"${DDPHOTOS[@]}" --config-dir "$INSIDE_CONFIG_DIR" photogen
+[ -d "$TEST_DIR/albums/$INSIDE_SITE_ID/the-way" ] || fail "albums/$INSIDE_SITE_ID/the-way not created"
+[ -f "$TEST_DIR/albums/$INSIDE_SITE_ID/hero.jpg" ] || fail "albums/$INSIDE_SITE_ID/hero.jpg not created"
+pass "photogen with absolute source paths inside DDPHOTOS_DIR OK (album dir and hero.jpg created)"
+
 # ── 5b. Photogen: Windows-style C:\ path mapping ───────────────────────────────
 # A Windows drive path (C:\Users\...) in albums.yaml must map to the container
 # location /mnt/c/Users/... — the shared convention between bash to_container_path
