@@ -1,14 +1,38 @@
 package photogen
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/davidbyttow/govips/v2/vips"
 
 	"github.com/dougdonohoe/ddphotos/pkg/exit"
 )
+
+// annotateImageLoadErr adds a human-friendly hint when an image fails to load with
+// EDEADLK ("resource deadlock avoided"). On macOS this typically surfaces when the
+// source file is an online-only cloud-storage placeholder (e.g. Dropbox or iCloud
+// under ~/Library/CloudStorage) whose contents cannot be downloaded on demand when
+// read from inside Docker's file-sharing layer. Non-EDEADLK errors are returned as-is.
+func annotateImageLoadErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	// libvips surfaces the underlying read failure as a plain string (see govips
+	// handleVipsError), so the typed errno is usually unavailable — match the
+	// message too, while still catching a real syscall.Errno from the os path.
+	if !errors.Is(err, syscall.EDEADLK) && !strings.Contains(err.Error(), "resource deadlock avoided") {
+		return err
+	}
+	return fmt.Errorf("%w\n"+
+		"    hint: \"resource deadlock avoided\" usually means the source file is an online-only\n"+
+		"    cloud-storage placeholder (e.g. Dropbox or iCloud under ~/Library/CloudStorage) that\n"+
+		"    could not be downloaded when read from inside Docker. Make the files available offline\n"+
+		"    (download them locally) or move the source photos to a regular local folder, then re-run", err)
+}
 
 func init() {
 	vips.LoggingSettings(nil, vips.LogLevelWarning)
@@ -28,7 +52,7 @@ type PhotoMetadata struct {
 func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 	img, err := vips.LoadImageFromFile(path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("load image: %w", err)
+		return nil, fmt.Errorf("load image: %w", annotateImageLoadErr(err))
 	}
 	defer img.Close()
 

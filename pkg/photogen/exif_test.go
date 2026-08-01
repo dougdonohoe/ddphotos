@@ -1,14 +1,46 @@
 package photogen
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAnnotateImageLoadErr(t *testing.T) {
+	t.Run("nil passes through", func(t *testing.T) {
+		assert.NoError(t, annotateImageLoadErr(nil))
+	})
+
+	t.Run("unrelated error is unchanged", func(t *testing.T) {
+		orig := errors.New("no such file or directory")
+		got := annotateImageLoadErr(orig)
+		assert.Equal(t, orig, got)
+		assert.NotContains(t, got.Error(), "cloud-storage")
+	})
+
+	t.Run("vips string error gets a hint", func(t *testing.T) {
+		// govips returns a plain string error (no typed errno).
+		orig := fmt.Errorf("read /photos/x.jpg: resource deadlock avoided")
+		got := annotateImageLoadErr(orig)
+		require.Error(t, got)
+		assert.Contains(t, got.Error(), "resource deadlock avoided")
+		assert.Contains(t, got.Error(), "cloud-storage")
+		assert.Contains(t, got.Error(), "available offline")
+	})
+
+	t.Run("typed EDEADLK errno gets a hint", func(t *testing.T) {
+		orig := fmt.Errorf("read x.jpg: %w", syscall.EDEADLK)
+		got := annotateImageLoadErr(orig)
+		assert.Contains(t, got.Error(), "cloud-storage")
+	})
+}
 
 // createTestImage creates a solid-color JPEG at the specified dimensions.
 // Returns the path to the created image.

@@ -54,7 +54,7 @@ func openImage(inputPath, outputPath, dryRunLabel string, force, dryRun bool) (*
 	params.FailOnError.Set(false)
 	img, err := vips.LoadImageFromFile(inputPath, params)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load image %s: %w", inputPath, err)
+		return nil, nil, fmt.Errorf("load image %s: %w", inputPath, annotateImageLoadErr(err))
 	}
 
 	if err := img.AutoRotate(); err != nil {
