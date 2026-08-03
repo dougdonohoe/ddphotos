@@ -530,7 +530,12 @@ case "$cmd" in
 
     run)
         print_mounts
-        publish_flags "$RUN_PORT:5173"
+        # Same port on both sides: do-run.sh passes RUN_PORT to vite as --port, so vite binds
+        # RUN_PORT *inside* the container too. Mapping to a fixed 5173 would leave the container
+        # side dead for any non-default RUN_PORT - and vite prints the host URL it is told about,
+        # so the printed link would look right while refusing connections. (serve differs: apache
+        # is always on 80 inside, hence "$SERVE_PORT:80" above.)
+        publish_flags "$RUN_PORT:$RUN_PORT"
         "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
