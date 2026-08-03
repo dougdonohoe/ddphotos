@@ -427,6 +427,15 @@ def stem(name: str) -> str:
     return name.rsplit(".", 1)[0] if "." in name else name
 
 
+def photogen_name(name: str) -> str:
+    """A name as photogen.txt writes it: double-quoted when it contains a space.
+
+    photogen splits each line on the first space, so an unquoted name with spaces would read
+    back as a different (truncated) name with the rest of it folded into the caption.
+    """
+    return f'"{name}"' if " " in name else name
+
+
 def caption_line(photo_stem: str, description: str) -> str:
     """One photogen.txt line: '<stem> <description>', or a bare stem when uncaptioned.
 
@@ -434,16 +443,17 @@ def caption_line(photo_stem: str, description: str) -> str:
     left alone, since captions are reproduced verbatim in the rebuilt site.
     """
     text = (description or "").translate(str.maketrans("\r\n\t", "   ")).strip()
-    return f"{photo_stem} {text}" if text else photo_stem
+    name = photogen_name(photo_stem)
+    return f"{name} {text}" if text else name
 
 
 def plan_photogen_files(photos: list[dict]) -> dict[str, list[str]]:
     """Group photos by their subdirectory and return {reldir: photogen.txt lines}.
 
     Photos in the album root go in "". For recursive albums, each subdirectory gets its own
-    photogen.txt with bare stems, and the parent gets a bare subfolder-name line at the position
+    photogen.txt with bare stems, and the parent gets a subfolder-name line at the position
     where that subfolder's photos first appear — the placeholder form photogen's
-    expandManualOrder understands.
+    expandManualOrder understands. Names with spaces are quoted (see photogen_name).
     """
     files: dict[str, list[str]] = {"": []}
 
@@ -454,7 +464,7 @@ def plan_photogen_files(photos: list[dict]) -> dict[str, list[str]]:
         # in the order the directories are first reached.
         segments = reldir.split("/") if reldir else []
         for depth in range(len(segments)):
-            child = segments[depth]
+            child = photogen_name(segments[depth])
             parent = "/".join(segments[:depth])
             entries = files.setdefault(parent, [])
             if child not in entries:

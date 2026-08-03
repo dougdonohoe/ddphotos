@@ -95,6 +95,18 @@ Patagonia-042 First view of Torres del Paine at sunrise.
 Patagonia-107 Crossing the John Gardner Pass in the wind.
 ```
 
+The name is everything up to the first space, so a **name containing spaces must be
+double-quoted**. Without quotes the first word becomes the name and the rest of the
+filename is folded into the caption:
+
+```
+"Doug and Cindy Chicago.jpg" A cool trip to Chicago
+doug-and-cindy-chicago.jpg A cool trip to Chicago
+```
+
+Quoting applies to subfolder placeholder names too (e.g. `"Ski 2007"`). Quotes inside
+a caption need no escaping.
+
 Descriptions are stored in `index.json` and used as:
 
 - `alt` text on grid and lightbox images

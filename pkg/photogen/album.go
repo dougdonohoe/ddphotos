@@ -245,9 +245,7 @@ func (ap *AlbumProcessor) fillMetadata(photos []*Photo) error {
 
 	var wg sync.WaitGroup
 	for range numWorkers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for i := range indexes {
 				meta, err := ap.readMetadata(photos[i].AbsolutePath)
 				if err != nil {
@@ -256,7 +254,7 @@ func (ap *AlbumProcessor) fillMetadata(photos []*Photo) error {
 				}
 				photos[i].PhotoMetadata = meta
 			}
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -441,9 +439,30 @@ type photoDescriptions struct {
 	order        []string          // photo IDs in file order
 }
 
+// parsePhotogenLine splits one photogen.txt line into its name and description.
+//
+// The name is everything up to the first space, so a name that itself contains
+// spaces must be double-quoted:
+//
+//	"Doug and Cindy Chicago.jpg" A cool trip to Chicago
+//	doug-and-cindy-chicago.jpg A cool trip to Chicago
+//
+// A line that opens with a quote but never closes it falls back to the unquoted
+// split, so a stray quote cannot swallow the rest of the line.
+func parsePhotogenLine(line string) (name, desc string) {
+	if rest, ok := strings.CutPrefix(line, `"`); ok {
+		if quoted, after, found := strings.Cut(rest, `"`); found {
+			return quoted, strings.TrimSpace(after)
+		}
+	}
+	name, desc, _ = strings.Cut(line, " ")
+	return name, strings.TrimSpace(desc)
+}
+
 // loadPhotoDescriptions reads photogen.txt from albumPath.
 // Format: one line per entry: "name_or_filename [Description]"
 // Photo entries may include or omit the image extension (e.g. "img_001.jpg" or "img_001").
+// Names containing spaces must be double-quoted (see parsePhotogenLine).
 // Subfolder entries are written as the bare folder name with no extension.
 // Returns an empty result (no error) if the file does not exist.
 func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
@@ -453,17 +472,13 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 
 	txtPath := filepath.Join(albumPath, "photogen.txt")
 	err := scanLines(txtPath, func(line string) {
-		parts := strings.SplitN(line, " ", 2)
-		id := strings.ToLower(parts[0])
+		name, desc := parsePhotogenLine(line)
+		id := strings.ToLower(name)
 		// Strip image extension if present so "img_001.jpg" and "img_001" both work.
 		if ext := strings.ToLower(filepath.Ext(id)); ext != "" {
 			if _, ok := allowedPhotoExtensions[ext]; ok {
 				id = strings.TrimSuffix(id, ext)
 			}
-		}
-		desc := ""
-		if len(parts) > 1 {
-			desc = parts[1]
 		}
 		pd.descriptions[id] = desc
 		pd.order = append(pd.order, id)

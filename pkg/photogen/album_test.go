@@ -85,6 +85,76 @@ func TestLoadPhotoDescriptionsExtensions(t *testing.T) {
 	})
 }
 
+func TestLoadPhotoDescriptionsQuotedNames(t *testing.T) {
+	t.Parallel()
+
+	t.Run("quoted names keep their spaces", func(t *testing.T) {
+		dir := t.TempDir()
+		content := `
+"Doug and Cindy Chicago.jpg" A cool trip to Chicago
+doug-and-cindy-chicago.jpg A cool trip to Chicago
+"Doug at the Bean.jpg" Under the Bean
+"Doug alone.jpg"
+"Ski 2007"
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "photogen.txt"), []byte(content), 0o644))
+
+		pd, err := loadPhotoDescriptions(dir)
+		require.NoError(t, err)
+
+		// Photos sharing a first word stay separate entries.
+		assert.Equal(t, []string{
+			"doug and cindy chicago",
+			"doug-and-cindy-chicago",
+			"doug at the bean",
+			"doug alone",
+			"ski 2007",
+		}, pd.order)
+		assert.Equal(t, "A cool trip to Chicago", pd.descriptions["doug and cindy chicago"])
+		assert.Equal(t, "A cool trip to Chicago", pd.descriptions["doug-and-cindy-chicago"])
+		assert.Equal(t, "Under the Bean", pd.descriptions["doug at the bean"])
+		assert.Equal(t, "", pd.descriptions["doug alone"], "quoted name with no description")
+		assert.Equal(t, "", pd.descriptions["ski 2007"], "quoted subfolder name")
+	})
+
+	t.Run("unterminated quote falls back to first-space split", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "photogen.txt"),
+			[]byte("\"img_0001.jpg A caption.\n"), 0o644))
+
+		pd, err := loadPhotoDescriptions(dir)
+		require.NoError(t, err)
+
+		assert.Equal(t, []string{`"img_0001`}, pd.order)
+		assert.Equal(t, "A caption.", pd.descriptions[`"img_0001`])
+	})
+}
+
+func TestParsePhotogenLine(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		line     string
+		wantName string
+		wantDesc string
+	}{
+		{"img_0001.jpg A caption.", "img_0001.jpg", "A caption."},
+		{"img_0001.jpg", "img_0001.jpg", ""},
+		{`"Doug and Cindy Chicago.jpg" A cool trip to Chicago`, "Doug and Cindy Chicago.jpg", "A cool trip to Chicago"},
+		{`"Doug and Cindy Chicago.jpg"`, "Doug and Cindy Chicago.jpg", ""},
+		{`"Ski 2007"`, "Ski 2007", ""},
+		{`img_0001.jpg He said "hi" loudly`, "img_0001.jpg", `He said "hi" loudly`},
+		{`"unterminated.jpg A caption.`, `"unterminated.jpg`, "A caption."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.line, func(t *testing.T) {
+			name, desc := parsePhotogenLine(tt.line)
+			assert.Equal(t, tt.wantName, name)
+			assert.Equal(t, tt.wantDesc, desc)
+		})
+	}
+}
+
 func TestSanitizePrefix(t *testing.T) {
 	t.Parallel()
 
@@ -217,6 +287,55 @@ func TestCollectPhotosRecursive(t *testing.T) {
 		}
 		assert.Equal(t, "First caption.", byID["photo_a"].Description)
 		assert.Equal(t, "Second caption.", byID["photo_b"].Description)
+	})
+
+	t.Run("photogen.txt captions applied to quoted names with spaces", func(t *testing.T) {
+		dir := t.TempDir()
+		copyPhoto(t, dir, "landscape-1.jpg", "Doug and Cindy Chicago.jpg")
+		copyPhoto(t, dir, "portrait-1.jpg", "Doug at the Bean.jpg")
+		content := "\"Doug and Cindy Chicago.jpg\" A cool trip to Chicago\n" +
+			"\"Doug at the Bean.jpg\" Under the Bean\n"
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "photogen.txt"), []byte(content), 0o644))
+
+		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
+		photos, err := ap.collectPhotosRecursive(dir, "", true)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 2)
+		byID := map[string]*Photo{}
+		for _, p := range photos {
+			byID[p.ID] = p
+		}
+		// Photos sharing a first word each get their own caption.
+		require.Contains(t, byID, "doug and cindy chicago")
+		require.Contains(t, byID, "doug at the bean")
+		assert.Equal(t, "A cool trip to Chicago", byID["doug and cindy chicago"].Description)
+		assert.Equal(t, "Under the Bean", byID["doug at the bean"].Description)
+	})
+
+	t.Run("manual order: quoted names order photos and subfolders", func(t *testing.T) {
+		root := t.TempDir()
+		sub := filepath.Join(root, "Ski 2007")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "Doug and Cindy Chicago.jpg")
+		copyPhoto(t, root, "portrait-1.jpg", "Doug at the Bean.jpg")
+		copyPhoto(t, sub, "landscape-1.jpg", "inner.jpg")
+
+		content := "\"Doug at the Bean.jpg\" Under the Bean\n" +
+			"\"Ski 2007\"\n" +
+			"\"Doug and Cindy Chicago.jpg\" A cool trip to Chicago\n"
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"), []byte(content), 0o644))
+
+		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{ManualSortOrder: true}}
+		photos, err := ap.collectPhotosRecursive(root, "", true)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 3)
+		assert.Equal(t, "doug at the bean", photos[0].ID)
+		assert.Equal(t, "ski2007_inner", photos[1].ID, "quoted subfolder name should expand inline")
+		assert.Equal(t, "doug and cindy chicago", photos[2].ID)
+		assert.Equal(t, "Under the Bean", photos[0].Description)
+		assert.Equal(t, "A cool trip to Chicago", photos[2].Description)
 	})
 
 	t.Run("manual order: subfolder expanded inline", func(t *testing.T) {
