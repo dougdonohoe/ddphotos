@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -156,6 +157,37 @@ func (ec *EncryptConfig) IsSiteEncrypted() bool {
 // False for a "key only" passwords file, which obfuscates filenames but protects nothing.
 func (ec *EncryptConfig) HasAnyPassword() bool {
 	return ec.IsSiteEncrypted() || len(ec.AlbumPasswords) > 0
+}
+
+// RestrictToAlbums drops per-album passwords and hints whose slug is not in knownSlugs
+// (typically an album deleted from albums.yaml but left in the passwords file). Such an
+// entry protects nothing, so it must not make the site look encrypted. Returns the removed
+// slugs, sorted, so the caller can warn about them.
+//
+// Must be called with every album in albums.yaml, not a filtered subset — pruning against a
+// subset would discard passwords for albums that do exist.
+func (ec *EncryptConfig) RestrictToAlbums(knownSlugs []string) []string {
+	known := make(map[string]bool, len(knownSlugs))
+	for _, slug := range knownSlugs {
+		known[slug] = true
+	}
+	// An entry may carry only a hint, so both maps are checked; a slug in both is
+	// reported once.
+	removed := map[string]bool{}
+	for _, m := range []map[string]string{ec.AlbumPasswords, ec.AlbumHints} {
+		for slug := range m {
+			if !known[slug] {
+				removed[slug] = true
+				delete(m, slug)
+			}
+		}
+	}
+	slugs := make([]string, 0, len(removed))
+	for slug := range removed {
+		slugs = append(slugs, slug)
+	}
+	sort.Strings(slugs)
+	return slugs
 }
 
 // PhotoWebPName returns the output WebP filename for a source photo.

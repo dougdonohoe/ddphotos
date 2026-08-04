@@ -165,6 +165,17 @@ func main() {
 		if err != nil {
 			exit.Fatal("Error loading encrypt config", err)
 		}
+		// Drop entries for albums that are not in albums.yaml: they protect nothing, so
+		// they must not make the site look encrypted (which would show the logout button).
+		// Pruned here, against the full album list, because -album filtering happens below.
+		allSlugs := make([]string, 0, len(albums))
+		for _, a := range albums {
+			allSlugs = append(allSlugs, a.Slug)
+		}
+		if stale := ec.RestrictToAlbums(allSlugs); len(stale) > 0 {
+			warn.Warnf("WARN: passwords file %s has entries for albums not in albums.yaml (ignored): %s\n",
+				passwordsPath, strings.Join(stale, ", "))
+		}
 		cfg.Encrypt = ec
 	}
 

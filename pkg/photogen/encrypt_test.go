@@ -56,6 +56,73 @@ func TestLoadEncryptConfig_KeyOnly(t *testing.T) {
 	assert.False(t, ec.HasAnyPassword())
 }
 
+func TestRestrictToAlbums(t *testing.T) {
+	t.Parallel()
+
+	newConfig := func() *EncryptConfig {
+		return &EncryptConfig{
+			HMACKey: "secret",
+			AlbumPasswords: map[string]string{
+				"uganda":  "uganda-pass",
+				"deleted": "deleted-pass",
+			},
+			AlbumHints: map[string]string{
+				"uganda":    "Think of gorillas",
+				"deleted":   "Never shown",
+				"hint-only": "No password, no album",
+			},
+		}
+	}
+
+	t.Run("removes entries for albums that do not exist", func(t *testing.T) {
+		t.Parallel()
+		ec := newConfig()
+
+		removed := ec.RestrictToAlbums([]string{"uganda", "antarctica"})
+
+		assert.Equal(t, []string{"deleted", "hint-only"}, removed, "sorted, each slug once")
+		assert.Equal(t, map[string]string{"uganda": "uganda-pass"}, ec.AlbumPasswords)
+		assert.Equal(t, map[string]string{"uganda": "Think of gorillas"}, ec.AlbumHints)
+	})
+
+	t.Run("keeps everything when all slugs are known", func(t *testing.T) {
+		t.Parallel()
+		ec := newConfig()
+
+		removed := ec.RestrictToAlbums([]string{"uganda", "deleted", "hint-only"})
+
+		assert.Empty(t, removed)
+		assert.Len(t, ec.AlbumPasswords, 2)
+		assert.Len(t, ec.AlbumHints, 3)
+	})
+
+	t.Run("site with only stale album passwords is not encrypted", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{
+			HMACKey:        "secret",
+			AlbumPasswords: map[string]string{"deleted": "deleted-pass"},
+			AlbumHints:     map[string]string{},
+		}
+		assert.True(t, ec.HasAnyPassword(), "before pruning the stale entry counts")
+
+		assert.Equal(t, []string{"deleted"}, ec.RestrictToAlbums([]string{"uganda"}))
+		assert.False(t, ec.HasAnyPassword(), "a password for a missing album protects nothing")
+	})
+
+	t.Run("site password survives pruning", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{
+			SitePassword:   "site-pass",
+			AlbumPasswords: map[string]string{"deleted": "deleted-pass"},
+			AlbumHints:     map[string]string{},
+		}
+
+		assert.Equal(t, []string{"deleted"}, ec.RestrictToAlbums(nil))
+		assert.True(t, ec.HasAnyPassword())
+		assert.True(t, ec.IsSiteEncrypted())
+	})
+}
+
 func TestEncryptConfigValidate(t *testing.T) {
 	t.Parallel()
 

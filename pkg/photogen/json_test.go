@@ -299,6 +299,24 @@ func TestWriteConfigJSON(t *testing.T) {
 		assert.Contains(t, string(data), `"keyId"`, "key ID must still be emitted for key-only sites")
 	})
 
+	t.Run("passwords for albums that do not exist are not marked encrypted", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		encrypt := &EncryptConfig{
+			HMACKey:        "secret",
+			AlbumPasswords: map[string]string{"deleted": "deleted-pass"},
+			AlbumHints:     map[string]string{"deleted": "Never shown"},
+		}
+		encrypt.RestrictToAlbums([]string{"uganda"})
+		require.NoError(t, makeSiteCfg(dir, encrypt).WriteConfigJSON())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "config.json"))
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), `"encrypted"`, "a stale album password protects nothing")
+		assert.NotContains(t, string(data), `"albumHints"`, "hints for missing albums are dropped too")
+		assert.Contains(t, string(data), `"albumsFile": "albums.json"`)
+	})
+
 	t.Run("unencrypted with HTML fields references html.json", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
