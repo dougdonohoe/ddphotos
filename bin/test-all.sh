@@ -3,7 +3,7 @@
 #   1. No passwords (plain site)
 #   2. passwords-all.yaml (entire site encrypted + Uganda per-album)
 #   3. passwords-uganda.yaml (Uganda album only)
-#   4. passwords-keyonly.yaml (passwords file with no passwords — nothing encrypted)
+#   4. passwords-keyonly.yaml (passwords file with no effective password — nothing encrypted)
 #   5. custom-css (sample/config/custom-example.css injected)
 #   6. album-nav (customization.yaml replacing the album page's "← Albums" link)
 #
@@ -24,7 +24,7 @@ usage() {
     echo "  1. No passwords (plain site)"
     echo "  2. passwords-all.yaml (entire site + Uganda album encrypted)"
     echo "  3. passwords-uganda.yaml (Uganda album only)"
-    echo "  4. passwords-keyonly.yaml (passwords file with no passwords — nothing encrypted)"
+    echo "  4. passwords-keyonly.yaml (passwords file with no effective password — nothing encrypted)"
     echo "  5. custom-css (sample/config/custom-example.css injected)"
     echo "  6. album-nav (customization.yaml replacing the album page's \"← Albums\" link)"
     echo ""

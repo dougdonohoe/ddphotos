@@ -147,8 +147,8 @@ the appropriate site variant:
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
 `bin/test-all.sh` runs six variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
-`passwords-keyonly.yaml` (a passwords file that declares no passwords, so nothing is encrypted),
-`custom-css` (with `sample/config/custom-example.css` injected), and `album-nav` (with
+`passwords-keyonly.yaml` (a passwords file that declares no effective password, so nothing is
+encrypted), `custom-css` (with `sample/config/custom-example.css` injected), and `album-nav` (with
 `sample/config/customization-album-nav.yaml`, which replaces each album page's "← Albums" link).
 
 ```bash

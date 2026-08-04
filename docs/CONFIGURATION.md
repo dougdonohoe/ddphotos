@@ -199,14 +199,20 @@ albums:
 | `albums.<slug>.password` | Per-album password; encrypts only that album's `index.json`. Falls back to `site.password` if not set                                                             |
 | `albums.<slug>.hint`     | Optional hint shown in that album's password dialog                                                                                                               |
 
+An `albums.<slug>` entry whose slug is not in `albums.yaml` — typically an album that was
+deleted but whose password was left behind — is ignored, and `photogen` prints a warning
+naming the slug. It protects nothing, so it does not count towards whether the site is
+encrypted.
+
 Sample passwords files are in `sample/config/` — `passwords-all.yaml` (full site),
 `passwords-uganda.yaml` (single album), and `passwords-keyonly.yaml` (a test fixture with a
-`key` but no passwords, so nothing is encrypted). The first two contain demo-only passwords.
+`key` and a password for a nonexistent album, so nothing is encrypted). The first two
+contain demo-only passwords.
 
-A passwords file that declares no `site.password` and no `albums.<slug>.password` protects
-nothing: the `key` only applies to albums that have a password, so every album stays public
-and filenames stay unobfuscated. Such a site is reported as unencrypted in `config.json`,
-which means no logout button is shown.
+A passwords file that declares no effective password — no `site.password`, and no
+`albums.<slug>.password` for an album that exists — protects nothing: the `key` only applies
+to albums that have a password, so every album stays public and filenames stay unobfuscated.
+Such a site is reported as unencrypted in `config.json`, which means no logout button is shown.
 
 #### Frontend Behavior (Encrypted Sites)
 

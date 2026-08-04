@@ -130,7 +130,8 @@ test('logout button is visible when encryption is configured', async ({ page }) 
 
 // Runs in both the no-passwords variant and the key-only variant (passwords-keyonly.yaml),
 // since loadPasswords() reports no passwords for both. The key-only case is the regression
-// guard: a passwords file used to imply encryption even when it declared no passwords.
+// guard: a passwords file used to imply encryption even when it declared no passwords, and
+// again when its only password was for an album that no longer exists in albums.yaml.
 test('logout button is hidden when no passwords are configured', async ({ page }) => {
 	test.skip(!!pw.all || Object.keys(pw.albums).length > 0, 'passwords are configured');
 	const config = await page.request.get('/albums/config.json').then((r) => r.json());

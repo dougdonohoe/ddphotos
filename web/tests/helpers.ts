@@ -11,9 +11,24 @@ export interface Passwords {
 }
 
 /**
+ * Slugs of the albums the test site actually publishes, from sample/config/albums.yaml.
+ * The tests always run against the sample config (see bin/run-tests.sh).
+ */
+function sampleAlbumSlugs(): Set<string> {
+	const path = new URL('../../sample/config/albums.yaml', import.meta.url);
+	const parsed = yaml.load(fs.readFileSync(path, 'utf-8')) as {
+		albums?: { slug?: string }[];
+	};
+	return new Set((parsed?.albums ?? []).map((a) => a.slug).filter((s): s is string => !!s));
+}
+
+/**
  * Parse a ddphotos passwords file (sample/config/passwords-*.yaml).
  * Returns { all, albums } from PLAYWRIGHT_PASSWORDS_FILE env var.
  * Returns nulls/empty if the env var is not set (no-password variant).
+ *
+ * Entries for slugs that are not in albums.yaml are dropped: photogen ignores them
+ * (they protect nothing), so tests must see the same effective set it does.
  */
 export function loadPasswords(): Passwords {
 	const file = process.env.PLAYWRIGHT_PASSWORDS_FILE;
@@ -27,11 +42,13 @@ export function loadPasswords(): Passwords {
 	const all: string | null = site?.password ?? null;
 	const allHint: string | null = site?.hint ?? null;
 
+	const knownSlugs = sampleAlbumSlugs();
 	const albums: Record<string, string> = {};
 	const albumHints: Record<string, string> = {};
 	const albumsMap = parsed['albums'] as Record<string, Record<string, string>> | undefined;
 	if (albumsMap) {
 		for (const [slug, entry] of Object.entries(albumsMap)) {
+			if (!knownSlugs.has(slug)) continue;
 			if (entry?.password) albums[slug] = entry.password;
 			if (entry?.hint) albumHints[slug] = entry.hint;
 		}
