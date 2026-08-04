@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { type APIRequestContext, type Page, type Locator } from '@playwright/test';
 import type { NavLink } from '../src/lib/types';
@@ -11,12 +12,18 @@ export interface Passwords {
 }
 
 /**
- * Slugs of the albums the test site actually publishes, from sample/config/albums.yaml.
- * The tests always run against the sample config (see bin/run-tests.sh).
+ * Slugs published by the site under test, read from the albums.yaml sitting next to the
+ * given passwords file. That mirrors how ddphotos resolves the pair (settings.passwords is
+ * relative to the config dir), so this works for the sample config and for the throwaway
+ * config dirs bin/docker-test.sh generates alike.
+ *
+ * Returns null if no albums.yaml is there, meaning "cannot tell" — callers then keep every
+ * entry rather than dropping passwords the site may really need.
  */
-function sampleAlbumSlugs(): Set<string> {
-	const path = new URL('../../sample/config/albums.yaml', import.meta.url);
-	const parsed = yaml.load(fs.readFileSync(path, 'utf-8')) as {
+function albumSlugsBesidePasswords(passwordsFile: string): Set<string> | null {
+	const albumsFile = path.join(path.dirname(passwordsFile), 'albums.yaml');
+	if (!fs.existsSync(albumsFile)) return null;
+	const parsed = yaml.load(fs.readFileSync(albumsFile, 'utf-8')) as {
 		albums?: { slug?: string }[];
 	};
 	return new Set((parsed?.albums ?? []).map((a) => a.slug).filter((s): s is string => !!s));
@@ -42,13 +49,13 @@ export function loadPasswords(): Passwords {
 	const all: string | null = site?.password ?? null;
 	const allHint: string | null = site?.hint ?? null;
 
-	const knownSlugs = sampleAlbumSlugs();
+	const knownSlugs = albumSlugsBesidePasswords(file);
 	const albums: Record<string, string> = {};
 	const albumHints: Record<string, string> = {};
 	const albumsMap = parsed['albums'] as Record<string, Record<string, string>> | undefined;
 	if (albumsMap) {
 		for (const [slug, entry] of Object.entries(albumsMap)) {
-			if (!knownSlugs.has(slug)) continue;
+			if (knownSlugs && !knownSlugs.has(slug)) continue;
 			if (entry?.password) albums[slug] = entry.password;
 			if (entry?.hint) albumHints[slug] = entry.hint;
 		}
