@@ -202,12 +202,19 @@ The two deploy paths can be validated locally without touching a real server:
 
 ```bash
 # rsync path — rsyncs into a local Docker container; runs server routing tests and Playwright
-make sample-rsync-test
+make sample-rsync-test        # into Apache (photos-apache-ssh)
+make sample-rsync-test-nginx  # into nginx  (photos-nginx-ssh)
 
 # S3 path — syncs against MinIO; verifies file placement and Cache-Control headers
 # (post-deploy server and Playwright tests are skipped: MinIO serves S3 API only, not HTTP)
 make sample-s3-test
 ```
+
+The two rsync targets exercise a real difference, not just a swapped base image: Apache gets its
+routing from the `.htaccess` that rsync transfers, while nginx gets it from the `nginx.conf` baked
+into `photos-nginx-ssh`. Both start with an empty document root that rsync fills from scratch, so
+they also verify the deploy against real files rather than the symlink tree that
+`web/setup-htdocs.sh` builds for the other Docker test images.
 
 ## Testing Docker
 

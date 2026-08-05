@@ -27,6 +27,7 @@ as defined in `config/defaults.env`.
 | `web-docker-build-apache`     | Build the `photos-apache` Docker image                                                        |
 | `web-docker-build-nginx`      | Build the `photos-nginx` Docker image                                                         |
 | `web-docker-build-apache-ssh` | Build the `photos-apache-ssh` Docker image (Apache + SSH, used for rsync testing)             |
+| `web-docker-build-nginx-ssh`  | Build the `photos-nginx-ssh` Docker image (nginx + SSH, used for rsync testing)               |
 | `web-docker-run-apache`       | Run Apache on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                     |
 | `web-docker-run-nginx`        | Run nginx on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                      |
 | `web-docker-stop`             | Stop the container running on port 8080                                                       |
@@ -52,7 +53,8 @@ as defined in `config/defaults.env`.
 | `sample-npm-run-dev-css`      | Run the Vite dev server using sample config with custom CSS                                   |
 | `sample-test-apache`          | Run routing tests against Docker/Apache on port 8082                                          |
 | `sample-test-nginx`           | Run routing tests against Docker/nginx on port 8082                                           |
-| `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Docker container, verify      |
+| `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Apache container, verify      |
+| `sample-rsync-test-nginx`     | Same, but rsyncs into a fresh nginx container (`bin/rsync-test.sh --server nginx`)            |
 | `sample-s3-test`              | Test the S3 deploy path against MinIO: verifies file placement and Cache-Control headers      |
 | `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                  |
 | `gen-deploy-tree`             | Regenerate `docs/deploy-tree.svg` (run after changing the deploy directory structure)         |

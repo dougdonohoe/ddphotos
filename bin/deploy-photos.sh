@@ -13,6 +13,7 @@ SKIP_PLAYWRIGHT=false
 SKIP_SERVER_TEST=false
 DRY_RUN=false
 S3_MODE=false
+SERVER="apache"
 CONFIG_DIR="config"
 SITE_ENV_ARG=""
 SITE_ID_ARG=""
@@ -27,6 +28,8 @@ while [[ $# -gt 0 ]]; do
         --no-server-test)    SKIP_SERVER_TEST=true; shift ;;
         --dry-run)           DRY_RUN=true; shift ;;
         --s3)                S3_MODE=true; shift ;;
+        --server)            SERVER="$2"; shift 2 ;;
+        --server=*)          SERVER="${1#*=}"; shift ;;
         --config-dir)        CONFIG_DIR="$2"; shift 2 ;;
         --config-dir=*)      CONFIG_DIR="${1#*=}"; shift ;;
         --site-env)          SITE_ENV_ARG="$2"; shift 2 ;;
@@ -42,6 +45,7 @@ while [[ $# -gt 0 ]]; do
             echo "" >&2
             echo "  --dry-run              Show what would be deployed without transferring files" >&2
             echo "  --s3                   Deploy to S3 (default: rsync; auto-set if S3_BUCKET in site.env)" >&2
+            echo "  --server NAME          Server used for pre-deploy tests: apache or nginx (default: apache)" >&2
             echo "  --config-dir DIR       Config directory (default: config/)" >&2
             echo "  --site-env FILE        Path to site.env (default: config-dir/site.env)" >&2
             echo "  --site-id ID           Site ID (overrides albums.yaml)" >&2
@@ -56,6 +60,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# --server selects the image used for the pre-deploy local tests only. It has no effect on
+# what gets deployed: both servers are fed the identical two-source tree (see docs/DEPLOY.md).
+if [[ "$SERVER" != "apache" && "$SERVER" != "nginx" ]]; then
+    echo "Error: --server must be 'apache' or 'nginx' (got '$SERVER')" >&2
+    exit 1
+fi
 
 # cd to root of repo (REPO_ROOT may be pre-set by caller, e.g. docker/do-deploy.sh)
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
@@ -199,18 +210,18 @@ _pre_deploy() {
         echo "Skipping local server tests (--no-server-test)"
     else
         # Verify Docker image is current before running
-        "$SDIR/docker-check.sh"
+        "$SDIR/docker-check.sh" --server "$SERVER"
 
         DOCKER_RUNNING=$(docker ps -q --filter publish=8080)
         if [ -n "$DOCKER_RUNNING" ]; then
             echo "Docker already running on port 8080, using existing container..."
         else
-            echo "Starting local Docker container for testing..."
+            echo "Starting local Docker container ($SERVER) for testing..."
             docker run -d --rm -p 8080:80 \
                 -e DDPHOTOS_SITE_ID="$SITE_ID" \
                 -v "$REPO_ROOT/build":/build:ro \
                 -v "$DDPHOTOS_ALBUMS_DIR/$SITE_ID":/albums:ro \
-                photos-apache > /dev/null
+                "photos-$SERVER" > /dev/null
             DOCKER_STARTED=true
             sleep 1
         fi

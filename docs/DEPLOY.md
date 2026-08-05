@@ -3,7 +3,7 @@
 DD Photos supports the following deployment approaches:
 
  * **Static** - via `export` script (for any compatible static-hosting service, e.g., [Cloudflare Pages↗](https://pages.cloudflare.com), [Surge↗](https://surge.sh))
- * **Apache via rsync** - via `deploy` script (for any SSH-accessible server)
+ * **Apache or nginx via rsync** - via `deploy` script (for any SSH-accessible server)
  * **S3 + CloudFront** - via `deploy` script (fully serverless).
 
 All are described below.
@@ -127,15 +127,49 @@ The site will be at https://my-unique-site.surge.sh.
 
 See [Surge](DEPLOYMENT-SERVERS.md#surge) for page routing behavior and known limitations.
 
-## Apache + rsync
+## Apache or nginx + rsync
 
-In this scenario, the site is rsynced to any SSH-accessible server running Apache.
+In this scenario, the site is rsynced to any SSH-accessible server running Apache or nginx.
 That's the only hard requirement.
 
 ```mermaid
 flowchart LR
-    User -->|HTTPS| Apache["Server / Apache"]
+    User -->|HTTPS| Server["Server / Apache or nginx"]
 ```
+
+The rsync itself is server-agnostic — it copies the same two-source tree either way (see
+[Syncing Logic](#syncing-logic) above). The servers differ only in how the routing rules
+get onto the machine:
+
+| | Apache | nginx |
+|---|---|---|
+| **Routing rules** | `web/static/.htaccess`, shipped in the build output and rsynced with it | `web/nginx.conf`, installed on the server by hand |
+| **Server config** | `AllowOverride All` and `ErrorDocument 404 /404.html` in the `VirtualHost` | The `server` block from `web/nginx.conf` |
+| **Deploy-time action** | None — the rules travel with every deploy | Copy `web/nginx.conf` once, and again whenever it changes |
+
+Because `.htaccess` rides along in the build output, an nginx origin receives it too and
+silently ignores it. That file is harmless but inert: **on nginx, routing comes entirely from
+`web/nginx.conf`, which the deploy script never touches.** If you change routing rules, update
+both files and re-copy `nginx.conf` to the server.
+
+See [Web Server Configuration](DEPLOYMENT-SERVERS.md) for the Apache `VirtualHost` and
+`.htaccess` details and the equivalent `nginx.conf` rules. Both are verified against the same
+routing and Playwright suites in CI.
+
+### Pre-deploy tests on nginx
+
+In rsync mode the deploy script starts a local Docker container and runs the routing and
+Playwright suites against it before transferring anything. That container defaults to Apache,
+so an nginx origin is verified against the wrong server unless you pass `--server nginx`:
+
+```bash
+bin/deploy-photos.sh --server nginx
+```
+
+This only selects the image used for the local pre-deploy check (`photos-nginx` instead of
+`photos-apache`) — it does not change what is deployed. Build the image first with
+`make web-docker-build-nginx`; the script fails with instructions if it is stale or missing.
+The post-deploy tests against production are server-agnostic and need no flag.
 
 Optionally, you can place CloudFront (and a WAFv2 web ACL) in front of the origin:
 
@@ -228,6 +262,9 @@ Docker mode is intentionally simple and prescriptive. It:
 5. Runs `bin/test-photos-server.sh` to verify the deployment against production
 
 Pre-deploy tests and Playwright are skipped — run `ddphotos photogen` and `ddphotos build` before deploying.
+There is therefore no `--server` flag in Docker mode: it selects the pre-deploy test container,
+which Docker mode never starts. (The `ddphotos` image itself serves with Apache — `ddphotos serve`
+runs `apache2` — but that affects only local serving, not the deploy.)
 
 ## Deploying — Developer Mode
 
@@ -235,8 +272,9 @@ Pre-deploy tests and Playwright are skipped — run `ddphotos photogen` and `ddp
 
 1. Runs `photogen` to resize images and generate JSON
 2. Builds the static site via `npm run build` into `build/<site-id>/`
-3. *(rsync mode only)* Starts Docker/Apache, runs `bin/test-photos-server.sh --local` to verify
-   routing locally, runs Playwright tests against Docker/Apache, then stops the container
+3. *(rsync mode only)* Starts Docker/Apache (or Docker/nginx with `--server nginx`), runs
+   `bin/test-photos-server.sh --local` to verify routing locally, runs Playwright tests against
+   that container, then stops it
 4. Deploys the site:
    - **S3**: two-pass `aws s3 sync` — pass 1 syncs the build output (excluding `albums/*` but
      re-including `albums/*.html`); pass 2 syncs album images and JSON (`--size-only`, excluding
@@ -255,6 +293,7 @@ The script uses `set -eo pipefail` — any failure aborts before deployment.
 |-------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `--s3`                  | Deploy to S3 instead of rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests) |
 | `--dry-run`             | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests              |
+| `--server NAME`         | Server image for the pre-deploy local tests: `apache` (default) or `nginx`; no effect on what is deployed              |
 | `--no-photogen`         | Skip photo generation step                                                                                              |
 | `--no-build`            | Skip the static site build step                                                                                         |
 | `--no-rsync`            | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                   |
@@ -275,6 +314,7 @@ bin/deploy-photos.sh --s3 --aws-profile my-profile # use a named AWS profile for
 
 # rsync mode
 bin/deploy-photos.sh                               # full deploy
+bin/deploy-photos.sh --server nginx                # full deploy, pre-deploy tests run against nginx
 bin/deploy-photos.sh --dry-run                     # preview what rsync would transfer, no changes made
 bin/deploy-photos.sh --no-photogen                 # skip photo generation
 bin/deploy-photos.sh --no-rsync                    # build + local test only (safe on a dev machine)
