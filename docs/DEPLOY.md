@@ -141,16 +141,22 @@ The rsync itself is server-agnostic — it copies the same two-source tree eithe
 [Syncing Logic](#syncing-logic) above). The servers differ only in how the routing rules
 get onto the machine:
 
-| | Apache | nginx |
-|---|---|---|
-| **Routing rules** | `web/static/.htaccess`, shipped in the build output and rsynced with it | `web/nginx.conf`, installed on the server by hand |
-| **Server config** | `AllowOverride All` and `ErrorDocument 404 /404.html` in the `VirtualHost` | The `server` block from `web/nginx.conf` |
-| **Deploy-time action** | None — the rules travel with every deploy | Copy `web/nginx.conf` once, and again whenever it changes |
+|                        | Apache                                                                     | nginx                                                     |
+|------------------------|----------------------------------------------------------------------------|-----------------------------------------------------------|
+| **Routing rules**      | `web/static/.htaccess`, shipped in the build output and rsynced with it    | `web/nginx.conf`, installed on the server by hand         |
+| **Server config**      | `AllowOverride All` and `ErrorDocument 404 /404.html` in the `VirtualHost` | The `server` block from `web/nginx.conf`                  |
+| **Deploy-time action** | None — the rules travel with every deploy                                  | Copy `web/nginx.conf` once, and again whenever it changes |
 
 Because `.htaccess` rides along in the build output, an nginx origin receives it too and
 silently ignores it. That file is harmless but inert: **on nginx, routing comes entirely from
 `web/nginx.conf`, which the deploy script never touches.** If you change routing rules, update
 both files and re-copy `nginx.conf` to the server.
+
+Copy it to `/etc/nginx/sites-available/` (Debian/Ubuntu) or `/etc/nginx/conf.d/` (RHEL family),
+and edit its `root` to match `RSYNC_DEST` — the file ships with the Docker images' root
+(`/usr/share/nginx/html`), which is unlikely to be yours. See
+[Installing nginx.conf on a server](DEPLOYMENT-SERVERS.md#installing-nginxconf-on-a-server)
+for the full procedure.
 
 See [Web Server Configuration](DEPLOYMENT-SERVERS.md) for the Apache `VirtualHost` and
 `.htaccess` details and the equivalent `nginx.conf` rules. Both are verified against the same
@@ -293,7 +299,7 @@ The script uses `set -eo pipefail` — any failure aborts before deployment.
 |-------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `--s3`                  | Deploy to S3 instead of rsync (requires `S3_BUCKET` in `site.env`; skips pre-deploy Docker/Apache and Playwright tests) |
 | `--dry-run`             | Pass `--dry-run`/`--dryrun` to rsync or `aws s3 sync`; skips CloudFront invalidation and post-deploy tests              |
-| `--server NAME`         | Server image for the pre-deploy local tests: `apache` (default) or `nginx`; no effect on what is deployed              |
+| `--server NAME`         | Server image for the pre-deploy local tests: `apache` (default) or `nginx`; no effect on what is deployed               |
 | `--no-photogen`         | Skip photo generation step                                                                                              |
 | `--no-build`            | Skip the static site build step                                                                                         |
 | `--no-rsync`            | Skip deploy, CloudFront invalidation, and post-deploy tests (build + local test only)                                   |
