@@ -305,7 +305,7 @@ sample-rsync-test:
 	bin/rsync-test.sh
 
 .PHONY: sample-s3-test
-## sample-s3-test: test deploy-photos.sh S3 path against LocalStack; verifies file placement and Cache-Control headers
+## sample-s3-test: test deploy-photos.sh S3 path against MinIO; verifies file placement and Cache-Control headers
 sample-s3-test:
 	bin/s3-test.sh
 

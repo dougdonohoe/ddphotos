@@ -15,8 +15,12 @@ as defined in `config/defaults.env`.
 | `mod-tidy`                    | Run `go mod tidy` to clean up imports                                                         |
 | `clean-cache`                 | Run `go clean -cache` (useful after a vips library upgrade)                                   |
 | `vet`                         | Run `go vet` static analysis                                                                  |
-| `web-nvm-install`             | Install the Node version specified in `web/.nvmrc`                                            |
+| `web-nvm-install`             | Install the Node version in `web/.nvmrc` and the npm version in `web/.npm-version`            |
 | `web-npm-install`             | Install npm dependencies in `web/`                                                            |
+| `web-npm-audit`               | Run `npm audit` in `web/`                                                                     |
+| `web-npm-audit-fix`           | Run `npm audit fix` in `web/`                                                                 |
+| `web-lint`                    | Check formatting (prettier) and lint (eslint) in `web/`                                       |
+| `web-format`                  | Reformat `web/` sources with prettier                                                         |
 | `web-npm-run-dev`             | Start Vite dev server and open browser                                                        |
 | `web-npm-run-dev-https`       | Start Vite dev server over HTTPS (required for `crypto.subtle` on mobile/LAN)                 |
 | `web-npm-build`               | Build the static site into `build/$DDPHOTOS_SITE_ID/`                                         |
@@ -36,8 +40,10 @@ as defined in `config/defaults.env`.
 | `sample-photogen`             | Run photogen using `sample/config/albums.yaml`                                                |
 | `sample-photogen-pw-all`      | Run photogen using sample config, all albums password-protected                               |
 | `sample-photogen-pw-uganda`   | Run photogen using sample config, Uganda album password-protected                             |
+| `sample-photogen-pw-keyonly`  | Run photogen using sample config with a passwords file that has no effective password         |
 | `sample-photogen-css`         | Run photogen using sample config with custom CSS injected                                     |
-| `sample-photogen-demo`        | Run photogen using sample config with custom CSS and all albums password-protected            |
+| `sample-photogen-demo-1`      | Run photogen using sample config with custom CSS and all albums password-protected            |
+| `sample-photogen-demo-2`      | Run photogen using sample config with custom CSS and the Uganda album password-protected      |
 | `sample-demo-1`               | One-step demo #1: photogen (CSS + site password + 2 album passwords) and run dev server       |
 | `sample-demo-2`               | One-step demo #2: photogen (CSS + one album password) and run dev server                      |
 | `sample-build`                | Build the static site using sample config                                                     |

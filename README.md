@@ -8,15 +8,14 @@
 
 ## DD Photos App
 
-**NEW** - The brand-new [DD Photos desktop app↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md)
-is the easiest way to run DD Photos - it requires the least technical jujitsu!  We highly recommend starting there.
+The easiest way to run DD Photos is via the open-source companion [DD Photos desktop app↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md).
+It requires the least technical jujitsu!  We highly recommend starting there.
 
 ![config.png](images/ddphotos-app/config.png)
 
 ## Docker Quick Start
 
-The second-easiest way to run DD Photos is via [Docker↗](https://www.docker.com/get-started/) — no Go, 
-Node, or `libvips` required.  Try the starter site:
+The second-easiest way to run DD Photos is via [Docker↗](https://www.docker.com/get-started/) - no developer tooling required. Try the starter site:
 
 ```bash
 mkdir ~/my-ddphotos
@@ -42,6 +41,10 @@ Then edit `config/albums.yaml` to define your own albums and repeat.
 ```
 
 See the [Docker Mode](docs/DOCKER.md) page for full details including deploying via `rsync` or to S3.
+
+## Bare Metal
+
+The third way to run DD Photos is directly from this repo.  See [Developer Setup](docs/INSTALL.md) for details.
 
 ## Motivation
 

@@ -3,6 +3,24 @@
 The following are aimed at developers who want to work directly from this repo,
 instead of using the [Docker](DOCKER.md)-based `ddphotos` tool.
 
+## Clone This Repo
+
+Clone `ddphotos` using your preferred method:
+
+```bash
+# HTTPS
+git clone https://github.com/dougdonohoe/ddphotos.git
+
+# or SSH
+git clone git@github.com:dougdonohoe/ddphotos.git
+
+cd ddphotos
+```
+
+HTTPS needs no GitHub account or credentials to clone a public repo, so it is the
+simplest option if you just want to build and run the site. SSH requires a GitHub
+account and an SSH key.
+
 ## Prerequisites
 
 DD Photos uses Go, Node.js, `libvips`, so they must be installed and configured first.
@@ -23,12 +41,18 @@ first if you don't already have it.
 
 ```bash
 # Install Node and dependencies (for the web app):
-make web-nvm-install  # installs the Node version specified in web/.nvmrc
+make web-nvm-install  # installs Node (web/.nvmrc) and npm (web/.npm-version)
 make web-npm-install  # install npm dependencies
 
 # Optional: Install playwright dependencies if running e2e tests
 make web-playwright-install  # installs Playwright + Chromium for e2e tests
 ```
+
+The `web/.nvmrc` (Node major version) and `web/.npm-version` (exact npm version) files are the
+single sources of truth for the toolchain versions - the Makefile, Docker build and
+CI all read them. `web/package.json` sets a matching `engines.node`, and with
+`engine-strict=true` in `web/.npmrc` an `npm install` on the wrong Node version
+fails fast rather than silently installing.
 
 You may also want to install [Docker↗](https://www.docker.com/get-started/) if
 you don't have it, as it is required for testing site behavior using Apache or nginx.
