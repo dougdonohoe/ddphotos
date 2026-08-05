@@ -166,6 +166,8 @@ ddphotos --dir ~/work/ddphotos --site-id sample build
 | [`serve`](#serve)               | Serve the built site via Apache at http://localhost:8000.         |
 | [`export`](#export)             | Export the built site to `export/<site-id>/` for static hosting.  |
 | [`deploy`](#deploy)             | Sync the built site to a remote host via rsync or S3.             |
+| [`wrangler`](#wrangler)         | Run the bundled Cloudflare CLI (deploy to Cloudflare Pages).      |
+| [`surge`](#surge)               | Run the bundled Surge CLI (deploy to Surge).                      |
 | [`decode`](#decode)             | Decrypt an `.enc.json` file and print the plaintext JSON.         |
 | [`search-cover`](#search-cover) | Find the original filename for a photo given its URL.             |
 | [`upgrade`](#upgrade)           | Update the local `ddphotos` wrapper script to match the image.    |
@@ -272,6 +274,8 @@ ddphotos export --copy
 ddphotos surge --domain my-unique-site.surge.sh export/my-photos
 ```
 
+See [`surge`](#surge) for credentials and other details.
+
 Use `--cloudflare` for [Cloudflare Pages↗](https://pages.cloudflare.com) — adds a `_worker.js`
 for photo permalink routing (symlinks are followed, so `--copy` is not needed):
 
@@ -280,7 +284,8 @@ ddphotos export --cloudflare
 ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 ```
 
-See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for details.
+See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for how the routing
+works, and [`wrangler`](#wrangler) for credentials and other details.
 
 Use `--export-site-id` to write the export to a different subdirectory name instead of
 `export/<site-id>/`:
@@ -306,6 +311,55 @@ ddphotos deploy --aws-profile my-profile
 ```
 
 See [Deployment](DEPLOY.md) for full setup details.
+
+### `wrangler`
+
+Runs [wrangler↗](https://developers.cloudflare.com/workers/wrangler/), the Cloudflare CLI, inside
+the image via `npx` — no local Node or wrangler install needed. The working directory is `--dir`,
+so paths like `export/<site-id>` resolve as you would expect. All arguments pass straight through.
+
+See [Cloudflare Pages](DEPLOY.md#cloudflare-pages) for the deploy walkthrough.
+
+```bash
+ddphotos wrangler login    # one-time
+ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
+```
+
+Docker-specific behavior:
+
+| Aspect           | Detail                                                                                   |
+|------------------|------------------------------------------------------------------------------------------|
+| Credentials      | `wrangler login`, or set `CLOUDFLARE_API_TOKEN`                                          |
+| `wrangler login` | Exposes port 8976 for the OAuth callback and prints the auth URL to open in your browser |
+| Credential cache | Docker volume `ddphotos-wrangler-config`, so login persists across runs                  |
+| First run        | Downloads wrangler into the `ddphotos-npm-cache` volume                                  |
+
+`ddphotos wrangler pages deploy` checks the target directory first and refuses to deploy one that
+is missing or has no `_worker.js`, since that means `export` was run without `--cloudflare` and
+photo permalinks would 404.
+
+### `surge`
+
+Runs the [Surge↗](https://surge.sh) CLI inside the image via `npx` — no local install needed.
+As with `wrangler`, the working directory is `--dir` and all arguments pass through.
+
+See [Surge](DEPLOY.md#surge) for the deploy walkthrough.
+
+```bash
+ddphotos surge --domain my-unique-site.surge.sh export/my-photos
+```
+
+Docker-specific behavior:
+
+| Aspect          | Detail                                                                           |
+|-----------------|----------------------------------------------------------------------------------|
+| Credentials     | Prompted on first run and stored in `~/.netrc`, mounted read-write from the host |
+| Non-interactive | Set `SURGE_LOGIN` and `SURGE_TOKEN`                                              |
+| First run       | Downloads surge into the `ddphotos-npm-cache` volume                             |
+
+Surge does not follow symlinks, so the export must be made with `--copy`. `ddphotos surge` checks
+for this and fails with a clear message rather than uploading a directory of broken links.
+Bare subcommands (`ddphotos surge list`, `whoami`, `login`) skip the check.
 
 ### `decode`
 
