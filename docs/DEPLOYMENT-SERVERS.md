@@ -66,9 +66,10 @@ The `.htaccess` file (`web/static/.htaccess`) configures URL routing:
 ## nginx
 
 Unlike Apache, nginx needs no per-directory config file — all routing rules live in
-`web/nginx.conf`, which is baked into the Docker image. `web/nginx-entrypoint.sh`
-symlinks the active build into the document root at container startup (same role as
-`web/apache-entrypoint.sh`).
+`web/nginx.conf`. The Docker images bake it in; on a real server it is installed once by hand
+(see [Installing nginx.conf on a server](#installing-nginxconf-on-a-server) below), because
+nothing in the deploy path transfers it. `web/nginx-entrypoint.sh` symlinks the active build
+into the document root at container startup (same role as `web/apache-entrypoint.sh`).
 
 ### nginx.conf
 
@@ -80,6 +81,38 @@ symlinks the active build into the document root at container startup (same role
 - **HTML rewrite** — Serves `.html` files without the extension
   (e.g., `/albums/patagonia` serves `patagonia.html`)
 - **Unknown paths** — Return 404 (served as `404.html` via `error_page 404`)
+
+### Installing nginx.conf on a server
+
+`web/nginx.conf` is a bare `server { ... }` block, so it goes wherever your nginx package's
+`http` block already includes config from. The stock `/etc/nginx/nginx.conf` includes both of
+these, so either location works:
+
+| Distribution                     | Destination                                                                       |
+|----------------------------------|-----------------------------------------------------------------------------------|
+| Debian / Ubuntu                  | `/etc/nginx/sites-available/ddphotos`, symlinked into `/etc/nginx/sites-enabled/` |
+| RHEL / Alma / Rocky, nginx image | `/etc/nginx/conf.d/ddphotos.conf`                                                 |
+
+**Edit `root` before reloading.** The file ships with `root /usr/share/nginx/html;` — the
+document root of the Docker images it was written for. On a real server it must match the
+`RSYNC_DEST` you set in `config/site.env`, or nginx will serve a directory the deploy never
+writes to. You will also want a `server_name`, and TLS if you are not terminating it upstream.
+
+```bash
+scp web/nginx.conf myserver:/etc/nginx/sites-available/ddphotos
+ssh myserver
+sudo sed -i 's|root /usr/share/nginx/html;|root /var/www/photos;|' /etc/nginx/sites-available/ddphotos
+sudo ln -sf /etc/nginx/sites-available/ddphotos /etc/nginx/sites-enabled/ddphotos
+sudo rm -f /etc/nginx/sites-enabled/default   # the stock site also claims :80
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`nginx -t` validates the config before you reload; a reload with a broken config is refused and
+leaves the running server untouched.
+
+This is a one-time step, plus a repeat whenever `web/nginx.conf` changes — the deploy script
+never touches it. See [Apache or nginx + rsync](DEPLOY.md#apache-or-nginx--rsync) for how this
+differs from Apache, where `.htaccess` is rsynced with every deploy.
 
 ## CloudFront Function
 

@@ -141,6 +141,11 @@ web-docker-build-nginx:
 web-docker-build-apache-ssh:
 	docker build --pull -t photos-apache-ssh -f web/apache-ssh.dockerfile web/
 
+.PHONY: web-docker-build-nginx-ssh
+## web-docker-build-nginx-ssh: build the nginx+SSH Docker image used for rsync testing
+web-docker-build-nginx-ssh:
+	docker build --pull -t photos-nginx-ssh -f web/nginx-ssh.dockerfile web/
+
 .PHONY: _check-docker-schema-apache
 _check-docker-schema-apache:
 	bin/docker-check.sh --server apache
@@ -300,9 +305,14 @@ sample-test-nginx: _check-docker-schema-nginx
 	EXIT=$$?; docker stop sample-test-nginx 2>/dev/null || true; exit $$EXIT
 
 .PHONY: sample-rsync-test
-## sample-rsync-test: test deploy-photos.sh rsync path by rsyncing into a fresh Docker container (starts/stops automatically)
+## sample-rsync-test: test deploy-photos.sh rsync path into a fresh Apache Docker container (starts/stops automatically)
 sample-rsync-test:
 	bin/rsync-test.sh
+
+.PHONY: sample-rsync-test-nginx
+## sample-rsync-test-nginx: test deploy-photos.sh rsync path into a fresh nginx Docker container (starts/stops automatically)
+sample-rsync-test-nginx:
+	bin/rsync-test.sh --server nginx
 
 .PHONY: sample-s3-test
 ## sample-s3-test: test deploy-photos.sh S3 path against MinIO; verifies file placement and Cache-Control headers
