@@ -39,15 +39,12 @@ brew install go vips pkg-config
 
 ```bash
 # Install Go, vips library and pkg-config dependency (for photogen)
-sudo apt-get install golang-go libvips-dev pkg-config build-essential
-
-# HEIC/HEIF decoding (iPhone photos)
-sudo apt-get install libheif-plugin-libde265
+sudo apt-get install golang-go libvips-dev pkg-config build-essential libheif-plugin-libde265
 ```
 
-Note the package is `libvips-dev`, not `vips` — the headers are needed to compile
-`photogen`. `build-essential` supplies the C compiler that cgo requires, and is often
-already installed.
+Note the package is `libvips-dev`, not `vips` - the headers are needed to compile
+`photogen`. The `build-essential` package supplies the C compiler that `cgo` requires, and is often
+already installed. The `libheif` library is needed for HEIC/HEIF decoding (iPhone photos).
 
 #### A note on apt's Go version
 
@@ -56,13 +53,13 @@ Go 1.22). This is normally fine: Go's `GOTOOLCHAIN` defaults to `auto`, so the f
 command transparently downloads the newer toolchain and everything builds. It does mean the
 first invocation needs network access.
 
-The one thing that does not work under a downloaded toolchain is coverage — it has no
+The one thing that does not work under a downloaded toolchain is coverage - it has no
 `covdata` tool, so `go test -cover` fails with `go: no such tool "covdata"` on packages that
 have no test files. `make test` therefore omits `-cover`. If you want coverage
 (`make test-cover`), install Go from [go.dev↗](https://go.dev/doc/install) instead:
 
 ```bash
-# From the repo root — takes the version straight from go.mod
+# From the repo root - takes the version straight from go.mod
 GO_VERSION=$(awk '/^go /{print $2; exit}' go.mod)
 curl -fsSL -o /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf /tmp/go.tar.gz && rm /tmp/go.tar.gz
@@ -84,7 +81,7 @@ wsl --install
 That installs Ubuntu by default. Reboot when asked, then clone the repo **inside the WSL
 filesystem** (`~/ddphotos`), not under `/mnt/c/`. Paths under `/mnt/c/` cross the 9p
 filesystem bridge, which is dramatically slower for the many small files `npm install` and
-Go builds touch, and handles symlinks and permissions differently — `bin/export.sh` builds
+Go builds touch. It handles symlinks and permissions differently: `bin/export.sh` builds
 symlink trees and `bin/docker-test.sh` relies on `chmod`.
 
 For Docker, enable Docker Desktop's WSL2 integration for the distro (Settings → Resources →
@@ -93,10 +90,6 @@ WSL Integration), or install Docker Engine inside the distro. With integration e
 
 IntelliJ has WSL support, so you can keep the IDE on the Windows side and point it at the
 project in WSL (`\\wsl$\Ubuntu\home\<you>\ddphotos`), which also gives you a bash terminal.
-
-If you only want to publish a site rather than develop the project, you don't need WSL2 at
-all — the [`ddphotos` Docker tool](DOCKER.md) runs natively on Windows and handles `C:\`
-paths.
 
 ### All platforms
 
@@ -117,7 +110,7 @@ make web-npm-install  # install npm dependencies
 make web-playwright-install  # installs Playwright + Chromium for e2e tests
 ```
 
-## Linux Oddities
+### Linux Oddities
 
 On Linux, `make web-playwright-install` fetches the browser but not the system libraries it
 links against, so a minimal install may fail at launch with a `symbol lookup error` or a
@@ -129,7 +122,7 @@ cd web && sudo env "PATH=$PATH" npx playwright install-deps chromium
 
 The `sudo env "PATH=$PATH"` is needed because plain `sudo` won't have nvm's `node` on its
 PATH. If you would rather not run `npx` under `sudo`, `sudo apt-get install libasound2t64`
-covers the common case on Ubuntu — note that it replaces `liboss4-salsa-asound2`, an OSS4
+covers the common case on Ubuntu. Note that it replaces `liboss4-salsa-asound2`, an OSS4
 compatibility stub (pulled in by some JDK packages) that provides `libasound.so.2` without
 the full ALSA API, which is enough to make Chromium fail to start.
 
@@ -139,8 +132,8 @@ CI all read them. `web/package.json` sets a matching `engines.node`, and with
 `engine-strict=true` in `web/.npmrc` an `npm install` on the wrong Node version
 fails fast rather than silently installing.
 
-If your system already provides a `node` — Ubuntu's `nodejs` package is often pulled in as a
-dependency of something else — the Makefile uses it only when its major version matches
+If your system already provides a `node` (Ubuntu's `nodejs` package is often pulled in as a
+dependency of something else) the Makefile uses it only when its major version matches
 `web/.nvmrc`, and otherwise falls back to nvm. A distro Node at the wrong version will not
 shadow the repo's.
 
