@@ -1,3 +1,9 @@
+# Run recipes under bash. Make defaults to /bin/sh, which is dash on Debian/Ubuntu but
+# bash on macOS. nvm.sh locates itself via BASH_SOURCE; under dash that is unset, so it
+# guesses NVM_DIR=/bin and every nvm target fails with a cryptic error. Pinning bash keeps
+# Linux and macOS on the same shell.
+SHELL := /bin/bash
+
 # Migration check: album data moved from web/albums/ to albums/ in the decouple refactor.
 ifneq ($(wildcard web/albums),)
 $(warning MIGRATION REQUIRED: web/albums/ exists but album data now lives in albums/ )
@@ -30,40 +36,48 @@ override DDPHOTOS_ALBUMS_DIR := $(abspath $(patsubst ~/%,$(HOME)/%,$(DDPHOTOS_AL
 # - NVM_INIT always sources nvm.sh (nvm is a shell function, not a binary, so Make's subshell
 #   never has it). NVM_SH is derived from NVM_DIR if set (e.g. Homebrew install), else ~/.nvm.
 #   Override NVM_SH if your nvm lives elsewhere and NVM_DIR is not set.
-# - If 'node' is already on PATH (system install, volta, fnm, etc.),
-#   NODE_INIT is empty and node is used directly. Otherwise, nvm is sourced from NVM_SH
-#   and switched to the version in web/.nvmrc (sourcing alone activates nvm's default
-#   alias, which is not necessarily the version this repo wants).
+# - If a 'node' on PATH already matches the major version in web/.nvmrc (system install,
+#   volta, fnm, etc.), NODE_INIT is empty and that node is used directly. Otherwise, nvm is
+#   sourced from NVM_SH and switched to the version in web/.nvmrc (sourcing alone activates
+#   nvm's default alias, which is not necessarily the version this repo wants). Matching on
+#   the version, not mere presence, keeps a distro node at the wrong major (Ubuntu's apt
+#   'nodejs' is commonly pulled in as a dependency) from shadowing the repo's Node.
 NVM_SH ?= $(or $(NVM_DIR),$(HOME)/.nvm)/nvm.sh
 NVM_INIT := . "$(NVM_SH)" &&
-NODE := $(shell command -v node 2>/dev/null)
-ifndef NODE
-NODE_INIT := . "$(NVM_SH)" && nvm use --silent $(shell cat web/.nvmrc) &&
+NODE_WANTED := $(shell cat web/.nvmrc)
+NODE_FOUND := $(shell node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')
+ifneq ($(NODE_FOUND),$(NODE_WANTED))
+NODE_INIT := . "$(NVM_SH)" && nvm use --silent $(NODE_WANTED) &&
 endif
 
 # 1st item is default, so 'make' with no arguments shows help
 .PHONY: help
 ## help: show this help message
 help:
-	@echo "Usage: \n"
+	@printf "Usage:\n\n"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
+
+# All Go source lives in cmd/ and pkg/. Scoping to those, rather than ./..., keeps Go out
+# of web/node_modules — npm packages may vendor Go source (flatted ships a Go port), and
+# since it has no go.mod of its own, ./... treats it as part of this module and builds it.
+GO_PKGS := ./cmd/... ./pkg/...
 
 .PHONY: build
 ## build: run `go build`
 build:
-	go build -ldflags "-X main.repoRoot=$(PWD)" ./...
+	go build -ldflags "-X main.repoRoot=$(PWD)" $(GO_PKGS)
 
 .PHONY: test
 ## test: run `go test` (with the race detector)
 # -race catches data races in the concurrent resize and metadata workers. It needs cgo,
 # which is already required by govips, and roughly doubles the runtime.
 test:
-	go test -v -race -cover ./...
+	go test -v -race -cover $(GO_PKGS)
 
 .PHONY: vet
 ## vet: run `go vet`
 vet:
-	go vet ./...
+	go vet $(GO_PKGS)
 
 .PHONY: mod-tidy
 ## mod-tidy: run `go mod tidy` (clean up imports)

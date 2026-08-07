@@ -24,14 +24,34 @@ account and an SSH key.
 ## Prerequisites
 
 DD Photos uses Go, Node.js, `libvips`, so they must be installed and configured first.
+Instructions are given for macOS (via [Homebrew↗](https://docs.brew.sh/Installation)) and
+Debian/Ubuntu (`apt`). Other distributions should work with equivalent package manager
+commands (`dnf`, `pacman`). Windows users should use WSL2.
 
-**NOTE**: The following setup instructions are Mac-centric (via [Homebrew↗](https://docs.brew.sh/Installation)). Linux should work with 
-equivalent package manager commands (`apt`, `yum`). Windows users should use WSL2.
+### macOS
 
 ```bash
 # Install Go, vips library and pkg-config dependency (for photogen)
 brew install go vips pkg-config
+```
 
+### Debian/Ubuntu
+
+```bash
+# Install Go, vips library and pkg-config dependency (for photogen)
+sudo apt-get install golang-go libvips-dev pkg-config build-essential
+
+# HEIC/HEIF decoding (iPhone photos)
+sudo apt-get install libheif-plugin-libde265
+```
+
+Note the package is `libvips-dev`, not `vips` — the headers are needed to compile
+`photogen`. `build-essential` supplies the C compiler that cgo requires, and is often
+already installed.
+
+### Both platforms
+
+```bash
 # In root of this repo, fetch Go libraries
 go mod download
 ```
@@ -54,8 +74,16 @@ CI all read them. `web/package.json` sets a matching `engines.node`, and with
 `engine-strict=true` in `web/.npmrc` an `npm install` on the wrong Node version
 fails fast rather than silently installing.
 
+If your system already provides a `node` — Ubuntu's `nodejs` package is often pulled in as a
+dependency of something else — the Makefile uses it only when its major version matches
+`web/.nvmrc`, and otherwise falls back to nvm. A distro Node at the wrong version will not
+shadow the repo's.
+
 You may also want to install [Docker↗](https://www.docker.com/get-started/) if
 you don't have it, as it is required for testing site behavior using Apache or nginx.
+On Linux, install Docker Engine and add yourself to the `docker` group
+([post-install steps↗](https://docs.docker.com/engine/install/linux-postinstall/)) so the
+`make` targets can run it without `sudo`.
 
 ## Developer Tools on PATH
 
