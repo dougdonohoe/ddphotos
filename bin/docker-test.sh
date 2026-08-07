@@ -75,13 +75,9 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
-# Source nvm if node not on PATH
-if ! command -v node &>/dev/null; then
-    NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    [ -f "$NVM_SH" ] || { echo "Error: node not found; install Node.js or nvm" >&2; exit 1; }
-    # shellcheck source=/dev/null
-    source "$NVM_SH"
-fi
+# Node.js init (see bin/node-init.sh)
+# shellcheck source=/dev/null
+source "$REPO_ROOT/bin/node-init.sh"
 
 run_playwright() {
     $SKIP_PLAYWRIGHT && { echo "  (Playwright skipped)"; return 0; }

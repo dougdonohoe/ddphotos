@@ -72,20 +72,9 @@ done
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 cd "$SDIR/.."
 
-# Node.js init: source nvm if node is not already on PATH
-if ! command -v node &>/dev/null; then
-    NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    if [ ! -f "$NVM_SH" ]; then
-        echo "Error: node not found and nvm not found at $NVM_SH" >&2
-        echo "Install Node.js or nvm before running tests." >&2
-        exit 1
-    fi
-    # shellcheck source=/dev/null
-    source "$NVM_SH"
-    # Activate the version specified in web/.nvmrc. Not in a subshell: nvm use
-    # only changes PATH for the shell it runs in.
-    nvm use --silent "$(cat web/.nvmrc)"
-fi
+# Node.js init (see bin/node-init.sh)
+# shellcheck source=/dev/null
+source "$SDIR/node-init.sh"
 
 # Resolve passwords file to absolute path
 if [ -n "$PASSWORDS_FILE" ]; then

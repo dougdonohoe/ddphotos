@@ -177,12 +177,10 @@ DEFAULT_URL="https://your-ddphotos.example.com"
 if [ "$SKIP_BUILD" = true ]; then
     echo "Skipping build (--no-build)"
 else
+    # Node.js init (see bin/node-init.sh)
+    # shellcheck source=/dev/null
+    source "$SDIR/node-init.sh"
     cd web
-    NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-    if ! command -v node &>/dev/null; then
-        # shellcheck source=/dev/null
-        source "$NVM_SH"
-    fi
     DDPHOTOS_ALBUMS_DIR="$DDPHOTOS_ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build
 fi
 

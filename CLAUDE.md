@@ -22,9 +22,15 @@ define the JSON schema consumed by the frontend. Their TypeScript counterparts l
 ## Node/npm version sync requirement
 
 `web/.nvmrc` (Node major) and `web/.npm-version` (exact npm version) are the single sources of
-truth. Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/run-tests.sh`, and the
+truth. Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/node-init.sh`, and the
 three `setup-node` steps in `.github/workflows/ci.yml`. **Do not hardcode either version anywhere
 else.**
+
+`bin/node-init.sh` is the shell-side counterpart to the Makefile's `NODE_INIT`: the bash scripts
+that run npm/npx (`bin/run-tests.sh`, `bin/docker-test.sh`, `bin/deploy-photos.sh`) source it
+rather than each doing their own nvm setup. Both it and `NODE_INIT` use the node on PATH only
+when its **major version matches** `web/.nvmrc` — testing for mere presence lets a distro node at
+the wrong major (Ubuntu's apt `nodejs`) shadow the repo's. **Keep the two in sync.**
 
 `docker/Dockerfile` takes both as **required** build args (`NODE_VERSION`, `NPM_VERSION`) with no
 defaults, so it cannot carry a stale copy of either version. It is built only via `make

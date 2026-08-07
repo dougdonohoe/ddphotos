@@ -26,7 +26,7 @@ account and an SSH key.
 DD Photos uses Go, Node.js, `libvips`, so they must be installed and configured first.
 Instructions are given for macOS (via [Homebrew↗](https://docs.brew.sh/Installation)) and
 Debian/Ubuntu (`apt`). Other distributions should work with equivalent package manager
-commands (`dnf`, `pacman`). Windows users should use WSL2.
+commands (`dnf`, `pacman`). Windows users should use [WSL2](#windows-wsl2).
 
 ### macOS
 
@@ -49,7 +49,56 @@ Note the package is `libvips-dev`, not `vips` — the headers are needed to comp
 `photogen`. `build-essential` supplies the C compiler that cgo requires, and is often
 already installed.
 
-### Both platforms
+#### A note on apt's Go version
+
+`apt`'s Go is frequently older than the `go` directive in `go.mod` (Ubuntu 24.04 LTS ships
+Go 1.22). This is normally fine: Go's `GOTOOLCHAIN` defaults to `auto`, so the first `go`
+command transparently downloads the newer toolchain and everything builds. It does mean the
+first invocation needs network access.
+
+The one thing that does not work under a downloaded toolchain is coverage — it has no
+`covdata` tool, so `go test -cover` fails with `go: no such tool "covdata"` on packages that
+have no test files. `make test` therefore omits `-cover`. If you want coverage
+(`make test-cover`), install Go from [go.dev↗](https://go.dev/doc/install) instead:
+
+```bash
+# From the repo root — takes the version straight from go.mod
+GO_VERSION=$(awk '/^go /{print $2; exit}' go.mod)
+curl -fsSL -o /tmp/go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf /tmp/go.tar.gz && rm /tmp/go.tar.gz
+
+# Add to your shell profile (~/.zshrc or ~/.bashrc)
+export PATH=$PATH:/usr/local/go/bin
+```
+
+### Windows (WSL2)
+
+The developer workflow is driven by a GNU Makefile and bash scripts, so it does not run
+natively in PowerShell. Use [WSL2↗](https://learn.microsoft.com/windows/wsl/install) with
+Ubuntu and follow the Debian/Ubuntu instructions above:
+
+```powershell
+wsl --install
+```
+
+That installs Ubuntu by default. Reboot when asked, then clone the repo **inside the WSL
+filesystem** (`~/ddphotos`), not under `/mnt/c/`. Paths under `/mnt/c/` cross the 9p
+filesystem bridge, which is dramatically slower for the many small files `npm install` and
+Go builds touch, and handles symlinks and permissions differently — `bin/export.sh` builds
+symlink trees and `bin/docker-test.sh` relies on `chmod`.
+
+For Docker, enable Docker Desktop's WSL2 integration for the distro (Settings → Resources →
+WSL Integration), or install Docker Engine inside the distro. With integration enabled,
+`docker` talks to Docker Desktop and bind mounts from the WSL filesystem work as expected.
+
+IntelliJ has WSL support, so you can keep the IDE on the Windows side and point it at the
+project in WSL (`\\wsl$\Ubuntu\home\<you>\ddphotos`), which also gives you a bash terminal.
+
+If you only want to publish a site rather than develop the project, you don't need WSL2 at
+all — the [`ddphotos` Docker tool](DOCKER.md) runs natively on Windows and handles `C:\`
+paths.
+
+### All platforms
 
 ```bash
 # In root of this repo, fetch Go libraries
@@ -67,6 +116,20 @@ make web-npm-install  # install npm dependencies
 # Optional: Install playwright dependencies if running e2e tests
 make web-playwright-install  # installs Playwright + Chromium for e2e tests
 ```
+
+On Linux, `make web-playwright-install` fetches the browser but not the system libraries it
+links against, so a minimal install may fail at launch with a `symbol lookup error` or a
+missing `.so`. Install the OS-level dependencies once:
+
+```bash
+cd web && sudo env "PATH=$PATH" npx playwright install-deps chromium
+```
+
+The `sudo env "PATH=$PATH"` is needed because plain `sudo` won't have nvm's `node` on its
+PATH. If you would rather not run `npx` under `sudo`, `sudo apt-get install libasound2t64`
+covers the common case on Ubuntu — note that it replaces `liboss4-salsa-asound2`, an OSS4
+compatibility stub (pulled in by some JDK packages) that provides `libasound.so.2` without
+the full ALSA API, which is enough to make Chromium fail to start.
 
 The `web/.nvmrc` (Node major version) and `web/.npm-version` (exact npm version) files are the
 single sources of truth for the toolchain versions - the Makefile, Docker build and

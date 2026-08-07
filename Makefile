@@ -71,7 +71,19 @@ build:
 ## test: run `go test` (with the race detector)
 # -race catches data races in the concurrent resize and metadata workers. It needs cgo,
 # which is already required by govips, and roughly doubles the runtime.
+#
+# -cover is deliberately NOT here: it needs the `covdata` tool, which a toolchain fetched
+# via GOTOOLCHAIN auto-download does not supply, so `go test -cover` fails with
+# `go: no such tool "covdata"` on any package that has no test files (cmd/decode,
+# cmd/photogen). That bites whenever the installed Go is older than the `go` directive in
+# go.mod — e.g. Ubuntu 24.04, whose apt golang-go is 1.22 and downloads 1.25 on demand.
+# Use `make test-cover` for coverage; it needs a real Go install (see docs/INSTALL.md).
 test:
+	go test -v -race $(GO_PKGS)
+
+.PHONY: test-cover
+## test-cover: run `go test` with coverage (needs a full Go install, not a downloaded toolchain)
+test-cover:
 	go test -v -race -cover $(GO_PKGS)
 
 .PHONY: vet
