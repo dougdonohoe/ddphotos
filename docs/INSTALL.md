@@ -117,6 +117,8 @@ make web-npm-install  # install npm dependencies
 make web-playwright-install  # installs Playwright + Chromium for e2e tests
 ```
 
+## Linux Oddities
+
 On Linux, `make web-playwright-install` fetches the browser but not the system libraries it
 links against, so a minimal install may fail at launch with a `symbol lookup error` or a
 missing `.so`. Install the OS-level dependencies once:
@@ -141,6 +143,8 @@ If your system already provides a `node` — Ubuntu's `nodejs` package is often 
 dependency of something else — the Makefile uses it only when its major version matches
 `web/.nvmrc`, and otherwise falls back to nvm. A distro Node at the wrong version will not
 shadow the repo's.
+
+### Docker
 
 You may also want to install [Docker↗](https://www.docker.com/get-started/) if
 you don't have it, as it is required for testing site behavior using Apache or nginx.
