@@ -36,6 +36,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# --- temp dir location ---
+# Several tests below mktemp a directory and bind-mount it into a container. Docker Desktop
+# only mounts host paths shared with its VM: on Linux $HOME is shared but /tmp is not, so a
+# default mktemp path fails with "mounts denied: ... is not shared from the host". Placing
+# them under $HOME works on macOS, Linux and native Docker Engine alike.
+#
+# Pass an explicit template rather than exporting TMPDIR: TMPDIR would be inherited by every
+# child process, relocating node's and Playwright's caches here as a side effect. A template
+# containing a path is portable; GNU's -p flag is not (macOS ships BSD mktemp). cleanup()
+# rmdir's TMP_ROOT, which succeeds only once the individual dirs below have been removed.
+TMP_ROOT="$HOME/.cache/ddphotos/tmp"
+mkdir -p "$TMP_ROOT"
+mktempd() { mktemp -d "$TMP_ROOT/XXXXXXXX"; }
+
 # --- helpers ---
 step()  { echo; echo "=== $* ==="; }
 pass()  { echo "  PASS: $*"; }
@@ -55,6 +69,8 @@ cleanup() {
     if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi
     if [ -n "$WIN_CONFIG_DIR" ]; then /bin/rm -rf "$WIN_CONFIG_DIR"; fi
     if [ -n "$WIN_OUT_DIR" ];    then /bin/rm -rf "$WIN_OUT_DIR";    fi
+    # Only removes TMP_ROOT if empty, so anything unexpected is left for inspection
+    rmdir "$TMP_ROOT" 2>/dev/null || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
@@ -100,7 +116,7 @@ fi
 
 # ── 2. Init ────────────────────────────────────────────────────────────────────
 step "Init"
-TEST_DIR=$(mktemp -d)
+TEST_DIR=$(mktempd)
 chmod 755 "$TEST_DIR"
 docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init --site-id "$SITE_ID"
 [ -x "$TEST_DIR/ddphotos" ]              || fail "ddphotos script not installed"
@@ -175,7 +191,7 @@ pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
 # Exercises build_config_bases_mounts() handling of source: and image: with absolute paths.
 step "Photogen: absolute source paths"
 ABS_SITE_ID="test-abs-path"
-ABS_CONFIG_DIR=$(mktemp -d)
+ABS_CONFIG_DIR=$(mktempd)
 sed "s|_REPO_ROOT_|$REPO_ROOT|g" "$REPO_ROOT/web/testdata/albums.abspath.yaml" > "$ABS_CONFIG_DIR/albums.yaml"
 "${DDPHOTOS[@]}" --config-dir "$ABS_CONFIG_DIR" photogen
 [ -d "$TEST_DIR/albums/$ABS_SITE_ID/the-way" ] || fail "albums/$ABS_SITE_ID/the-way not created"
@@ -204,7 +220,7 @@ pass "photogen with absolute source paths inside DDPHOTOS_DIR OK (album dir and 
 # Windows-only), so the two translation halves are validated separately.
 
 step "Photogen: Windows path mapping (bash host side)"
-WIN_CONFIG_DIR=$(mktemp -d)
+WIN_CONFIG_DIR=$(mktempd)
 /bin/cp "$REPO_ROOT/web/testdata/albums.winpath.yaml" "$WIN_CONFIG_DIR/albums.yaml"
 # --show-mounts prints the mount table before the (expected-to-fail) docker run,
 # so we capture that output and ignore the failure.
@@ -218,7 +234,7 @@ step "Photogen: Windows path mapping (container side, real photos)"
 # mounted at the translated container location, and the config dir whose base is
 # C:\Users\test\photos. photogen's winToUnixPath must translate that base to
 # /mnt/c/Users/test/photos and read the real photos mounted there.
-WIN_OUT_DIR=$(mktemp -d)
+WIN_OUT_DIR=$(mktempd)
 chmod 755 "$WIN_OUT_DIR"
 docker run --rm \
     -v "$WIN_OUT_DIR":/ddphotos \
@@ -243,7 +259,7 @@ pass "decode: $ENC_FILE decrypted OK"
 # The enc.json is placed in a secret/ subdirectory so the album slug is preserved in the
 # container path (/ddphotos-args/arg-N/secret/index.enc.json), which decode needs to find
 # the right per-album password.
-TEMP_DECODE_DIR=$(mktemp -d)
+TEMP_DECODE_DIR=$(mktempd)
 mkdir -p "$TEMP_DECODE_DIR/secret"
 /bin/cp "$TEST_DIR/config/passwords.yaml"  "$TEMP_DECODE_DIR/passwords.yaml"
 /bin/cp "$TEST_DIR/$ENC_FILE"              "$TEMP_DECODE_DIR/secret/index.enc.json"
@@ -282,7 +298,7 @@ step "Decode + Search-Cover with external --config-dir"
 
 # Simulate photogen having been run with an external --config-dir by rewriting
 # the embedded pwFile path from /ddphotos/config/... to /ddphotos-config/...
-EXT_CONFIG_DIR=$(mktemp -d)
+EXT_CONFIG_DIR=$(mktempd)
 /bin/cp "$TEST_DIR/config/passwords.yaml" "$EXT_CONFIG_DIR/"
 /bin/cp "$TEST_DIR/config/albums.yaml"    "$EXT_CONFIG_DIR/"
 
@@ -298,7 +314,7 @@ pass "decode --config-dir: external config dir mounted correctly"
 
 # search-cover needs the modified enc.json at the album path. Use a fresh
 # user-owned SC_TEST_DIR with --dir so we can write to it freely.
-SC_TEST_DIR=$(mktemp -d)
+SC_TEST_DIR=$(mktempd)
 chmod 755 "$SC_TEST_DIR"
 mkdir -p "$SC_TEST_DIR/albums/$SITE_ID/secret"
 /bin/cp "$EXT_ENC_FILE" "$SC_TEST_DIR/albums/$SITE_ID/secret/index.enc.json"
@@ -435,7 +451,7 @@ pass "version: Site ID '$SITE_ID' auto-detected from albums.yaml"
 
 # ── 15. Init --script-only ─────────────────────────────────────────────────────
 step "Init --script-only"
-TEST_DIR2=$(mktemp -d)
+TEST_DIR2=$(mktempd)
 chmod 755 "$TEST_DIR2"
 docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ -x "$TEST_DIR2/ddphotos" ]   || fail "ddphotos script not installed"
