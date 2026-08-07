@@ -13,7 +13,9 @@
 
 _ni_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 _ni_wanted=$(cat "$_ni_root/web/.nvmrc")
-_ni_found=$(node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')
+# The '|| true' matters: the callers run under 'set -eo pipefail', where a missing node
+# makes the pipeline exit 127 and takes the whole script down before the check below.
+_ni_found=$(node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/' || true)
 
 if [ "$_ni_found" != "$_ni_wanted" ]; then
     NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
