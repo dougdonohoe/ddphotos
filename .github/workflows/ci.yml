@@ -45,8 +45,11 @@ jobs:
       - name: Install npm dependencies
         run: cd web && npm ci
 
+      # test-cover rather than test: setup-go installs a full Go distribution, so the
+      # `covdata` tool is present and coverage works. `make test` drops -cover so it also
+      # works with a toolchain fetched via GOTOOLCHAIN auto-download (see the Makefile).
       - name: Go build, test, vet
-        run: make build test vet
+        run: make build test-cover vet
 
       - name: Web lint (prettier + eslint)
         run: make web-lint
