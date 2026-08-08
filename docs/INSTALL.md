@@ -93,9 +93,9 @@ project in WSL (`\\wsl.localhost\Ubuntu\home\username\ddphotos`), which also giv
 bash terminal.
 
 After you have `ddphotos` cloned, follow the Debian/Ubuntu instructions above, then the
-All platforms steps below.
+All Platforms steps below.
 
-### All platforms
+### All Platforms
 
 ```bash
 # In root of this repo, fetch Go libraries
