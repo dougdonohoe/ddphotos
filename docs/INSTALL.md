@@ -71,8 +71,8 @@ export PATH=$PATH:/usr/local/go/bin
 ### Windows (WSL2)
 
 The developer workflow is driven by a GNU Makefile and bash scripts, so it does not run
-natively in PowerShell. Use [WSL2↗](https://learn.microsoft.com/windows/wsl/install) with
-Ubuntu and follow the Debian/Ubuntu instructions above:
+natively in PowerShell. Set up [WSL2↗](https://learn.microsoft.com/windows/wsl/install) with
+Ubuntu:
 
 ```powershell
 wsl --install
@@ -89,7 +89,11 @@ WSL Integration), or install Docker Engine inside the distro. With integration e
 `docker` talks to Docker Desktop and bind mounts from the WSL filesystem work as expected.
 
 IntelliJ has WSL support, so you can keep the IDE on the Windows side and point it at the
-project in WSL (`\\wsl$\Ubuntu\home\<you>\ddphotos`), which also gives you a bash terminal.
+project in WSL (`\\wsl.localhost\Ubuntu\home\username\ddphotos`), which also gives you a
+bash terminal.
+
+After you have `ddphotos` cloned, follow the Debian/Ubuntu instructions above, then the
+All platforms steps below.
 
 ### All platforms
 
@@ -141,7 +145,8 @@ shadow the repo's.
 
 You may also want to install [Docker↗](https://www.docker.com/get-started/) if
 you don't have it, as it is required for testing site behavior using Apache or nginx.
-On Linux, install Docker Engine and add yourself to the `docker` group
+On Linux, install either Docker Desktop, which manages access for you, or just Docker
+Engine. For Engine, add yourself to the `docker` group
 ([post-install steps↗](https://docs.docker.com/engine/install/linux-postinstall/)) so the
 `make` targets can run it without `sudo`.
 
