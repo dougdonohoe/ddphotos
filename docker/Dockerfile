@@ -50,11 +50,17 @@ RUN : "${NPM_VERSION:?required build arg — run 'make docker-build', or pass th
 # ── Stage 3: Runtime image ────────────────────────────────────────────────────
 FROM debian:bookworm-slim
 
+# Deliberately no ffmpeg: the Debian package pulls in 200 packages and 448MB (SDL2, X11
+# and Wayland, via ffplay's libavdevice dependency), which every photo-only user would pay
+# for, and shipping its GPL libx264 would make this image a redistributor of it. Video
+# support instead downloads a pinned static build on first use, into a mounted volume --
+# see docker/do-install-ffmpeg.sh. xz-utils is here because that tarball is .tar.xz.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips \
     libheif1 \
     ca-certificates \
     curl \
+    xz-utils \
     apache2 \
     rsync \
     openssh-client \
@@ -88,6 +94,7 @@ COPY --from=node-builder /app/web/node_modules /app/web/node_modules
 COPY docker/entrypoint.sh docker/do-init.sh docker/do-photogen.sh \
      docker/do-build.sh docker/do-serve.sh docker/do-run.sh docker/do-export.sh docker/do-deploy.sh \
      docker/do-decode.sh docker/do-search-cover.sh docker/do-wrangler.sh docker/do-surge.sh \
+     docker/do-install-ffmpeg.sh \
      docker/ddphotos docker/ddphotos.cmd docker/cloudflare-worker.js \
      web/setup-htdocs.sh bin/deploy-photos.sh bin/test-photos-server.sh /docker/
 RUN chmod +x /docker/*.sh
