@@ -4,6 +4,7 @@
 export interface PhotoSrc {
 	grid: string;
 	full: string;
+	video?: string; // transcoded MP4, e.g. "video/clip.mp4"; videos only
 }
 
 export interface Photo {
@@ -15,6 +16,8 @@ export interface Photo {
 	orientation: string;
 	datetime: string; // ISO 8601 datetime (camera local time, normalized to UTC); empty string if no EXIF date
 	description?: string;
+	kind?: 'video'; // omitted for stills; for a video, src.grid/src.full are the poster frame
+	duration?: number; // seconds; videos only
 	src: PhotoSrc;
 }
 
