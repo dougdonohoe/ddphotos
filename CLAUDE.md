@@ -6,7 +6,8 @@ Makefile targets, CLI flags, etc.).
 
 ## Directory structure sync requirement
 
-If the `albums/` or `build/` directory structure changes, keep these in sync:
+If the `albums/` or `build/` directory structure changes, keep these in sync
+(album dirs currently hold `grid/`, `full/`, `video/`, `cover.jpg` and `index.json`):
 
 - `bin/deploy-photos.sh` — rsync and S3 logic
 - `web/setup-htdocs.sh` — sets up the Apache htdocs directory
@@ -18,6 +19,22 @@ If the `albums/` or `build/` directory structure changes, keep these in sync:
 The Go structs in `pkg/photogen/json.go` (`AlbumIndex`, `AlbumSummary`, `PhotoIndex`, `PhotoSrcIndex`)
 define the JSON schema consumed by the frontend. Their TypeScript counterparts live in
 `web/src/lib/types.ts`. **When changing a JSON field in either place, update the other.**
+
+## Media type sync requirement
+
+`allowedPhotoExtensions` and `allowedVideoExtensions` (`pkg/photogen/album.go`,
+`pkg/photogen/video.go`) are consumed through `IsPhotoFile` / `IsVideoFile` / `IsMediaFile`
+in three semantically different places, and they are **not** interchangeable:
+
+- the source scan and `photogen.txt` caption keys accept **both** (`IsMediaFile`)
+- hero validation accepts **photos only** (`albums_config.go`) — a hero is a libvips crop
+- serving needs a MIME entry per extension in **both** `web/vite.config.ts` (dev, which
+  also needs HTTP Range for video) and `web/src/hooks.server.ts` (prerender), plus a cache
+  rule in `web/static/.htaccess` and `web/nginx.conf`
+
+`~/work/ddphotos-app` has its own `IMAGE_EXTENSION` regex in `PathValidation.java` that
+gates its photo chooser and caption editor. It does not yet know about video, so a `.mov`
+is invisible there even though photogen publishes it.
 
 ## Node/npm version sync requirement
 
