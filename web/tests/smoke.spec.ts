@@ -96,3 +96,22 @@ test('home page has Open Graph image tag pointing to a JPEG', async ({ page }) =
 	// May be hero.jpg (when a hero is configured) or an album cover.jpg.
 	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /\.jpg$/);
 });
+
+test('lightbox top bar has a shade behind its controls', async ({ page }) => {
+	test.skip(!hasAntarctica, 'antarctica album not present');
+	await page.goto('/albums/antarctica');
+	await unlockAlbumIfNeeded(page, 'antarctica', pw);
+	await page.locator('.gallery.layout-ready').waitFor();
+	await page.locator('.photo').first().click();
+	await expect(page.locator('.pswp')).toBeVisible();
+
+	// The counter and the zoom/copy-link/close buttons are white with no background of
+	// their own, so against a bright photo (a pale sky, a whitewashed wall) they were
+	// invisible. A gradient on .pswp__top-bar::before fixes that; assert it is really
+	// applied, since a purely cosmetic rule is easy to drop by accident.
+	const bg = await page
+		.locator('.pswp__top-bar')
+		.evaluate((el) => getComputedStyle(el, '::before').backgroundImage);
+	expect(bg).toContain('gradient');
+	expect(bg).not.toBe('none');
+});
