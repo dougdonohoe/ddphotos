@@ -22,7 +22,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config
+        # ffmpeg here (unlike in docker/Dockerfile, which deliberately omits it) because a
+        # throwaway runner does not care about the 448MB, and without it the video tests
+        # would silently skip rather than run.
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config ffmpeg
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -81,7 +84,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config
+        # ffmpeg here (unlike in docker/Dockerfile, which deliberately omits it) because a
+        # throwaway runner does not care about the 448MB, and without it the video tests
+        # would silently skip rather than run.
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config ffmpeg
 
       - name: Setup Go
         uses: actions/setup-go@v5
