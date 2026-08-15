@@ -105,6 +105,18 @@ add_mount() {
     fi
 }
 
+# ffmpeg lives in a named volume rather than the image, so a one-time download survives
+# --rm containers. Photo-only sites never populate it: photogen fetches ffmpeg only when it
+# actually encounters a video file. See docker/do-install-ffmpeg.sh for why it is not baked
+# into the image (448MB of X11/SDL dependencies, plus GPL redistribution).
+FFMPEG_VOLUME="ddphotos-ffmpeg"
+FFMPEG_DIR="/opt/ddphotos/ffmpeg"
+FFMPEG_FLAGS=(
+    -v "$FFMPEG_VOLUME:$FFMPEG_DIR"
+    -e "DDPHOTOS_FFMPEG_DIR=$FFMPEG_DIR"
+    -e "DDPHOTOS_FFMPEG_INSTALLER=/docker/do-install-ffmpeg.sh"
+)
+
 # True if $1 is an absolute path: a Unix path (/...) or a Windows drive path (C:\... or C:/...).
 is_abs_path() { [[ "$1" == /* ]] || [[ "$1" =~ ^[A-Za-z]:[\\/] ]]; }
 
@@ -503,10 +515,25 @@ case "$cmd" in
         print_mounts
         PHOTOGEN_ENV=(-e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID")
         [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
+        # Mounting the ffmpeg volume costs nothing when it is empty. photogen downloads
+        # into it the first time it actually meets a video, and never otherwise, so a
+        # photo-only site never pays for video support. Same shape as the npm cache volume
+        # used by wrangler and surge below.
         "$DOCKER" run --rm \
+            "${FFMPEG_FLAGS[@]}" \
             "${MOUNT_FLAGS[@]}" \
             "${PHOTOGEN_ENV[@]}" \
             "$IMAGE" photogen "$@"
+        ;;
+
+    install-ffmpeg)
+        # Explicit pre-warm of the ffmpeg volume. Not required: photogen installs on demand.
+        # No -it: this only downloads and never prompts, and requesting a TTY makes it fail
+        # outright when run from a script or a pipe.
+        print_mounts
+        "$DOCKER" run --rm \
+            "${FFMPEG_FLAGS[@]}" \
+            "$IMAGE" install-ffmpeg "$@"
         ;;
 
     build)
@@ -686,6 +713,7 @@ case "$cmd" in
         echo "Config dir:     $CONFIG_HOST_DIR"
         echo "Site ID:        $DDPHOTOS_SITE_ID"
         echo "State dir:      $STATE_DIR"
+        echo "ffmpeg volume:  $FFMPEG_VOLUME -> $FFMPEG_DIR"
         ;;
 
     help|*)
@@ -704,6 +732,11 @@ case "$cmd" in
         echo "  init                Initialize config scaffold"
         echo "                        --script-only  Just install 'ddphotos' script"
         echo "  photogen            Process source photos into albums output"
+        echo "                        Videos (.mov/.mp4/.m4v) are transcoded to web-playable MP4"
+        echo "                        First video run downloads ffmpeg; cached in Docker volume 'ddphotos-ffmpeg'"
+        echo "  install-ffmpeg      Pre-download ffmpeg into Docker volume 'ddphotos-ffmpeg'"
+        echo "                        Optional: photogen does this automatically on its first video"
+        echo "                        --force  Reinstall even if already present"
         echo "  decode [filename]   Decrypt an .enc.json file and print the contents"
         echo "                        --passwords [filename]  Use this passwords file instead of the embedded path"
         echo "  search-cover [url]  Find the original filename for a photo URL"
