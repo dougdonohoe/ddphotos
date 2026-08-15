@@ -149,7 +149,8 @@ func TestResizeImage_InvalidSize(t *testing.T) {
 	outputPath := filepath.Join(tmpDir, "invalid.jpg")
 
 	_, err := ResizeImage(inputPath, outputPath, "invalid", false, false)
-	assert.Error(t, err)
+	// require, not assert: assert would carry on and panic on err.Error() below.
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown image size")
 }
 
