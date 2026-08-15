@@ -7,6 +7,19 @@ import { defineConfig, createLogger } from 'vite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Content types for files served under /albums during dev.
+// Keep in sync with ALBUM_MIME_TYPES in src/hooks.server.ts, which does the same job for
+// the prerender pass.
+const ALBUM_MIME_TYPES: Record<string, string> = {
+	json: 'application/json',
+	webp: 'image/webp',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	mp4: 'video/mp4',
+	xml: 'application/xml',
+	css: 'text/css'
+};
+
 // Parse a shell-style KEY=VALUE env file and apply entries to process.env.
 // Skips blank lines and comments. Strips optional surrounding quotes from values.
 // Existing env vars are never overwritten (first-write wins).
@@ -162,6 +175,13 @@ export default defineConfig({
 				});
 
 				// Serve DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID at /albums/** during dev.
+				//
+				// Content-Type and Range handling are both required for video, and only
+				// here: Apache and nginx do this for free, so a bug at this layer looks
+				// like a broken player rather than a broken dev server. Without a
+				// Content-Type the browser will not treat the response as media, and
+				// without Range support seeking does nothing and Safari refuses to play
+				// the file at all.
 				server.middlewares.use('/albums', (req, res, next) => {
 					const filePath = join(albumsDir, decodeURIComponent(req.url ?? '/'));
 					let stat;
@@ -171,6 +191,34 @@ export default defineConfig({
 						return next();
 					}
 					if (!stat.isFile()) return next();
+
+					const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+					const contentType = ALBUM_MIME_TYPES[ext];
+					if (contentType) res.setHeader('Content-Type', contentType);
+					res.setHeader('Accept-Ranges', 'bytes');
+
+					// "bytes=START-END", either end optional. Anything else is served whole.
+					const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+					if (match && (match[1] !== '' || match[2] !== '')) {
+						const size = stat.size;
+						let start = match[1] === '' ? size - Number(match[2]) : Number(match[1]);
+						let end = match[1] === '' || match[2] === '' ? size - 1 : Number(match[2]);
+						start = Math.max(0, start);
+						end = Math.min(end, size - 1);
+
+						if (start > end) {
+							res.statusCode = 416; // Range Not Satisfiable
+							res.setHeader('Content-Range', `bytes */${size}`);
+							return res.end();
+						}
+
+						res.statusCode = 206;
+						res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+						res.setHeader('Content-Length', String(end - start + 1));
+						return createReadStream(filePath, { start, end }).pipe(res);
+					}
+
+					res.setHeader('Content-Length', String(stat.size));
 					createReadStream(filePath).pipe(res);
 				});
 				// Reload browser when album data changes.
