@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -195,14 +196,22 @@ func (ec *EncryptConfig) RestrictToAlbums(knownSlugs []string) []string {
 // HMAC-SHA256 so that original filenames (e.g. IMG_3961.jpg) cannot be guessed.
 // If HMACKey is empty, falls back to the standard WebP filename.
 func (ec *EncryptConfig) PhotoWebPName(filename string) string {
+	return ec.PhotoOutputName(filename, ".webp")
+}
+
+// PhotoOutputName is PhotoWebPName generalized over the output extension, so that a
+// video's .mp4 is obfuscated by the same HMAC as its poster's .webp rather than leaking
+// the original filename. The HMAC covers only the source filename, so every output
+// derived from one source shares a stem and differs only by extension.
+func (ec *EncryptConfig) PhotoOutputName(filename, outExt string) string {
 	if ec.HMACKey == "" {
-		return WebPFileName(filename)
+		return strings.TrimSuffix(filename, filepath.Ext(filename)) + outExt
 	}
 	mac := hmac.New(sha256.New, []byte(ec.HMACKey))
 	mac.Write([]byte(strings.ToLower(filename)))
 	sum := mac.Sum(nil)
-	return fmt.Sprintf("%x-%x-%x-%x-%x.webp",
-		sum[0:4], sum[4:6], sum[6:8], sum[8:10], sum[10:16])
+	return fmt.Sprintf("%x-%x-%x-%x-%x%s",
+		sum[0:4], sum[4:6], sum[6:8], sum[8:10], sum[10:16], outExt)
 }
 
 // encryptedPayload is the on-disk JSON format for encrypted files.
