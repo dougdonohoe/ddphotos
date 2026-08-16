@@ -59,13 +59,21 @@ type PhotoIndex struct {
 	Orientation string        `json:"orientation"`
 	DateTime    string        `json:"datetime"`              // ISO 8601 datetime (camera local time, normalized to UTC)
 	Description string        `json:"description,omitempty"` // from photogen.txt
+	Kind        string        `json:"kind,omitempty"`        // "video"; omitted entirely for stills
+	Duration    float64       `json:"duration,omitempty"`    // seconds; video only
 	Src         PhotoSrcIndex `json:"src"`
 }
 
+// KindVideo is the PhotoIndex.Kind value marking an entry as a video. Stills omit Kind
+// rather than setting "photo", so existing index.json files stay byte-identical.
+const KindVideo = "video"
+
 // PhotoSrcIndex contains paths to image variants.
+// For a video, Grid and Full are the poster stills and Video is the playable MP4.
 type PhotoSrcIndex struct {
-	Grid string `json:"grid"`
-	Full string `json:"full"`
+	Grid  string `json:"grid"`
+	Full  string `json:"full"`
+	Video string `json:"video,omitempty"` // e.g. "video/clip.mp4"
 }
 
 // AlbumSummary is the structure for each album in albums.json
@@ -114,6 +122,11 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 				Full: ap.relativeSrcPath(SizeFull, photo.FileName),
 			},
 		}
+		if photo.IsVideo {
+			pi.Kind = KindVideo
+			pi.Duration = photo.Duration
+			pi.Src.Video = ap.relativeVideoPath(photo.FileName)
+		}
 		index.Photos = append(index.Photos, pi)
 	}
 
@@ -158,6 +171,11 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 // relativeSrcPath returns the relative path for a photo variant (relative to album dir).
 func (ap *AlbumProcessor) relativeSrcPath(size ImageSize, fileName string) string {
 	return filepath.Join(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, fileName))
+}
+
+// relativeVideoPath returns the relative path for a transcoded video (relative to album dir).
+func (ap *AlbumProcessor) relativeVideoPath(fileName string) string {
+	return filepath.Join(VideoDirName, ap.Config.PhotoOutputName(ap.AlbumConfig.Slug, fileName, ".mp4"))
 }
 
 // GetAlbumSummary returns summary info for albums.json
