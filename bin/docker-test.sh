@@ -232,10 +232,19 @@ step "Photogen: Windows path mapping (container side, real photos)"
 # /mnt/c/Users/test/photos and read the real photos mounted there.
 WIN_OUT_DIR=$(mktempd)
 chmod 755 "$WIN_OUT_DIR"
+# Photos are staged rather than mounting sample/source/theway directly, matching the
+# *.jpg copy in the absolute-path test above. The sample album also holds a video, and
+# this step deliberately bypasses the ddphotos wrapper to exercise a bare `docker run` —
+# so it has none of the ffmpeg volume and installer env the wrapper supplies, and a
+# video would fail the run. Path translation is what is under test here, not video.
+WIN_PHOTOS_DIR=$(mktempd)
+mkdir -p "$WIN_PHOTOS_DIR/theway"
+/bin/cp "$REPO_ROOT"/sample/source/theway/*.jpg "$WIN_PHOTOS_DIR/theway/"
+chmod -R 755 "$WIN_PHOTOS_DIR"
 docker run --rm \
     -v "$WIN_OUT_DIR":/ddphotos \
     -v "$WIN_CONFIG_DIR":/ddphotos-config:ro \
-    -v "$REPO_ROOT/sample/source/theway":/mnt/c/Users/test/photos/theway:ro \
+    -v "$WIN_PHOTOS_DIR/theway":/mnt/c/Users/test/photos/theway:ro \
     -e DDPHOTOS_CONFIG_DIR=/ddphotos-config \
     -e DDPHOTOS_SITE_ID=test-winpath \
     "$IMAGE" photogen
