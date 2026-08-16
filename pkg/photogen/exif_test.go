@@ -21,6 +21,9 @@ func TestAnnotateImageLoadErr(t *testing.T) {
 	t.Run("unrelated error is unchanged", func(t *testing.T) {
 		orig := errors.New("no such file or directory")
 		got := annotateImageLoadErr(orig)
+		// require before every deref below: the subtest above proves this function can
+		// return nil, so an assert here would carry on and panic on got.Error().
+		require.Error(t, got)
 		assert.Equal(t, orig, got)
 		assert.NotContains(t, got.Error(), "cloud-storage")
 	})
@@ -38,6 +41,7 @@ func TestAnnotateImageLoadErr(t *testing.T) {
 	t.Run("typed EDEADLK errno gets a hint", func(t *testing.T) {
 		orig := fmt.Errorf("read x.jpg: %w", syscall.EDEADLK)
 		got := annotateImageLoadErr(orig)
+		require.Error(t, got)
 		assert.Contains(t, got.Error(), "cloud-storage")
 	})
 }
@@ -119,7 +123,7 @@ func TestReadPhotoMetadata(t *testing.T) {
 
 func TestReadPhotoMetadata_FileNotFound(t *testing.T) {
 	_, err := ReadPhotoMetadata("/nonexistent/path/photo.jpg")
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestReadPhotoMetadata_RealImages(t *testing.T) {
@@ -183,6 +187,46 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			// Values served from the cache, including across a save/load round trip, must
 			// match the direct read exactly. Dimensions in particular are post-AutoRotate
 			// canonical values, so a cache that lost the rotation would show up here.
+			cachePath := filepath.Join(t.TempDir(), MetaCacheFileName)
+			mc := NewMetaCache(cachePath)
+
+			fresh, err := mc.Metadata(path)
+			require.NoError(t, err)
+			assert.Equal(t, meta, fresh, "cache miss must match a direct read")
+
+			cached, err := mc.Metadata(path)
+			require.NoError(t, err)
+			assert.Equal(t, meta, cached, "cache hit must match a direct read")
+
+			require.NoError(t, mc.Save())
+			reloaded, err := LoadMetaCache(cachePath).Metadata(path)
+			require.NoError(t, err)
+			assert.Equal(t, meta, reloaded, "reloaded cache must match a direct read")
+		})
+	}
+}
+
+// TestReadVideoMetadata_Cached mirrors the cache round trip in
+// TestReadPhotoMetadata_RealImages, for video.
+//
+// Duration is the field metaCacheVersion was bumped for, and it is the one that can only
+// break on the *second* run: a cache that dropped it would leave every video reporting
+// zero seconds, showing 0:00 on the grid badge, while a fresh checkout looked perfect.
+//
+// portrait-rotated.mov earns its place here for the same reason the photo test calls out
+// AutoRotate: its dimensions are rotation-corrected (240x320, not the stored 320x240), so
+// a cache that round-tripped the raw ffprobe numbers would surface here.
+func TestReadVideoMetadata_Cached(t *testing.T) {
+	requireVideoTools(t)
+
+	for _, name := range []string{"landscape.mov", "portrait-rotated.mov"} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join("testdata", name)
+
+			meta, err := ReadMediaMetadata(path)
+			require.NoError(t, err)
+			require.Positive(t, meta.Duration, "fixture needs a duration or this proves nothing")
+
 			cachePath := filepath.Join(t.TempDir(), MetaCacheFileName)
 			mc := NewMetaCache(cachePath)
 
