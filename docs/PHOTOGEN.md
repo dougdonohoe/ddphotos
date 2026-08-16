@@ -118,6 +118,144 @@ To also use the file for **sort order** (instead of EXIF date), set
 `manual_sort_order: true` on the album entry in `albums.yaml`. Photos not
 listed in `photogen.txt` are sorted by date and appended at the end.
 
+## Video
+
+Videos placed alongside photos in a source folder become album items: the grid shows a
+still frame with a play badge and the duration, and clicking one opens it in the lightbox
+with normal HTML5 controls.
+
+Supported source extensions: **`.mov`, `.mp4`, `.m4v`**.
+
+In the lightbox the video starts muted with the browser's native controls, and **space
+toggles play/pause**. Arrow keys and Escape keep their usual meaning, so a video slide
+navigates like any other. Zoom is deliberately disabled on video slides (button, double-tap,
+pinch and the `z` key): zooming scales the element, which would enlarge the browser's control
+bar along with the picture and push play and scrub off-screen.
+
+### Why videos are always re-encoded
+
+Phone video is routinely **HEVC in a `.mov` container**, which does not play in Chrome or
+Firefox. Re-encoding is therefore a correctness requirement, not a size optimization:
+copying the original through would produce an album that plays for some visitors and not
+others. Every video is transcoded to:
+
+| Part      | Encoding                                                                            |
+|-----------|-------------------------------------------------------------------------------------|
+| Container | MP4, `-movflags +faststart` so playback starts before the file finishes downloading |
+| Video     | H.264 High profile, `yuv420p`, CRF 23, long edge capped at 1280                     |
+| Audio     | AAC-LC 128k stereo, kept when present                                               |
+
+One measured example: a ten-second 1080p iPhone clip went from 17 MB in to 3 MB out. The
+output size varies a great deal with the content, so see [Size limits](#size-limits)
+before assuming a number.
+
+### Output layout
+
+Each video produces three files, in addition to its `index.json` entry:
+
+```
+albums/<site-id>/<album>/
+    video/<name>.mp4      # the transcoded, playable video
+    grid/<name>.webp      # poster frame, 600px  (identical ladder to a photo)
+    full/<name>.webp      # poster frame, 1600px
+```
+
+The poster frame is extracted with ffmpeg and then run through the **same** WebP pipeline
+as every other image, so it picks up the same quality settings and metadata stripping. In
+an encrypted album all three outputs share one HMAC-derived stem, computed from the
+original filename, so nothing leaks the source name and the clip and its posters still
+line up.
+
+The poster is taken one second in, or at the midpoint of anything shorter than two
+seconds, which skips the fade-in and autofocus hunting most clips open with.
+
+Videos appear in `index.json` with `kind`, `duration` and an extra `src` entry; a still
+carries none of the three:
+
+```json
+{
+  "fileName": "beach.mov",
+  "width": 1280, "height": 720,
+  "kind": "video",
+  "duration": 10.17,
+  "src": { "grid": "grid/beach.webp", "full": "full/beach.webp", "video": "video/beach.mp4" }
+}
+```
+
+`width`/`height` are the **displayed** dimensions. Phone video stores rotation as a display
+matrix rather than rotated pixels, so a portrait clip probes as 1920x1080 with a rotation of
+±90; photogen swaps the two, otherwise portrait clips would lay out as landscape boxes in
+the grid.
+
+### Captions, ordering and covers
+
+Captions work exactly as for photos: name the clip in `photogen.txt`, with or without its
+extension. The date used for sorting comes from the container's `creation_time` tag rather
+than EXIF.
+
+A video **can** be an album cover (its poster is used for `cover.jpg`), but it **cannot**
+be the site hero image, which must be a still.
+
+### Live Photos and other same-name pairs
+
+A photo's ID is its filename with the extension removed, so two files in one folder whose
+names differ only by extension collide. `photogen` **fails the run** and names the pair:
+
+```
+/photos/iceland: 1 duplicate photo ID(s) — these source files differ only by extension,
+so they would produce the same output file. Rename one of each pair:
+    "img_1234": IMG_1234.HEIC, IMG_1234.MOV
+```
+
+This matters most for **Apple Live Photos**, which export as a `.HEIC` and a `.MOV`
+sharing one stem. Rename one side (`IMG_1234-clip.MOV`) to publish both, or delete the
+one you do not want.
+
+The check is not specific to video: two stills such as `photo.jpg` and `photo.png` collide
+the same way. Video simply makes the situation common, because a folder exported from
+Photos now has clips in it that `photogen` will pick up.
+
+### ffmpeg
+
+Video support needs `ffmpeg` and `ffprobe`. Photo-only sites never need them and are
+unaffected.
+
+- **Docker:** nothing to do. The first run that encounters a video downloads a pinned
+  static build into the `ddphotos-ffmpeg` Docker volume, where it persists for later runs.
+  Run `ddphotos install-ffmpeg` to fetch it ahead of time, or `--force` to reinstall.
+- **Native:** `brew install ffmpeg` (macOS) or `sudo apt-get install ffmpeg` (Linux).
+  Anything on `PATH` is used as-is and nothing is downloaded.
+
+ffmpeg is deliberately **not** bundled in the Docker image. The Debian package pulls in 200
+packages and 448 MB, nearly all of it SDL2/X11/Wayland required by `ffplay`, with no way to
+opt out; every photo-only user would carry that. Downloading at first use on the user's own
+machine also avoids redistributing a GPL `libx264` build.
+
+Override the lookup with `DDPHOTOS_FFMPEG_DIR` (a directory holding both executables) or
+`DDPHOTOS_FFMPEG` / `DDPHOTOS_FFPROBE` (exact paths).
+
+### Size limits
+
+Videos are large, and one deploy target caps them: **Cloudflare Pages rejects any single
+asset over 25 MiB**. S3/CloudFront, rsync and Surge have no such limit.
+
+How much footage fits in 25 MiB depends heavily on the content, because CRF targets a
+quality level rather than a bitrate. Two clips from the sample site, both at the settings
+above:
+
+| Clip                      | Bitrate  | 25 MiB is about |
+|---------------------------|----------|-----------------|
+| Penguins, 640x480, static | 1.8 Mbps | 115 seconds     |
+| Ocean waves, 1280x720     | 5.4 Mbps | 40 seconds      |
+
+So treat "about a minute" as the planning figure and do not rely on it: water, foliage,
+rain and fast pans all cost far more than a locked-off shot. photogen prints a warning
+naming any file that crosses the limit, because the resulting deploy failure otherwise
+happens far from its cause. The warning is printed when a video is transcoded, so a re-run
+that skips an up-to-date file stays quiet — the file is still too large.
+
+See [DEPLOYMENT-SERVERS.md](DEPLOYMENT-SERVERS.md).
+
 ## Recursive Albums (`recurse: true`)
 
 Set `recurse: true` on an album entry to collect photos from all subdirectories.

@@ -46,6 +46,21 @@ Note the package is `libvips-dev`, not `vips` - the headers are needed to compil
 `photogen`. The `build-essential` package supplies the C compiler that `cgo` requires, and is often
 already installed. The `libheif` library is needed for HEIC/HEIF decoding (iPhone photos).
 
+### ffmpeg (only if you have videos)
+
+Video albums need `ffmpeg` and `ffprobe` on `PATH`. Skip this unless you have videos to
+publish: photo-only sites never look for them.
+
+```bash
+brew install ffmpeg              # macOS
+sudo apt-get install ffmpeg      # Debian/Ubuntu
+```
+
+Docker users need none of this: the image fetches ffmpeg on demand into a cached volume.
+See [Video](PHOTOGEN.md#video) for details, including `DDPHOTOS_FFMPEG_DIR` if you want to
+point at a build somewhere other than `PATH`. The video tests in `make test` skip
+themselves when ffmpeg is absent.
+
 #### A note on apt's Go version
 
 `apt`'s Go is frequently older than the `go` directive in `go.mod` (Ubuntu 24.04 LTS ships

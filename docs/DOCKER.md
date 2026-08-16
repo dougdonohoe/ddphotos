@@ -218,6 +218,30 @@ ddphotos photogen -- -hero-only
 
 See [photogen CLI Flags](PHOTOGEN.md#cli-flags) for all `photogen` flags.
 
+Source videos (`.mov`, `.mp4`, `.m4v`) are transcoded to web-playable MP4 alongside the
+photos. The first run that meets a video downloads ffmpeg into the `ddphotos-ffmpeg` Docker
+volume, where it stays for later runs; a photo-only site never downloads anything. See
+[Video](PHOTOGEN.md#video) and [`install-ffmpeg`](#install-ffmpeg).
+
+### `install-ffmpeg`
+
+Pre-downloads ffmpeg into the `ddphotos-ffmpeg` Docker volume. Optional: `photogen` does
+this automatically the first time it encounters a video.
+
+```bash
+ddphotos install-ffmpeg
+ddphotos install-ffmpeg --force   # reinstall over an existing copy
+```
+
+| Aspect       | Detail                                                                                  |
+|--------------|-----------------------------------------------------------------------------------------|
+| Cache        | Docker volume `ddphotos-ffmpeg`, mounted at `/opt/ddphotos/ffmpeg`                      |
+| Download     | A pinned static build, verified against a recorded SHA-256, roughly 120 MB              |
+| Image impact | None: ffmpeg is deliberately not baked into the image (see [Video](PHOTOGEN.md#ffmpeg)) |
+
+To reclaim the space, `docker volume rm ddphotos-ffmpeg`. It is re-downloaded on the next
+run that needs it.
+
 ### `run`
 
 Starts a Vite dev server at http://localhost:5173. Live-reloads on template/CSS changes.

@@ -69,6 +69,9 @@ you see a grid of all photos.  Click/touch a photo to see the full size version 
 a caption, if it has one. You can easily swipe between photos (or use
 arrow keys on a laptop).  It works great on mobile, tablet, and desktop.
 
+Videos sit in the same grid as your photos, marked with a play badge and their length,
+and play right where the full size photo would appear.
+
 Here's what it looks like on a big display (see [Screenshots](docs/SCREENSHOTS.md) for larger versions):
 
 ![screenshots.png](images/screenshots.png)
@@ -79,7 +82,7 @@ The idea is that you already use _something else_ to curate and filter your phot
 is Adobe Lightroom Classic (my tool).  Or maybe it is Apple Photos or Google Photos.
 It doesn't matter, but once you get a selection of photos that comprise an album,
 you export the photos into a folder.  All the photos in a folder make up an album.
-It's that simple.
+Any videos in that folder are included too.  It's that simple.
 
 You can create an optional `photogen.txt` file in each album folder to
 define captions for each photo.  This file can also be used to define the
@@ -89,8 +92,8 @@ With DD Photos, you define where your albums live in an `albums.yaml` file.
 Each album entry can include a short `description:` field shown on the home page.
 
 Once you have defined where your photos live, you run the `photogen` tool,
-which resizes the photos for web viewing and generates index files that
-the web app uses.
+which resizes the photos for web viewing, converts any videos to a format every
+browser can play, and generates index files that the web app uses.
 
 That's it.  You can now view your photo albums on your machine using the dev server.
 
@@ -111,6 +114,9 @@ Website features:
   lightbox and returns to home page from album page.
 - Optional per-photo descriptions via `photogen.txt`: used as image `alt` text, grid
   mouse-hover caption (desktop), always-visible caption (mobile), and lightbox caption.
+- Video support (`.mov`, `.mp4`, `.m4v`): clips appear in the grid with a play badge and
+  their duration, and play in the lightbox with the browser's own controls. Space toggles
+  play/pause, and captions work exactly as they do for photos.
 - Each album has a human-readable URL (e.g., `/albums/antarctica`).
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Optional hero image: a full-width banner at the top of the home page, specified in
@@ -133,6 +139,12 @@ Website features:
 Backend features:
 
 - Two efficient WebP image sizes created: `grid` (600px) and `full` (1600px).
+- Videos are re-encoded to H.264/AAC MP4 (1280px long edge), which is the only combination
+  every browser plays: phone clips are usually HEVC, which Chrome and Firefox refuse. A
+  poster frame is extracted and run through the same two WebP sizes as a photo, so the grid
+  treats videos and stills identically.
+- `ffmpeg` is downloaded on demand the first time a video is seen, and cached. Photo-only
+  sites never download it and gain no new dependency.
 - EXIF metadata extraction (dimensions, date) stored in JSON.
 - All image metadata stripped from WebP output (smaller files, no GPS leak).
 - Concurrent image resizing via goroutines (buffered channel, WaitGroup).
@@ -140,15 +152,16 @@ Backend features:
 - Optionally use `photogen.txt` to override sort order (default is by capture date).
 - Recursive album support: set `recurse: true` to collect photos from subdirectories, 
   with automatic filename prefixing to avoid collisions.
-- WebP filenames for encrypted albums are HMAC-derived, preventing filename guessing
-  even if the original source filename is known.
+- WebP and MP4 filenames for encrypted albums are HMAC-derived, preventing filename
+  guessing even if the original source filename is known.
 
 ## Tech Details
 
 The `photogen` Go program (`cmd/photogen/photogen.go`) resizes your photos to WebP
 format and generates the JSON index files (`albums.json`, per-album `index.json`) 
 that are consumed by the frontend.  It also generates a `sitemap.xml` file that
-identifies each album.
+identifies each album.  Videos are transcoded with `ffmpeg`, which `photogen` fetches
+the first time it meets one; nothing is downloaded for a site without video.
 
 The site (in `web`, a Node.js app) is built with SvelteKit and statically generated. 
 The HTML shell and assets are pre-built files served directly by a web server, with photo data 
@@ -168,7 +181,7 @@ These documents are primarily meant for users of DD Photos:
 |--------------------------------------------------------|--------------------------------------------------------------------------------------|
 | [Docker Mode](docs/DOCKER.md)                          | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                  |
 | [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `customization.yaml`, `site.env`, and how config reaches the frontend |
-| [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, recursive albums                          |
+| [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, video, recursive albums                   |
 | [Rebuilding a Site](docs/SCRAPE.md)                    | Turn a deployed site back into a config directory you can build                      |
 | [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                               |
 | [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, CloudFront, and Cloudflare Pages routing rules                        |
