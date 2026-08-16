@@ -26,6 +26,18 @@ function resolveAlbumsDir(): string {
 }
 const albumsDir = resolveAlbumsDir();
 
+// Content types for files under /albums. Kept as a map so the prerender path and the dev
+// server middleware in vite.config.ts agree on what a given extension is.
+const ALBUM_MIME_TYPES: Record<string, string> = {
+	json: 'application/json',
+	webp: 'image/webp',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	mp4: 'video/mp4',
+	xml: 'application/xml',
+	css: 'text/css'
+};
+
 // During prerender, SvelteKit fetch('/albums/...') calls never hit a real server.
 // Intercept them and read directly from the filesystem instead.
 export const handleFetch: HandleFetch = async ({ request, fetch }) => {
@@ -35,12 +47,7 @@ export const handleFetch: HandleFetch = async ({ request, fetch }) => {
 		if (existsSync(filePath)) {
 			const body = readFileSync(filePath);
 			const ext = filePath.split('.').pop() ?? '';
-			const contentType =
-				ext === 'json'
-					? 'application/json'
-					: ext === 'webp'
-						? 'image/webp'
-						: 'application/octet-stream';
+			const contentType = ALBUM_MIME_TYPES[ext] ?? 'application/octet-stream';
 			return new Response(body, { headers: { 'Content-Type': contentType } });
 		}
 	}

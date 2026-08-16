@@ -242,3 +242,72 @@ export async function waitForHydration(page: Page): Promise<void> {
 		await page.locator('.gallery.layout-ready').waitFor();
 	}
 }
+
+/**
+ * A video found in the published album data.
+ */
+export interface FoundVideo {
+	slug: string;
+	index: number; // 0-based position in the album, matching .photo nth()
+	duration: number;
+	videoUrl: string; // absolute path, e.g. /albums/trip/video/clip.mp4
+	posterUrl: string;
+}
+
+/**
+ * Find a video published anywhere on the site under test.
+ *
+ * Video tests are content-driven like the rest of the suite: they run against whatever
+ * albums the site actually has, rather than hardcoding a fixture album. Returns null when
+ * nothing is found, which callers turn into a test.skip.
+ *
+ * A captioned video wins over an uncaptioned one, so the caption-geometry test gets
+ * something to measure whenever the site has any captioned clip at all. Without that
+ * preference the search stops at the first video in album order, and one uncaptioned clip
+ * earlier in the site is enough to silently skip that test.
+ *
+ * Encrypted sites publish index.enc.json, which cannot be read without the password, so
+ * this returns null there and the video tests skip. That is deliberate: the encrypted
+ * variants already cover the password machinery, and video adds nothing to it beyond the
+ * filename obfuscation, which the Go tests pin.
+ */
+export async function findVideo(request: APIRequestContext): Promise<FoundVideo | null> {
+	try {
+		const albumsResp = await request.get('/albums/albums.json');
+		if (!albumsResp.ok()) return null;
+		const albums: { slug: string; count: number }[] = await albumsResp.json();
+
+		let fallback: FoundVideo | null = null;
+
+		for (const album of albums) {
+			if (!album.count) continue;
+			const resp = await request.get(`/albums/${album.slug}/index.json`);
+			if (!resp.ok()) continue;
+			const index: {
+				photos: {
+					kind?: string;
+					duration?: number;
+					description?: string;
+					src: { video?: string; full: string };
+				}[];
+			} = await resp.json();
+
+			for (let i = 0; i < index.photos.length; i++) {
+				const photo = index.photos[i];
+				if (photo.kind !== 'video' || !photo.src.video) continue;
+				const found: FoundVideo = {
+					slug: album.slug,
+					index: i,
+					duration: photo.duration ?? 0,
+					videoUrl: `/albums/${album.slug}/${photo.src.video}`,
+					posterUrl: `/albums/${album.slug}/${photo.src.full}`
+				};
+				if (photo.description) return found;
+				fallback ??= found;
+			}
+		}
+		return fallback;
+	} catch {
+		return null;
+	}
+}

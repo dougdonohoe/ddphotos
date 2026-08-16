@@ -162,6 +162,14 @@ function handler(event) {
 
 ## Cloudflare Pages Worker
 
+> **Video size limit.** Cloudflare Pages rejects any single asset larger than **25 MiB**, so
+> a long clip fails the deploy. How long is too long depends on the footage, not just its
+> duration: at photogen's settings a static shot runs to roughly two minutes, while heavy
+> motion can cross the limit in under 40 seconds. photogen warns about any file over the
+> limit when it transcodes it. S3/CloudFront, rsync and Surge have no equivalent cap. To
+> publish longer video on Cloudflare Pages, shorten the clip or host the file elsewhere.
+> See [Size limits](PHOTOGEN.md#size-limits).
+
 When deploying to [Cloudflare Pages↗](https://pages.cloudflare.com), a `_worker.js` in the
 export root handles URL routing — the equivalent of the CloudFront Function above.
 

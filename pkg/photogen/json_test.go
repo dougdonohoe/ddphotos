@@ -188,6 +188,153 @@ func TestWriteAlbumIndex(t *testing.T) {
 	})
 }
 
+// makeVideoAP builds a processor whose album holds one still and one video. Nothing here
+// touches ffmpeg: WriteAlbumIndex only formats paths and metadata, so these run everywhere.
+func makeVideoAP(dir string, encrypt *EncryptConfig) *AlbumProcessor {
+	return &AlbumProcessor{
+		Config: &Config{
+			OutputRoot: dir,
+			SiteID:     "testsite",
+			Encrypt:    encrypt,
+			Warn:       &WarnCollector{},
+		},
+		AlbumConfig: &AlbumConfig{Slug: "myalbum", Name: "My Album"},
+		Photos: []*Photo{
+			{ID: "photo1", FileName: "photo1.jpg", PhotoMetadata: &PhotoMetadata{Width: 100, Height: 200}},
+			{
+				ID: "clip", FileName: "clip.mov", IsVideo: true,
+				PhotoMetadata: &PhotoMetadata{Width: 1280, Height: 720, Duration: 6.5},
+			},
+		},
+	}
+}
+
+// TestWriteAlbumIndexVideo pins the JSON contract with the frontend. The three fields added
+// for video (kind, duration, src.video) are what web/src/lib/types.ts mirrors, so a silent
+// change here breaks the grid badge and the lightbox player with no Go-side failure.
+func TestWriteAlbumIndexVideo(t *testing.T) {
+	t.Parallel()
+
+	t.Run("video entry carries kind, duration and a video src", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeVideoAP(dir, nil).WriteAlbumIndex())
+
+		idx, err := LoadAlbumIndex(filepath.Join(dir, "testsite", "myalbum", "index.json"))
+		require.NoError(t, err)
+		require.Len(t, idx.Photos, 2)
+
+		v := idx.Photos[1]
+		assert.Equal(t, KindVideo, v.Kind)
+		assert.InDelta(t, 6.5, v.Duration, 0.001)
+		assert.Equal(t, filepath.Join("video", "clip.mp4"), v.Src.Video)
+
+		// Grid and full stay populated: for a video they are the poster stills, which is
+		// what lets the justified grid treat videos and photos identically.
+		assert.Equal(t, filepath.Join("grid", "clip.webp"), v.Src.Grid)
+		assert.Equal(t, filepath.Join("full", "clip.webp"), v.Src.Full)
+	})
+
+	t.Run("a still emits no kind, duration or video key at all", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeVideoAP(dir, nil).WriteAlbumIndex())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "myalbum", "index.json"))
+		require.NoError(t, err)
+
+		// Asserted on the raw bytes, not the decoded struct: the omitempty tags are the
+		// actual promise, that adding video leaves a photo-only index byte-identical to
+		// what previous releases produced. A decoded zero value cannot tell the
+		// difference between "key absent" and "key present and empty".
+		var entries []map[string]any
+		var raw struct {
+			Photos []map[string]any `json:"photos"`
+		}
+		require.NoError(t, json.Unmarshal(data, &raw))
+		entries = raw.Photos
+		require.Len(t, entries, 2)
+
+		for _, key := range []string{"kind", "duration"} {
+			_, present := entries[0][key]
+			assert.False(t, present, "a still must not emit %q", key)
+		}
+		src, ok := entries[0]["src"].(map[string]any)
+		require.True(t, ok)
+		_, present := src["video"]
+		assert.False(t, present, "a still must not emit src.video")
+
+		// And the video entry proves the assertion above is not vacuous.
+		assert.Equal(t, KindVideo, entries[1]["kind"])
+	})
+
+	t.Run("album cover for a video is its poster, never the container", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ap := makeVideoAP(dir, nil)
+		ap.Photos = ap.Photos[1:] // video first, so it becomes the cover
+		require.NoError(t, ap.WriteAlbumIndex())
+
+		idx, err := LoadAlbumIndex(filepath.Join(dir, "testsite", "myalbum", "index.json"))
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join("grid", "clip.webp"), idx.Cover)
+		assert.NotContains(t, idx.Cover, ".mov", "the cover must be an image the browser can render")
+	})
+
+	t.Run("encrypted album hashes the video and its poster to the same stem", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		// A password, not just an HMAC key: Config.PhotoOutputName obfuscates only when
+		// IsAlbumEncrypted, and a key-only file is deliberately not encrypted.
+		encrypt := &EncryptConfig{HMACKey: "test-key", SitePassword: "site-pass"}
+		require.NoError(t, makeVideoAP(dir, encrypt).WriteAlbumIndex())
+
+		blob, err := os.ReadFile(filepath.Join(dir, "testsite", "myalbum", "index.enc.json"))
+		require.NoError(t, err)
+		plain, err := DecryptJSON(blob, "site-pass")
+		require.NoError(t, err)
+
+		var idx AlbumIndex
+		require.NoError(t, json.Unmarshal(plain, &idx))
+		require.Len(t, idx.Photos, 2)
+		v := idx.Photos[1]
+		assert.Equal(t, KindVideo, v.Kind, "kind survives encryption")
+
+		assert.NotContains(t, v.Src.Video, "clip", "the source name must be obfuscated")
+		assert.Equal(t, ".mp4", filepath.Ext(v.Src.Video))
+		assert.Equal(t, ".webp", filepath.Ext(v.Src.Grid))
+
+		// One HMAC stem shared across all three outputs. If the video hashed its own ".mp4"
+		// name it would land on a different stem than the poster, and nothing would notice
+		// until the browser 404'd on a file photogen never wrote under that name.
+		stem := func(p string) string {
+			b := filepath.Base(p)
+			return b[:len(b)-len(filepath.Ext(b))]
+		}
+		assert.Equal(t, stem(v.Src.Grid), stem(v.Src.Video))
+		assert.Equal(t, stem(v.Src.Full), stem(v.Src.Video))
+	})
+
+	t.Run("video fields survive a Save/Load round trip", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		require.NoError(t, makeVideoAP(dir, nil).WriteAlbumIndex())
+
+		original, err := LoadAlbumIndex(filepath.Join(dir, "testsite", "myalbum", "index.json"))
+		require.NoError(t, err)
+
+		path := filepath.Join(t.TempDir(), "index.json")
+		require.NoError(t, original.Save(path))
+		roundtrip, err := LoadAlbumIndex(path)
+		require.NoError(t, err)
+
+		require.Len(t, roundtrip.Photos, len(original.Photos))
+		for i, p := range original.Photos {
+			assert.Equal(t, p, roundtrip.Photos[i])
+		}
+	})
+}
+
 func makeSiteCfg(dir string, encrypt *EncryptConfig) *Config {
 	return &Config{OutputRoot: dir, SiteID: "testsite", Encrypt: encrypt, Warn: &WarnCollector{}}
 }

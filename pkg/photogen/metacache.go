@@ -10,13 +10,14 @@ import (
 
 // metaCacheVersion is the on-disk schema version. Bump it whenever the shape of
 // metaCacheEntry or PhotoMetadata changes; a mismatch discards the whole file.
-const metaCacheVersion = 1
+const metaCacheVersion = 2
 
 // MetaCacheFileName is the cache file written under {OutputRoot}/.build/.
 const MetaCacheFileName = "metadata-cache.json"
 
 // MetaCache caches PhotoMetadata keyed by absolute source path so that re-runs skip
-// the libvips decode in ReadPhotoMetadata for source files that have not changed.
+// the decode in ReadMediaMetadata for source files that have not changed. For video the
+// saving is far larger than for photos, since the alternative is an ffprobe subprocess.
 //
 // Reading metadata is the dominant cost of a run with nothing to resize: resizing
 // already short-circuits on an os.Stat of the output file, but every photo was
@@ -26,7 +27,7 @@ const MetaCacheFileName = "metadata-cache.json"
 // site ID under the same albums directory.
 //
 // A nil *MetaCache is valid and means "no caching": Metadata falls through to
-// ReadPhotoMetadata and Save does nothing.
+// ReadMediaMetadata and Save does nothing.
 type MetaCache struct {
 	mu      sync.Mutex
 	path    string
@@ -175,13 +176,13 @@ func (mc *MetaCache) RecordDerived(outputPath, sourcePath, variant string) {
 
 // Metadata returns the metadata for the photo at path, reading it from the cache when
 // the source file's modification time and size are unchanged and decoding it via
-// ReadPhotoMetadata otherwise. Safe for concurrent use, and safe on a nil receiver.
+// ReadMediaMetadata otherwise. Safe for concurrent use, and safe on a nil receiver.
 func (mc *MetaCache) Metadata(path string) (*PhotoMetadata, error) {
 	if mc == nil {
-		return ReadPhotoMetadata(path)
+		return ReadMediaMetadata(path)
 	}
 
-	// A failed stat is not fatal here: fall through and let ReadPhotoMetadata report
+	// A failed stat is not fatal here: fall through and let ReadMediaMetadata report
 	// the real problem with the file.
 	var modNano, size int64
 	stat, statErr := os.Stat(path)
@@ -202,7 +203,7 @@ func (mc *MetaCache) Metadata(path string) (*PhotoMetadata, error) {
 		}
 	}
 
-	meta, err := ReadPhotoMetadata(path)
+	meta, err := ReadMediaMetadata(path)
 	if err != nil {
 		return nil, err
 	}

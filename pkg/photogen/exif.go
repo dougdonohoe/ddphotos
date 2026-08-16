@@ -39,16 +39,27 @@ func init() {
 	exit.PanicOnError(vips.Startup(nil))
 }
 
-// PhotoMetadata holds extracted image metadata.
+// PhotoMetadata holds extracted media metadata. Despite the name it covers video too;
+// Duration is the only field that does not apply to a still image.
 type PhotoMetadata struct {
 	Width       int       `json:"width"`
 	Height      int       `json:"height"`
 	Orientation string    `json:"orientation"` // "portrait", "landscape", "square"
 	DateTaken   time.Time `json:"dateTaken"`
+	Duration    float64   `json:"duration,omitempty"` // seconds; video only
 }
 
-// ReadPhotoMetadata extracts dimensions, orientation, and date taken.
-// Uses govips for dimensions and goexif for date.
+// ReadMediaMetadata reads metadata for any supported source file, dispatching on extension.
+// libvips cannot open a video container, so a .mov must never reach ReadPhotoMetadata.
+func ReadMediaMetadata(path string) (*PhotoMetadata, error) {
+	if IsVideoFile(path) {
+		return ReadVideoMetadata(path)
+	}
+	return ReadPhotoMetadata(path)
+}
+
+// ReadPhotoMetadata extracts dimensions, orientation, and date taken from a still image.
+// Uses govips for dimensions and libvips' EXIF fields for the date.
 func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 	img, err := vips.LoadImageFromFile(path, nil)
 	if err != nil {
@@ -76,7 +87,7 @@ func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 }
 
 // readDateTaken extracts the photo capture date from EXIF data via libvips, which reads
-// EXIF from any container format (JPEG, TIFF, HEIC, etc).
+// EXIF from any container format (JPEG, TIFF, HEIC, etc.).
 // Tries DateTimeOriginal first, then DateTimeDigitized, then DateTime (TIFF tag
 // often set by image editors like Photoshop). Returns zero time if no date found.
 func readDateTaken(img *vips.ImageRef) time.Time {

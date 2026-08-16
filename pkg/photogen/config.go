@@ -141,10 +141,19 @@ func (c *Config) SiteOutputPath(parts ...string) string {
 // UUID-format names are only used when the album has an effective password;
 // public albums always use the original WebP filename.
 func (c *Config) PhotoWebPName(slug, filename string) string {
+	return c.PhotoOutputName(slug, filename, ".webp")
+}
+
+// PhotoOutputName returns the output filename for a derived artifact of a source file,
+// with the given extension. A video uses it once for the .mp4 and once per image size
+// (via PhotoWebPName) for the poster stills. Every call is derived from the original
+// source filename, so an encrypted album's MP4 and posters share an unguessable stem.
+func (c *Config) PhotoOutputName(slug, filename, outExt string) string {
 	if c.IsAlbumEncrypted(slug) {
-		return c.Encrypt.PhotoWebPName(filename)
+		return c.Encrypt.PhotoOutputName(filename, outExt)
 	}
-	return WebPFileName(filename)
+	ext := filepath.Ext(filename)
+	return filename[:len(filename)-len(ext)] + outExt
 }
 
 // IsSiteEncrypted reports whether the site-wide password is configured.

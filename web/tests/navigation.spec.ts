@@ -24,12 +24,18 @@ import {
 
 const pw = loadPasswords();
 
+// Two thresholds, because the tests below need different amounts of content: the
+// cross-album tests hop between two albums, the multi-album one needs a third to prove
+// state stays correct past the first hop.
+let twoAlbums = true;
 let threeAlbums = true;
 test.beforeAll(async ({ request }) => {
+	twoAlbums = await hasAtLeastNAlbums(request, 2);
 	threeAlbums = await hasAtLeastNAlbums(request, 3);
 });
 
 test('navigating from one album to another shows correct content', async ({ page }) => {
+	test.skip(!twoAlbums, 'fewer than 2 albums');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 
@@ -56,6 +62,7 @@ test('navigating from one album to another shows correct content', async ({ page
 });
 
 test('lightbox works correctly after cross-album navigation', async ({ page }) => {
+	test.skip(!twoAlbums, 'fewer than 2 albums');
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 

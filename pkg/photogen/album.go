@@ -1,9 +1,11 @@
 package photogen
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -52,6 +54,7 @@ type Photo struct {
 	AbsolutePath string `json:"-"`
 	SourcePath   string `json:"sourcePath"` // relative path from album source base directory to the original source file
 	Description  string `json:"description,omitempty"`
+	IsVideo      bool   `json:"-"` // true when the source is a video container rather than a still
 	*PhotoMetadata
 }
 
@@ -67,7 +70,12 @@ func (p *Photo) String() string {
 		nameInfo = fmt.Sprintf("%s [%s]", p.FileName, p.SourcePath)
 	}
 
-	s := fmt.Sprintf("%s (%dx%d %s, %s)", nameInfo, p.Width, p.Height, p.Orientation, dateStr)
+	kind := ""
+	if p.IsVideo {
+		kind = fmt.Sprintf(" video %.1fs,", p.Duration)
+	}
+
+	s := fmt.Sprintf("%s (%dx%d %s,%s %s)", nameInfo, p.Width, p.Height, p.Orientation, kind, dateStr)
 	if p.Description != "" {
 		s += " - " + p.Description
 	}
@@ -174,6 +182,13 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 		p.SourcePath = filepath.ToSlash(filepath.Join(albumDirName, p.SourcePath))
 	}
 
+	// Second pass over the assembled list. collectPhotosRecursive only sees one directory
+	// at a time, so it cannot catch a subfolder's prefixed ID colliding with a root file
+	// named to match it ("sub/photo.jpg" and "sub_photo.jpg" both yield "sub_photo").
+	if err := checkDuplicateIDs(ap.AlbumConfig.Path, photos); err != nil {
+		return err
+	}
+
 	// Global date sort across all photos (unless manual sort order is in use).
 	if !ap.AlbumConfig.ManualSortOrder {
 		sortByDate(photos)
@@ -206,11 +221,62 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 	return nil
 }
 
-// readMetadata reads metadata for one photo, going through the Config's metadata cache
-// when there is one. A nil Config (unit tests) or nil cache reads directly.
+// checkDuplicateIDs reports an error when two source files reduce to the same photo ID.
+//
+// An ID is the source filename with its extension stripped, so IMG_1234.jpg and
+// IMG_1234.mov collide — which is exactly how Apple Photos exports a Live Photo, and
+// therefore a folder people will now point at ddphotos precisely because it handles video.
+//
+// A collision is not survivable, which is why this is an error rather than a warning:
+//
+//   - both files resolve to the same output name via PhotoWebPName, so the video's poster
+//     and the still's resize fight over one grid/<name>.webp
+//   - reorderByDescriptionFile keys photos by ID, so with a photogen.txt one entry
+//     silently replaces the other and the album publishes the same item twice
+//   - photogen.txt cannot caption them separately either, since its keys are the same IDs
+//
+// Renaming one of the pair is the only fix, so say so plainly and stop.
+func checkDuplicateIDs(where string, photos []*Photo) error {
+	sources := map[string][]string{}
+	for _, p := range photos {
+		// Deduped: a list that has already been through reorderByDescriptionFile can hold
+		// the same *Photo twice, and reporting one file as conflicting with itself is
+		// noise. Genuine collisions always have distinct source paths.
+		if !slices.Contains(sources[p.ID], p.SourcePath) {
+			sources[p.ID] = append(sources[p.ID], p.SourcePath)
+		}
+	}
+
+	var dupes []string
+	for id, srcs := range sources {
+		if len(srcs) > 1 {
+			dupes = append(dupes, id)
+		}
+	}
+	if len(dupes) == 0 {
+		return nil
+	}
+	sort.Strings(dupes)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s: %d duplicate photo ID(s) — these source files differ only by "+
+		"extension, so they would produce the same output file. Rename one of each pair:", where, len(dupes))
+	for _, id := range dupes {
+		srcs := sources[id]
+		sort.Strings(srcs)
+		fmt.Fprintf(&b, "\n    %q: %s", id, strings.Join(srcs, ", "))
+	}
+	return errors.New(b.String())
+}
+
+// readMetadata reads metadata for one media file, going through the Config's metadata
+// cache when there is one. A nil Config (unit tests) or nil cache reads directly.
+//
+// Both branches must dispatch on media kind: libvips cannot open a video container, so
+// sending a .mov straight to ReadPhotoMetadata fails with "unsupported image format".
 func (ap *AlbumProcessor) readMetadata(path string) (*PhotoMetadata, error) {
 	if ap.Config == nil {
-		return ReadPhotoMetadata(path)
+		return ReadMediaMetadata(path)
 	}
 	return ap.Config.MetaCache.Metadata(path)
 }
@@ -298,8 +364,7 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string, recurse boo
 			subdirActual[strings.ToLower(name)] = name
 			continue
 		}
-		ext := strings.ToLower(filepath.Ext(name))
-		if _, ok := allowedPhotoExtensions[ext]; !ok {
+		if !IsMediaFile(name) {
 			continue
 		}
 
@@ -317,7 +382,15 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string, recurse boo
 			FileName:     outputName,
 			AbsolutePath: fullPath,
 			SourcePath:   filepath.ToSlash(filepath.Join(relDir, name)),
+			IsVideo:      IsVideoFile(name),
 		})
+	}
+
+	// Checked here, before fillMetadata and the reordering below, because
+	// reorderByDescriptionFile keys by ID and would quietly collapse a colliding pair into
+	// one entry — by then the evidence of what conflicted is gone.
+	if err := checkDuplicateIDs(dir, localPhotos); err != nil {
+		return nil, err
 	}
 
 	// Metadata is filled in before any sorting below, since sort order depends on dates.
@@ -474,11 +547,11 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 	err := scanLines(txtPath, func(line string) {
 		name, desc := parsePhotogenLine(line)
 		id := strings.ToLower(name)
-		// Strip image extension if present so "img_001.jpg" and "img_001" both work.
-		if ext := strings.ToLower(filepath.Ext(id)); ext != "" {
-			if _, ok := allowedPhotoExtensions[ext]; ok {
-				id = strings.TrimSuffix(id, ext)
-			}
+		// Strip a media extension if present so "img_001.jpg" and "img_001" both work,
+		// and likewise "clip.mov" and "clip". Extensions that are neither photo nor
+		// video are left alone: a bare subfolder name may legitimately contain a dot.
+		if IsMediaFile(id) {
+			id = strings.TrimSuffix(id, strings.ToLower(filepath.Ext(id)))
 		}
 		pd.descriptions[id] = desc
 		pd.order = append(pd.order, id)
@@ -578,6 +651,19 @@ func (ap *AlbumProcessor) coverPhoto() *Photo {
 	return ap.Photos[0]
 }
 
+// coverImageSource returns the path libvips should read to build derived cover images.
+//
+// For a still that is the original source file. For a video it is the already-generated
+// "full" poster WebP, because libvips cannot open a video container: an album whose first
+// (or configured) item is a clip would otherwise fail the whole run with "unsupported
+// image format". Downscaling the 1600px poster to the 1200px cover loses nothing visible.
+func (ap *AlbumProcessor) coverImageSource(cover *Photo) string {
+	if !cover.IsVideo {
+		return cover.AbsolutePath
+	}
+	return ap.OutputPath(string(SizeFull), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
+}
+
 // WriteCoverJPEG generates a JPEG version of the album cover for use as an Open Graph image.
 // Output: outputRoot/albums/{slug}/cover.jpg
 func (ap *AlbumProcessor) WriteCoverJPEG() error {
@@ -588,21 +674,33 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 	outputPath := ap.OutputPath("cover.jpg")
 	ap.Config.TrackFile(outputPath)
 
+	source := ap.coverImageSource(cover)
+
+	// In a dry run the video poster has not been written yet, so there is nothing to read.
+	// Report the intent and move on rather than failing on a file that a real run would
+	// have created moments earlier.
+	if ap.Config.DryRun && cover.IsVideo {
+		if _, err := os.Stat(source); err != nil {
+			fmt.Printf("  DRYRUN: would write %s (cover jpeg, from video poster)\n", outputPath)
+			return nil
+		}
+	}
+
 	// cover.jpg has a fixed output name, so "the file exists" is not enough to skip it:
 	// the album's cover can be pointed at a different photo. The cache stamps the output
 	// with the source that produced it, which makes the skip safe. Without a cache this
 	// falls through to the unconditional regeneration it replaces.
-	if !ap.Config.Force && ap.Config.MetaCache.DerivedUpToDate(outputPath, cover.AbsolutePath, "") {
+	if !ap.Config.Force && ap.Config.MetaCache.DerivedUpToDate(outputPath, source, "") {
 		fmt.Printf("  exists: %s (cover jpeg)\n", outputPath)
 		return nil
 	}
 
-	result, err := ResizeCoverJPEG(cover.AbsolutePath, outputPath, true, ap.Config.DryRun)
+	result, err := ResizeCoverJPEG(source, outputPath, true, ap.Config.DryRun)
 	if err != nil {
 		return fmt.Errorf("write cover jpeg: %w", err)
 	}
 	if result.Written {
-		ap.Config.MetaCache.RecordDerived(outputPath, cover.AbsolutePath, "")
+		ap.Config.MetaCache.RecordDerived(outputPath, source, "")
 	}
 	fmt.Printf("  %s\n", result.Message)
 	return nil

@@ -269,8 +269,12 @@ func main() {
 			exit.ExitWithStatus(nil)
 		}
 		album := photogen.NewAlbumProcessor(cfg, albumConfig)
-		err := album.Process(i+1, len(albums))
-		if err != nil {
+		if err := album.Process(i+1, len(albums)); err != nil {
+			// Keep what this run already read. A failure partway through is exactly when
+			// the user fixes something and runs again, so discarding the metadata cache
+			// here would make them pay to re-decode every photo that was fine.
+			saveMetaCache(cfg)
+			warn.PrintSummary()
 			exit.Fatal(fmt.Sprintf("Error processing %s", albumConfig.Name), err)
 		}
 		summaries = append(summaries, album.GetAlbumSummary())

@@ -92,6 +92,8 @@ def albums_tree() -> Tree:
     full.add(t("*.webp", ALBUMS))
     grid = ant.add(t("grid/", ALBUMS))
     grid.add(t("*.webp", ALBUMS))
+    video = ant.add(t("video/", ALBUMS))
+    video.add(t("*.mp4", ALBUMS))
     return root
 
 
@@ -123,6 +125,8 @@ def result_tree() -> Tree:
     full.add(t("*.webp", ALBUMS))
     grid = ant.add(t("grid/", ALBUMS))
     grid.add(t("*.webp", ALBUMS))
+    video = ant.add(t("video/", ALBUMS))
+    video.add(t("*.mp4", ALBUMS))
     return root
 
 

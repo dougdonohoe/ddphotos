@@ -525,3 +525,99 @@ func TestReorderByDescriptionFile(t *testing.T) {
 		assert.Equal(t, "no-date-b", result[3].ID, "undated extras in scan order")
 	})
 }
+
+// TestDuplicatePhotoIDs covers the collision that Apple Photos makes routine: a Live Photo
+// exports as IMG_1234.HEIC plus IMG_1234.MOV, and stripping the extension leaves both with
+// the same ID. Before this check the pair silently produced one output file, and with a
+// photogen.txt one entry replaced the other so the album published the same item twice.
+func TestDuplicatePhotoIDs(t *testing.T) {
+	t.Parallel()
+
+	copyFile := func(t *testing.T, dir, src, dst string) {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join("testdata", src))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, dst), b, 0o644))
+	}
+
+	t.Run("still and video sharing a stem is rejected", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "IMG_1234.jpg")
+		copyFile(t, dir, "landscape.mov", "IMG_1234.mov")
+
+		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
+		_, err := ap.collectPhotosRecursive(dir, "", true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate photo ID")
+		// Both offending files must be named, or the user cannot act on the message.
+		assert.Contains(t, err.Error(), "IMG_1234.jpg")
+		assert.Contains(t, err.Error(), "IMG_1234.mov")
+		assert.Contains(t, err.Error(), "img_1234")
+	})
+
+	t.Run("two stills sharing a stem is rejected too", func(t *testing.T) {
+		t.Parallel()
+		// Pre-dates video: the same collision was already possible between two image
+		// formats, and was equally broken. The rule is about IDs, not about media kind.
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "IMG_1234.jpg")
+		copyFile(t, dir, "landscape-1.heic", "IMG_1234.heic")
+
+		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
+		_, err := ap.collectPhotosRecursive(dir, "", true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate photo ID")
+	})
+
+	t.Run("case differences collide, matching how IDs are lowercased", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "photo.jpg")
+		copyFile(t, dir, "portrait-1.jpg", "PHOTO.JPG")
+
+		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
+		_, err := ap.collectPhotosRecursive(dir, "", true)
+		// A case-insensitive filesystem (macOS) cannot hold both names, so the second
+		// write lands on the first file and there is nothing to collide. Assert the
+		// outcome that matches what the filesystem actually did rather than assuming.
+		if entries, readErr := os.ReadDir(dir); readErr == nil && len(entries) == 1 {
+			assert.NoError(t, err, "only one file exists on a case-insensitive filesystem")
+			return
+		}
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate photo ID")
+	})
+
+	t.Run("a subfolder prefix colliding with a root file is rejected", func(t *testing.T) {
+		t.Parallel()
+		// Not visible to the per-directory check: "sub/photo.jpg" becomes "sub_photo" only
+		// after prefixing, which is why LoadPhotos re-checks the assembled list.
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "sub_photo.jpg")
+		sub := filepath.Join(dir, "sub")
+		require.NoError(t, os.MkdirAll(sub, 0o755))
+		copyFile(t, sub, "portrait-1.jpg", "photo.jpg")
+
+		ap := NewAlbumProcessor(
+			&Config{OutputRoot: t.TempDir(), SiteID: "s", Warn: &WarnCollector{}},
+			&AlbumConfig{Slug: "a", Name: "A", Path: dir, Recurse: true},
+		)
+		err := ap.LoadPhotos()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate photo ID")
+		assert.Contains(t, err.Error(), "sub_photo")
+	})
+
+	t.Run("distinct stems are unaffected", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "one.jpg")
+		copyFile(t, dir, "portrait-1.jpg", "two.jpg")
+
+		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
+		photos, err := ap.collectPhotosRecursive(dir, "", true)
+		require.NoError(t, err)
+		assert.Len(t, photos, 2)
+	})
+}

@@ -308,17 +308,20 @@ elif [ "$S3_MODE" = true ]; then
     #   default size+timestamp comparison reliably detects changes. --size-only would
     #   silently skip re-encrypted JSON files since AES-GCM output size is key-independent.
     # --exclude=*.html: don't delete pre-rendered .html pages synced above.
+    # --exclude=*.mp4 alongside *.webp: this pass is a catch-all, so without it videos
+    #   would land here and be served no-cache — wrong for content-addressed media and
+    #   needlessly expensive on CloudFront.
     "${AWS[@]}" s3 sync "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" "s3://$S3_BUCKET/albums/" \
-        "${S3_SYNC_OPTS[@]}" --exclude "*.html" --exclude "*.webp" \
+        "${S3_SYNC_OPTS[@]}" --exclude "*.html" --exclude "*.webp" --exclude "*.mp4" \
         --cache-control "no-cache"
 
-    # Pass 2b: WebP photos — immutable; photogen gives them a deterministic UUID name
-    #   derived from HMAC(key, filename), so key rotation renames all files.
-    #   photogen skips existing WebP files (preserving timestamp), so unchanged files are
+    # Pass 2b: WebP photos and MP4 videos — immutable; photogen gives them a deterministic
+    #   UUID name derived from HMAC(key, filename), so key rotation renames all files.
+    #   photogen skips existing files (preserving timestamp), so unchanged ones are
     #   never re-uploaded. Regenerated files (after manual delete) get a new timestamp.
     "${AWS[@]}" s3 sync "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" "s3://$S3_BUCKET/albums/" \
         "${S3_SYNC_OPTS[@]}" \
-        --exclude "*" --include "*.webp" \
+        --exclude "*" --include "*.webp" --include "*.mp4" \
         --cache-control "max-age=31536000,immutable"
 
     _post_deploy s3

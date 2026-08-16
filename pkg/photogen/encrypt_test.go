@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -262,6 +263,74 @@ func TestPhotoWebPName_DifferentKeys(t *testing.T) {
 	ec1 := &EncryptConfig{HMACKey: "key1"}
 	ec2 := &EncryptConfig{HMACKey: "key2"}
 	assert.NotEqual(t, ec1.PhotoWebPName("photo.jpg"), ec2.PhotoWebPName("photo.jpg"))
+}
+
+// TestPhotoOutputName covers the generalization of PhotoWebPName over the output
+// extension, added so a video's .mp4 lands on the same obfuscated stem as its poster.
+func TestPhotoOutputName(t *testing.T) {
+	t.Parallel()
+
+	t.Run("PhotoWebPName is exactly PhotoOutputName with .webp", func(t *testing.T) {
+		t.Parallel()
+		// The delegation is the whole point of the refactor. Asserted rather than assumed
+		// so the two cannot drift into separate naming schemes, which would only show up
+		// as 404s on an encrypted site.
+		for _, ec := range []*EncryptConfig{{}, {HMACKey: "test-key"}} {
+			for _, name := range []string{"IMG_3961.jpg", "clip.mov", "no-extension"} {
+				assert.Equal(t, ec.PhotoOutputName(name, ".webp"), ec.PhotoWebPName(name), name)
+			}
+		}
+	})
+
+	t.Run("without a key the stem is the source name and only the extension changes", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{}
+		assert.Equal(t, "clip.mp4", ec.PhotoOutputName("clip.mov", ".mp4"))
+		assert.Equal(t, "clip.webp", ec.PhotoOutputName("clip.mov", ".webp"))
+		assert.Equal(t, "IMG_3961.mp4", ec.PhotoOutputName("IMG_3961.jpg", ".mp4"))
+		// Matches WebPFileName, which this branch replaced, including for a name with no
+		// extension at all.
+		assert.Equal(t, WebPFileName("noext"), ec.PhotoOutputName("noext", ".webp"))
+		// Case is preserved when nothing is obfuscated. Contrast the key case below.
+		assert.Equal(t, "CLIP.mp4", ec.PhotoOutputName("CLIP.MOV", ".mp4"))
+	})
+
+	t.Run("with a key every output of one source shares a stem", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{HMACKey: "test-key"}
+
+		stem := func(p string) string { return strings.TrimSuffix(p, filepath.Ext(p)) }
+		mp4 := ec.PhotoOutputName("clip.mov", ".mp4")
+		webp := ec.PhotoWebPName("clip.mov")
+		jpg := ec.PhotoOutputName("clip.mov", ".jpg")
+
+		assert.Equal(t, stem(mp4), stem(webp))
+		assert.Equal(t, stem(mp4), stem(jpg))
+		assert.Equal(t, ".mp4", filepath.Ext(mp4))
+		assert.Equal(t, ".webp", filepath.Ext(webp))
+
+		// The extension must not feed the HMAC, or the two outputs would land on different
+		// stems and photogen would publish an index pointing at files it never wrote.
+		assert.NotContains(t, stem(mp4), "clip")
+		assert.Regexp(t, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.mp4$`, mp4)
+	})
+
+	t.Run("the HMAC is taken over the lowercased source name", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{HMACKey: "test-key"}
+		// Pinned because it is load-bearing in a way that is easy to miss: the HMAC input
+		// is every published filename on an encrypted site. "Fixing" this to hash the name
+		// verbatim would rename every file on every deployed site at once, breaking cached
+		// cover URLs and any link anyone saved.
+		//
+		// The flip side, deliberately recorded here rather than asserted as desirable: two
+		// sources differing only in case collide on one output name. Unreachable on a
+		// case-insensitive filesystem (macOS, Windows) and pre-dates video.
+		assert.Equal(t,
+			ec.PhotoOutputName("clip.mov", ".mp4"),
+			ec.PhotoOutputName("CLIP.MOV", ".mp4"))
+		assert.Equal(t, ec.PhotoWebPName("IMG_3961.jpg"), ec.PhotoWebPName("img_3961.JPG"))
+	})
 }
 
 func TestEncryptJSON_RoundTrip(t *testing.T) {

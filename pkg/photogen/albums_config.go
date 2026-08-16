@@ -100,8 +100,10 @@ func (af *AlbumsFile) validate() error {
 		if h.Image == "" {
 			return fmt.Errorf("hero: image is required")
 		}
+		// Deliberately photo-only, not IsMediaFile: the hero is a hard-cropped still
+		// produced by libvips, so a video source has nothing sensible to fall back to.
 		if ext := strings.ToLower(filepath.Ext(h.Image)); ext != "" {
-			if _, ok := allowedPhotoExtensions[ext]; !ok {
+			if !IsPhotoFile(h.Image) {
 				return fmt.Errorf("hero: image %q has unsupported extension %q", h.Image, ext)
 			}
 		}
