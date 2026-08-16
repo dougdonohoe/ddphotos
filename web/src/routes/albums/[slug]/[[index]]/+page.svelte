@@ -121,15 +121,61 @@
 		});
 	});
 
-	// Build PhotoSwipe data source
+	// Height reserved for the browser's native video control bar, applied as bottom padding
+	// on a video slide's caption so the text clears the play button and scrubber. The
+	// caption box itself still reaches the bottom of the video, which is what lets its
+	// gradient run continuously into the shade the browser draws behind those controls.
+	// Chrome's bar is ~40px; the extra few pixels keep a gap between text and controls.
+	const VIDEO_CONTROLS_HEIGHT = 48;
+
+	// Formats a duration in seconds as m:ss, e.g. 73 -> "1:13".
+	// Truncates rather than rounds so the badge matches what the browser's own control bar
+	// shows for the same clip: a 17.6s video reads 0:17 in both places, not 0:18 here and
+	// 0:17 there.
+	function formatDuration(seconds: number): string {
+		const total = Math.floor(seconds);
+		return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+	}
+
+	// Accessible label for a grid tile. Videos say so, since the play badge is aria-hidden
+	// and a screen reader would otherwise have no way to tell a clip from a still.
+	function photoLabel(photo: Photo): string {
+		const base = photo.description || photo.fileName;
+		if (photo.kind !== 'video') return base;
+		const length = photo.duration ? `, ${formatDuration(photo.duration)}` : '';
+		return `Video: ${base}${length}`;
+	}
+
+	// Build PhotoSwipe data source.
+	// Video slides carry videoSrc and are rendered by the contentLoad hook in openLightbox;
+	// their w/h are the poster's, which is what PhotoSwipe uses to size the slide.
+	//
+	// `type: 'video'` is load-bearing, not decoration. PhotoSwipe infers type from the data
+	// (Content constructor: data.type, else 'image' when data.src is set), and every item
+	// here has a src for the poster. Left to infer, a video slide is classed as image
+	// content, and setDisplayedSize later calls loadImage() on it *after* our contentLoad
+	// handler has already swapped in a <div> wrapper. loadImage assigns .src/.onload to
+	// that div and sets state back to LOADING; a div has no complete/onload, so the state
+	// never resolves. Visible result: the loading spinner appears after 2s and spins
+	// forever, and the placeholder is never dropped. An explicit type makes
+	// isImageContent() false, so none of that path runs.
+	//
+	// Second, intended consequence: Content.isZoomable() is `isImageContent() && not
+	// errored`, so this also disables zoom on video slides — the zoom button, double-tap,
+	// pinch and the `z` key all become inert. That is what we want. Zooming scales the
+	// element, which would enlarge the browser's native control bar along with the
+	// picture and push play/scrub off screen. Photos are unaffected.
 	let photoswipeItems = $derived(
 		(album?.photos ?? []).map((photo) => ({
+			type: photo.kind === 'video' ? 'video' : undefined,
 			src: `/albums/${slug}/${photo.src.full}`,
 			w: photo.width,
 			h: photo.height,
 			msrc: `/albums/${slug}/${photo.src.grid}`, // thumbnail for loading
 			alt: photo.description || photo.fileName,
-			caption: photo.description || ''
+			caption: photo.description || '',
+			videoSrc: photo.src.video ? `/albums/${slug}/${photo.src.video}` : undefined,
+			posterSrc: `/albums/${slug}/${photo.src.full}`
 		}))
 	);
 
@@ -209,6 +255,123 @@
 		};
 		window.addEventListener('popstate', handlePopstate);
 		activePopstateHandler = handlePopstate;
+
+		// --- Video slides ---------------------------------------------------------------
+		// Recomputes every caption's opacity. Forward-declared as a no-op because the caption
+		// machinery is set up further down (it needs pswp.mainScroll.itemHolders, which only
+		// exists once the lightbox is built) while the <video> elements that drive it are
+		// created here. Assigned to applyCaptionOpacity in that block below.
+		let refreshCaptions: () => void = () => {};
+
+		// PhotoSwipe has no built-in video type, so we take over content rendering for
+		// items that carry a videoSrc and hand back our own <video> element.
+		pswp.on('contentLoad', (e) => {
+			const data = e.content.data as (typeof photoswipeItems)[number];
+			if (!data.videoSrc) return;
+			e.preventDefault(); // stop PhotoSwipe loading the poster as a normal image
+
+			const video = document.createElement('video');
+			video.className = 'pswp-video';
+			video.src = data.videoSrc;
+			video.poster = data.posterSrc;
+			video.controls = true;
+			// Muted by default so a swipe through an album never blares audio unexpectedly;
+			// the native controls let the viewer unmute. playsinline keeps iOS Safari from
+			// hijacking the whole screen with its own fullscreen player, which would leave
+			// PhotoSwipe's state out of sync on exit.
+			video.muted = true;
+			video.playsInline = true;
+			video.preload = 'metadata';
+
+			// Clicks on the video must not reach PhotoSwipe's bgClickAction, or tapping
+			// play would close the lightbox instead.
+			video.addEventListener('click', (ev) => ev.stopPropagation());
+
+			// Hide the caption while the clip plays. The caption sits above the browser's
+			// native control bar (see controlsInset below), which reads correctly while that
+			// bar is up but leaves the caption floating mid-frame over nothing once the
+			// browser auto-hides the controls a second or two into playback. There is no API
+			// for native-control visibility, so this tracks what drives it instead: every
+			// browser keeps the bar up whenever a video is paused or ended, and only hides it
+			// during playback, so paused/ended is the same set of moments.
+			//
+			// 'ended' is listened for separately because it does not reliably raise 'pause',
+			// yet it is a state where the controls come back.
+			//
+			// Deliberately not restored when the viewer jiggles the mouse mid-playback and the
+			// controls reappear: matching that would mean reproducing each browser's own
+			// inactivity heuristics, and a caption that stays hidden never looks broken.
+			//
+			// No teardown needed — the listeners die with the element, like the click one above.
+			for (const event of ['play', 'pause', 'ended']) {
+				video.addEventListener(event, () => refreshCaptions());
+			}
+
+			// Wrapped in a div because PhotoSwipe types content.element as an image or a
+			// div and sizes it from the slide's zoom level. Letting it size the wrapper and
+			// having the video fill that keeps us on PhotoSwipe's normal layout path
+			// instead of casting our way around it.
+			const wrap = document.createElement('div');
+			wrap.className = 'pswp-video-wrap';
+			wrap.appendChild(video);
+			e.content.element = wrap;
+
+			// Required after preventDefault. PhotoSwipe leaves the content in its LOADING
+			// state otherwise, which has two visible consequences: the loading spinner
+			// appears after preloaderDelay (2s) and never clears, and isKeepingPlaceholder
+			// stays true so the low-res placeholder <img> is never dropped, sitting on top
+			// of the video and swallowing clicks meant for the native controls.
+			// The poster attribute means there is already something to look at, so marking
+			// it loaded now rather than waiting on loadedmetadata costs nothing.
+			e.content.onLoaded();
+		});
+
+		// Pause when a slide scrolls out of view. Without this, swiping to the next photo
+		// leaves the previous clip playing (and audible, once unmuted) off-screen.
+		const pauseVideoIn = (element: HTMLElement | null | undefined) => {
+			element?.querySelector('video')?.pause();
+		};
+		pswp.on('contentDeactivate', (e) => pauseVideoIn(e.content.element));
+		pswp.on('contentDestroy', (e) => pauseVideoIn(e.content.element));
+
+		// Space toggles play/pause on a video slide, the convention every video player uses.
+		//
+		// Hooked to PhotoSwipe's own keydown event rather than a document listener: it is
+		// scoped to this instance's lifetime, so it needs no teardown, and preventing it
+		// also stops PhotoSwipe acting on the key. Space is not bound by PhotoSwipe today,
+		// but this keeps us correct if that changes.
+		//
+		// Both preventDefaults do different jobs: the PhotoSwipe one stops its handling, the
+		// original-event one stops the browser scrolling the page behind the lightbox.
+		pswp.on('keydown', (e) => {
+			const original = e.originalEvent;
+			if (original.key !== ' ' && original.key !== 'Spacebar') return;
+
+			const video = pswp.currSlide?.content?.element?.querySelector('video');
+			if (!video) return; // photo slide: leave the key alone
+
+			// When the video already has focus the browser toggles it itself, and it does so
+			// on keyup. Handling it here as well would play on keydown and pause on keyup,
+			// cancelling out and making the key look dead. Defer to the native behaviour
+			// rather than trying to suppress it.
+			if (document.activeElement === video) return;
+
+			e.preventDefault();
+			original.preventDefault();
+			if (video.paused) {
+				void video.play().catch(() => {
+					// Autoplay policy can still refuse; the visible controls remain the
+					// fallback, so a rejection here is not worth surfacing.
+				});
+			} else {
+				video.pause();
+			}
+		});
+		pswp.on('close', () => {
+			for (const holder of pswp.mainScroll?.itemHolders ?? []) {
+				pauseVideoIn(holder.slide?.content?.element);
+			}
+		});
 
 		pswp.on('openingAnimationStart', () => {
 			lightboxOpen = true;
@@ -338,6 +501,24 @@
 				holder.el.appendChild(el);
 			});
 
+			// Two independent things hide a caption: zooming (below) and video playback (the
+			// listeners in contentLoad). Rather than let both write style.opacity directly and
+			// race — a vertical drag fires zoomPanUpdate, which would flash a hidden caption
+			// back on mid-playback — one function computes the value from both inputs and is
+			// the only writer. Playback state is read off the element instead of being mirrored
+			// into a variable, so there is no second copy to keep in sync.
+			let captionsZoomHidden = false;
+			const applyCaptionOpacity = () => {
+				holders.forEach((holder: ItemHolder) => {
+					const el = holder.el.querySelector('.pswp-caption') as HTMLElement | null;
+					if (!el || el.style.display === 'none') return;
+					const video = holder.el.querySelector('video');
+					const playing = !!video && !video.paused && !video.ended;
+					el.style.opacity = captionsZoomHidden || playing ? '0' : '1';
+				});
+			};
+			refreshCaptions = applyCaptionOpacity;
+
 			const updateAll = () => {
 				holders.forEach((holder: ItemHolder) => {
 					// Query the caption from holder.el directly rather than using a
@@ -357,6 +538,15 @@
 					}
 					el.textContent = item.caption;
 					el.style.display = '';
+					// A video caption's box reaches the bottom of the media exactly like a
+					// photo's; what differs is that its text is held above the browser's
+					// control bar by padding instead of sitting at the very bottom. Padding
+					// rather than a lifted box because the gradient has to keep running down
+					// behind the controls: stopping it short of them left a separate, darker
+					// band above a lighter one, two stacked shades instead of one ramp.
+					const isVideo = !!item.videoSrc;
+					el.classList.toggle('pswp-caption--video', isVideo);
+					el.style.paddingBottom = isVideo ? `${VIDEO_CONTROLS_HEIGHT + 12}px` : '';
 					// Inset the caption to the displayed photo box rather than the viewport, so it
 					// spans exactly the image's edges. Mirrors PhotoSwipe's own geometry: it sizes
 					// the viewport from document.documentElement.clientWidth (exposed as
@@ -373,17 +563,16 @@
 					// Drop any leftover vertical-drag offset (see zoomPanUpdate below).
 					el.style.transform = '';
 				});
+				applyCaptionOpacity();
 			};
 
 			// Fade captions in/out when zooming. Captions live outside the zoom
 			// transform so they stay fixed while the image moves, which looks wrong.
 			// On zoom-out, delay the fade-in so it waits for the animation to settle.
 			let captionFadeTimer: ReturnType<typeof setTimeout> | null = null;
-			const setCaptionOpacity = (opacity: string) => {
-				holders.forEach((holder: ItemHolder) => {
-					const el = holder.el.querySelector('.pswp-caption') as HTMLElement | null;
-					if (el && el.style.display !== 'none') el.style.opacity = opacity;
-				});
+			const setCaptionsZoomHidden = (hidden: boolean) => {
+				captionsZoomHidden = hidden;
+				applyCaptionOpacity();
 			};
 			// beforeZoomTo fires at the start of any zoom animation — fade out immediately
 			pswp.on('beforeZoomTo', () => {
@@ -391,7 +580,7 @@
 					clearTimeout(captionFadeTimer);
 					captionFadeTimer = null;
 				}
-				setCaptionOpacity('0');
+				setCaptionsZoomHidden(true);
 			});
 			// zoomPanUpdate fires during pinch and after tap-zoom settles
 			pswp.on('zoomPanUpdate', () => {
@@ -404,11 +593,11 @@
 						clearTimeout(captionFadeTimer);
 						captionFadeTimer = null;
 					}
-					setCaptionOpacity('0');
+					setCaptionsZoomHidden(true);
 				} else if (!captionFadeTimer) {
 					captionFadeTimer = setTimeout(() => {
 						captionFadeTimer = null;
-						setCaptionOpacity('1');
+						setCaptionsZoomHidden(false);
 					}, 0);
 				}
 				// Glue the caption to the photo during a vertical drag-to-close gesture.
@@ -432,7 +621,7 @@
 					clearTimeout(captionFadeTimer);
 					captionFadeTimer = null;
 				}
-				setCaptionOpacity('1');
+				setCaptionsZoomHidden(false);
 				requestAnimationFrame(updateAll);
 			});
 			pswp.on('resize', updateAll);
@@ -631,7 +820,7 @@
 				<button
 					class="photo"
 					data-index={i}
-					aria-label={photo.description || photo.fileName}
+					aria-label={photoLabel(photo)}
 					style="
 						position: absolute;
 						left: {box.left}px;
@@ -657,6 +846,16 @@
 							imageLoaded[i] = true;
 						}}
 					/>
+					{#if photo.kind === 'video'}
+						<!-- The <img> above is the poster frame, so a video tile needs no
+						     special image handling: only this badge marks it as playable. -->
+						<div class="video-badge" aria-hidden="true">
+							<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+								<path d="M8 5v14l11-7z" />
+							</svg>
+							{#if photo.duration}<span>{formatDuration(photo.duration)}</span>{/if}
+						</div>
+					{/if}
 					{#if photo.description}
 						<div class="photo-caption">{photo.description}</div>
 					{/if}
@@ -869,6 +1068,30 @@
 		}
 	}
 
+	/* Play badge marking a grid tile as a video. Sits top-left so it never collides with
+	   the caption, which slides up from the bottom. Always visible, unlike the caption:
+	   it is the only thing distinguishing a clip from a still. */
+	.video-badge {
+		position: absolute;
+		top: 0.4rem;
+		left: 0.4rem;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.15rem 0.4rem 0.15rem 0.3rem;
+		border-radius: 999px;
+		background: rgba(0, 0, 0, 0.62);
+		color: white;
+		font-size: 0.72rem;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
+		pointer-events: none;
+	}
+
+	.video-badge svg {
+		display: block;
+	}
+
 	/* PhotoSwipe customizations for dark theme */
 	:global(.pswp) {
 		--pswp-bg: #000;
@@ -877,6 +1100,23 @@
 	/* Fully opaque background - hide content underneath */
 	:global(.pswp__bg) {
 		opacity: 1 !important;
+	}
+
+	/* Shade behind the top-bar controls.
+	   The counter, zoom, copy-link and close controls are white with no background of
+	   their own, so they vanish against a bright photo (a pale sky is the usual culprit).
+	   This mirrors the caption's gradient, inverted, for the same reason.
+	   Safe on both counts that matter: the bar carries .pswp__hide-on-close, so the shade
+	   fades in and out with the rest of the UI, and the bar is pointer-events: none, so it
+	   never intercepts a click. Absolutely positioned, so it is not a flex item and cannot
+	   disturb the bar's layout. */
+	:global(.pswp__top-bar::before) {
+		content: '';
+		position: absolute;
+		inset: 0 0 auto 0;
+		height: 100px;
+		background: linear-gradient(rgba(0, 0, 0, 0.75), transparent);
+		pointer-events: none;
 	}
 
 	/* Make nav arrows less prominent and nudge inward */
@@ -942,10 +1182,50 @@
 		transition: opacity 0.3s ease;
 	}
 
+	/* Video caption. The box reaches the bottom of the media like the photo rule above, but
+	   its lower ~60px sit behind the browser's native control bar (padding-bottom is set in
+	   JS from VIDEO_CONTROLS_HEIGHT), so the gradient has to keep darkening all the way down
+	   rather than peaking at the text. The browser paints its own shade behind those controls
+	   on top of this one; both run the same direction, so the two read as a single ramp
+	   instead of the two stacked bands you get from a gradient that stops above the bar.
+	   Peaks lower than the photo rule's 0.75 for the same reason: the two are additive down
+	   there, and matching 0.75 makes the control area markedly darker than the caption. */
+	:global(.pswp-caption--video) {
+		padding-top: 3rem;
+		background: linear-gradient(
+			to bottom,
+			rgba(0, 0, 0, 0) 0%,
+			rgba(0, 0, 0, 0.45) 55%,
+			rgba(0, 0, 0, 0.6) 100%
+		);
+	}
+
 	/* Larger lightbox caption on desktop, where there's room for it */
 	@media (min-width: 769px) {
 		:global(.pswp-caption) {
 			font-size: 1.2rem;
 		}
 	}
+
+	/* Lightbox video. PhotoSwipe sets width/height inline on the wrapper from the slide's
+	   zoom level, exactly as it does for an image, and a video's w/h in the data source
+	   are its poster's — so the caption geometry in updateAll() needs no special case for
+	   video slides. The video then fills the wrapper. */
+	:global(.pswp-video-wrap) {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #000;
+	}
+
+	:global(.pswp-video) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+
+	/* No rule is needed to hide PhotoSwipe's msrc placeholder on video slides: calling
+	   content.onLoaded() in the contentLoad handler drops it the same way it does for a
+	   photo. See the comment there before adding one back. */
 </style>
