@@ -3,6 +3,7 @@ package photogen
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -114,13 +115,17 @@ func newTestVideo(t *testing.T, filename string) *Photo {
 }
 
 // videoOutputs returns the MP4 and every poster path a video should produce.
+//
+// The names are built literally rather than by calling Config.PhotoOutputName: deriving
+// the expectation from the function under test would only prove that ResizePhotos and
+// this helper agree, not that either is right. newTestProcessor builds an unencrypted
+// config, so the stem is simply the source name with its extension replaced.
 func videoOutputs(ap *AlbumProcessor, filename string) (string, []string) {
-	mp4 := ap.OutputPath(VideoDirName,
-		ap.Config.PhotoOutputName(ap.AlbumConfig.Slug, filename, ".mp4"))
+	stem := strings.TrimSuffix(filename, filepath.Ext(filename))
+	mp4 := ap.OutputPath(VideoDirName, stem+".mp4")
 	posters := make([]string, 0, len(AllSizes()))
 	for _, size := range AllSizes() {
-		posters = append(posters, ap.OutputPath(string(size),
-			ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, filename)))
+		posters = append(posters, ap.OutputPath(string(size), stem+".webp"))
 	}
 	return mp4, posters
 }
