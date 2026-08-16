@@ -48,15 +48,10 @@ const videoSizeWarnBytes = 25 * 1024 * 1024
 // midpoint instead, so a 0.5s video does not try to seek past its own end.
 const posterMaxOffset = 1.0
 
-// ExitVideoToolsMissing is returned to the shell when an album contains video but ffmpeg
-// could not be found. The Docker wrapper watches for this specific code, installs ffmpeg
-// into its cache volume, and retries once. Nothing has been written when it is returned,
-// so the retry is a clean re-run rather than a resume.
-const ExitVideoToolsMissing = 3
-
-// ErrVideoToolsMissing is wrapped by every error caused by ffmpeg being unavailable, so
-// that main can tell "install ffmpeg" apart from a genuine processing failure and exit
-// with ExitVideoToolsMissing instead of the generic failure path.
+// ErrVideoToolsMissing is wrapped by every error caused by ffmpeg being unavailable.
+// Callers pair it with VideoToolsHint to tell the user what to install. Docker users do
+// not see it: ensureVideoTools runs DDPHOTOS_FFMPEG_INSTALLER and re-resolves in-process,
+// so the install happens before an error is ever returned.
 var ErrVideoToolsMissing = errors.New("ffmpeg tools unavailable")
 
 // IsPhotoFile reports whether name has a supported still-image extension.
@@ -99,7 +94,7 @@ var (
 //
 // Unexported along with videoTools: nothing outside this package needs the executable
 // paths. What callers in cmd/ need is the failure, and they get it from the exported
-// ErrVideoToolsMissing, VideoToolsHint and ExitVideoToolsMissing.
+// ErrVideoToolsMissing and VideoToolsHint.
 //
 // Search order:
 //  1. DDPHOTOS_FFMPEG / DDPHOTOS_FFPROBE, explicit paths for anyone pinning a build.
