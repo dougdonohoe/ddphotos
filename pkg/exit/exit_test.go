@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExitRequestedAndCatchPanic(t *testing.T) {
@@ -40,7 +41,8 @@ func boom() {
 func TestCatchPanicError(t *testing.T) {
 	assert.Nil(t, boom2(false))
 	err := boom2(true)
-	assert.Error(t, err)
+	// require, not assert: assert would carry on and panic on err.Error() below.
+	require.Error(t, err)
 	assert.Equal(t, "panic: boom2", err.Error())
 	fmt.Printf("Error: %s\n", err)
 }
