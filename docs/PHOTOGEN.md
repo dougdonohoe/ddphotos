@@ -226,6 +226,11 @@ unaffected.
 - **Native:** `brew install ffmpeg` (macOS) or `sudo apt-get install ffmpeg` (Linux).
   Anything on `PATH` is used as-is and nothing is downloaded.
 
+A dry run downloads ffmpeg too. Reporting what a run *would* do means knowing each clip's
+dimensions, duration and rotation, and that comes from `ffprobe`, so the tools have to be
+present before there is anything to report. The download is a one-time cost that a later
+real run would have paid anyway.
+
 ffmpeg is deliberately **not** bundled in the Docker image. The Debian package pulls in 200
 packages and 448 MB, nearly all of it SDL2/X11/Wayland required by `ffplay`, with no way to
 opt out; every photo-only user would carry that. Downloading at first use on the user's own
