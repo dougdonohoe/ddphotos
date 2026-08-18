@@ -16,16 +16,24 @@ jobs:
   # Basic tests, Apache and rsync
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DDPHOTOS_FFMPEG_DIR: ${{ runner.temp }}/ffmpeg
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        # ffmpeg here (unlike in docker/Dockerfile, which deliberately omits it) because a
-        # throwaway runner does not care about the 448MB, and without it the video tests
-        # would silently skip rather than run.
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config
+
+      - name: Install ffmpeg
+        # The same pinned static build the Docker image fetches on demand, rather than
+        # `apt-get install ffmpeg`: the Debian package pulls ~200 packages and 448MB of
+        # SDL2/X11 via ffplay, which is both slow and a large surface for a flaky apt
+        # mirror to stall on. This is one checksum-verified GitHub download of two
+        # executables. photogen finds them via DDPHOTOS_FFMPEG_DIR (pkg/photogen/video.go).
+        run: bash docker/do-install-ffmpeg.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -78,16 +86,24 @@ jobs:
   # Split out nginx/s3 tests to run in parallel
   test-nginx-s3:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DDPHOTOS_FFMPEG_DIR: ${{ runner.temp }}/ffmpeg
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        # ffmpeg here (unlike in docker/Dockerfile, which deliberately omits it) because a
-        # throwaway runner does not care about the 448MB, and without it the video tests
-        # would silently skip rather than run.
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config
+
+      - name: Install ffmpeg
+        # The same pinned static build the Docker image fetches on demand, rather than
+        # `apt-get install ffmpeg`: the Debian package pulls ~200 packages and 448MB of
+        # SDL2/X11 via ffplay, which is both slow and a large surface for a flaky apt
+        # mirror to stall on. This is one checksum-verified GitHub download of two
+        # executables. photogen finds them via DDPHOTOS_FFMPEG_DIR (pkg/photogen/video.go).
+        run: bash docker/do-install-ffmpeg.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -134,6 +150,7 @@ jobs:
   # Docker-mode tests of 'ddphotos' can run in parallel
   test-docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
