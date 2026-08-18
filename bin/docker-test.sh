@@ -128,7 +128,7 @@ pass "ddphotos script and config created at $TEST_DIR"
 # Starter photos land next to config/ as real host files (not container-internal paths),
 # reached from albums.yaml via the relative base 'sample-base'.
 [ -f "$TEST_DIR/sample-photos/README.md" ]                    || fail "sample-photos/README.md not created"
-[ -f "$TEST_DIR/sample-photos/hero.webp" ]                    || fail "sample-photos/hero.webp not created"
+[ -f "$TEST_DIR/sample-photos/hero.jpg" ]                     || fail "sample-photos/hero.jpg not created"
 [ -f "$TEST_DIR/sample-photos/vacation/2024-The-Way-14.jpg" ] || fail "sample-photos/vacation photos not created"
 [ -f "$TEST_DIR/sample-photos/secret/2024-The-Way-21.jpg" ]   || fail "sample-photos/secret photo not created"
 [ -f "$TEST_DIR/sample-photos/secret/photogen.txt" ]          || fail "sample-photos/secret/photogen.txt not created"

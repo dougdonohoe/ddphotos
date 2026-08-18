@@ -523,7 +523,7 @@ my-ddphotos/
     site.env         ← deploy credentials
   sample-photos/     ← starter photos (delete once you add your own albums)
     README.md        ← what these are and how they are licensed
-    hero.webp        ← the starter site's hero banner
+    hero.jpg         ← the starter site's hero banner
     vacation/        ← the 'vacation' album's source photos
     secret/          ← the 'secret' album, plus a photogen.txt caption
     empty/           ← the 'empty' album (intentionally has no photos)

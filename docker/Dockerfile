@@ -108,7 +108,7 @@ RUN chmod +x /app/bin/search-cover.sh
 # docker/init/ supplies config/ and sample-photos/README.md; the photos come from the
 # same sample albums the demo site uses.
 COPY docker/init/ /docker/init/
-COPY docker/hero.webp /docker/init/sample-photos/hero.webp
+COPY docker/hero.jpg /docker/init/sample-photos/hero.jpg
 COPY sample/source/theway/2024-The-Way-14.jpg /docker/init/sample-photos/vacation/
 COPY sample/source/theway/2024-The-Way-20.jpg /docker/init/sample-photos/vacation/
 COPY sample/source/theway/2024-The-Way-24.jpg /docker/init/sample-photos/vacation/
@@ -121,19 +121,21 @@ RUN echo "2024-The-Way-21 You found the secret photo!" > /docker/init/sample-pho
 # docker/ddphotos and ddphotos-app still special-case the /ddphotos prefix for them.
 # Keep until such sites are assumed gone.
 #
-# Symlinks, not copies: photogen reaches a source dir with os.ReadDir and a hero with
-# os.Stat, both of which follow symlinks, so the old names resolve to the same files
-# without duplicating ~17MB into this layer. The tests below fail the build (rather than
-# a much later photogen run) if the starter tree is ever moved or renamed.
+# The three album directories are symlinks rather than copies: photogen reaches a source
+# dir with os.ReadDir, which follows them, so the old names resolve to the same files
+# without duplicating ~17MB into this layer. The tests fail the build (rather than a much
+# later photogen run) if the starter tree is ever moved or renamed.
 RUN ln -s /docker/init/sample-photos/vacation /ddphotos-init \
     && ln -s /docker/init/sample-photos/secret /ddphotos-secret \
     && ln -s /docker/init/sample-photos/empty  /ddphotos-empty \
-    && mkdir -p /ddphotos-hero \
-    && ln -s /docker/init/sample-photos/hero.webp /ddphotos-hero/hero.webp \
     && test -f /ddphotos-init/2024-The-Way-14.jpg \
     && test -f /ddphotos-secret/photogen.txt \
-    && test -d /ddphotos-empty \
-    && test -f /ddphotos-hero/hero.webp
+    && test -d /ddphotos-empty
+
+# The legacy hero is its own file, not a symlink: the starter site now ships hero.jpg
+# (ddphotos-app previews the hero, and Java ImageIO cannot decode WebP), so there is no
+# longer a hero.webp in the starter tree to point at.
+COPY docker/hero.webp /ddphotos-hero/hero.webp
 
 RUN mkdir -p /htdocs
 

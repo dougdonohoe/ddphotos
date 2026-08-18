@@ -32,7 +32,7 @@ settings:
     Welcome to my <span class="accent">photo gallery</span>.
   hero:
     base: sample-base
-    image: hero.webp
+    image: hero.jpg
     crop: center
 
 # Named source folders. An album's 'source' is joined to the folder named by its 'base'
