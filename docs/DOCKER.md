@@ -24,8 +24,8 @@ To adapt these docs for Windows:
 
 ### 2. Initialize Scaffolding
 
-Initialize a dedicated working directory that contains both the `ddphotos` script and
-a starter config:
+Initialize a dedicated working directory that contains the `ddphotos` script, a starter
+config, and the sample photos that config points at:
 
 ```bash
 mkdir $HOME/my-ddphotos
@@ -37,6 +37,10 @@ docker run --rm -v $HOME/my-ddphotos:/ddphotos dougdonohoe/ddphotos init
 docker run --rm -v $HOME/my-ddphotos:/ddphotos dougdonohoe/ddphotos init --windows
 ```
 
+This creates `config/` (`albums.yaml`, `custom.css`, `passwords.yaml`, `site.env`) and a
+`sample-photos/` folder beside it, along with the empty `albums/`, `build/` and `export/`
+output directories. See [Directory Layout](#directory-layout).
+
 ### 3. Generate, run, build, and serve the starter site
 
 ```bash
@@ -47,10 +51,28 @@ cd ~/my-ddphotos
 ./ddphotos serve      # serve static site via Apache at http://localhost:8000
 ```
 
+The starter site has three albums — `vacation`, a password-protected `secret` (the password
+is `secret`), and an intentionally `empty` one. All three are ordinary folders inside
+`sample-photos/`, reached from `config/albums.yaml` through the `sample-base` entry in its
+`bases:` block:
+
+```yaml
+bases:
+  sample-base: sample-photos   # relative to your ddphotos folder
+
+albums:
+  - slug: vacation
+    name: Vacation
+    base: sample-base
+    source: vacation           # -> sample-photos/vacation
+```
+
 ### 4. Build your own site
 
 1. Edit `config/albums.yaml` to define your albums (see [Configuration](CONFIGURATION.md) for details)
 2. Repeat: `photogen` → `run` / `build` → `serve`
+3. Once your own albums are in place, delete `sample-photos/` along with the `sample-base`
+   entry and the three starter albums
 
 ### 5. Deploy
 
@@ -108,10 +130,10 @@ mkdir ~/my-ddphotos
 ddphotos --dir ~/my-ddphotos init
 ```
 
-This scaffolds `config/albums.yaml` and friends into `~/my-ddphotos`, the same as the full
-`init` in [Initialize Scaffolding](#2-initialize-scaffolding). Pass `--site-id` to set a
-custom site ID. From then on, use `--dir ~/my-ddphotos` (or `cd ~/my-ddphotos`) with the
-other commands.
+This scaffolds `config/` (`albums.yaml`, `custom.css`, `passwords.yaml`, `site.env`) and the
+`sample-photos/` folder into `~/my-ddphotos`, the same as the full `init` in
+[Initialize Scaffolding](#2-initialize-scaffolding). Pass `--site-id` to set a custom site ID. From then on, 
+use `--dir ~/my-ddphotos` (or `cd ~/my-ddphotos`) with the other commands.
 
 If you have `ddphotos` on the path and the `ddphotos` repo checked out under `~/work`, you
 can use the script to photogen and run the [sample site↗](https://ddphotos.donohoe.info/):
@@ -175,7 +197,8 @@ ddphotos --dir ~/work/ddphotos --site-id sample build
 
 ### `init`
 
-Creates the config scaffold and installs the `ddphotos` wrapper script.
+Creates the config scaffold and the `sample-photos/` starter photos, and installs the
+`ddphotos` wrapper script.
 
 ```bash
 # Full init (script + config)
@@ -191,10 +214,11 @@ docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos init --script-onl
 ddphotos --dir ~/my-ddphotos init
 ```
 
-| Flag            | Description                                                                       |
-|-----------------|-----------------------------------------------------------------------------------|
-| `--site-id ID`  | Site ID written into `config/albums.yaml` as `settings.id` (default: `my-photos`) |
-| `--script-only` | Install just the `ddphotos` wrapper script; skip config scaffold                  |
+| Flag            | Description                                                                           |
+|-----------------|---------------------------------------------------------------------------------------|
+| `--site-id ID`  | Site ID written into `config/albums.yaml` as `settings.id` (default: `my-photos`)     |
+| `--script-only` | Install just the `ddphotos` wrapper script; skip config and sample photos             |
+| `--windows`     | Also install the `ddphotos.cmd` Windows launcher (added automatically under Git Bash) |
 
 If `ddphotos` is already on your `PATH` (for example, installed via `--script-only`), run
 `ddphotos --dir <path> init` to scaffold a starter config into `<path>` without a raw
@@ -497,10 +521,19 @@ my-ddphotos/
     custom.css       ← optional CSS overrides
     passwords.yaml   ← optional password protection
     site.env         ← deploy credentials
+  sample-photos/     ← starter photos (delete once you add your own albums)
+    README.md        ← what these are and how they are licensed
+    hero.webp        ← the starter site's hero banner
+    vacation/        ← the 'vacation' album's source photos
+    secret/          ← the 'secret' album, plus a photogen.txt caption
+    empty/           ← the 'empty' album (intentionally has no photos)
   albums/            ← photogen output (generated, not edited)
   build/             ← static site output (generated, not edited)
   export/            ← export output (generated, not edited)
 ```
+
+`sample-photos/` is an ordinary folder on your machine, so you can browse, caption and
+delete its photos like any other album source.
 
 ---
 

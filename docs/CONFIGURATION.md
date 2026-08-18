@@ -1,17 +1,21 @@
 # Configuration
 
-A DD Photos site is driven by three config files. Both Docker and developer modes
+A DD Photos site is driven by a handful of config files. Both Docker and developer modes
 use the same files — only the path conventions differ.
 
-| File                  | Required | Purpose                                 |
-|-----------------------|----------|-----------------------------------------|
-| `albums.yaml`         | yes      | Albums, site settings, photo base paths |
-| `customization.yaml`  | no       | Overrides to the site's chrome          |
-| `site.env`            | no       | Deploy credentials                      |
+| File                  | Required | Purpose                                                |
+|-----------------------|----------|--------------------------------------------------------|
+| `albums.yaml`         | yes      | Albums, site settings, photo base paths                |
+| `customization.yaml`  | no       | Overrides to the site's chrome                         |
+| `passwords.yaml`      | no       | Password protection (name it via `settings.passwords`) |
+| `custom.css`          | no       | Style overrides (name it via `settings.css`)           |
+| `site.env`            | no       | Deploy credentials                                     |
 
-**Docker mode:** `ddphotos init` creates a `config/` directory with a starter `albums.yaml`,
-ready to edit directly — no copying needed (you'll create a `site.env` when you are ready
-to deploy).
+**Docker mode:** `ddphotos init` creates a `config/` directory holding all of the above,
+ready to edit directly — no copying needed. It also installs a `sample-photos/` folder
+next to `config/` and wires it into `albums.yaml` as the base `sample-base`, so the
+starter site has real photos on your machine to work with. Delete both once you have
+added your own albums.
 
 **Developer mode:** The repo's `config/` directory contains example files. Copy and edit
 them to get started:
@@ -86,8 +90,28 @@ Each base value is either an absolute path or a path relative to the root DD Pho
 folder. An album's `source:` is joined to its named base; an album with no `base:` must
 give an absolute path in `source:`.
 
-In **Docker mode**, the `ddphotos` wrapper script reads these base paths and mounts them
-into the container automatically, so the paths you list must exist on your machine.
+The starter config written by `ddphotos init` is a working example of the relative form —
+its `sample-base` points at the `sample-photos/` folder installed beside `config/`:
+
+```yaml
+bases:
+  sample-base: sample-photos
+
+albums:
+  - slug: vacation
+    name: Vacation
+    base: sample-base
+    source: vacation               # -> sample-photos/vacation
+```
+
+In **Docker mode**, the `ddphotos` wrapper script reads these base paths and mounts
+absolute ones into the container automatically, so the paths you list must exist on your
+machine. Relative bases need no mount — they already live under the ddphotos folder,
+which is always mounted.
+
+> **Note:** a relative base is resolved against the working directory `photogen` runs in.
+> In Docker mode that is always your ddphotos folder, so it behaves as described above. In
+> developer mode, run `photogen` from that folder.
 
 ### How Config Reaches the Frontend
 

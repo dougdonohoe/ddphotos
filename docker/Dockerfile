@@ -103,15 +103,38 @@ RUN chmod +x /docker/*.sh
 COPY bin/search-cover.sh /app/bin/search-cover.sh
 RUN chmod +x /app/bin/search-cover.sh
 
-# Init templates and placeholder album directory
+# The starter site, assembled here exactly as it should land on the user's disk, so
+# 'ddphotos init' is a single recursive copy of this tree (see docker/do-init.sh).
+# docker/init/ supplies config/ and sample-photos/README.md; the photos come from the
+# same sample albums the demo site uses.
 COPY docker/init/ /docker/init/
-COPY docker/hero.webp /ddphotos-hero/hero.webp
-COPY sample/source/theway/2024-The-Way-14.jpg /ddphotos-init/
-COPY sample/source/theway/2024-The-Way-20.jpg /ddphotos-init/
-COPY sample/source/theway/2024-The-Way-24.jpg /ddphotos-init/
-COPY sample/source/theway/2024-The-Way-21.jpg /ddphotos-secret/
-RUN echo "2024-The-Way-21 You found the secret photo!" > /ddphotos-secret/photogen.txt
-RUN mkdir -p /ddphotos-empty
+COPY docker/hero.webp /docker/init/sample-photos/hero.webp
+COPY sample/source/theway/2024-The-Way-14.jpg /docker/init/sample-photos/vacation/
+COPY sample/source/theway/2024-The-Way-20.jpg /docker/init/sample-photos/vacation/
+COPY sample/source/theway/2024-The-Way-24.jpg /docker/init/sample-photos/vacation/
+COPY sample/source/theway/2024-The-Way-21.jpg /docker/init/sample-photos/secret/
+RUN echo "2024-The-Way-21 You found the secret photo!" > /docker/init/sample-photos/secret/photogen.txt \
+    && mkdir -p /docker/init/sample-photos/empty
+
+# Legacy container-internal sample paths. Sites scaffolded by older images still name
+# these in albums.yaml (source: /ddphotos-init, hero: /ddphotos-hero/hero.webp), and both
+# docker/ddphotos and ddphotos-app still special-case the /ddphotos prefix for them.
+# Keep until such sites are assumed gone.
+#
+# Symlinks, not copies: photogen reaches a source dir with os.ReadDir and a hero with
+# os.Stat, both of which follow symlinks, so the old names resolve to the same files
+# without duplicating ~17MB into this layer. The tests below fail the build (rather than
+# a much later photogen run) if the starter tree is ever moved or renamed.
+RUN ln -s /docker/init/sample-photos/vacation /ddphotos-init \
+    && ln -s /docker/init/sample-photos/secret /ddphotos-secret \
+    && ln -s /docker/init/sample-photos/empty  /ddphotos-empty \
+    && mkdir -p /ddphotos-hero \
+    && ln -s /docker/init/sample-photos/hero.webp /ddphotos-hero/hero.webp \
+    && test -f /ddphotos-init/2024-The-Way-14.jpg \
+    && test -f /ddphotos-secret/photogen.txt \
+    && test -d /ddphotos-empty \
+    && test -f /ddphotos-hero/hero.webp
+
 RUN mkdir -p /htdocs
 
 ARG DDPHOTOS_VERSION=dev

@@ -1,0 +1,35 @@
+# Back-compat fixture: the pre-sample-photos 'ddphotos init' template, whose albums and
+# hero point at container-internal paths baked into the Docker image. Sites scaffolded by
+# older images still look like this, so 'photogen' must keep working against it.
+#
+# Exercised by bin/docker-test.sh. Do NOT modernize this file - its whole purpose is to
+# stay frozen at the old shape. The paths below are created in docker/Dockerfile.
+
+settings:
+  id: test-legacy-paths
+  site_name: My Photos
+  site_url: https://your-ddphotos.example.com
+  site_description: My personal photo gallery
+  copyright_owner: Your Name
+  copyright_year: 2026
+  allow_crawling: false
+  hero:
+    image: /ddphotos-hero/hero.webp
+    crop: center
+
+albums:
+  - slug: temporary
+    name: Replace Me
+    source: /ddphotos-init
+    cover: 2024-The-Way-14.jpg
+    description: A placeholder album.
+
+  - slug: secret
+    name: Secret
+    source: /ddphotos-secret
+    description: This album has a password.
+
+  - slug: empty
+    name: Empty
+    source: /ddphotos-empty
+    description: This album doesn't have any photos in it.

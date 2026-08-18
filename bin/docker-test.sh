@@ -21,6 +21,7 @@ TEMP_DECODE_DIR=""
 EXT_CONFIG_DIR=""
 ABS_CONFIG_DIR=""
 SC_TEST_DIR=""
+LEGACY_CONFIG_DIR=""
 WIN_CONFIG_DIR=""
 WIN_OUT_DIR=""
 RUN_PID=""
@@ -67,6 +68,7 @@ cleanup() {
     if [ -n "$EXT_CONFIG_DIR" ]; then /bin/rm -rf "$EXT_CONFIG_DIR"; fi
     if [ -n "$ABS_CONFIG_DIR" ]; then /bin/rm -rf "$ABS_CONFIG_DIR"; fi
     if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi
+    if [ -n "$LEGACY_CONFIG_DIR" ]; then /bin/rm -rf "$LEGACY_CONFIG_DIR"; fi
     if [ -n "$WIN_CONFIG_DIR" ]; then /bin/rm -rf "$WIN_CONFIG_DIR"; fi
     if [ -n "$WIN_OUT_DIR" ];    then /bin/rm -rf "$WIN_OUT_DIR";    fi
     # Only removes TMP_ROOT if empty, so anything unexpected is left for inspection
@@ -120,7 +122,22 @@ docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init --site-id "$SITE_ID"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 [ -f "$TEST_DIR/config/site.env" ]       || fail "config/site.env not created"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
+[ -w "$TEST_DIR/config/albums.yaml" ]    || fail "config/albums.yaml is not host-writable"
 pass "ddphotos script and config created at $TEST_DIR"
+
+# Starter photos land next to config/ as real host files (not container-internal paths),
+# reached from albums.yaml via the relative base 'sample-base'.
+[ -f "$TEST_DIR/sample-photos/README.md" ]                    || fail "sample-photos/README.md not created"
+[ -f "$TEST_DIR/sample-photos/hero.webp" ]                    || fail "sample-photos/hero.webp not created"
+[ -f "$TEST_DIR/sample-photos/vacation/2024-The-Way-14.jpg" ] || fail "sample-photos/vacation photos not created"
+[ -f "$TEST_DIR/sample-photos/secret/2024-The-Way-21.jpg" ]   || fail "sample-photos/secret photo not created"
+[ -f "$TEST_DIR/sample-photos/secret/photogen.txt" ]          || fail "sample-photos/secret/photogen.txt not created"
+[ -d "$TEST_DIR/sample-photos/empty" ]                        || fail "sample-photos/empty not created"
+# cp preserves the image's root-owned rw-r--r--, so do-init.sh widens the mode; without
+# that the host user cannot edit captions or delete the folder.
+[ -w "$TEST_DIR/sample-photos/vacation/2024-The-Way-14.jpg" ] || fail "sample-photos files are not host-writable"
+[ -w "$TEST_DIR/sample-photos/secret/photogen.txt" ]          || fail "sample-photos/secret/photogen.txt is not host-writable"
+pass "sample-photos installed at $TEST_DIR/sample-photos and host-writable"
 
 # Create static/llms.txt to verify build copies static files (below)
 mkdir "$TEST_DIR/config/static"
@@ -182,6 +199,10 @@ step "Photogen"
 [ -d "$TEST_DIR/albums/$SITE_ID" ] || fail "albums/$SITE_ID not created"
 ALBUM_COUNT=$(find "$TEST_DIR/albums/$SITE_ID" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')
 pass "albums/$SITE_ID created ($ALBUM_COUNT albums)"
+# Resolved through the relative base 'sample-base' -> sample-photos/vacation
+[ -d "$TEST_DIR/albums/$SITE_ID/vacation" ] || fail "albums/$SITE_ID/vacation not created (sample-base did not resolve)"
+[ -f "$TEST_DIR/albums/$SITE_ID/hero.jpg" ] || fail "albums/$SITE_ID/hero.jpg not created (hero base did not resolve)"
+pass "starter albums resolved via relative base 'sample-base' (vacation album + hero)"
 
 # Test photogen with absolute source and hero image paths outside DDPHOTOS_DIR.
 # Exercises build_config_bases_mounts() handling of source: and image: with absolute paths.
@@ -207,6 +228,20 @@ sed "s|_DDPHOTOS_DIR_|$TEST_DIR|g" "$REPO_ROOT/web/testdata/albums.abspath-insid
 [ -d "$TEST_DIR/albums/$INSIDE_SITE_ID/the-way" ] || fail "albums/$INSIDE_SITE_ID/the-way not created"
 [ -f "$TEST_DIR/albums/$INSIDE_SITE_ID/hero.jpg" ] || fail "albums/$INSIDE_SITE_ID/hero.jpg not created"
 pass "photogen with absolute source paths inside DDPHOTOS_DIR OK (album dir and hero.jpg created)"
+
+# Back-compat: sites scaffolded before sample-photos/ existed still name the
+# container-internal paths (/ddphotos-init, /ddphotos-secret, /ddphotos-empty and
+# /ddphotos-hero/hero.webp) directly in albums.yaml. The Dockerfile still ships those
+# directories and docker/ddphotos still skips mounting such paths, so photogen must
+# keep working against them unchanged.
+step "Photogen: legacy container-internal paths (back-compat)"
+LEGACY_SITE_ID="test-legacy-paths"
+LEGACY_CONFIG_DIR=$(mktempd)
+/bin/cp "$REPO_ROOT/web/testdata/albums.legacy-container-paths.yaml" "$LEGACY_CONFIG_DIR/albums.yaml"
+"${DDPHOTOS[@]}" --config-dir "$LEGACY_CONFIG_DIR" photogen
+[ -d "$TEST_DIR/albums/$LEGACY_SITE_ID/temporary" ] || fail "albums/$LEGACY_SITE_ID/temporary not created"
+[ -f "$TEST_DIR/albums/$LEGACY_SITE_ID/hero.jpg" ]  || fail "albums/$LEGACY_SITE_ID/hero.jpg not created"
+pass "photogen with legacy /ddphotos-* paths OK (album dir and hero.jpg created)"
 
 # ── 5b. Photogen: Windows-style C:\ path mapping ───────────────────────────────
 # A Windows drive path (C:\Users\...) in albums.yaml must map to the container
@@ -460,8 +495,9 @@ TEST_DIR2=$(mktempd)
 chmod 755 "$TEST_DIR2"
 docker run --rm -v "$TEST_DIR2":/ddphotos "$IMAGE" init --script-only
 [ -x "$TEST_DIR2/ddphotos" ]   || fail "ddphotos script not installed"
-[ ! -d "$TEST_DIR2/config" ]   || fail "--script-only should not create config/"
-[ ! -d "$TEST_DIR2/albums" ]   || fail "--script-only should not create albums/"
+[ ! -d "$TEST_DIR2/config" ]        || fail "--script-only should not create config/"
+[ ! -d "$TEST_DIR2/albums" ]        || fail "--script-only should not create albums/"
+[ ! -d "$TEST_DIR2/sample-photos" ] || fail "--script-only should not create sample-photos/"
 pass "init --script-only OK (only ddphotos script installed)"
 
 # ── 16. Skip ──────────────────────────────────────────────────────
