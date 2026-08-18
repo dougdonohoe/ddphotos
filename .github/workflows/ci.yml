@@ -17,8 +17,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      DDPHOTOS_FFMPEG_DIR: ${{ runner.temp }}/ffmpeg
 
     steps:
       - name: Checkout code
@@ -33,7 +31,15 @@ jobs:
         # SDL2/X11 via ffplay, which is both slow and a large surface for a flaky apt
         # mirror to stall on. This is one checksum-verified GitHub download of two
         # executables. photogen finds them via DDPHOTOS_FFMPEG_DIR (pkg/photogen/video.go).
-        run: bash docker/do-install-ffmpeg.sh
+        #
+        # Installed under RUNNER_TEMP so the binaries stay out of the checkout. Set here
+        # rather than in a job-level `env:` block because the `runner` context is not
+        # available there; GITHUB_ENV carries it to the later steps, and the local export
+        # covers this step, which GITHUB_ENV does not.
+        run: |
+          export DDPHOTOS_FFMPEG_DIR="$RUNNER_TEMP/ffmpeg"
+          echo "DDPHOTOS_FFMPEG_DIR=$DDPHOTOS_FFMPEG_DIR" >> "$GITHUB_ENV"
+          bash docker/do-install-ffmpeg.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -87,8 +93,6 @@ jobs:
   test-nginx-s3:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      DDPHOTOS_FFMPEG_DIR: ${{ runner.temp }}/ffmpeg
 
     steps:
       - name: Checkout code
@@ -103,7 +107,15 @@ jobs:
         # SDL2/X11 via ffplay, which is both slow and a large surface for a flaky apt
         # mirror to stall on. This is one checksum-verified GitHub download of two
         # executables. photogen finds them via DDPHOTOS_FFMPEG_DIR (pkg/photogen/video.go).
-        run: bash docker/do-install-ffmpeg.sh
+        #
+        # Installed under RUNNER_TEMP so the binaries stay out of the checkout. Set here
+        # rather than in a job-level `env:` block because the `runner` context is not
+        # available there; GITHUB_ENV carries it to the later steps, and the local export
+        # covers this step, which GITHUB_ENV does not.
+        run: |
+          export DDPHOTOS_FFMPEG_DIR="$RUNNER_TEMP/ffmpeg"
+          echo "DDPHOTOS_FFMPEG_DIR=$DDPHOTOS_FFMPEG_DIR" >> "$GITHUB_ENV"
+          bash docker/do-install-ffmpeg.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
