@@ -80,11 +80,13 @@ fi
 # albums.yaml reaches them via the relative base 'sample-base'.
 cp -r /docker/init/. /ddphotos/
 
-# umask 0000 makes new directories world-writable, but cp preserves the image's file
-# permissions (root-owned rw-r--r--). Widen the mode on everything just copied so the
-# host user can edit config, recaption sample photos, and delete either. Driving the
-# loop off the source keeps this correct as the starter site grows. 'X' adds +x for
-# directories only, leaving file bits alone.
+# Everything just copied is root-owned with the image's restrictive modes (files
+# rw-r--r--, dirs rwxr-xr-x). entrypoint.sh's umask 0000 does not help: it applies to
+# the container's own filesystem, while the /ddphotos bind mount imposes its own default
+# mode (644/755) on new entries. So widen the mode explicitly - it is the only thing
+# letting the host user edit config, recaption sample photos, and delete either.
+# Driving the loop off the source keeps this correct as the starter site grows.
+# 'X' adds +x for directories only, leaving file bits alone.
 for _entry in /docker/init/*; do
     chmod -R a+rwX "/ddphotos/${_entry##*/}"
 done
