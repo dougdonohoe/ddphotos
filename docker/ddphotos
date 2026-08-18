@@ -207,8 +207,9 @@ build_config_bases_mounts() {
             # Expand leading ~ to $HOME
             path="${path/#\~/$HOME}"
             # Reject container-internal paths. /ddphotos* and /docker* are mount points
-            # inside the Docker image (e.g. the bundled sample data), not real folders on
-            # this machine — using one as a base never works the way the user expects.
+            # inside the Docker image (e.g. the legacy bundled sample data), not real
+            # folders on this machine — using one as a base never works the way the user
+            # expects. (The current init template uses a relative base, 'sample-photos'.)
             if [[ "$path" == /ddphotos* ]] || [[ "$path" == /docker* ]]; then
                 echo "Error: base path '$path' in $config is a container-internal path." >&2
                 echo "       A base must be a folder that exists on this machine." >&2
@@ -228,7 +229,9 @@ build_config_bases_mounts() {
                 [[ "$path" == \'*\' ]] && path="${path:1:${#path}-2}"
                 path="${path/#\~/$HOME}"
                 # Skip /ddphotos* and /docker* paths — container-internal placeholders
-                # used in the init template (e.g. /ddphotos-init) and older templates.
+                # used by older init templates (e.g. /ddphotos-init, /ddphotos-hero).
+                # Kept for back-compat: sites scaffolded before sample-photos/ existed
+                # still name them, and docker/Dockerfile still ships those directories.
                 if is_abs_path "$path" && [[ "$path" != /ddphotos* ]] && [[ "$path" != /docker* ]]; then
                     add_mount "$path" "$(to_container_path "$path")" ro
                 fi

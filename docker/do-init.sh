@@ -74,11 +74,25 @@ if [ -f "$CONFIG/albums.yaml" ]; then
     exit 1
 fi
 
-mkdir -p "$CONFIG" "$DDPHOTOS_ALBUMS_DIR" /ddphotos/build /ddphotos/export
-cp /docker/init/* "$CONFIG"
-# umask 0000 makes the directory world-writable, but cp preserves source file permissions (rw-r--r--);
-# make all config files world-writable so the host user can modify them.
-chmod a+w "$CONFIG"/*
+# /docker/init holds the whole starter site (config/ and sample-photos/) laid out exactly
+# as it should appear on the user's disk, so installing it is one recursive copy. The
+# sample photos land next to config/ as ordinary files the user can see, edit and delete;
+# albums.yaml reaches them via the relative base 'sample-base'.
+cp -r /docker/init/. /ddphotos/
+
+# umask 0000 makes new directories world-writable, but cp preserves the image's file
+# permissions (root-owned rw-r--r--). Widen the mode on everything just copied so the
+# host user can edit config, recaption sample photos, and delete either. Driving the
+# loop off the source keeps this correct as the starter site grows. 'X' adds +x for
+# directories only, leaving file bits alone.
+for _entry in /docker/init/*; do
+    chmod -R a+rwX "/ddphotos/${_entry##*/}"
+done
+
+# Generated output directories - not part of the starter site, and albums/ honors
+# DDPHOTOS_ALBUMS_DIR, so these are created rather than baked into the image.
+mkdir -p "$DDPHOTOS_ALBUMS_DIR" /ddphotos/build /ddphotos/export
+
 sed -i "s/__SITE_ID__/$SITE_ID/g" "$CONFIG/albums.yaml"
 
 echo "Initialized ddphotos (site-id=$SITE_ID)!"
@@ -91,10 +105,13 @@ echo "  3. ./ddphotos run         # to run dev server"
 echo "  4. ./ddphotos build       # to build static site"
 echo "  5. ./ddphotos serve       # to serve static site via Apache"
 echo
+echo "The starter albums use the photos in sample-photos/ (see sample-photos/README.md)."
+echo
 echo "Then build your site:"
 echo
 echo "  1. Edit config/albums.yaml to define your own albums"
 echo "  2. Repeat photogen, run, build, serve"
+echo "  3. Delete sample-photos/ and the starter albums once you no longer need them"
 echo
 echo "When ready to deploy, configure your config/site.env for rsync or s3 and deploy, or export"
 echo

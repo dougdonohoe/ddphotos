@@ -27,7 +27,8 @@ cd ~/my-ddphotos
 ./ddphotos serve      # serve static site via Apache at http://localhost:8000
 ```
 
-Then edit `config/albums.yaml` to define your own albums and repeat.
+The starter site's photos are installed in `sample-photos/` next to `config/`. Edit
+`config/albums.yaml` to define your own albums and repeat, then delete `sample-photos/`.
 
 **Deploy in seconds** (free, no server required) via [Cloudflare Pages↗](https://pages.cloudflare.com) (unlimited bandwidth) or
 [Surge↗](https://surge.sh):

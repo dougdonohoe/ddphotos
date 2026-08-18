@@ -1,0 +1,80 @@
+# ddphotos configuration
+#
+# See https://github.com/dougdonohoe/ddphotos/blob/main/docs/DOCKER.md for full documentation.
+# See https://github.com/dougdonohoe/ddphotos/blob/main/config/albums.example.yaml for
+#     the full documentation and specification of this 'albums.yaml' file.
+#
+# The three albums at the bottom are a starter site built from the photos in the
+# 'sample-photos' folder that 'ddphotos init' installed next to this 'config' folder.
+# Replace them with your own albums, then delete 'sample-photos'.
+#
+# Once you have edited this file, run:
+#   ./ddphotos photogen
+#   ./ddphotos run
+#   ./ddphotos build
+#   ./ddphotos serve
+
+settings:
+  id: __SITE_ID__
+  site_name: My Photos
+  site_url: https://your-ddphotos.example.com
+  site_description: My personal photo gallery
+  copyright_owner: Your Name
+  copyright_year: 2026
+  allow_crawling: false
+  css: custom.css
+  passwords: passwords.yaml
+  site_title_html: >-
+    My Photos
+  site_subtitle_html: >-
+    A personal photo gallery.
+  site_overview_html: >-
+    Welcome to my <span class="accent">photo gallery</span>.
+  hero:
+    base: sample-base
+    image: hero.jpg
+    crop: center
+
+# Named source folders. An album's 'source' is joined to the folder named by its 'base'
+# key, so you don't repeat a long path in every album. A base is either an absolute path
+# or a path relative to your DD Photos folder (the one holding this 'config' folder).
+# The ddphotos wrapper script reads these and mounts absolute paths into Docker for you.
+#
+# 'sample-base' points at the 'sample-photos' folder that 'ddphotos init' installed.
+# Delete it, that folder, and the albums below once you have added your own.
+#
+# Add your own bases, for example:
+#
+#   dropbox: /Users/anseladams/Dropbox/Vacations   # Dropbox or iCloud folder
+#   t7: /T7/Photos                                 # external drive
+#   local: photos                                  # a folder inside your DD Photos folder
+#
+# Then reference a base in each album:
+#
+#   albums:
+#     - slug: hawaii-2024
+#       name: Hawaii 2024
+#       base: t7
+#       source: hawaii-2024   # subfolder under the base path - this is /T7/Photos/hawaii-2024
+bases:
+  sample-base: sample-photos
+
+albums:
+  - slug: vacation
+    name: Vacation
+    base: sample-base
+    source: vacation
+    cover: 2024-The-Way-14.jpg
+    description: A sample album. Edit config/albums.yaml to point at your own photos (and update the site settings above), then run 'ddphotos photogen' and 'ddphotos run' again.
+
+  - slug: secret
+    name: Secret
+    base: sample-base
+    source: secret
+    description: This sample album has a password.
+
+  - slug: empty
+    name: Empty
+    base: sample-base
+    source: empty
+    description: This sample album doesn't have any photos in it.
