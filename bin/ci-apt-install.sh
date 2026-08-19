@@ -36,7 +36,15 @@ if [[ $# -eq 0 ]]; then
     exit 1
 fi
 
-# Ubuntu 24.04 runners use the deb822 format; older ones use the one-line sources.list.
+# GitHub's runner images do not name the mirror host in ubuntu.sources at all. They point
+# it at `mirror+file:/etc/apt/apt-mirrors.txt`, a priority-ordered list with Azure first
+# and archive.ubuntu.com already present below it. That fallback is useless to us on its
+# own: apt's mirror method only advances down the list on a hard failure, never on
+# slowness, which is the mode that actually bites here. So the Azure line has to be
+# removed outright rather than merely deprioritised.
+MIRRORLIST=/etc/apt/apt-mirrors.txt
+
+# Older images (and anything not using a mirrorlist) do name the host directly.
 SOURCES_FILES=(/etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list)
 
 sudo tee /etc/apt/apt.conf.d/99-ci-flaky-mirror >/dev/null <<'EOF'
@@ -67,10 +75,32 @@ echo "::warning::apt failed or exceeded ${APT_TIMEOUT}s against azure.archive.ub
 # "dpkg was interrupted" before it ever reaches the network. Cheap to run, no-op otherwise.
 sudo dpkg --configure -a || true
 
+if [[ -f "$MIRRORLIST" ]] && grep -q 'azure\.archive\.ubuntu\.com' "$MIRRORLIST"; then
+    echo "--- $MIRRORLIST before ---"
+    cat "$MIRRORLIST"
+    # Only drop the Azure entry if the list still has somewhere else to fetch from.
+    if grep -v 'azure\.archive\.ubuntu\.com' "$MIRRORLIST" | grep -q '://'; then
+        sudo sed -i '/azure\.archive\.ubuntu\.com/d' "$MIRRORLIST"
+    else
+        echo 'http://archive.ubuntu.com/ubuntu/' | sudo tee "$MIRRORLIST" >/dev/null
+    fi
+    echo "--- $MIRRORLIST after ---"
+    cat "$MIRRORLIST"
+fi
+
 for f in "${SOURCES_FILES[@]}"; do
     if [[ -f "$f" ]]; then
         sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' "$f"
     fi
 done
+
+# Force the retry's `apt-get update` to genuinely re-fetch its indexes from the new mirror
+# rather than reporting Hit off the old ones. The lists are keyed by the mirrorlist URI,
+# not the mirror it resolves to, so editing the list alone would not invalidate them, and a
+# timeout during the update phase can leave a half-written index behind.
+#
+# Deliberately no `apt-get clean`: already-downloaded .debs are checksum-verified against
+# the new indexes, so reusing them is safe and saves re-fetching them over the slower mirror.
+sudo rm -rf /var/lib/apt/lists/*
 
 apt_install "$@"
