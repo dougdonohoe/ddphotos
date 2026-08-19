@@ -64,11 +64,11 @@ too, which is why I've open-sourced it.
 
 ## Overview
 
-A DD Photos site has a home page, with all of your albums and their description.
-You can easily switch between dark and light themes.  Click/touch an album and 
-you see a grid of all photos.  Click/touch a photo to see the full size version and
-a caption, if it has one. You can easily swipe between photos (or use
-arrow keys on a laptop).  It works great on mobile, tablet, and desktop.
+A DD Photos [site]([site↗](https://ddphotos.donohoe.info)) has a home page, with all of your albums,
+and their description. You can easily switch between dark and light themes.  Click/touch an 
+album, and you see a grid of all photos/videos.  Click/touch a photo/video to see the full size version and
+a caption, if it has one. You can easily swipe between photos/video (or use arrow keys on a laptop).
+It works great on mobile, tablet, and desktop.
 
 Videos sit in the same grid as your photos, marked with a play badge and their length,
 and play right where the full size photo would appear.
@@ -82,25 +82,27 @@ Here's what it looks like on a big display (see [Screenshots](docs/SCREENSHOTS.m
 The idea is that you already use _something else_ to curate and filter your photos. Maybe it
 is Adobe Lightroom Classic (my tool).  Or maybe it is Apple Photos or Google Photos.
 It doesn't matter, but once you get a selection of photos that comprise an album,
-you export the photos into a folder.  All the photos in a folder make up an album.
-Any videos in that folder are included too.  It's that simple.
+you export the photos into a folder.  All the photos (and videos) in a folder make up an album.
+It's that simple.
 
 You can create an optional `photogen.txt` file in each album folder to
-define captions for each photo.  This file can also be used to define the
+define captions for each photo/video.  This file can also be used to define the
 album's sort order, if order-by-date isn't sufficient.
 
 With DD Photos, you define where your albums live in an `albums.yaml` file.
-Each album entry can include a short `description:` field shown on the home page.
+You can specify a name, description, and choose your cover photo.  Here, you also define
+details about your site, like name, description, optional HTML text and the
+hero image.
 
-Once you have defined where your photos live, you run the `photogen` tool,
+Once you have defined where your photos/videos live, you run the `photogen` tool,
 which resizes the photos for web viewing, converts any videos to a format every
 browser can play, and generates index files that the web app uses.
 
-That's it.  You can now view your photo albums on your machine using the dev server.
+That's it.  You can now view your photo/video albums on your machine using the dev server.
 
 Finally, there is a build step which creates a static site that can easily be
 deployed to a machine that has a web server (like Apache or nginx), to AWS S3,
-or to any static hosting service. No code runs on a server.  No database is needed.
+or exported to any static hosting service. No code runs on a server.  No database is needed.
 It's just HTML, CSS, JavaScript and your (resized) photos.
 
 ## Key Features
