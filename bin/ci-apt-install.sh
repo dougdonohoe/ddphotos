@@ -54,11 +54,16 @@ Acquire::https::Timeout "20";
 Acquire::ForceIPv4 "true";
 EOF
 
-# Per phase, not for the script as a whole. 240s sits above the worst run that still
-# finished on its own (199s) and below the ones that did not (312s, 3943s), so a merely
-# sluggish mirror is ridden out and a broken one is cut off. Override with APT_TIMEOUT.
+# Per phase, not for the script as a whole. Override with APT_TIMEOUT.
+#
+# 120s is deliberately aggressive. It started at 240s, chosen to ride out a sluggish mirror
+# rather than swap, but measurement showed that reasoning was backwards: when the fallback
+# fired in CI, archive.ubuntu.com finished the whole install in 47-100s, i.e. *faster* than
+# a degraded Azure manages. Swapping is cheap, so waiting to avoid it is the expensive
+# choice. 120s still leaves 4x headroom over a healthy run (~20-30s).
+#
 # `sudo timeout` rather than `timeout sudo`: the signal has to reach apt-get, not sudo.
-APT_TIMEOUT="${APT_TIMEOUT:-240}"
+APT_TIMEOUT="${APT_TIMEOUT:-120}"
 
 apt_install() {
     sudo timeout "$APT_TIMEOUT" apt-get update
