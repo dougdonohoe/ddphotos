@@ -427,6 +427,15 @@ test('video caption returns when the clip ends', async ({ page }) => {
 	// through. Seek to shortly before the end rather than playing the whole thing, leaving
 	// enough runway to observe the caption actually hide first so the final assertion is not
 	// vacuous.
+	//
+	// A visible <video> is not a loaded one: the element mounts and paints before
+	// `loadedmetadata` fires, and until then `duration` is NaN, which makes the seek below
+	// throw "non-finite". Polling readyState rather than sleeping keeps this stable on a
+	// slow CI runner, where the gap is wide enough to lose the race.
+	await expect
+		.poll(() => player.evaluate((el: HTMLVideoElement) => el.readyState), { timeout: 10_000 })
+		.toBeGreaterThan(0);
+
 	await player.evaluate(async (el: HTMLVideoElement) => {
 		el.currentTime = Math.max(0, el.duration - 1.5);
 		await el.play();
