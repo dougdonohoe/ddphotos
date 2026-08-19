@@ -23,7 +23,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config
+        # Via bin/ci-apt-install.sh rather than a bare apt-get: GitHub's runner images pin
+        # their mirror to azure.archive.ubuntu.com, which stalls this step periodically
+        # (once for 66 minutes, until the job timeout killed it). The script bounds apt's
+        # timeouts, retries, and falls back to archive.ubuntu.com. See its header.
+        run: bash bin/ci-apt-install.sh libvips-dev libheif-plugin-libde265 pkg-config
 
       - name: Install ffmpeg
         # The same pinned static build the Docker image fetches on demand, rather than
@@ -72,10 +76,13 @@ jobs:
         run: make web-lint
 
       - name: Install Playwright Chromium
+        # Deliberately no `npx playwright install-deps chromium` here. That runs apt-get
+        # under the hood and was the most frequent victim of the flaky Azure mirror (up to
+        # 479s in a job with no apt step of its own). The ubuntu-latest image preinstalls
+        # Chrome and Firefox, so Chromium's shared libraries are already present. If a
+        # future runner image drops them, this fails loudly at browser launch, not subtly.
+        # (docs/INSTALL.md still documents install-deps for minimal Linux installs.)
         run: make web-playwright-install
-
-      - name: Install Playwright system dependencies
-        run: cd web && npx playwright install-deps chromium
 
       - name: Photogen and build
         run: make sample-photogen sample-build
@@ -99,19 +106,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libvips-dev libheif-plugin-libde265 pkg-config
+        # Via bin/ci-apt-install.sh rather than a bare apt-get: GitHub's runner images pin
+        # their mirror to azure.archive.ubuntu.com, which stalls this step periodically
+        # (once for 66 minutes, until the job timeout killed it). The script bounds apt's
+        # timeouts, retries, and falls back to archive.ubuntu.com. See its header.
+        run: bash bin/ci-apt-install.sh libvips-dev libheif-plugin-libde265 pkg-config
 
       - name: Install ffmpeg
-        # The same pinned static build the Docker image fetches on demand, rather than
-        # `apt-get install ffmpeg`: the Debian package pulls ~200 packages and 448MB of
-        # SDL2/X11 via ffplay, which is both slow and a large surface for a flaky apt
-        # mirror to stall on. This is one checksum-verified GitHub download of two
-        # executables. photogen finds them via DDPHOTOS_FFMPEG_DIR (pkg/photogen/video.go).
-        #
-        # Installed under RUNNER_TEMP so the binaries stay out of the checkout. Set here
-        # rather than in a job-level `env:` block because the `runner` context is not
-        # available there; GITHUB_ENV carries it to the later steps, and the local export
-        # covers this step, which GITHUB_ENV does not.
+        # Static build rather than `apt-get install ffmpeg`; see the 'test' job above.
         run: |
           export DDPHOTOS_FFMPEG_DIR="$RUNNER_TEMP/ffmpeg"
           echo "DDPHOTOS_FFMPEG_DIR=$DDPHOTOS_FFMPEG_DIR" >> "$GITHUB_ENV"
@@ -139,10 +141,8 @@ jobs:
         run: cd web && npm ci
 
       - name: Install Playwright Chromium
+        # Deliberately no `npx playwright install-deps chromium`; see the 'test' job above.
         run: make web-playwright-install
-
-      - name: Install Playwright system dependencies
-        run: cd web && npx playwright install-deps chromium
 
       - name: Photogen and build
         run: make sample-photogen sample-build
@@ -182,10 +182,8 @@ jobs:
         run: cd web && npm ci
 
       - name: Install Playwright Chromium
+        # Deliberately no `npx playwright install-deps chromium`; see the 'test' job above.
         run: make web-playwright-install
-
-      - name: Install Playwright system dependencies
-        run: cd web && npx playwright install-deps chromium
 
       - name: Run Docker workflow tests
         run: make docker-test
