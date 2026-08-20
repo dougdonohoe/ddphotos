@@ -311,3 +311,51 @@ export async function findVideo(request: APIRequestContext): Promise<FoundVideo 
 		return null;
 	}
 }
+
+/**
+ * A caption containing HTML, found in the published album data.
+ */
+export interface FoundHtmlCaption {
+	slug: string;
+	index: number; // 0-based position in the album, matching .photo nth()
+	description: string; // raw caption, markup included
+}
+
+/**
+ * Find a photo whose photogen.txt caption contains HTML.
+ *
+ * Content-driven like findVideo: captions are site data, so the test asks the published
+ * index.json what is there rather than hardcoding a fixture. The sample site has one
+ * (antarctica/sunset_02); a site with no HTML captions gets a null and the caller turns
+ * that into a test.skip.
+ *
+ * Encrypted variants publish index.enc.json, so this returns null there, exactly as
+ * findVideo does.
+ */
+export async function findHtmlCaption(
+	request: APIRequestContext
+): Promise<FoundHtmlCaption | null> {
+	try {
+		const albumsResp = await request.get('/albums/albums.json');
+		if (!albumsResp.ok()) return null;
+		const albums: { slug: string; count: number }[] = await albumsResp.json();
+
+		for (const album of albums) {
+			if (!album.count) continue;
+			const resp = await request.get(`/albums/${album.slug}/index.json`);
+			if (!resp.ok()) continue;
+			const index: { photos: { description?: string }[] } = await resp.json();
+
+			for (let i = 0; i < index.photos.length; i++) {
+				const description = index.photos[i].description;
+				// `<` followed by a letter: a tag, not a stray less-than in prose.
+				if (description && /<[a-z]/i.test(description)) {
+					return { slug: album.slug, index: i, description };
+				}
+			}
+		}
+		return null;
+	} catch {
+		return null;
+	}
+}

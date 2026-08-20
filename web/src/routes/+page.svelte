@@ -364,7 +364,7 @@
 					<div class="album-info">
 						<h2>{album.title}</h2>
 						{#if album.description}
-							<!-- eslint-disable-next-line svelte/no-at-html-tags -- album photogen.txt, HTML is intentional -->
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml description, HTML is intentional -->
 							<p class="description">{@html album.description}</p>
 						{/if}
 						<p class="meta">

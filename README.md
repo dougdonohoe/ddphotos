@@ -124,7 +124,8 @@ Website features:
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Optional hero image: a full-width banner at the top of the home page, specified in
   `albums.yaml` with a configurable crop position (top/center/bottom).
-- Optional `HTML` title, subtitle, and site overview.
+- Optional `HTML` title, subtitle, and site overview. Photo captions accept inline
+  `HTML` too, including links (clickable in the lightbox).
 - Optional password protection: encrypt individual albums or the entire site. Passwords
   are never stored server-side, decryption happens in-browser using the Web Crypto API.
   Optional hints can be shown in the password dialog. A logout button clears stored

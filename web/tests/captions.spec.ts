@@ -1,11 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, loadPasswords, unlockAlbumIfNeeded, albumExists } from './helpers';
+import {
+	waitForHydration,
+	loadPasswords,
+	unlockAlbumIfNeeded,
+	albumExists,
+	findHtmlCaption,
+	type FoundHtmlCaption
+} from './helpers';
 
 const pw = loadPasswords();
 
 let hasAntarctica = true;
+let htmlCaption: FoundHtmlCaption | null = null;
 test.beforeAll(async ({ request }) => {
 	hasAntarctica = await albumExists(request, 'antarctica');
+	htmlCaption = await findHtmlCaption(request);
 });
 
 // Caption tests verify the rendering mechanism works (rAF fix, animate=false fix),
@@ -152,4 +161,93 @@ test('caption updates when navigating to prev/next photo', async ({ page }) => {
 	// Caption for *this* photo may or may not exist — just assert the lightbox
 	// is still open and didn't crash.
 	await expect(page.locator('.pswp')).toBeVisible();
+});
+
+// HTML in captions. photogen.txt is written by the site owner, so its markup is rendered
+// rather than escaped — but only where a caption is body text. The `alt` and `aria-label`
+// built from the same string are plain-text slots and get the tags stripped, and grid
+// captions stay non-interactive so a tile remains a single click target.
+//
+// Driven by whatever the site publishes (see findHtmlCaption), so it is a no-op on a site
+// with no HTML captions rather than a hardcoded fixture assertion.
+
+test('grid caption renders HTML, while alt text stays plain', async ({ page }) => {
+	test.skip(!htmlCaption, 'no caption with HTML on this site');
+	const found = htmlCaption!;
+
+	await page.goto(`/albums/${found.slug}`);
+	await unlockAlbumIfNeeded(page, found.slug, pw);
+	await waitForHydration(page);
+
+	const tile = page.locator('.photo').nth(found.index);
+	const caption = tile.locator('.photo-caption');
+
+	// A real element, not the literal "<b>" that escaping would produce.
+	await expect(caption.locator('b, strong, i, em, a').first()).toBeAttached();
+	await expect(caption).not.toContainText('<');
+
+	// The same caption feeds alt and aria-label, which cannot render markup.
+	expect(await tile.locator('img').getAttribute('alt')).not.toContain('<');
+	expect(await tile.getAttribute('aria-label')).not.toContain('<');
+});
+
+test('grid caption is inert, so its links add no tab stops', async ({ page }) => {
+	test.skip(!htmlCaption, 'no caption with HTML on this site');
+	const found = htmlCaption!;
+	test.skip(!/<a[\s>]/i.test(found.description), 'caption has no link');
+
+	await page.goto(`/albums/${found.slug}`);
+	await unlockAlbumIfNeeded(page, found.slug, pw);
+	await waitForHydration(page);
+
+	// `inert` removes the subtree from the tab order and the a11y tree. Without it a
+	// caption <a> would be interactive content nested inside the tile's <button>.
+	const caption = page.locator('.photo').nth(found.index).locator('.photo-caption');
+	await expect(caption).toHaveAttribute('inert', /.*/);
+
+	const focusedTag = await page.evaluate(() => {
+		const link = document.querySelector('.photo-caption a') as HTMLElement | null;
+		link?.focus();
+		return document.activeElement?.tagName ?? '';
+	});
+	expect(focusedTag).not.toBe('A');
+});
+
+test('lightbox caption renders HTML, its links open in a new tab, alt stays plain', async ({
+	page
+}) => {
+	test.skip(!htmlCaption, 'no caption with HTML on this site');
+	const found = htmlCaption!;
+
+	await page.goto(`/albums/${found.slug}`);
+	await unlockAlbumIfNeeded(page, found.slug, pw);
+	await waitForHydration(page);
+
+	await page.locator('.photo').nth(found.index).click();
+	await expect(page.locator('.pswp')).toBeVisible();
+
+	// Scope to the current slide. All three item holders (prev/current/next) carry a
+	// caption, and only this photo's has HTML in it — aria-hidden="false" is what marks
+	// the active holder (see the vertical-drag test above).
+	const current = page.locator('.pswp__item[aria-hidden="false"]');
+	const caption = current.locator('.pswp-caption');
+	await expect(caption).toBeVisible();
+	await expect(caption).not.toContainText('<');
+	await expect(caption.locator('b, strong, i, em, a').first()).toBeAttached();
+
+	if (/<a[\s>]/i.test(found.description)) {
+		const link = caption.locator('a').first();
+		// Forced in updateAll(): following a link in place would tear down the lightbox.
+		await expect(link).toHaveAttribute('target', '_blank');
+		await expect(link).toHaveAttribute('rel', 'noopener');
+		// The caption container is pointer-events: none; links opt back in.
+		await expect(link).toHaveCSS('pointer-events', 'auto');
+	}
+
+	// PhotoSwipe writes the data source's alt onto the slide image. Video slides have
+	// no <img>, so only check when the found item is a still.
+	const img = current.locator('.pswp__img').first();
+	if ((await img.count()) > 0) {
+		expect(await img.getAttribute('alt')).not.toContain('<');
+	}
 });
