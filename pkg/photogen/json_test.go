@@ -662,6 +662,26 @@ func TestGetAlbumSummary(t *testing.T) {
 		assert.NotEmpty(t, sPublic.Cover)
 	})
 
+	t.Run("count is all media and videoCount is the video share of it", func(t *testing.T) {
+		t.Parallel()
+		// The frontend derives its "n photos · n videos" line from these two, taking the
+		// photo count as count - videoCount, so count must stay the total.
+		s := makeVideoAP(t.TempDir(), nil).GetAlbumSummary()
+		assert.Equal(t, 2, s.Count)
+		assert.Equal(t, 1, s.VideoCount)
+	})
+
+	t.Run("an album with no video omits videoCount from the JSON", func(t *testing.T) {
+		t.Parallel()
+		s := makeAP("myalbum", nil).GetAlbumSummary()
+		assert.Equal(t, 1, s.Count)
+		assert.Zero(t, s.VideoCount)
+
+		b, err := json.Marshal(s)
+		require.NoError(t, err)
+		assert.NotContains(t, string(b), "videoCount", "omitempty keeps video-free albums.json unchanged")
+	})
+
 	t.Run("mixed: site+per-album encryption omits cover for per-album album, includes for others", func(t *testing.T) {
 		t.Parallel()
 		// Per-album password takes precedence: the "secret" album has its own password so its

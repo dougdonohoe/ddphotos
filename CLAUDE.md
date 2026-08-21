@@ -64,6 +64,7 @@ wrong Node, so a machine whose `nvm` default has drifted cannot silently install
 ```bash
 make build test vet              # Go build, unit tests, static analysis
 make sample-build                # build static site with sample data
+make web-unit-test               # Vitest unit tests for TypeScript helpers in web/src/lib
 make web-sanity-test             # Playwright e2e tests: Apache, no-passwords + all-passwords (quick comprehensive web check)
 make web-playwright-test-apache  # Playwright e2e tests, Apache, no-passwords only
 make docker-test                 # Test 'ddphotos' docker commands
@@ -73,6 +74,8 @@ System dependency required: `brew install vips pkg-config`
 
 ## Testing Practices
 
+- **Pure TypeScript helpers** (`web/src/lib/*.ts`): unit-test them with Vitest as `src/lib/<name>.test.ts`
+  rather than reaching for a browser; `make web-unit-test` runs them, and `web-sanity-test` runs them first
 - **Reproducing frontend bugs**: write a failing Playwright test that demonstrates the bug before fixing it
 - **New UI features**: add a Playwright test covering the new behavior — tests live in `web/tests/`
 - After any UI changes, run `make web-sanity-test` (Apache, no-passwords + all-passwords) as the standard web check

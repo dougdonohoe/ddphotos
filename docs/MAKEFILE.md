@@ -21,6 +21,7 @@ as defined in `config/defaults.env`.
 | `web-npm-audit-fix`           | Run `npm audit fix` in `web/`                                                                 |
 | `web-lint`                    | Check formatting (prettier) and lint (eslint) in `web/`                                       |
 | `web-format`                  | Reformat `web/` sources with prettier                                                         |
+| `web-unit-test`               | Run Vitest unit tests for the TypeScript helpers in `web/src/lib`                             |
 | `web-npm-run-dev`             | Start Vite dev server and open browser                                                        |
 | `web-npm-run-dev-https`       | Start Vite dev server over HTTPS (required for `crypto.subtle` on mobile/LAN)                 |
 | `web-npm-build`               | Build the static site into `build/$DDPHOTOS_SITE_ID/`                                         |

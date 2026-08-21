@@ -132,6 +132,11 @@ web-lint:
 web-format:
 	$(NODE_INIT) cd web && npm run format
 
+.PHONY: web-unit-test
+## web-unit-test: run Vitest unit tests for the TypeScript helpers in web/src/lib
+web-unit-test:
+	$(NODE_INIT) cd web && npm run test:unit
+
 .PHONY: web-playwright-install
 ## web-playwright-install: install Playwright and browser binaries (one-time setup)
 web-playwright-install:
@@ -229,8 +234,9 @@ web-playwright-test-all:
 	bin/test-all.sh
 
 .PHONY: web-sanity-test
-## web-sanity-test: quick sanity check — Playwright e2e tests against Apache, no-passwords + all-passwords variants
+## web-sanity-test: quick sanity check — Vitest unit tests, then Playwright e2e against Apache, no-passwords + all-passwords variants
 web-sanity-test:
+	$(MAKE) web-unit-test # pure-function checks first: seconds, and no browser needed
 	bin/run-tests.sh --mode apache
 	$(MAKE) sample-test-apache # also test routing tests against sample, which was just built
 	bin/run-tests.sh --mode apache --passwords sample/config/passwords-all.yaml

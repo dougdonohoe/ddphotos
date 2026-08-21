@@ -33,7 +33,8 @@ export interface AlbumIndex {
 export interface AlbumSummary {
 	slug: string;
 	title: string;
-	count: number;
+	count: number; // total media items (photos + videos)
+	videoCount?: number; // how many of `count` are videos; omitted when none are
 	cover?: string;
 	coverJpeg?: string;
 	dateSpan: string;

@@ -27,6 +27,7 @@
 	} from '$lib/crypto';
 	import { footerReady } from '$lib/stores';
 	import { stripTags } from '$lib/html';
+	import { albumMetaText } from '$lib/counts';
 	import { navigateCursor, type Direction } from '$lib/navigation';
 
 	let { data } = $props();
@@ -110,6 +111,10 @@
 			? photoIndex + 1
 			: null
 	);
+
+	// Media counts for the header line, split so videos are named separately from photos.
+	let videoCount = $derived((album?.photos ?? []).filter((p) => p.kind === 'video').length);
+	let photoCount = $derived((album?.photos ?? []).length - videoCount);
 
 	// Compute layout based on photo aspect ratios
 	let layout = $derived(() => {
@@ -767,10 +772,13 @@
 	});
 </script>
 
+<!-- An album with no description of its own falls back to the site description rather than
+     to a generated sentence about its contents: that sentence only ever appeared for
+     description-less albums, said little beyond a number, and would need maintaining as the
+     kinds of media an album can hold grow. The site description is prose someone wrote. -->
 <OpenGraph
 	title="{albumTitle} | {data.siteConfig.siteName}"
-	description={plainDescription ||
-		(album ? `${album.photos.length} photos from the '${albumTitle}' album` : albumTitle)}
+	description={plainDescription || data.siteConfig.siteDescription}
 	url="{data.siteConfig.siteUrl}/albums/{slug}"
 	siteName={data.siteConfig.siteName}
 	image={album ? `${data.siteConfig.siteUrl}/albums/${slug}/cover.jpg` : undefined}
@@ -812,7 +820,7 @@
 				<p class="description">{@html description}</p>
 			{/if}
 			<p class="meta">
-				{album.photos.length} photos{dateSpan ? ` · ${dateSpan}` : ''}
+				{albumMetaText(photoCount, videoCount, dateSpan)}
 			</p>
 		</header>
 

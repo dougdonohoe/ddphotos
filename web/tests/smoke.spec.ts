@@ -51,6 +51,12 @@ test('album page has correct Open Graph tags', async ({ page }) => {
 	await unlockAlbumIfNeeded(page, 'antarctica', pw);
 	await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^Antarctica/);
 	await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
+	// The album's own description wins over the site description, which is only the fallback
+	// for an album that has none.
+	await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
+		'content',
+		/bottom of the world/
+	);
 	// og:image must be a JPEG (not WebP) — iMessage and many crawlers don't support WebP previews
 	await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
 		'content',

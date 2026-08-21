@@ -80,7 +80,8 @@ type PhotoSrcIndex struct {
 type AlbumSummary struct {
 	Slug        string `json:"slug"`
 	Title       string `json:"title"`
-	Count       int    `json:"count"`
+	Count       int    `json:"count"`                 // total media items (photos + videos)
+	VideoCount  int    `json:"videoCount,omitempty"`  // how many of Count are videos
 	Cover       string `json:"cover,omitempty"`       // path to cover image (first photo's thumb, WebP)
 	CoverJpeg   string `json:"coverJpeg,omitempty"`   // path to cover JPEG for OG images (broad crawler support)
 	DateSpan    string `json:"dateSpan"`              // e.g., "Apr 2024" or "Apr - May 2024"
@@ -180,10 +181,17 @@ func (ap *AlbumProcessor) relativeVideoPath(fileName string) string {
 
 // GetAlbumSummary returns summary info for albums.json
 func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
+	videos := 0
+	for _, p := range ap.Photos {
+		if p.IsVideo {
+			videos++
+		}
+	}
 	summary := AlbumSummary{
-		Slug:  ap.AlbumConfig.Slug,
-		Title: ap.AlbumConfig.Name,
-		Count: len(ap.Photos),
+		Slug:       ap.AlbumConfig.Slug,
+		Title:      ap.AlbumConfig.Name,
+		Count:      len(ap.Photos),
+		VideoCount: videos,
 	}
 
 	albumEncrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
