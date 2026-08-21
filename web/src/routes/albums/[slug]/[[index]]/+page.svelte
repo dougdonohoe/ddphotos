@@ -1079,10 +1079,14 @@
 
 	/* Caption links. In the grid they are styled but not clickable: the container is
 	   pointer-events: none and the whole tile is one click target that opens the lightbox,
-	   which is where a caption is meant to be read (and where its links work). */
+	   which is where a caption is meant to be read (and where its links work).
+	   Thickness is pinned rather than left at the default `auto`, which scales with font
+	   size: the grid caption is 0.78rem and the lightbox one up to 1.2rem, so `auto` draws
+	   a visibly heavier line in the lightbox for what should look like the same link. */
 	.photo-caption :global(a) {
 		color: inherit;
 		text-decoration: underline;
+		text-decoration-thickness: 1px;
 		text-underline-offset: 2px;
 	}
 
@@ -1221,9 +1225,14 @@
 		pointer-events: auto;
 		color: inherit;
 		text-decoration: underline;
+		/* Matches the grid. See .photo-caption a for why this is pinned. */
+		text-decoration-thickness: 1px;
 		text-underline-offset: 2px;
 	}
 
+	/* Doubling the hairline is the hover affordance. Kept because a lightbox caption link
+	   is the only clickable thing inside the caption, and the underline is the only thing
+	   marking it as one. */
 	:global(.pswp-caption a:hover),
 	:global(.pswp-caption a:focus-visible) {
 		text-decoration-thickness: 2px;

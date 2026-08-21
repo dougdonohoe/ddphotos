@@ -251,3 +251,32 @@ test('lightbox caption renders HTML, its links open in a new tab, alt stays plai
 		expect(await img.getAttribute('alt')).not.toContain('<');
 	}
 });
+
+test('caption links use the same hairline underline in the grid and the lightbox', async ({
+	page
+}) => {
+	test.skip(!htmlCaption, 'no caption with HTML on this site');
+	const found = htmlCaption!;
+	test.skip(!/<a[\s>]/i.test(found.description), 'caption has no link');
+
+	await page.goto(`/albums/${found.slug}`);
+	await unlockAlbumIfNeeded(page, found.slug, pw);
+	await waitForHydration(page);
+
+	// Thickness is pinned in CSS rather than left at `auto`, which scales with font size.
+	// The grid caption is 0.78rem and the lightbox one up to 1.2rem, so `auto` would draw
+	// a visibly heavier line in the lightbox for what should look like the same link.
+	const gridLink = page.locator('.photo').nth(found.index).locator('.photo-caption a').first();
+	await expect(gridLink).toHaveCSS('text-decoration-thickness', '1px');
+
+	await page.locator('.photo').nth(found.index).click();
+	await expect(page.locator('.pswp')).toBeVisible();
+
+	// aria-hidden="false" marks the active holder; see the test above.
+	const link = page.locator('.pswp__item[aria-hidden="false"]').locator('.pswp-caption a').first();
+	await expect(link).toHaveCSS('text-decoration-thickness', '1px');
+
+	// Hovering doubles it, which is the only affordance marking the link as clickable.
+	await link.hover();
+	await expect(link).toHaveCSS('text-decoration-thickness', '2px');
+});

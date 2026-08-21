@@ -210,11 +210,12 @@ pseudo-class in your override:
 .pswp-caption a,
 .pswp-caption a:hover,
 .pswp-caption a:focus-visible {
-    text-decoration-thickness: 1px;
+    text-decoration-thickness: 3px;
 }
 ```
 
-Without the last two selectors the underline would snap back to the built-in thickness the
+Caption links are underlined at 1px and thicken to 2px on hover. Without the last two
+selectors above, your 3px would apply at rest and then snap back to the built-in 2px the
 moment the pointer touched it.
 
 ## Finding what to target
@@ -358,8 +359,9 @@ a scoped rule, so it needs `!important`:
 ### Styling captions differently in the grid and the lightbox
 
 A caption is rendered in two places with two different class names, so each can be styled
-on its own. This hides links in the grid (where they are not clickable anyway, since the
-whole tile opens the lightbox) while keeping them in the lightbox with a hairline underline:
+on its own. This drops links from the grid entirely (they are not clickable there anyway,
+since the whole tile opens the lightbox) while tinting them in the lightbox and holding the
+underline at one weight, hover included:
 
 ```css
 /* Grid overlay: drop the link, keep the surrounding prose */
@@ -367,12 +369,12 @@ whole tile opens the lightbox) while keeping them in the lightbox with a hairlin
     display: none;
 }
 
-/* Lightbox: thinner underline than the built-in one */
+/* Lightbox: tint the links and stop the hover from thickening the underline */
 .pswp-caption a,
 .pswp-caption a:hover,
 .pswp-caption a:focus-visible {
+    color: #9fd3ff;
     text-decoration-thickness: 1px;
-    text-underline-offset: 3px;
 }
 ```
 
@@ -381,7 +383,7 @@ different reasons from [Level 2](#level-2-override-a-rule). The grid rule sets `
 which no built-in rule sets, so there is nothing to lose to. The lightbox rules match a
 `:global` selector exactly, so they win on source order, and the `:hover` and
 `:focus-visible` selectors are repeated because the built-in hover rule would otherwise
-outrank the base one.
+outrank the base one and restore the 2px underline whenever the pointer was over the link.
 
 Note that hiding a caption link is purely visual: the tile's `aria-label` still reads the
 full caption text, so the visible and screen-reader text will differ.
