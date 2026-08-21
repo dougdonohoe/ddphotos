@@ -182,6 +182,11 @@ site-wide as a `<link>` after the built-in styles, so any rules inside it take e
 normal cascade overrides. Redefining CSS custom properties (e.g. `--bg-color`,
 `--text-color-2nd`) is the cleanest approach — no specificity battles needed.
 
+See **[Custom CSS](CUSTOM-CSS.md)** for the full guide: the available custom properties,
+the class names worth targeting, why some overrides need `!important` (Svelte scopes most
+built-in rules, which raises their specificity above yours), how to iterate in about a
+second without reprocessing photos, and worked examples.
+
 ### Password Protection
 
 Encryption is enabled by adding a `passwords:` entry under `settings:` pointing to a

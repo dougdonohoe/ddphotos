@@ -26,6 +26,7 @@
 		tryDecrypt
 	} from '$lib/crypto';
 	import { footerReady } from '$lib/stores';
+	import { stripTags } from '$lib/html';
 	import { navigateCursor, type Direction } from '$lib/navigation';
 
 	let { data } = $props();
@@ -51,7 +52,7 @@
 	// (needed for site-encrypted sites where albums.enc.json is not fetched server-side).
 	let albumTitle = $derived(album?.title ?? data.albumData.albumTitle);
 	let description = $derived(data.albumData.description || album?.description || '');
-	let plainDescription = $derived(description.replace(/<[^>]*>/g, ''));
+	let plainDescription = $derived(stripTags(description));
 	let dateSpan = $derived(data.albumData.dateSpan || album?.dateSpan || '');
 	// Header navigation configured via customizations.album_nav; empty means the default
 	// "← Albums" link. Rides in config.json, so it is available before any decryption.
@@ -140,7 +141,7 @@
 	// Accessible label for a grid tile. Videos say so, since the play badge is aria-hidden
 	// and a screen reader would otherwise have no way to tell a clip from a still.
 	function photoLabel(photo: Photo): string {
-		const base = photo.description || photo.fileName;
+		const base = stripTags(photo.description) || photo.fileName;
 		if (photo.kind !== 'video') return base;
 		const length = photo.duration ? `, ${formatDuration(photo.duration)}` : '';
 		return `Video: ${base}${length}`;
@@ -172,7 +173,7 @@
 			w: photo.width,
 			h: photo.height,
 			msrc: `/albums/${slug}/${photo.src.grid}`, // thumbnail for loading
-			alt: photo.description || photo.fileName,
+			alt: stripTags(photo.description) || photo.fileName,
 			caption: photo.description || '',
 			videoSrc: photo.src.video ? `/albums/${slug}/${photo.src.video}` : undefined,
 			posterSrc: `/albums/${slug}/${photo.src.full}`
@@ -498,6 +499,16 @@
 				const el = document.createElement('div');
 				el.className = 'pswp-caption';
 				el.style.display = 'none';
+				// A caption lives inside an item holder, so PhotoSwipe's pointer handling on
+				// pswp.element sees events on it and treats them as a drag or a tap on the
+				// slide. Stop link events there so a click actually follows the href; anything
+				// else in the caption still reaches PhotoSwipe, keeping swipe and drag-to-close
+				// working over the caption area.
+				const stopLinkEvent = (e: Event) => {
+					if ((e.target as Element).closest('a')) e.stopPropagation();
+				};
+				el.addEventListener('pointerdown', stopLinkEvent);
+				el.addEventListener('click', stopLinkEvent);
 				holder.el.appendChild(el);
 			});
 
@@ -536,7 +547,14 @@
 						el.style.display = 'none';
 						return;
 					}
-					el.textContent = item.caption;
+					el.innerHTML = item.caption;
+					// Caption links always open a new tab: navigating in place tears down the
+					// lightbox, losing the visitor's place in the album. Set unconditionally
+					// rather than only when absent, so photogen.txt needs no boilerplate.
+					el.querySelectorAll('a').forEach((a) => {
+						a.target = '_blank';
+						a.rel = 'noopener';
+					});
 					el.style.display = '';
 					// A video caption's box reaches the bottom of the media exactly like a
 					// photo's; what differs is that its text is held above the browser's
@@ -790,7 +808,7 @@
 			{@render headerNav()}
 			<h1>{albumTitle}</h1>
 			{#if description}
-				<!-- eslint-disable-next-line svelte/no-at-html-tags -- album photogen.txt, HTML is intentional -->
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml description, HTML is intentional -->
 				<p class="description">{@html description}</p>
 			{/if}
 			<p class="meta">
@@ -837,7 +855,7 @@
 					     The `loaded` class drives the fade-in transition in CSS. -->
 					<img
 						src={imageSrcs[i]}
-						alt={photo.description || photo.fileName}
+						alt={stripTags(photo.description) || photo.fileName}
 						width={box.width}
 						height={box.height}
 						loading={slowMode ? undefined : 'lazy'}
@@ -857,7 +875,12 @@
 						</div>
 					{/if}
 					{#if photo.description}
-						<div class="photo-caption">{photo.description}</div>
+						<!-- inert because this sits inside the tile's <button>: a caption <a> would
+						     otherwise be interactive content nested in a button (invalid HTML) and
+						     add a tab stop per captioned tile. The button's aria-label already
+						     carries the caption text, so nothing is lost by hiding it from AT. -->
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- photogen.txt caption, HTML is intentional -->
+						<div class="photo-caption" inert>{@html photo.description}</div>
 					{/if}
 				</button>
 			{/each}
@@ -1054,6 +1077,15 @@
 		pointer-events: none;
 	}
 
+	/* Caption links. In the grid they are styled but not clickable: the container is
+	   pointer-events: none and the whole tile is one click target that opens the lightbox,
+	   which is where a caption is meant to be read (and where its links work). */
+	.photo-caption :global(a) {
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
 	.photo:hover .photo-caption,
 	.photo:focus .photo-caption {
 		opacity: 1;
@@ -1180,6 +1212,21 @@
 		pointer-events: none;
 		z-index: 10;
 		transition: opacity 0.3s ease;
+	}
+
+	/* Lightbox caption links are the one clickable thing in a caption, so they opt back in
+	   to pointer events that the container above turns off. The container keeps
+	   pointer-events: none so swipe and drag-to-close still work over the caption's text. */
+	:global(.pswp-caption a) {
+		pointer-events: auto;
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	:global(.pswp-caption a:hover),
+	:global(.pswp-caption a:focus-visible) {
+		text-decoration-thickness: 2px;
 	}
 
 	/* Video caption. The box reaches the bottom of the media like the photo rule above, but

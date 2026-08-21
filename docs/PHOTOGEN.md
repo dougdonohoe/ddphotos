@@ -109,14 +109,43 @@ a caption need no escaping.
 
 Descriptions are stored in `index.json` and used as:
 
-- `alt` text on grid and lightbox images
 - Hover caption overlay in the grid (desktop)
 - Always-visible caption in the grid (mobile)
 - Caption overlaid on the photo in the lightbox
+- `alt` text on grid and lightbox images, and the grid tile's `aria-label`, in each
+  case with any HTML tags stripped (see below)
 
 To also use the file for **sort order** (instead of EXIF date), set
 `manual_sort_order: true` on the album entry in `albums.yaml`. Photos not
 listed in `photogen.txt` are sorted by date and appended at the end.
+
+### HTML in captions
+
+`photogen.txt` is written by the site owner, so captions may contain **inline HTML** and
+it is rendered rather than escaped, the same way `site_title_html` and album descriptions
+are:
+
+```
+Patagonia-042 First view of <b>Torres del Paine</b> at sunrise.
+Patagonia-107 Route notes are on <a href="https://example.com/pass">my blog</a>.
+```
+
+Supported: `<b>`, `<strong>`, `<i>`, `<em>`, `<u>`, `<small>`, `<code>`, `<span>`, `<br>`
+and `<a>`.
+
+**Block elements such as `<div>`, `<p>`, `<ul>` and `<h1>` are not supported** and will
+break the caption layout. There is no sanitizer; a caption is inserted as written.
+
+Two behaviors differ by location:
+
+- **Links are clickable in the lightbox only**, and always open in a new tab so the
+  lightbox is not torn down. You do not need to write `target="_blank"` yourself.
+- **In the grid**, a caption renders its formatting but is not interactive: the whole
+  tile is a single click target that opens the lightbox. A link there is styled but
+  inert.
+
+Because `alt` text and the tile's `aria-label` cannot render markup, they use the caption
+with its tags stripped.
 
 ## Video
 

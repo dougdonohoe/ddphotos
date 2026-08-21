@@ -3,7 +3,7 @@ icebergs_25 Very cool iceberg. No pun intended.
 icebergs_16 Land must be nearby.
 icebergs_40 Last one in is a rotten egg!
 icebergs_44 Penguin colony on an iceberg.
-sunset_02 Sunset comes late in this part of the world.
+sunset_02 Sunset comes late in <b>this</b> part of the world, thanks to the <a href="https://en.wikipedia.org/wiki/Midnight_sun">midnight sun</a>.
 devil_is_adelies_04 Adelie penguins coming back from a swim.
 devil_is_adelies_10 Those salt and pepper spots are all penguins. About 20,000 pairs of Adelie's.
 devil_is_adelies_27 Closer shot of Adelie's and their chicks.

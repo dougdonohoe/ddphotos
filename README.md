@@ -64,7 +64,7 @@ too, which is why I've open-sourced it.
 
 ## Overview
 
-A DD Photos [site]([site↗](https://ddphotos.donohoe.info)) has a home page, with all of your albums,
+A DD Photos [site↗](https://ddphotos.donohoe.info) has a home page, with all of your albums,
 and their description. You can easily switch between dark and light themes.  Click/touch an 
 album, and you see a grid of all photos/videos.  Click/touch a photo/video to see the full size version and
 a caption, if it has one. You can easily swipe between photos/video (or use arrow keys on a laptop).
@@ -124,14 +124,15 @@ Website features:
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Optional hero image: a full-width banner at the top of the home page, specified in
   `albums.yaml` with a configurable crop position (top/center/bottom).
-- Optional `HTML` title, subtitle, and site overview.
+- Optional `HTML` title, subtitle, and site overview. Photo captions accept inline
+  `HTML` too, including links (clickable in the lightbox).
 - Optional password protection: encrypt individual albums or the entire site. Passwords
   are never stored server-side, decryption happens in-browser using the Web Crypto API.
   Optional hints can be shown in the password dialog. A logout button clears stored
   passwords on encrypted sites.
 - Dark/light theme toggle.
 - Custom CSS override: specify a CSS file in `albums.yaml` to restyle the site without
-  modifying the source code.
+  modifying the source code (see [Custom CSS](docs/CUSTOM-CSS.md)).
 - OpenGraph tags for rich link previews when sharing album or photo URLs on social media
   or messaging apps. The hero image (if configured) or an album cover JPEG is used as
   the preview image.
@@ -185,6 +186,7 @@ These documents are primarily meant for users of DD Photos:
 | [Docker Mode](docs/DOCKER.md)                          | Docker workflow: init, photogen, run, build, serve, deploy, upgrade                  |
 | [Configuration](docs/CONFIGURATION.md)                 | `albums.yaml`, `customization.yaml`, `site.env`, and how config reaches the frontend |
 | [Photogen](docs/PHOTOGEN.md)                           | `photogen` CLI: flags, photo descriptions, video, recursive albums                   |
+| [Custom CSS](docs/CUSTOM-CSS.md)                       | Restyling the site: custom properties, class names, specificity, examples            |
 | [Rebuilding a Site](docs/SCRAPE.md)                    | Turn a deployed site back into a config directory you can build                      |
 | [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                               |
 | [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, CloudFront, and Cloudflare Pages routing rules                        |
