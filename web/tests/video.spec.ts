@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
 	waitForHydration,
 	loadPasswords,
+	unlockSiteIfNeeded,
 	unlockAlbumIfNeeded,
 	findVideo,
 	type FoundVideo
@@ -478,4 +479,32 @@ test('stills in the same album are unaffected', async ({ page, request }) => {
 		// visible. Guards the shared opacity path against a video-only rule leaking out.
 		await expect(caption).toHaveCSS('opacity', '1');
 	}
+});
+
+test('an album holding video counts photos and videos separately', async ({ page, request }) => {
+	test.skip(!video, 'no video published on this site');
+	const v = video!;
+
+	const resp = await request.get(`/albums/${v.slug}/index.json`);
+	const index: { photos: { kind?: string }[] } = await resp.json();
+	const videos = index.photos.filter((p) => p.kind === 'video').length;
+	const stills = index.photos.length - videos;
+
+	// The wording is spelled out rather than imported from $lib/counts so a change to the
+	// shared helper has to be made deliberately in both places.
+	const videoText = `${videos} ${videos === 1 ? 'video' : 'videos'}`;
+	const expected =
+		stills === 0 ? videoText : `${stills} ${stills === 1 ? 'photo' : 'photos'} · ${videoText}`;
+
+	await page.goto(`/albums/${v.slug}`);
+	await unlockAlbumIfNeeded(page, v.slug, pw);
+	await waitForHydration(page);
+	await expect(page.locator('header .meta')).toContainText(expected);
+
+	// The card reads the counts out of albums.json instead of the album index, so it is a
+	// second path to the same line and can drift from the header on its own.
+	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
+	await waitForHydration(page);
+	await expect(page.locator(`.album-card[data-slug="${v.slug}"] .meta`)).toContainText(expected);
 });

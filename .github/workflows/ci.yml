@@ -75,6 +75,9 @@ jobs:
       - name: Web lint (prettier + eslint)
         run: make web-lint
 
+      - name: Web unit tests (vitest)
+        run: make web-unit-test
+
       - name: Install Playwright Chromium
         # Deliberately no `npx playwright install-deps chromium` here. That runs apt-get
         # under the hood and was the most frequent victim of the flaky Azure mirror (up to

@@ -25,6 +25,7 @@
 	} from '$lib/crypto';
 	import { footerReady } from '$lib/stores';
 	import { navigateCursor, type Direction } from '$lib/navigation';
+	import { albumMetaText } from '$lib/counts';
 	import Lock from 'lucide-svelte/icons/lock';
 	import Image from 'lucide-svelte/icons/image';
 	import CameraOff from 'lucide-svelte/icons/camera-off';
@@ -368,8 +369,11 @@
 							<p class="description">{@html album.description}</p>
 						{/if}
 						<p class="meta">
-							{album.count}
-							{album.count === 1 ? 'photo' : 'photos'}{album.dateSpan ? ` · ${album.dateSpan}` : ''}
+							{albumMetaText(
+								album.count - (album.videoCount ?? 0),
+								album.videoCount ?? 0,
+								album.dateSpan
+							)}
 						</p>
 					</div>
 				</a>

@@ -2,13 +2,14 @@
 
 **Note:** This page is for contributors developing DD Photos, not for users building their own sites with it.
 
-There are three ways of testing DD Photos:
+There are four ways of testing DD Photos:
 
 1. **Manual testing** in a browser, against the Vite dev server or a local static build (via Docker)
-2. **Playwright e2e tests** that drive a headless Chromium browser to verify UI behavior
-3. **Apache routing tests** using `curl` to verify `.htaccess` URL routing, redirects, and 404 handling
+2. **Vitest unit tests** for the plain TypeScript helpers in `web/src/lib`, with no browser involved
+3. **Playwright e2e tests** that drive a headless Chromium browser to verify UI behavior
+4. **Apache routing tests** using `curl` to verify `.htaccess` URL routing, redirects, and 404 handling
 
-All three are discussed below.
+All four are discussed below.
 
 ## Manual Testing - Dev
 
@@ -91,6 +92,28 @@ bin/test-photos-server.sh --local 9090                                       # l
 
 The deployment script runs this script automatically after deploying.
 
+## Automated Tests - Vitest Unit Tests
+
+Logic that is a pure function of its inputs does not need a browser, a build or an album
+to test. Those live in `web/src/lib` as plain TypeScript and are covered by Vitest, which
+runs in under a second:
+
+```bash
+make web-unit-test
+```
+
+Tests sit beside the code they cover as `*.test.ts` (e.g. `src/lib/counts.test.ts` for
+`src/lib/counts.ts`) and are table-driven where the code is a set of rules. `web/tests/`
+stays Playwright-only: `vitest.config.ts` narrows its `include` to `src/**/*.test.ts` so the
+two suites cannot pick up each other's files.
+
+Use this for wording, formatting and calculation rules; use Playwright when the thing being
+verified is what the page actually renders. The "n photos · n videos" meta line has both: the
+rules are unit-tested, and `video.spec.ts` checks that the album header and the home page card
+really show them.
+
+For a watch loop while working on a helper, run `npm run test:unit:watch` in `web/`.
+
 ## Automated Tests - Playwright E2E Tests
 
 Playwright runs a real headless Chromium browser against a Docker container (Apache
@@ -125,7 +148,7 @@ Tests are in `web/tests/` and cover:
 | `privacy.spec.ts`     | Privacy page content, back link, scroll restoration on return to home                                                      |
 | `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear`                            |
 | `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius                                       |
-| `video.spec.ts`       | Play badge, lightbox `<video>`, space to play/pause, pause on swipe/close, caption hidden while playing, MP4 MIME + ranges |
+| `video.spec.ts`       | Play badge, lightbox `<video>`, space to play/pause, pause on swipe/close, caption hidden while playing, MP4 MIME + ranges, photo/video counts in the meta line |
 
 Navigation tests are fully dynamic - they read album names from the page at runtime and
 work against any site without hardcoding album names.  Several tests require the presence of 
@@ -186,9 +209,9 @@ bin/run-tests.sh --mode dev --test tests/privacy.spec.ts
 
 ### Sanity Check
 
-A good sanity check verifies against Apache (which requires a build), and tests
-both password and no-password sites.  It's quicker than running all 5 variants against
-dev, Apache and nginx:
+A good sanity check runs the unit tests, then verifies against Apache (which requires a
+build), testing both password and no-password sites.  It's quicker than running all 5
+variants against dev, Apache and nginx:
 
 ```bash
 make web-sanity-test
