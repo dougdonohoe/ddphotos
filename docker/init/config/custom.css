@@ -6,6 +6,10 @@
  *
  * This example colors the .accent class differently per theme.
  * Used in site_overview_html: Welcome to my <span class="accent">photo gallery</span>.
+ *
+ * Full guide — available custom properties, the class names worth targeting, and why
+ * some overrides need !important:
+ * https://github.com/dougdonohoe/ddphotos/blob/main/docs/CUSTOM-CSS.md
  */
 
 [data-theme="light"] .accent {

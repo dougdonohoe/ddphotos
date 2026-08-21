@@ -7,7 +7,9 @@
    frontend injects it site-wide as a <link> after the built-in styles.
 
    CSS custom properties are the cleanest override path: they cascade naturally
-   and cover both dark and light themes with minimal specificity issues. */
+   and cover both dark and light themes with minimal specificity issues.
+
+   Full guide: docs/CUSTOM-CSS.md */
 
 /* Swap the golden accent (album descriptions, highlights) to teal */
 :root {
