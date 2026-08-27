@@ -38,16 +38,24 @@ is invisible there even though photogen publishes it.
 
 ## Node/npm version sync requirement
 
-`web/.nvmrc` (Node major) and `web/.npm-version` (exact npm version) are the single sources of
-truth. Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/node-init.sh`, and the
-three `setup-node` steps in `.github/workflows/ci.yml`. **Do not hardcode either version anywhere
-else.**
+`web/.nvmrc` and `web/.npm-version` hold **exact** versions and are the single sources of truth.
+Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/node-init.sh`, and the three
+`setup-node` steps in `.github/workflows/ci.yml`. **Do not hardcode either version anywhere else.**
+
+Both must stay exact rather than major-only. `docker/Dockerfile` interpolates `NODE_VERSION` into
+`FROM node:${NODE_VERSION}-bookworm-slim`, and a major-only tag like `node:24` is a moving pointer:
+the same commit then builds different images depending on when you built, and an upstream
+regression lands with no commit to bisect. That happened once already — Node 24.2.0 broke recursive
+`fs.cpSync` onto Docker bind mounts and reached the image through the floating tag (see the comment
+on `copyDirRecursive` in `web/vite.config.ts`). **Bumping Node is a deliberate edit to `web/.nvmrc`
+that CI then tests.**
 
 `bin/node-init.sh` is the shell-side counterpart to the Makefile's `NODE_INIT`: the bash scripts
 that run npm/npx (`bin/run-tests.sh`, `bin/docker-test.sh`, `bin/deploy-photos.sh`) source it
 rather than each doing their own nvm setup. Both it and `NODE_INIT` use the node on PATH only
-when its **major version matches** `web/.nvmrc` — testing for mere presence lets a distro node at
-the wrong major (Ubuntu's apt `nodejs`) shadow the repo's. **Keep the two in sync.**
+when its **exact version matches** `web/.nvmrc` — testing for mere presence lets a distro node at
+the wrong version (Ubuntu's apt `nodejs`) shadow the repo's. Both compare against the full `node
+-v` output, so neither may go back to matching on the major alone. **Keep the two in sync.**
 
 `docker/Dockerfile` takes both as **required** build args (`NODE_VERSION`, `NPM_VERSION`) with no
 defaults, so it cannot carry a stale copy of either version. It is built only via `make
@@ -56,8 +64,9 @@ docker-build` and `bin/docker-push.sh`, which read the two files and pass the va
 
 One exception, which must be updated by hand: the `engines.node` field in `web/package.json`.
 Paired with `engine-strict=true` in `web/.npmrc`, it makes `npm install`/`npm ci` hard-fail on the
-wrong Node, so a machine whose `nvm` default has drifted cannot silently install with it.
-**When bumping `web/.nvmrc`, bump `engines.node` to match.**
+wrong Node, so a machine whose `nvm` default has drifted cannot silently install with it. It is
+deliberately a major range (`24.x`), not the exact version, so routine patch bumps to `web/.nvmrc`
+do not need a second edit. **When bumping `web/.nvmrc` to a new major, bump `engines.node` too.**
 
 ## Commands
 

@@ -145,14 +145,16 @@ covers the common case on Ubuntu. Note that it replaces `liboss4-salsa-asound2`,
 compatibility stub (pulled in by some JDK packages) that provides `libasound.so.2` without
 the full ALSA API, which is enough to make Chromium fail to start.
 
-The `web/.nvmrc` (Node major version) and `web/.npm-version` (exact npm version) files are the
-single sources of truth for the toolchain versions - the Makefile, Docker build and
-CI all read them. `web/package.json` sets a matching `engines.node`, and with
+The `web/.nvmrc` and `web/.npm-version` files hold exact versions and are the
+single sources of truth for the toolchain - the Makefile, Docker build and
+CI all read them. Node is pinned to a full version, not just a major, so that a
+given commit always builds against one known Node rather than whatever the
+`node:24` tag happened to point at that day. `web/package.json` sets a matching `engines.node`, and with
 `engine-strict=true` in `web/.npmrc` an `npm install` on the wrong Node version
 fails fast rather than silently installing.
 
 If your system already provides a `node` (Ubuntu's `nodejs` package is often pulled in as a
-dependency of something else) the Makefile uses it only when its major version matches
+dependency of something else) the Makefile uses it only when its exact version matches
 `web/.nvmrc`, and otherwise falls back to nvm. A distro Node at the wrong version will not
 shadow the repo's.
 
