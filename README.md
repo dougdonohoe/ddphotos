@@ -6,6 +6,21 @@
 [![CI](https://github.com/dougdonohoe/ddphotos/actions/workflows/ci.yml/badge.svg)](https://github.com/dougdonohoe/ddphotos/actions)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+## Overview
+
+DD Photos is an easy way for you to share your photo/video albums. A DD Photos [site↗](https://ddphotos.donohoe.info) has a home 
+page, with all of your albums, and their description. You can easily switch between dark and light themes.
+Click/touch an album, and you see a grid of all photos/videos. Click/touch a photo/video to see the 
+full size version and a caption, if it has one. You can easily swipe between photos/video (or use 
+arrow keys on a laptop). It works great on mobile, tablet, and desktop.
+
+Videos sit in the same grid as your photos, marked with a play badge and their length,
+and play right where the full size photo would appear.
+
+Here's what it looks like on a big display (see [Screenshots](docs/SCREENSHOTS.md) for larger versions):
+
+![screenshots.png](images/screenshots.png)
+
 ## DD Photos App
 
 The easiest way to run DD Photos is via the open-source companion [DD Photos desktop app↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/README.md).
@@ -61,21 +76,6 @@ It's actually pretty good, wicked fast, and meets my needs.  Maybe it will meet 
 too, which is why I've open-sourced it.
 
 **P.S.** _I wrote about building DD Photos in [this Medium article↗](https://medium.com/@DougDonohoe/3b48fdd1350c?source=friends_link&sk=4094f33198de93f5488da6539c9981ee)._
-
-## Overview
-
-A DD Photos [site↗](https://ddphotos.donohoe.info) has a home page, with all of your albums,
-and their description. You can easily switch between dark and light themes.  Click/touch an 
-album, and you see a grid of all photos/videos.  Click/touch a photo/video to see the full size version and
-a caption, if it has one. You can easily swipe between photos/video (or use arrow keys on a laptop).
-It works great on mobile, tablet, and desktop.
-
-Videos sit in the same grid as your photos, marked with a play badge and their length,
-and play right where the full size photo would appear.
-
-Here's what it looks like on a big display (see [Screenshots](docs/SCREENSHOTS.md) for larger versions):
-
-![screenshots.png](images/screenshots.png)
 
 ## How it Works
 
