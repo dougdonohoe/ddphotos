@@ -249,7 +249,7 @@ Photos now has clips in it that `photogen` will pick up.
 Video support needs `ffmpeg` and `ffprobe`. Photo-only sites never need them and are
 unaffected.
 
-- **Docker:** nothing to do. The first run that encounters a video downloads a pinned
+- **Docker:** nothing to do. The first run that encounters a video downloads a
   static build into the `ddphotos-ffmpeg` Docker volume, where it persists for later runs.
   Run `ddphotos install-ffmpeg` to fetch it ahead of time, or `--force` to reinstall.
 - **Native:** `brew install ffmpeg` (macOS) or `sudo apt-get install ffmpeg` (Linux).

@@ -53,7 +53,7 @@ FROM debian:bookworm-slim
 # Deliberately no ffmpeg: the Debian package pulls in 200 packages and 448MB (SDL2, X11
 # and Wayland, via ffplay's libavdevice dependency), which every photo-only user would pay
 # for, and shipping its GPL libx264 would make this image a redistributor of it. Video
-# support instead downloads a pinned static build on first use, into a mounted volume --
+# support instead downloads a static build on first use, into a mounted volume --
 # see docker/do-install-ffmpeg.sh. xz-utils is here because that tarball is .tar.xz.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips \
