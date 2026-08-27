@@ -56,6 +56,71 @@ step()  { echo; echo "=== $* ==="; }
 pass()  { echo "  PASS: $*"; }
 fail()  { echo "  FAIL: $*" >&2; exit 1; }
 
+# Prints what a JSON file on the host actually contains. decode failures are usually either
+# a malformed input or a file the container did not see the way we expected, and both look
+# identical from the error message alone.
+dump_json_file() {
+    local label=$1 f=$2
+    echo "  $label: $f"
+    if [ ! -f "$f" ]; then
+        echo "    (file does not exist)"
+        return
+    fi
+    echo "    size:   $(wc -c < "$f" | tr -d ' ') bytes"
+    echo "    pwFile: $(grep -o '"pwFile":"[^"]*"' "$f" || echo '(not present)')"
+    if python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$f" 2>/dev/null; then
+        echo "    parse:  valid JSON, keys: $(python3 -c 'import json,sys; print(",".join(sorted(json.load(open(sys.argv[1])))))' "$f")"
+    else
+        echo "    parse:  INVALID JSON"
+    fi
+    echo "    head:   $(head -c 160 "$f")"
+    echo "    tail:   $(tail -c 80 "$f")"
+}
+
+# Runs a `ddphotos decode` and asserts the output contains "photos", leaving the decoded
+# stdout in $DECODE_OUT.
+#
+# Worth the wrapper because the naive form hides every failure it is supposed to report:
+# `decoded=$(ddphotos decode ...)` trips `set -e` the moment decode exits non-zero, so the
+# script dies before the assertion runs and cleanup() deletes TEMP_DECODE_DIR on the way
+# out, taking the evidence with it. All you are left with is decode's own one-line error.
+#
+# On failure this dumps both streams separately and the input file. Separately matters:
+# decode writes JSON to stdout and --show-mounts prints its banner there too, so a bad
+# result can mean decode failed *or* that something else landed in the stream.
+run_decode() {
+    local desc=$1 enc=$2; shift 2
+    local errfile rc=0 out_bytes
+    errfile=$(mktemp "$TMP_ROOT/decode-err.XXXXXXXX")
+    DECODE_OUT=$("$@" 2>"$errfile") || rc=$?
+
+    if [ "$rc" -eq 0 ] && printf '%s' "$DECODE_OUT" | grep -q '"photos"'; then
+        /bin/rm -f "$errfile"
+        return 0
+    fi
+
+    out_bytes=$(printf '%s' "$DECODE_OUT" | wc -c | tr -d ' ')
+    echo
+    echo "  ---- decode diagnostics ----"
+    echo "  command: $*"
+    echo "  exit:    $rc"
+    echo "  stdout ($out_bytes bytes):"
+    if [ "$out_bytes" -eq 0 ]; then
+        echo "    (empty)"
+    else
+        printf '%s' "$DECODE_OUT" | head -c 2000 | sed 's/^/    | /'
+        echo
+        if [ "$out_bytes" -gt 2000 ]; then echo "    | ... (truncated)"; fi
+    fi
+    echo "  stderr:"
+    if [ -s "$errfile" ]; then sed 's/^/    | /' "$errfile"; else echo "    (empty)"; fi
+    dump_json_file "input " "$enc"
+    echo "  ---- end diagnostics ----"
+    echo
+    /bin/rm -f "$errfile"
+    fail "$desc"
+}
+
 cleanup() {
     if [ -n "$RUN_PID" ];   then kill "$RUN_PID"   2>/dev/null || true; fi
     if [ -n "$SERVE_PID" ]; then kill "$SERVE_PID" 2>/dev/null || true; fi
@@ -291,8 +356,8 @@ pass "windows path: photogen read photos via C:\\ base mapped to /mnt/c/..."
 step "Decode"
 ENC_FILE="albums/$SITE_ID/secret/index.enc.json"
 [ -f "$TEST_DIR/$ENC_FILE" ] || fail "$ENC_FILE not found after photogen"
-decoded=$("${DDPHOTOS[@]}" decode "$ENC_FILE")
-echo "$decoded" | grep -q '"photos"' || (echo "$decoded" && fail "decoded output missing 'photos' key")
+run_decode "decoded output missing 'photos' key" "$TEST_DIR/$ENC_FILE" \
+    "${DDPHOTOS[@]}" decode "$ENC_FILE"
 pass "decode: $ENC_FILE decrypted OK"
 
 # Test 2: files outside DDPHOTOS_DIR — exercises the external-mount path in ddphotos decode.
@@ -305,26 +370,38 @@ mkdir -p "$TEMP_DECODE_DIR/secret"
 /bin/cp "$TEST_DIR/$ENC_FILE"              "$TEMP_DECODE_DIR/secret/index.enc.json"
 
 # (a) explicit --passwords pointing outside DDPHOTOS_DIR
-decoded=$("${DDPHOTOS[@]}" decode --passwords "$TEMP_DECODE_DIR/passwords.yaml" "$TEMP_DECODE_DIR/secret/index.enc.json")
-echo "$decoded" | grep -q '"photos"' || (echo "$decoded" && fail "decode --passwords (external): decoded output missing 'photos' key")
+run_decode "decode --passwords (external): decoded output missing 'photos' key" \
+    "$TEMP_DECODE_DIR/secret/index.enc.json" \
+    "${DDPHOTOS[@]}" decode --passwords "$TEMP_DECODE_DIR/passwords.yaml" "$TEMP_DECODE_DIR/secret/index.enc.json"
 pass "decode --passwords: files outside DDPHOTOS_DIR OK"
 
-# (b) replace embedded pwFile with the temp path; decode should mount it automatically
+# (b) replace embedded pwFile with the temp path; decode should mount it automatically.
+#
+# Written under a new filename rather than mv'd over index.enc.json, which test (a) above has
+# already had bind-mounted into a container. Docker Desktop on macOS caches a file mount by
+# host path and mv swaps the inode without invalidating it, so the next container reads the
+# pre-mv file at its old length: valid JSON on the host, truncated inside, and decode fails
+# with "unmarshal encrypted payload: unexpected end of JSON input". Linux bind mounts have no
+# such cache, which is why CI never saw this. A path no container has mounted yet cannot be
+# stale. Staying inside secret/ is what matters here, not the filename: the album slug comes
+# from the parent directory (see test 2's comment above).
+PWFILE_ENC="$TEMP_DECODE_DIR/secret/index-pwfile.enc.json"
 sed "s|\"pwFile\":\"[^\"]*\"|\"pwFile\":\"$TEMP_DECODE_DIR/passwords.yaml\"|" \
-    "$TEMP_DECODE_DIR/secret/index.enc.json" > "$TEMP_DECODE_DIR/secret/index.enc.json.tmp"
-mv "$TEMP_DECODE_DIR/secret/index.enc.json.tmp" "$TEMP_DECODE_DIR/secret/index.enc.json"
-decoded=$("${DDPHOTOS[@]}" decode "$TEMP_DECODE_DIR/secret/index.enc.json")
-echo "$decoded" | grep -q '"photos"' || (echo "$decoded" && fail "decode (external pwFile): decoded output missing 'photos' key")
+    "$TEMP_DECODE_DIR/secret/index.enc.json" > "$PWFILE_ENC"
+run_decode "decode (external pwFile): decoded output missing 'photos' key" \
+    "$PWFILE_ENC" \
+    "${DDPHOTOS[@]}" decode "$PWFILE_ENC"
 pass "decode: both enc.json and pwFile outside DDPHOTOS_DIR OK"
 
 # ── 7. Search-Cover ────────────────────────────────────────────────────────────
 step "Search-Cover"
 # Derive the URL from the decoded index so we don't hardcode the UUID.
-SC_DECODED=$("${DDPHOTOS_QUIET[@]}" decode "$ENC_FILE")
-SC_GRID=$(echo "$SC_DECODED" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['photos'][0]['src']['grid'])")
+run_decode "search-cover: could not decode $ENC_FILE" "$TEST_DIR/$ENC_FILE" \
+    "${DDPHOTOS_QUIET[@]}" decode "$ENC_FILE"
+SC_GRID=$(echo "$DECODE_OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['photos'][0]['src']['grid'])")
 SC_URL="http://localhost:5173/albums/secret/$SC_GRID"
 SC_OUT=$("${DDPHOTOS[@]}" search-cover "$SC_URL")
-echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || (echo "$SC_OUT" && "search-cover: 'cover: 2024-The-Way-21.jpg' not in output")
+echo "$SC_OUT" | grep -q "cover: 2024-The-Way-21.jpg" || (echo "$SC_OUT" && fail "search-cover: 'cover: 2024-The-Way-21.jpg' not in output")
 pass "search-cover: found cover file for secret album"
 
 # ── 8. Decode + Search-Cover with external --config-dir ───────────────────────
@@ -348,8 +425,8 @@ EXT_ENC_FILE="$TEMP_DECODE_DIR/secret/index-extconfig.enc.json"
 sed 's|"pwFile":"/ddphotos/config/passwords.yaml"|"pwFile":"/ddphotos-config/passwords.yaml"|' \
     "$TEST_DIR/$ENC_FILE" > "$EXT_ENC_FILE"
 
-decoded=$("${DDPHOTOS[@]}" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_FILE")
-echo "$decoded" | grep -q '"photos"' || (echo "$decoded" ** fail "decode --config-dir: decoded output missing 'photos' key")
+run_decode "decode --config-dir: decoded output missing 'photos' key" "$EXT_ENC_FILE" \
+    "${DDPHOTOS[@]}" --config-dir "$EXT_CONFIG_DIR" decode "$EXT_ENC_FILE"
 pass "decode --config-dir: external config dir mounted correctly"
 
 # search-cover needs the modified enc.json at the album path. Use a fresh

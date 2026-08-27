@@ -2,9 +2,9 @@
 # Shared Node.js initialization. Sourced (not executed) by the bin/*.sh scripts that run
 # npm/npx, so that PATH changes apply to the calling shell.
 #
-# Uses the node already on PATH only if its major version matches web/.nvmrc; otherwise
+# Uses the node already on PATH only if its exact version matches web/.nvmrc; otherwise
 # sources nvm and switches to that version. Matching on the version, rather than mere
-# presence, keeps a distro node at the wrong major (Ubuntu's apt 'nodejs' is commonly
+# presence, keeps a distro node at the wrong one (Ubuntu's apt 'nodejs' is commonly
 # pulled in as a dependency of something else) from shadowing the repo's Node. Sourcing
 # nvm alone is not enough either, since that activates nvm's default alias, which is not
 # necessarily the version this repo wants.
@@ -15,7 +15,7 @@ _ni_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 _ni_wanted=$(cat "$_ni_root/web/.nvmrc")
 # The '|| true' matters: the callers run under 'set -eo pipefail', where a missing node
 # makes the pipeline exit 127 and takes the whole script down before the check below.
-_ni_found=$(node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/' || true)
+_ni_found=$(node -v 2>/dev/null | sed 's/^v//' || true)
 
 if [ "$_ni_found" != "$_ni_wanted" ]; then
     # Same precedence as the Makefile's 'NVM_SH ?= $(or $(NVM_DIR),$(HOME)/.nvm)/nvm.sh':

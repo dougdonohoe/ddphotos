@@ -36,16 +36,16 @@ override DDPHOTOS_ALBUMS_DIR := $(abspath $(patsubst ~/%,$(HOME)/%,$(DDPHOTOS_AL
 # - NVM_INIT always sources nvm.sh (nvm is a shell function, not a binary, so Make's subshell
 #   never has it). NVM_SH is derived from NVM_DIR if set (e.g. Homebrew install), else ~/.nvm.
 #   Override NVM_SH if your nvm lives elsewhere and NVM_DIR is not set.
-# - If a 'node' on PATH already matches the major version in web/.nvmrc (system install,
+# - If a 'node' on PATH already matches the exact version in web/.nvmrc (system install,
 #   volta, fnm, etc.), NODE_INIT is empty and that node is used directly. Otherwise, nvm is
 #   sourced from NVM_SH and switched to the version in web/.nvmrc (sourcing alone activates
 #   nvm's default alias, which is not necessarily the version this repo wants). Matching on
-#   the version, not mere presence, keeps a distro node at the wrong major (Ubuntu's apt
+#   the version, not mere presence, keeps a distro node at the wrong one (Ubuntu's apt
 #   'nodejs' is commonly pulled in as a dependency) from shadowing the repo's Node.
 NVM_SH ?= $(or $(NVM_DIR),$(HOME)/.nvm)/nvm.sh
 NVM_INIT := . "$(NVM_SH)" &&
 NODE_WANTED := $(shell cat web/.nvmrc)
-NODE_FOUND := $(shell node -v 2>/dev/null | sed 's/^v\([0-9]*\).*/\1/')
+NODE_FOUND := $(shell node -v 2>/dev/null | sed 's/^v//')
 ifneq ($(NODE_FOUND),$(NODE_WANTED))
 NODE_INIT := . "$(NVM_SH)" && nvm use --silent $(NODE_WANTED) &&
 endif

@@ -14,29 +14,31 @@
 #     user's own machine at first use sidesteps that entirely.
 #
 # This mirrors how wrangler and surge already work here: `npx --yes` downloading into the
-# ddphotos-npm-cache volume on first run. Unlike npx, the download is pinned and verified.
+# ddphotos-npm-cache volume on first run. Unlike npx, the download is checksum-verified.
 #
 set -euo pipefail
 
-# Pinned to an immutable dated BtbN release tag rather than a rolling "latest" asset, so
-# the checksums below stay valid. BtbN over the smaller johnvansickle builds because its
-# assets are GitHub-hosted under permanent tags; johnvansickle's versioned URLs disappear
-# when a new release supersedes them, and it publishes MD5 sidecars only.
-FFMPEG_TAG="autobuild-2026-08-12-13-15"
+# The rolling "latest" release rather than a dated autobuild tag. BtbN prunes autobuilds to
+# the last 14 dailies plus one snapshot per month for two years, so a dated tag 404s about two
+# weeks after it is set, which is exactly how this broke once already. "latest" is the only
+# URL BtbN guarantees stays live. The n8.1 assets under it track the 8.1 release branch, so we
+# pick up bugfixes without jumping a major version.
+#
+# BtbN over the smaller johnvansickle builds because its assets are GitHub-hosted and it
+# publishes a SHA-256 sidecar; johnvansickle publishes MD5 only.
+FFMPEG_TAG="latest"
 FFMPEG_BASE="https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_TAG}"
 
 # GPL builds: the LGPL variants omit libx264, which is exactly what we need to encode H.264.
 case "$(uname -m)" in
     x86_64|amd64)
-        FFMPEG_FILE="ffmpeg-n8.1.2-34-g9b6c8969e0-linux64-gpl-8.1.tar.xz"
-        FFMPEG_SHA256="980d92b6365c0bd242cbcc7a9c7a951acbae92a64285ca9db7c18999e62155a2"
+        FFMPEG_FILE="ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz"
         ;;
     aarch64|arm64)
-        FFMPEG_FILE="ffmpeg-n8.1.2-34-g9b6c8969e0-linuxarm64-gpl-8.1.tar.xz"
-        FFMPEG_SHA256="fbffa55263830f010355a44b2eb25dde32feb7b3870f1ec18737bfcd5e74df2b"
+        FFMPEG_FILE="ffmpeg-n8.1-latest-linuxarm64-gpl-8.1.tar.xz"
         ;;
     *)
-        echo "Error: no pinned ffmpeg build for architecture $(uname -m)." >&2
+        echo "Error: no ffmpeg build published for architecture $(uname -m)." >&2
         echo "       Install ffmpeg yourself and set DDPHOTOS_FFMPEG_DIR to its directory." >&2
         exit 1
         ;;
@@ -65,7 +67,16 @@ echo
 
 curl -fSL --progress-bar -o "$TMP/ffmpeg.tar.xz" "$FFMPEG_BASE/$FFMPEG_FILE"
 
+# The assets under "latest" are rebuilt in place, so a hardcoded checksum would go stale the
+# same way a dated tag does. Verify against the sidecar BtbN publishes next to them instead:
+# that catches a truncated or corrupted download, though it no longer pins one exact build.
 echo "Verifying checksum ..."
+curl -fsSL -o "$TMP/checksums.sha256" "$FFMPEG_BASE/checksums.sha256"
+FFMPEG_SHA256=$(awk -v f="$FFMPEG_FILE" '$2 == f { print $1 }' "$TMP/checksums.sha256")
+if [ -z "$FFMPEG_SHA256" ]; then
+    echo "Error: $FFMPEG_FILE is not listed in checksums.sha256. Refusing to install." >&2
+    exit 1
+fi
 echo "$FFMPEG_SHA256  $TMP/ffmpeg.tar.xz" | sha256sum -c - || {
     echo "Error: checksum mismatch. Refusing to install." >&2
     exit 1
