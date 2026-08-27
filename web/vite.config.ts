@@ -1,4 +1,14 @@
-import { readFileSync, existsSync, createReadStream, statSync, cpSync } from 'fs';
+import {
+	readFileSync,
+	existsSync,
+	createReadStream,
+	statSync,
+	copyFileSync,
+	mkdirSync,
+	readdirSync,
+	readlinkSync,
+	symlinkSync
+} from 'fs';
 import { execSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -6,6 +16,30 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, createLogger } from 'vite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Recursive directory copy, built from mkdir + copyFile, preserving symlinks as symlinks
+// (fs.cpSync's default, dereference: false).
+//
+// Not fs.cpSync({ recursive: true }): from Node 24.2.0 on it fails with EACCES for any
+// *directory* destination on a Docker Desktop bind mount, which is where every `ddphotos
+// build` writes. Bisected against the node:N-bookworm-slim images: 22.0, 22.12, 24.0 and
+// 24.1 are fine; 24.2 and every later 24.x fail, as does 22.23, so the regression was
+// backported into 22.x as well. Only the recursive directory case breaks -- cpSync on a
+// single file, copyFileSync, mkdirSync and writeFileSync all work on the same mount -- and
+// Linux bind mounts are unaffected, which is why CI never sees it.
+//
+// docker/Dockerfile pins Node by major only, so the patch floats with whenever the image was
+// built: this appeared without any commit changing web/.nvmrc or this file.
+function copyDirRecursive(src: string, dest: string): void {
+	mkdirSync(dest, { recursive: true });
+	for (const entry of readdirSync(src, { withFileTypes: true })) {
+		const from = join(src, entry.name);
+		const to = join(dest, entry.name);
+		if (entry.isSymbolicLink()) symlinkSync(readlinkSync(from), to);
+		else if (entry.isDirectory()) copyDirRecursive(from, to);
+		else copyFileSync(from, to);
+	}
+}
 
 // Content types for files served under /albums during dev.
 // Keep in sync with ALBUM_MIME_TYPES in src/hooks.server.ts, which does the same job for
@@ -138,7 +172,7 @@ export default defineConfig({
 				const staticDir = join(meta.configDir, 'static');
 				if (!existsSync(staticDir)) return;
 				const buildDir = resolve(__dirname, '..', 'build', siteId);
-				cpSync(staticDir, buildDir, { recursive: true });
+				copyDirRecursive(staticDir, buildDir);
 				console.log(`[static-root] copied ${staticDir} → ${buildDir}`);
 			}
 		},
