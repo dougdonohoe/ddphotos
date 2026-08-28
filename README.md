@@ -109,13 +109,13 @@ It's just HTML, CSS, JavaScript and your (resized) photos.
 
 Website features:
 
-- Concise album cards with description, number of photos, date range and
+- Concise album cards with description, number of photos/videos, date range and
   your choice of cover photo.
 - An album's page has a nicely justified photo grid layout with PhotoSwipe lightbox that
   adjusts well to any screen size.
 - Keyboard support: arrow keys navigate in lightbox, ESC key exits
   lightbox and returns to home page from album page.
-- Optional per-photo descriptions via `photogen.txt`: used as image `alt` text, grid
+- Optional per-photo/video descriptions via `photogen.txt`: used as image `alt` text, grid
   mouse-hover caption (desktop), always-visible caption (mobile), and lightbox caption.
 - Video support (`.mov`, `.mp4`, `.m4v`): clips appear in the grid with a play badge and
   their duration, and play in the lightbox with the browser's own controls. Space toggles
