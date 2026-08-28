@@ -1,0 +1,74 @@
+name: Version Drift
+
+# Nightly check that web/.nvmrc and web/.npm-version have not fallen behind upstream.
+#
+# Those two files hold exact versions deliberately (see CLAUDE.md): a floating tag like
+# `node:24` means the same commit builds a different image depending on the day, and an
+# upstream regression then arrives with no commit to bisect. The cost of pinning exactly
+# is losing the one thing a floating tag gave us for free -- finding out that a fix or a
+# security release shipped.
+#
+# Dependabot cannot restore that. It has no .nvmrc ecosystem, and its docker ecosystem
+# cannot see a version in docker/Dockerfile's `FROM node:${NODE_VERSION}-bookworm-slim`
+# because there is no literal tag there to bump. Renovate could, via its `nvm` manager,
+# at the price of another bot with write access; bin/check-versions.sh is the same signal
+# in one script that also spells out what to edit.
+#
+# Kept out of ci.yml on purpose: this reports on the outside world rather than testing the
+# code, and it must not turn a PR red because Node shipped a patch release.
+#
+# Scheduled runs only ever use the default branch, and GitHub disables the schedule on a
+# public repo after 60 days with no activity (warning by email first).
+
+on:
+  schedule:
+    - cron: '37 5 * * *'
+      timezone: "America/New_York"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # `issues: write` on the built-in GITHUB_TOKEN is all the issue needs: no PAT, no
+    # secret to rotate. It has to be requested explicitly because this repo's default
+    # workflow permission is read-only.
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Compare pinned Node and npm versions against upstream
+        id: check
+        # Exit codes: 0 current, 1 behind, 2 the check itself could not run. Only 2 is a
+        # workflow failure; 1 is the expected day the answer is "yes, there is a newer
+        # one" and is handled by the next step. Hence, `set +e` and the explicit test:
+        # under the default `set -e` the step would go red every time a pin drifted.
+        run: |
+          set +e
+          bash bin/check-versions.sh > "$RUNNER_TEMP/version-report.md"
+          status=$?
+          cat "$RUNNER_TEMP/version-report.md"
+          {
+            echo "## Version drift"
+            echo
+            cat "$RUNNER_TEMP/version-report.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          [ "$status" -le 1 ]
+
+      - name: Open or update the version drift issue
+        if: steps.check.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash bin/ci-open-issue.sh version-drift \
+            "Pinned Node or npm version is behind upstream" \
+            "$RUNNER_TEMP/version-report.md"

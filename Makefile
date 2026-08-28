@@ -107,6 +107,11 @@ web-nvm-install:
 	@test -f "$(NVM_SH)" || { echo "nvm not found at $(NVM_SH). Install it from https://github.com/nvm-sh/nvm#installing-and-updating"; exit 1; }
 	$(NVM_INIT) cd web && nvm install && npm install -g npm@$$(cat .npm-version)
 
+.PHONY: check-versions
+## check-versions: report whether the Node/npm versions pinned in web/ are behind upstream
+check-versions:
+	@bin/check-versions.sh; s=$$?; test $$s -le 1
+
 .PHONY: web-npm-install
 ## web-npm-install: install npm dependencies in web/
 web-npm-install:

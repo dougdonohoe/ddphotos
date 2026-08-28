@@ -281,6 +281,28 @@ The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on 
 request to `main`. See that file for all the tests it runs.  Tests are configured to run in parallel
 to minimize CI run time.
 
+It also runs nightly at 5:17am Eastern. A push or pull request run tests the code; the nightly run
+tests everything the repo does *not* pin. Node, npm, `package-lock.json` and the Go toolchain are
+pinned exactly, but the ffmpeg `latest` release, the `debian:bookworm-slim` and `golang:1.25-bookworm`
+base images, the `ubuntu-latest` runner image, apt packages and Playwright's browser downloads all
+move on their own. Those break on a calendar rather than on a commit, so without a scheduled run the
+first person to find out is whoever opens the next PR. When a nightly run fails, the
+`report-nightly-failure` job opens a GitHub issue labeled `nightly-ci` (or comments on the open one)
+via [bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching a 5am run and the
+notification email is easy to miss. Push and pull request runs skip that job.
+
+The workflow in [.github/workflows/version-drift.yml](../.github/workflows/version-drift.yml) runs
+[bin/check-versions.sh](../bin/check-versions.sh) nightly and opens a `version-drift` issue when the
+versions in `web/.nvmrc` or `web/.npm-version` have fallen behind upstream. Pinning those exactly is
+deliberate, and the cost of it is that nothing otherwise tells you a bugfix or security release
+shipped; Dependabot cannot fill the gap (it has no `.nvmrc` ecosystem, and cannot see a version in
+`FROM node:${NODE_VERSION}-bookworm-slim`). It never edits a file: bumping Node is a deliberate
+change that CI then tests. Run the same check locally with `make check-versions`.
+
+Both schedules only ever run on the default branch, so a cron edit on a branch does nothing until it
+merges, and GitHub disables scheduled workflows on a public repo after 60 days of inactivity. Both
+can be triggered by hand from the Actions tab (`workflow_dispatch`).
+
 The workflow in [.github/workflows/docker-release.yml](../.github/workflows/docker-release.yml)
 runs when a new git version tag is created.  If this succeeds,
 [.github/workflows/deploy-sample-sites.yml](../.github/workflows/deploy-sample-sites.yml) is

@@ -15,6 +15,7 @@ as defined in `config/defaults.env`.
 | `mod-tidy`                    | Run `go mod tidy` to clean up imports                                                         |
 | `clean-cache`                 | Run `go clean -cache` (useful after a vips library upgrade)                                   |
 | `vet`                         | Run `go vet` static analysis                                                                  |
+| `check-versions`              | Report whether the Node/npm versions pinned in `web/` are behind upstream                     |
 | `web-nvm-install`             | Install the Node version in `web/.nvmrc` and the npm version in `web/.npm-version`            |
 | `web-npm-install`             | Install npm dependencies in `web/`                                                            |
 | `web-npm-audit`               | Run `npm audit` in `web/`                                                                     |

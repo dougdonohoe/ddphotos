@@ -7,6 +7,25 @@ on:
   pull_request:
     branches:
       - main
+  # Nightly, to catch drift rather than code changes. Everything this repo pins exactly
+  # (web/.nvmrc, web/.npm-version, package-lock.json, the Go toolchain in go.mod) is
+  # already covered by the push and pull_request runs. What a scheduled run adds is the
+  # part that still floats underneath us: the ffmpeg `latest` release, the
+  # debian:bookworm-slim and golang:1.25-bookworm base images, the ubuntu-latest runner
+  # image, the actions at @v4/@v5, apt packages, and Playwright's browser downloads.
+  # Those break on a calendar rather than on a commit, and without this the first person
+  # to find out is whoever opens the next PR.
+  #
+  # Deliberately not on the hour: GitHub queues scheduled runs across all Actions and
+  # drops them under load, and the top of the hour is the worst of it. Two other
+  # constraints worth knowing: a scheduled run only ever uses the default branch (editing
+  # the cron on a PR branch changes nothing until it merges), and GitHub disables the
+  # schedule on a public repo after 60 days with no activity, warning by email first.
+  schedule:
+    - cron: '17 5 * * *'
+      timezone: "America/New_York"
+  # So the nightly path can be exercised without waiting until 5am.
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -190,3 +209,51 @@ jobs:
 
       - name: Run Docker workflow tests
         run: make docker-test
+
+  # A red X on a 5am run that nobody is watching needs somewhere to land: GitHub only
+  # emails the owner, and the run scrolls off the Actions tab. bin/ci-open-issue.sh files
+  # it as an issue, or comments on the open one if the same failure is already tracked.
+  #
+  # Scheduled runs only. On a push or a PR the person who triggered it is already looking
+  # at the result, and an issue would be noise.
+  #
+  # `issues: write` is all this needs, and the built-in GITHUB_TOKEN carries it -- no PAT,
+  # no secret to rotate. The grant has to be explicit because this repo's default workflow
+  # permission is read-only, and it is scoped to this job so the three test jobs above
+  # keep the read-only token they run with today.
+  report-nightly-failure:
+    needs: [test, test-nginx-s3, test-docker]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Open or update the nightly failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cat > "$RUNNER_TEMP/nightly-failure.md" <<EOF
+          The nightly run of this workflow failed.
+
+          | Job | Result |
+          | --- | --- |
+          | test | ${{ needs.test.result }} |
+          | test-nginx-s3 | ${{ needs.test-nginx-s3.result }} |
+          | test-docker | ${{ needs.test-docker.result }} |
+
+          No commit landed to cause this, so the likely culprit is something outside the
+          repo moving: the floating ffmpeg \`latest\` release, a base image
+          (\`debian:bookworm-slim\`, \`golang:1.25-bookworm\`), the \`ubuntu-latest\`
+          runner image, an apt mirror, or a Playwright browser download. A genuinely flaky
+          test is the other possibility -- re-run the workflow to tell them apart.
+
+          [Failing run]($RUN_URL)
+          EOF
+          bash bin/ci-open-issue.sh nightly-ci "Nightly CI is failing" "$RUNNER_TEMP/nightly-failure.md"

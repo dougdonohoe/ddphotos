@@ -68,6 +68,13 @@ wrong Node, so a machine whose `nvm` default has drifted cannot silently install
 deliberately a major range (`24.x`), not the exact version, so routine patch bumps to `web/.nvmrc`
 do not need a second edit. **When bumping `web/.nvmrc` to a new major, bump `engines.node` too.**
 
+Pinning exactly costs the one thing a floating tag gave for free: notice that a bugfix or security
+release shipped. `bin/check-versions.sh` replaces it, comparing both files against
+`nodejs.org/dist/index.json` and the npm registry. `.github/workflows/version-drift.yml` runs it
+nightly and opens a `version-drift` issue; `make check-versions` runs it locally. It never edits a
+file. Dependabot cannot do this job: it has no `.nvmrc` ecosystem, and its `docker` ecosystem cannot
+see a version in `FROM node:${NODE_VERSION}-bookworm-slim` because there is no literal tag to bump.
+
 ## Commands
 
 ```bash
