@@ -23,19 +23,21 @@ name: Version Drift
 on:
   schedule:
     # ---------------------------------------------------------------------------------
-    # TEMPORARY -- REVERT THIS. Diagnosing why the 5:37am slot never fired on 2026-08-29:
-    # GitHub created no run at all, and a dropped scheduled run leaves no trace, so a drop
-    # and a schedule that never registered look identical from the outside. This fires
-    # every 10 minutes between 9am and 11am Eastern, which gives the scheduler a dozen
-    # chances instead of one. GitHub will not drop twelve in a row, so if nothing fires
-    # the problem is registration, not load. The 9-10 hour range is in Eastern, so a run
-    # appearing at 13:2x UTC also confirms the timezone conversion itself works.
+    # TEMPORARY -- REVERT THIS. Round two of diagnosing why no scheduled run has ever
+    # fired here. Round one kept `timezone` and fired every 10 minutes from 9-11am
+    # Eastern; the 09:20, 09:30 and 09:40 slots all produced no run at all, and a dropped
+    # scheduled run leaves no trace, so a drop and a schedule that never registers look
+    # identical from outside.
     #
-    # Each fire opens or comments on the version-drift issue, so revert promptly:
+    # This round removes the `timezone` key entirely and expresses the window in plain
+    # UTC, changing exactly one variable. A run appearing at 13:5x or 14:xx UTC means the
+    # timezone field is what stops the schedule from registering, despite being GA since
+    # March 2026. Nothing firing across ~14 more chances means the problem is not the
+    # timezone field and something else is blocking schedules in this repo.
+    #
+    # Each fire comments on issue #102, so revert promptly. Target once this is settled:
     #     - cron: '37 5 * * *'
-    #       timezone: "America/New_York"
-    - cron: '*/10 9-10 * * *'
-      timezone: "America/New_York"
+    - cron: '*/10 13-15 * * *'
     # ---------------------------------------------------------------------------------
   workflow_dispatch:
 
