@@ -11,7 +11,7 @@ as defined in `config/defaults.env`.
 |-------------------------------|-----------------------------------------------------------------------------------------------|
 | `help`                        | Show all available make targets (default when running `make`)                                 |
 | `build`                       | Compile all Go binaries                                                                       |
-| `test`                        | Run Go unit tests (with the race detector)                                                    |
+| `test`                        | Run Go unit tests (with the race detector; `RACE=` to disable, as CI does on PRs)             |
 | `mod-tidy`                    | Run `go mod tidy` to clean up imports                                                         |
 | `clean-cache`                 | Run `go clean -cache` (useful after a vips library upgrade)                                   |
 | `vet`                         | Run `go vet` static analysis                                                                  |

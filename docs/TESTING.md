@@ -170,10 +170,50 @@ the appropriate site variant:
 | `PLAYWRIGHT_CUSTOM_CSS`        | `bin/run-tests.sh`   | Set to `true`; enables CSS tests               |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
-`bin/test-all.sh` runs six variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
+`bin/test-all.sh` runs six variants: no passwords, `passwords-all.yaml`,
 `passwords-keyonly.yaml` (a passwords file that declares no effective password, so nothing is
-encrypted), `custom-css` (with `sample/config/custom-example.css` injected), and `album-nav` (with
-`sample/config/customization-album-nav.yaml`, which replaces each album page's "← Albums" link).
+encrypted), `custom-css` (with `sample/config/custom-example.css` injected), `album-nav` (with
+`sample/config/customization-album-nav.yaml`, which replaces each album page's "← Albums" link),
+and `passwords-uganda.yaml`.
+
+#### Shared site IDs
+
+Five of those six variants generate into the same albums directory, `albums/sample`. Only
+`passwords-all.yaml` gets its own (`albums/sample-pw-all`). This is the single biggest saving
+in CI: a directory that already holds every WebP and MP4 leaves photogen with nothing to
+resize and no video to transcode, so a variant costs a few seconds instead of ~40, and the
+sample videos are transcoded twice per CI job instead of six times.
+
+It works because media bytes do not depend on encryption, CSS or customization. What
+encryption changes is output *filenames*: `Config.PhotoOutputName` HMACs the name only for
+albums that actually have a password, so variants encrypting the same set of albums produce
+identically named, byte-identical media.
+
+| Variant                  | the-way | uganda | antarctica | Site ID         |
+|--------------------------|---------|--------|------------|-----------------|
+| no passwords             | plain   | plain  | plain      | `sample`        |
+| `passwords-keyonly.yaml` | plain   | plain  | plain      | `sample`        |
+| `custom-css`             | plain   | plain  | plain      | `sample`        |
+| `album-nav`              | plain   | plain  | plain      | `sample`        |
+| `passwords-uganda.yaml`  | plain   | HMAC   | plain      | `sample`        |
+| `passwords-all.yaml`     | HMAC    | HMAC   | HMAC       | `sample-pw-all` |
+
+Sharing stays correct because photogen runs with `-clean` on every variant, which normalizes
+the directory to that variant: everything it writes is registered with `TrackFile`, and
+`CleanOutputDir` deletes whatever the previous variant left behind, top-level files
+(`custom.css`, `albums.enc.json`) included. Two consequences worth knowing:
+
+- **The static build is rebuilt for every variant.** `handleFetch` in `web/src/hooks.server.ts`
+  reads `/albums/*.json` off disk during pre-rendering and bakes it into the HTML, so
+  `build/sample` belongs to one variant even though the site ID is shared.
+- **`bin/test-all.sh` leaves `albums/sample` and `build/sample` holding the last variant it
+  ran.** Anything that assumes the plain sample site, such as `make sample-rsync-test` and
+  `make sample-s3-test`, has to run before it. `.github/workflows/ci.yml` orders its steps
+  that way. Run `make sample-photogen sample-build` to get back to the plain site.
+
+A direct `bin/run-tests.sh` invocation still derives a self-describing site ID
+(`sample-css`, `sample-pw-uganda`, and so on), which is more useful when inspecting the
+output of one variant. Pass `--site-id` to override it.
 
 ```bash
 # Run all 6 variants against dev + Apache + nginx (default; recommended locally)
@@ -290,6 +330,18 @@ first person to find out is whoever opens the next PR. When a nightly run fails,
 `report-nightly-failure` job opens a GitHub issue labeled `nightly-ci` (or comments on the open one)
 via [bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching an overnight run and the
 notification email is easy to miss. Push and pull request runs skip that job.
+
+That split is also why two things are deliberately slower on the nightly than on a PR:
+
+- **The ffmpeg and Playwright browser caches are not restored on `schedule` or
+  `workflow_dispatch`.** Catching drift in the floating ffmpeg `latest` release and in
+  Playwright's browser downloads is a stated reason the nightly exists, and a cache hit
+  would hide exactly that. On a push or pull request the download is a pure cost, so it is
+  cached there.
+- **The Go race detector runs on the nightly only.** `-race` is ~67s of the ~102s that
+  `make build test-cover vet` takes on a runner. The workflow passes `RACE=` on push and
+  pull request and leaves the Makefile default on the schedule, so a race introduced in a
+  PR surfaces that night as a `nightly-ci` issue rather than on the PR itself.
 
 The workflow in [.github/workflows/version-drift.yml](../.github/workflows/version-drift.yml) runs
 [bin/check-versions.sh](../bin/check-versions.sh) nightly at 05:37 UTC and opens a `version-drift` issue when the
