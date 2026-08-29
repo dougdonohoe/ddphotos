@@ -20,6 +20,9 @@
 #              e.g. --test tests/privacy.spec.ts
 # --site-id    Albums directory to generate into, overriding the derived one. See the
 #              "Site ID" comment below for why bin/test-all.sh shares one across variants.
+# --skip-video Set PLAYWRIGHT_SKIP_VIDEO, which skips web/tests/video.spec.ts. For a
+#              variant whose transcoded MP4s are byte-identical to a variant that already
+#              covers them; see the note above the run_variant calls in bin/test-all.sh.
 #
 # Note for anyone editing .github/workflows/ci.yml: with a shared --site-id this script
 # rewrites albums/sample and build/sample, so the rsync and S3 deploy steps, which assume
@@ -32,9 +35,10 @@ CSS_FILE=""
 CUSTOMIZATION_FILE=""
 MODE="all"
 SITE_ID_OVERRIDE=""
+SKIP_VIDEO=false
 
 usage() {
-    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--site-id <id>]"
+    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--site-id <id>] [--skip-video]"
     echo ""
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
@@ -51,6 +55,7 @@ usage() {
     echo "                        all    — dev, apache, and nginx"
     echo "  --test <file>       Run only a specific test file (e.g. tests/privacy.spec.ts)."
     echo "  --site-id <id>      Albums directory to generate into, overriding the derived one."
+    echo "  --skip-video        Skip video.spec.ts (its MP4s are covered by another variant)."
     echo "  --help, -?          Show this help message and exit."
 }
 
@@ -66,6 +71,7 @@ while [[ $# -gt 0 ]]; do
         --mode=*)      MODE="${1#*=}"; shift ;;
         --site-id)     SITE_ID_OVERRIDE="$2"; shift 2 ;;
         --site-id=*)   SITE_ID_OVERRIDE="${1#*=}"; shift ;;
+        --skip-video)  SKIP_VIDEO=true; shift ;;
         --test)        TEST_FILTER="$2"; shift 2 ;;
         --test=*)      TEST_FILTER="${1#*=}"; shift ;;
         --help|-\?)    usage; exit 0 ;;
@@ -179,6 +185,7 @@ run_playwright() {
         export PLAYWRIGHT_BASE_URL="$base_url"
         [ -n "$PASSWORDS_FILE" ] && export PLAYWRIGHT_PASSWORDS_FILE="$PASSWORDS_FILE"
         [ -n "$CSS_FILE" ] && export PLAYWRIGHT_CUSTOM_CSS="true"
+        [ "$SKIP_VIDEO" = true ] && export PLAYWRIGHT_SKIP_VIDEO="true"
         npx playwright test ${TEST_FILTER:+"$TEST_FILTER"}
     )
 }

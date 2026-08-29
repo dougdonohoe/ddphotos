@@ -10,10 +10,28 @@ import {
 
 const pw = loadPasswords();
 
+// This is the most expensive spec in the suite (~14-17s of a ~34s run), and a transcoded
+// MP4 depends only on its source and the encode settings. Encryption changes the output
+// *filename*, never the bytes, and CSS and customization touch neither. So every
+// unencrypted variant of the sample site publishes byte-identical video, and running this
+// spec against each of them re-tests the same files.
+//
+// bin/test-all.sh therefore sets PLAYWRIGHT_SKIP_VIDEO on the variants whose MP4s are
+// already covered by the no-passwords variant, via bin/run-tests.sh --skip-video. Unset
+// (the default) runs everything, so a direct `npx playwright test` is unaffected.
+//
+// Skipped in beforeEach rather than by leaving `video` null, so the reported reason says
+// what actually happened instead of claiming the site publishes no video.
+const skipVideo = !!process.env.PLAYWRIGHT_SKIP_VIDEO;
+test.beforeEach(() => {
+	test.skip(skipVideo, 'PLAYWRIGHT_SKIP_VIDEO: these MP4s are covered by another variant');
+});
+
 // Discovered once: video tests run against whatever the site actually publishes rather
 // than a hardcoded album, matching how the rest of the suite handles optional content.
 let video: FoundVideo | null = null;
 test.beforeAll(async ({ request }) => {
+	if (skipVideo) return;
 	video = await findVideo(request);
 });
 
@@ -40,23 +58,27 @@ function currentVideo(page: import('@playwright/test').Page) {
 	return currentSlide(page).locator('.pswp-video');
 }
 
-test('the mp4 is served with a video content type and byte ranges', async ({ request }) => {
-	test.skip(!video, 'no video published on this site');
-	const v = video!;
+test(
+	'the mp4 is served with a video content type and byte ranges',
+	{ tag: '@deploy' },
+	async ({ request }) => {
+		test.skip(!video, 'no video published on this site');
+		const v = video!;
 
-	// Both matter and neither is automatic in dev: without a video/* content type the
-	// browser will not treat the response as media, and without range support seeking
-	// does nothing and Safari refuses to play the file at all.
-	const full = await request.get(v.videoUrl);
-	expect(full.ok()).toBe(true);
-	expect(full.headers()['content-type']).toBe('video/mp4');
-	expect(full.headers()['accept-ranges']).toBe('bytes');
+		// Both matter and neither is automatic in dev: without a video/* content type the
+		// browser will not treat the response as media, and without range support seeking
+		// does nothing and Safari refuses to play the file at all.
+		const full = await request.get(v.videoUrl);
+		expect(full.ok()).toBe(true);
+		expect(full.headers()['content-type']).toBe('video/mp4');
+		expect(full.headers()['accept-ranges']).toBe('bytes');
 
-	const ranged = await request.get(v.videoUrl, { headers: { Range: 'bytes=0-99' } });
-	expect(ranged.status()).toBe(206);
-	expect(ranged.headers()['content-range']).toMatch(/^bytes 0-99\/\d+$/);
-	expect((await ranged.body()).length).toBe(100);
-});
+		const ranged = await request.get(v.videoUrl, { headers: { Range: 'bytes=0-99' } });
+		expect(ranged.status()).toBe(206);
+		expect(ranged.headers()['content-range']).toMatch(/^bytes 0-99\/\d+$/);
+		expect((await ranged.body()).length).toBe(100);
+	}
+);
 
 test('the transcoded mp4 starts with its moov atom so playback can begin early', async ({
 	request

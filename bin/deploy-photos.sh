@@ -10,6 +10,7 @@ SKIP_BUILD=false
 SKIP_PRE_DEPLOY=false
 SKIP_RSYNC=false
 SKIP_PLAYWRIGHT=false
+PLAYWRIGHT_SMOKE=false
 SKIP_SERVER_TEST=false
 DRY_RUN=false
 S3_MODE=false
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
         --no-pre-deploy-tests) SKIP_PRE_DEPLOY=true; shift ;;
         --no-rsync)          SKIP_RSYNC=true; shift ;;
         --no-playwright)     SKIP_PLAYWRIGHT=true; shift ;;
+        --playwright-smoke)  PLAYWRIGHT_SMOKE=true; shift ;;
         --no-server-test)    SKIP_SERVER_TEST=true; shift ;;
         --dry-run)           DRY_RUN=true; shift ;;
         --s3)                S3_MODE=true; shift ;;
@@ -55,11 +57,29 @@ while [[ $# -gt 0 ]]; do
             echo "  --no-pre-deploy-tests  Skip pre-deploy server and Playwright tests" >&2
             echo "  --no-rsync             Skip rsync/S3 sync and post-deploy steps" >&2
             echo "  --no-playwright        Skip Playwright tests (pre- and post-deploy)" >&2
+            echo "  --playwright-smoke     Run only the @deploy-tagged Playwright tests" >&2
             echo "  --no-server-test       Skip server tests (pre- and post-deploy)" >&2
             exit 1
             ;;
     esac
 done
+
+# --playwright-smoke narrows both Playwright runs to the tests tagged @deploy: the ones that
+# fail when the *deployed tree* is wrong rather than when the app is. Those are the checks
+# bin/test-photos-server.sh cannot make, since it only curls for status codes: the home page
+# and grid rendering from deployed JSON, an OG image resolving to a real .jpg, grid WebPs
+# actually decoding, and the MP4 arriving as video/mp4 with byte ranges.
+#
+# Off by default. A real deploy wants the whole suite against the live site; this exists for
+# bin/rsync-test.sh, where the point is to prove deploy-photos.sh moved the right bytes to
+# the right places, and re-running 87 app tests against a container costs ~38s to prove
+# nothing the other variants have not already proven.
+PLAYWRIGHT_ARGS=()
+PLAYWRIGHT_SMOKE_LABEL=""
+if [ "$PLAYWRIGHT_SMOKE" = true ]; then
+    PLAYWRIGHT_ARGS=(--grep @deploy)
+    PLAYWRIGHT_SMOKE_LABEL=" (@deploy subset)"
+fi
 
 # --server selects the image used for the pre-deploy local tests only. It has no effect on
 # what gets deployed: both servers are fed the identical two-source tree (see docs/DEPLOY.md).
@@ -231,8 +251,8 @@ _pre_deploy() {
         if [ "$SKIP_PLAYWRIGHT" = true ]; then
             echo "Skipping pre-deploy Playwright tests (--no-playwright)"
         else
-            echo "Running pre-deploy Playwright e2e tests..."
-            npx playwright test
+            echo "Running pre-deploy Playwright e2e tests${PLAYWRIGHT_SMOKE_LABEL}..."
+            npx playwright test "${PLAYWRIGHT_ARGS[@]}"
         fi
     fi
 }
@@ -274,8 +294,8 @@ _post_deploy() {
     elif [ "$DRY_RUN" = true ]; then
         echo "DRY RUN: skipping Playwright tests against production"
     else
-        echo "Running Playwright e2e tests against production $SITE_URL..."
-        PLAYWRIGHT_BASE_URL="$SITE_URL" npx playwright test
+        echo "Running Playwright e2e tests${PLAYWRIGHT_SMOKE_LABEL} against production $SITE_URL..."
+        PLAYWRIGHT_BASE_URL="$SITE_URL" npx playwright test "${PLAYWRIGHT_ARGS[@]}"
     fi
 }
 
