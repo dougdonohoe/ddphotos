@@ -22,8 +22,21 @@ name: Version Drift
 
 on:
   schedule:
-    - cron: '37 5 * * *'
+    # ---------------------------------------------------------------------------------
+    # TEMPORARY -- REVERT THIS. Diagnosing why the 5:37am slot never fired on 2026-08-29:
+    # GitHub created no run at all, and a dropped scheduled run leaves no trace, so a drop
+    # and a schedule that never registered look identical from the outside. This fires
+    # every 10 minutes between 9am and 11am Eastern, which gives the scheduler a dozen
+    # chances instead of one. GitHub will not drop twelve in a row, so if nothing fires
+    # the problem is registration, not load. The 9-10 hour range is in Eastern, so a run
+    # appearing at 13:2x UTC also confirms the timezone conversion itself works.
+    #
+    # Each fire opens or comments on the version-drift issue, so revert promptly:
+    #     - cron: '37 5 * * *'
+    #       timezone: "America/New_York"
+    - cron: '*/10 9-10 * * *'
       timezone: "America/New_York"
+    # ---------------------------------------------------------------------------------
   workflow_dispatch:
 
 permissions:
