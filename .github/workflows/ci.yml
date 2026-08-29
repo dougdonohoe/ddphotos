@@ -52,6 +52,21 @@ jobs:
         # timeouts, retries, and falls back to archive.ubuntu.com. See its header.
         run: bash bin/ci-apt-install.sh libvips-dev libheif-plugin-libde265 pkg-config
 
+      # Restoring ffmpeg turns the download below into a no-op (do-install-ffmpeg.sh exits
+      # early when both binaries are present), saving ~8s.
+      #
+      # Deliberately not restored on `schedule` or `workflow_dispatch`. Catching drift in
+      # the floating ffmpeg `latest` release is one of the stated reasons the nightly run
+      # exists, and a cache hit would hide exactly that. Same reasoning for the Playwright
+      # cache below. Push and pull_request runs are the ones where the seconds matter and
+      # where a stale-but-working ffmpeg is fine.
+      - name: Cache ffmpeg
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ffmpeg
+          key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docker/do-install-ffmpeg.sh') }}
+
       - name: Install ffmpeg
         # The same pinned static build the Docker image fetches on demand, rather than
         # `apt-get install ffmpeg`: the Debian package pulls ~200 packages and 448MB of
@@ -89,11 +104,26 @@ jobs:
       - name: Install npm dependencies
         run: cd web && npm ci
 
+      # Keyed on package-lock.json because the browser build Playwright wants is pinned by
+      # the @playwright/test version. Not restored on the nightly; see "Cache ffmpeg" above.
+      - name: Cache Playwright browsers
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
       # test-cover rather than test: setup-go installs a full Go distribution, so the
       # `covdata` tool is present and coverage works. `make test` drops -cover so it also
       # works with a toolchain fetched via GOTOOLCHAIN auto-download (see the Makefile).
       - name: Go build, test, vet
         run: make build test-cover vet
+        env:
+          # The race detector is 67s of this step's 102s, so it runs on the nightly rather
+          # than on every push. See the RACE comment in the Makefile for what that costs.
+          # The blank branch is a single space, not an empty string: an empty string is
+          # falsy to `&&`/`||`, so GitHub would fall through and always pick '-race'.
+          RACE: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '-race' || ' ' }}
 
       - name: Web lint (prettier + eslint)
         run: make web-lint
@@ -116,11 +146,15 @@ jobs:
       - name: Run Apache routing tests
         run: make web-docker-build-apache sample-test-apache
 
-      - name: Run Apache Playwright e2e tests (all password variants)
-        run: bin/test-all.sh --mode apache --ci
-
+      # Before the e2e step, not after. bin/test-all.sh shares the "sample" site directory
+      # across five of its six variants (see its header), so it rewrites albums/sample and
+      # build/sample as it goes. This step and bin/s3-test.sh both assume the plain sample
+      # site that "Photogen and build" produced, so they have to read it first.
       - name: Run rsync deploy test
         run: make sample-rsync-test
+
+      - name: Run Apache Playwright e2e tests (all password variants)
+        run: bin/test-all.sh --mode apache
 
   # Split out nginx/s3 tests to run in parallel
   test-nginx-s3:
@@ -137,6 +171,15 @@ jobs:
         # (once for 66 minutes, until the job timeout killed it). The script bounds apt's
         # timeouts, retries, and falls back to archive.ubuntu.com. See its header.
         run: bash bin/ci-apt-install.sh libvips-dev libheif-plugin-libde265 pkg-config
+
+      - name: Cache ffmpeg
+        # Not restored on the nightly, so it still exercises a fresh download; see the
+        # 'test' job above.
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ffmpeg
+          key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docker/do-install-ffmpeg.sh') }}
 
       - name: Install ffmpeg
         # Static build rather than `apt-get install ffmpeg`; see the 'test' job above.
@@ -166,6 +209,14 @@ jobs:
       - name: Install npm dependencies
         run: cd web && npm ci
 
+      - name: Cache Playwright browsers
+        # Not restored on the nightly; see the 'test' job above.
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
       - name: Install Playwright Chromium
         # Deliberately no `npx playwright install-deps chromium`; see the 'test' job above.
         run: make web-playwright-install
@@ -176,14 +227,17 @@ jobs:
       - name: Run nginx routing tests
         run: make web-docker-build-nginx sample-test-nginx
 
-      - name: Run nginx Playwright e2e tests (all password variants)
-        run: bin/test-all.sh --mode nginx --ci
-
+      # Both deploy tests run before the e2e step, which rewrites albums/sample and
+      # build/sample; see the same note in the 'test' job. bin/s3-test.sh in particular
+      # hardcodes SITE_ID=sample and asserts on plaintext album JSON.
       - name: Run nginx rsync deploy test
         run: make sample-rsync-test-nginx
 
       - name: Run S3 deploy test
         run: make sample-s3-test
+
+      - name: Run nginx Playwright e2e tests (all password variants)
+        run: bin/test-all.sh --mode nginx
 
   # Docker-mode tests of 'ddphotos' can run in parallel
   test-docker:
@@ -207,10 +261,25 @@ jobs:
       - name: Install npm dependencies
         run: cd web && npm ci
 
+      - name: Cache Playwright browsers
+        # Not restored on the nightly; see the 'test' job above.
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
       - name: Install Playwright Chromium
         # Deliberately no `npx playwright install-deps chromium`; see the 'test' job above.
         run: make web-playwright-install
 
+      # `make docker-build`, which bin/docker-test.sh runs, is ~100s of this job with no
+      # layer cache behind it: docker/Dockerfile installs apt packages and compiles the Go
+      # binary from scratch every time. A buildx cache was tried and dropped. It saves no
+      # wall clock, because this job is well under the critical path set by 'test', and
+      # buildx's type=gha backend needs ACTIONS_RUNTIME_TOKEN exported by a third-party
+      # action, while type=local needs an export-and-swap dance around actions/cache.
+      # Revisit if this job ever becomes the longest one.
       - name: Run Docker workflow tests
         run: make docker-test
 

@@ -77,4 +77,4 @@ until curl -s -o /dev/null "http://localhost:$HTTP_PORT"; do sleep 1; done
 # Run full deploy: photogen → build → rsync → post-deploy server tests + Playwright.
 # RSYNC_RSH tells rsync which SSH command to use (custom port + test key).
 export RSYNC_RSH="ssh -i $TEST_KEY -p $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-bin/deploy-photos.sh --no-pre-deploy-tests --server "$SERVER" --config-dir "$TEMP_CONFIG"
+bin/deploy-photos.sh --no-pre-deploy-tests --playwright-smoke --server "$SERVER" --config-dir "$TEMP_CONFIG"

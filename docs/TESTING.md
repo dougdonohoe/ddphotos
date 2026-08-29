@@ -137,17 +137,17 @@ make web-playwright-test-dev
 
 Tests are in `web/tests/` and cover:
 
-| File                  | What it tests                                                                                                              |
-|-----------------------|----------------------------------------------------------------------------------------------------------------------------|
-| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags                                                |
-| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav                                               |
-| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load                                                  |
-| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description                                                |
-| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload                                                |
-| `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                                                          |
-| `privacy.spec.ts`     | Privacy page content, back link, scroll restoration on return to home                                                      |
-| `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear`                            |
-| `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius                                       |
+| File                  | What it tests                                                                                                                                                   |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags                                                                                     |
+| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav                                                                                    |
+| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load                                                                                       |
+| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description                                                                                     |
+| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload                                                                                     |
+| `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                                                                                               |
+| `privacy.spec.ts`     | Privacy page content, back link, scroll restoration on return to home                                                                                           |
+| `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear`                                                                 |
+| `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius                                                                            |
 | `video.spec.ts`       | Play badge, lightbox `<video>`, space to play/pause, pause on swipe/close, caption hidden while playing, MP4 MIME + ranges, photo/video counts in the meta line |
 
 Navigation tests are fully dynamic - they read album names from the page at runtime and
@@ -164,28 +164,119 @@ Playwright directly (e.g. via `deploy-photos.sh`).
 Password and CSS tests are gated by environment variables so they only run against
 the appropriate site variant:
 
-| Variable                       | Set by               | Effect                                         |
-|--------------------------------|----------------------|------------------------------------------------|
-| `PLAYWRIGHT_PASSWORDS_FILE`    | `bin/run-tests.sh`   | Path to passwords file; enables password tests |
-| `PLAYWRIGHT_CUSTOM_CSS`        | `bin/run-tests.sh`   | Set to `true`; enables CSS tests               |
+| Variable                    | Set by                          | Effect                                         |
+|-----------------------------|---------------------------------|------------------------------------------------|
+| `PLAYWRIGHT_PASSWORDS_FILE` | `bin/run-tests.sh`              | Path to passwords file; enables password tests |
+| `PLAYWRIGHT_CUSTOM_CSS`     | `bin/run-tests.sh`              | Set to `true`; enables CSS tests               |
+| `PLAYWRIGHT_SKIP_VIDEO`     | `bin/run-tests.sh --skip-video` | Skips `video.spec.ts`; see below               |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
-`bin/test-all.sh` runs six variants: no passwords, `passwords-all.yaml`, `passwords-uganda.yaml`,
-`passwords-keyonly.yaml` (a passwords file that declares no effective password, so nothing is
-encrypted), `custom-css` (with `sample/config/custom-example.css` injected), and `album-nav` (with
-`sample/config/customization-album-nav.yaml`, which replaces each album page's "← Albums" link).
+`bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `config-extras`
+(`passwords-keyonly.yaml`, which declares no effective password, plus
+`sample/config/custom-example.css` and `sample/config/customization-album-nav.yaml`), and
+`passwords-uganda.yaml`.
+
+#### Shared site IDs
+
+Three of those four variants generate into the same albums directory, `albums/sample`. Only
+`passwords-all.yaml` gets its own (`albums/sample-pw-all`). This is the single biggest saving
+in CI: a directory that already holds every WebP and MP4 leaves photogen with nothing to
+resize and no video to transcode, so a variant costs a few seconds instead of ~40, and the
+sample videos are transcoded twice per CI job instead of six times.
+
+It works because media bytes do not depend on encryption, CSS or customization. What
+encryption changes is output *filenames*: `Config.PhotoOutputName` HMACs the name only for
+albums that actually have a password, so variants encrypting the same set of albums produce
+identically named, byte-identical media.
+
+| Variant                  | the-way | uganda | antarctica | Site ID         |
+|--------------------------|---------|--------|------------|-----------------|
+| no passwords             | plain   | plain  | plain      | `sample`        |
+| `config-extras`          | plain   | plain  | plain      | `sample`        |
+| `passwords-uganda.yaml`  | plain   | HMAC   | plain      | `sample`        |
+| `passwords-all.yaml`     | HMAC    | HMAC   | HMAC       | `sample-pw-all` |
+
+Sharing stays correct because photogen runs with `-clean` on every variant, which normalizes
+the directory to that variant: everything it writes is registered with `TrackFile`, and
+`CleanOutputDir` deletes whatever the previous variant left behind, top-level files
+(`custom.css`, `albums.enc.json`) included. Two consequences worth knowing:
+
+- **The static build is rebuilt for every variant.** `handleFetch` in `web/src/hooks.server.ts`
+  reads `/albums/*.json` off disk during pre-rendering and bakes it into the HTML, so
+  `build/sample` belongs to one variant even though the site ID is shared.
+- **`bin/test-all.sh` leaves `albums/sample` and `build/sample` holding the last variant it
+  ran.** Anything that assumes the plain sample site, such as `make sample-rsync-test` and
+  `make sample-s3-test`, has to run before it. `.github/workflows/ci.yml` orders its steps
+  that way. Run `make sample-photogen sample-build` to get back to the plain site.
+
+A direct `bin/run-tests.sh` invocation still derives a self-describing site ID
+(`sample-css`, `sample-pw-uganda`, and so on), which is more useful when inspecting the
+output of one variant. Pass `--site-id` to override it.
+
+#### Why `config-extras` is one variant and not three
+
+`passwords-keyonly`, `custom-css` and `album-nav` used to be three separate runs. Diffing
+their generated sites against the plain one shows why they no longer are. Each differs from
+plain by a single `config.json` field and nothing else, while the two encrypted variants are
+genuinely different sites:
+
+| Variant             | Entries differing from the plain site                      |
+|---------------------|------------------------------------------------------------|
+| `passwords-keyonly` | 1: `config.json` gains `"keyId"`                           |
+| `custom-css`        | 2: `config.json` gains `"customCss"`, plus `custom.css`    |
+| `album-nav`         | 1: `config.json` gains `"albumNav"`                        |
+| `passwords-uganda`  | 89: Uganda HMAC'd, no `cover.jpg`, `albums.json` differs   |
+| `passwords-all`     | 278: all three albums HMAC'd, `albums.enc.json`, no covers |
+
+The three fields are orthogonal, so one run with all three set covers what the three runs
+did. Measured: the union of the three was 69 tests, the combined run is 67, and the only two
+it drops are the negative assertions ("CSS link is NOT present when not configured",
+"default back link when `album_nav` is not configured"), which still run in every other
+variant. What it gives up is "css alone" and "album-nav alone": plain covers
+neither-configured and `config-extras` covers both-configured, so only the exactly-one
+combinations are untested. Split it back out if that ever matters.
+
+#### Skipping `video.spec.ts` where it is redundant
+
+`video.spec.ts` is the most expensive spec in the suite (~14-17s of a ~34s run). A
+transcoded MP4 depends only on its source and the encode settings: encryption changes the
+output *filename*, never the bytes, and CSS and customization touch neither. So every
+unencrypted variant publishes byte-identical video.
+
+`bin/test-all.sh` therefore passes `--skip-video` (which sets `PLAYWRIGHT_SKIP_VIDEO`) on
+`config-extras` and `passwords-uganda`, leaving the no-passwords variant to cover it.
+`passwords-all` skips the spec on its own, because a fully locked site publishes no
+discoverable video. Unset is the default, so a direct `npx playwright test` still runs
+everything.
+
+#### The `@deploy` tag
+
+`bin/rsync-test.sh` used to re-run all 87 tests against the deployed container, ~38s to
+prove nothing the other variants had not already proven. It now passes
+`--playwright-smoke` to `bin/deploy-photos.sh`, which narrows both Playwright runs to
+`--grep @deploy`: the tests that fail when the *deployed tree* is wrong rather than when the
+app is, covering what `bin/test-photos-server.sh` cannot, since that only curls for status
+codes.
+
+The tag is off by default. A real deploy still runs the whole suite against the live site.
+
+One of the tagged tests is new. `album page renders photos in the grid` renders from
+`index.json` alone, so a tile is visible whether its WebP exists, which meant no test
+in the suite failed when album media was missing. `album page grid images actually load`
+polls `naturalWidth`, and is the one assertion that does. Verified by deleting every
+Antarctica grid WebP from a served site: the old test still passed, the new one failed.
 
 ```bash
-# Run all 6 variants against dev + Apache + nginx (default; recommended locally)
+# Run all 4 variants against dev + Apache + nginx (default; recommended locally)
 bin/test-all.sh
 
-# Run all 6 variants against Apache only (mirrors CI)
+# Run all 4 variants against Apache only (mirrors CI)
 bin/test-all.sh --mode apache
 
-# Run all 6 variants against nginx only
+# Run all 4 variants against nginx only
 bin/test-all.sh --mode nginx
 
-# Run all 6 variants against dev server, Apache, and nginx
+# Run all 4 variants against dev server, Apache, and nginx
 bin/test-all.sh --mode all
 
 # Run a single variant against Apache (no password)
@@ -210,7 +301,7 @@ bin/run-tests.sh --mode dev --test tests/privacy.spec.ts
 ### Sanity Check
 
 A good sanity check runs the unit tests, then verifies against Apache (which requires a
-build), testing both password and no-password sites.  It's quicker than running all 5
+build), testing both password and no-password sites.  It's quicker than running all 4
 variants against dev, Apache and nginx:
 
 ```bash
@@ -290,6 +381,18 @@ first person to find out is whoever opens the next PR. When a nightly run fails,
 `report-nightly-failure` job opens a GitHub issue labeled `nightly-ci` (or comments on the open one)
 via [bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching an overnight run and the
 notification email is easy to miss. Push and pull request runs skip that job.
+
+That split is also why two things are deliberately slower on the nightly than on a PR:
+
+- **The ffmpeg and Playwright browser caches are not restored on `schedule` or
+  `workflow_dispatch`.** Catching drift in the floating ffmpeg `latest` release and in
+  Playwright's browser downloads is a stated reason the nightly exists, and a cache hit
+  would hide exactly that. On a push or pull request the download is a pure cost, so it is
+  cached there.
+- **The Go race detector runs on the nightly only.** `-race` is ~67s of the ~102s that
+  `make build test-cover vet` takes on a runner. The workflow passes `RACE=` on push and
+  pull request and leaves the Makefile default on the schedule, so a race introduced in a
+  PR surfaces that night as a `nightly-ci` issue rather than on the PR itself.
 
 The workflow in [.github/workflows/version-drift.yml](../.github/workflows/version-drift.yml) runs
 [bin/check-versions.sh](../bin/check-versions.sh) nightly at 05:37 UTC and opens a `version-drift` issue when the

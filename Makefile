@@ -67,10 +67,23 @@ GO_PKGS := ./cmd/... ./pkg/...
 build:
 	go build -ldflags "-X main.repoRoot=$(PWD)" $(GO_PKGS)
 
+# RACE is the race-detector flag, overridable so CI can drop it. -race catches data races
+# in the concurrent resize and metadata workers. It needs cgo, which is already required by
+# govips, and roughly doubles the runtime: 67s of the 102s that `make build test-cover vet`
+# spends on a 2 vCPU runner.
+#
+# Default on, so `make test` locally is unchanged and nobody has to remember a flag. CI
+# clears it on push and pull_request and leaves the default on the nightly schedule, where
+# an extra minute costs nothing and a failure lands as a tracked issue via
+# bin/ci-open-issue.sh. The trade-off is that a race introduced in a PR is caught that
+# night rather than on the PR itself.
+#
+# `?=` rather than `=` is what makes the override work: an environment variable counts as
+# already defined, so ci.yml's `env: RACE:` wins, while a plain `make test` gets -race.
+RACE ?= -race
+
 .PHONY: test
-## test: run `go test` (with the race detector)
-# -race catches data races in the concurrent resize and metadata workers. It needs cgo,
-# which is already required by govips, and roughly doubles the runtime.
+## test: run `go test` (with the race detector; RACE= to disable)
 #
 # -cover is deliberately NOT here: it needs the `covdata` tool, which a toolchain fetched
 # via GOTOOLCHAIN auto-download does not supply, so `go test -cover` fails with
@@ -79,12 +92,12 @@ build:
 # go.mod — e.g. Ubuntu 24.04, whose apt golang-go is 1.22 and downloads 1.25 on demand.
 # Use `make test-cover` for coverage; it needs a real Go install (see docs/INSTALL.md).
 test:
-	go test -v -race $(GO_PKGS)
+	go test -v $(RACE) $(GO_PKGS)
 
 .PHONY: test-cover
 ## test-cover: run `go test` with coverage (needs a full Go install, not a downloaded toolchain)
 test-cover:
-	go test -v -race -cover $(GO_PKGS)
+	go test -v $(RACE) -cover $(GO_PKGS)
 
 .PHONY: vet
 ## vet: run `go vet`

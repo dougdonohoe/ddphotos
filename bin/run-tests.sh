@@ -2,7 +2,7 @@
 # Run Playwright tests against one variant of the sample site.
 #
 # Usage:
-#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--test <file>] [--ci]
+#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--test <file>] [--site-id <id>]
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
@@ -18,8 +18,15 @@
 #              all    — dev, apache, and nginx
 # --test       Run only the specified test file (passed directly to Playwright).
 #              e.g. --test tests/privacy.spec.ts
-# --ci         Skip photogen if albums/<site-id> already exists; skip npm build if build/ exists.
-#              Speeds up CI by reusing output from a prior run or step.
+# --site-id    Albums directory to generate into, overriding the derived one. See the
+#              "Site ID" comment below for why bin/test-all.sh shares one across variants.
+# --skip-video Set PLAYWRIGHT_SKIP_VIDEO, which skips web/tests/video.spec.ts. For a
+#              variant whose transcoded MP4s are byte-identical to a variant that already
+#              covers them; see the note above the run_variant calls in bin/test-all.sh.
+#
+# Note for anyone editing .github/workflows/ci.yml: with a shared --site-id this script
+# rewrites albums/sample and build/sample, so the rsync and S3 deploy steps, which assume
+# the plain sample site, must run *before* the step that calls bin/test-all.sh.
 
 set -eo pipefail
 
@@ -27,10 +34,11 @@ PASSWORDS_FILE=""
 CSS_FILE=""
 CUSTOMIZATION_FILE=""
 MODE="all"
-CI_MODE=false
+SITE_ID_OVERRIDE=""
+SKIP_VIDEO=false
 
 usage() {
-    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--ci]"
+    echo "Usage: bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--site-id <id>] [--skip-video]"
     echo ""
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
@@ -46,7 +54,8 @@ usage() {
     echo "                        nginx  — static build + Docker/nginx on port 8084"
     echo "                        all    — dev, apache, and nginx"
     echo "  --test <file>       Run only a specific test file (e.g. tests/privacy.spec.ts)."
-    echo "  --ci                Skip photogen if albums/<site-id> exists; skip npm build if build/ exists."
+    echo "  --site-id <id>      Albums directory to generate into, overriding the derived one."
+    echo "  --skip-video        Skip video.spec.ts (its MP4s are covered by another variant)."
     echo "  --help, -?          Show this help message and exit."
 }
 
@@ -60,7 +69,9 @@ while [[ $# -gt 0 ]]; do
         --customization=*) CUSTOMIZATION_FILE="${1#*=}"; shift ;;
         --mode)        MODE="$2"; shift 2 ;;
         --mode=*)      MODE="${1#*=}"; shift ;;
-        --ci)          CI_MODE=true; shift ;;
+        --site-id)     SITE_ID_OVERRIDE="$2"; shift 2 ;;
+        --site-id=*)   SITE_ID_OVERRIDE="${1#*=}"; shift ;;
+        --skip-video)  SKIP_VIDEO=true; shift ;;
         --test)        TEST_FILTER="$2"; shift 2 ;;
         --test=*)      TEST_FILTER="${1#*=}"; shift ;;
         --help|-\?)    usage; exit 0 ;;
@@ -94,30 +105,48 @@ if [ -n "$CSS_FILE" ]; then
     [ -f "$CSS_FILE" ] || { echo "Error: CSS file not found: $CSS_FILE" >&2; exit 1; }
 fi
 
-# Derive site-id from flags.
-# Convention: passwords-all.yaml -> site-id "sample-pw-all"
-#             passwords-uganda.yaml -> site-id "sample-pw-uganda"
-#             --css <file> -> site-id "sample-css"
-#             --customization customization-album-nav.yaml -> site-id "sample-album-nav"
-#             (no flags) -> site-id "sample"
+# --- Site ID ---
+#
+# The albums directory this variant's media lands in. Variants that encrypt the same set
+# of albums can share one, which is what bin/test-all.sh does via --site-id, and it is the
+# single biggest saving in CI: a shared directory already holds every WebP and MP4, so
+# photogen skips the resize and the ffmpeg transcode entirely and only rewrites the JSON.
+#
+# Safe to share because media bytes never depend on encryption, CSS or customization.
+# What encryption changes is output *filenames*: Config.PhotoOutputName
+# (pkg/photogen/config.go) HMACs the name only for albums that actually have a password,
+# so two variants encrypting the same albums produce identically named, byte-identical
+# media. It stays safe across runs because -clean normalizes the directory to the current
+# variant every time: everything photogen writes is registered with TrackFile, and
+# CleanOutputDir removes whatever the previous variant left behind, top-level files
+# (custom.css, albums.enc.json) included. Anything ever written *without* a TrackFile call
+# would survive into the next variant and be served, which is the one way this breaks.
+#
+# The derivation below is the fallback for a direct invocation, where a self-describing
+# directory is more useful than a shared one:
+#   passwords-all.yaml -> "sample-pw-all", passwords-uganda.yaml -> "sample-pw-uganda",
+#   --css -> "sample-css", customization-album-nav.yaml -> "sample-album-nav",
+#   no flags -> "sample"
 SITE_ID="sample"
 PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -doit)
 if [ -n "$PASSWORDS_FILE" ]; then
     BASENAME=$(basename "$PASSWORDS_FILE" .yaml)  # e.g. "passwords-all"
-    VARIANT="${BASENAME#passwords-}"               # e.g. "all"
-    SITE_ID="sample-pw-${VARIANT}"
-    PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -passwords "$PASSWORDS_FILE" -site-id "$SITE_ID" -doit)
+    SITE_ID="sample-pw-${BASENAME#passwords-}"     # e.g. "sample-pw-all"
+    PHOTOGEN_FLAGS+=(-passwords "$PASSWORDS_FILE")
 fi
 if [ -n "$CSS_FILE" ]; then
     SITE_ID="sample-css"
-    PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -css "$CSS_FILE" -site-id "$SITE_ID" -doit)
+    PHOTOGEN_FLAGS+=(-css "$CSS_FILE")
 fi
 if [ -n "$CUSTOMIZATION_FILE" ]; then
-    BASENAME=$(basename "$CUSTOMIZATION_FILE" .yaml)   # e.g. "customization-album-nav"
-    VARIANT="${BASENAME#customization-}"                # e.g. "album-nav"
-    SITE_ID="sample-${VARIANT}"
-    PHOTOGEN_FLAGS=(-config-dir sample/config -resize -index -clean -customization "$CUSTOMIZATION_FILE" -site-id "$SITE_ID" -doit)
+    BASENAME=$(basename "$CUSTOMIZATION_FILE" .yaml)  # e.g. "customization-album-nav"
+    SITE_ID="sample-${BASENAME#customization-}"        # e.g. "sample-album-nav"
+    PHOTOGEN_FLAGS+=(-customization "$CUSTOMIZATION_FILE")
 fi
+if [ -n "$SITE_ID_OVERRIDE" ]; then
+    SITE_ID="$SITE_ID_OVERRIDE"
+fi
+PHOTOGEN_FLAGS+=(-site-id "$SITE_ID")
 
 ALBUMS_DIR="$(pwd)/albums"
 
@@ -139,14 +168,14 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 # --- photogen (done once, shared across all modes) ---
-if $CI_MODE && [ -d "$ALBUMS_DIR/$SITE_ID" ]; then
-    echo ""
-    echo "=== [--ci] Skipping photogen: $ALBUMS_DIR/$SITE_ID already exists ==="
-else
-    echo ""
-    echo "=== Generating sample data (site-id: $SITE_ID) ==="
-    go run cmd/photogen/photogen.go "${PHOTOGEN_FLAGS[@]}"
-fi
+#
+# Always run, even when the site directory already exists. It is cheap when it does (every
+# output is present, so photogen stats and skips it), and skipping it outright would leave
+# the previous variant's config.json, albums.json and custom.css in place, quietly testing
+# the wrong site.
+echo ""
+echo "=== Generating sample data (site-id: $SITE_ID) ==="
+go run cmd/photogen/photogen.go "${PHOTOGEN_FLAGS[@]}"
 
 # --- helper: run Playwright against a base URL ---
 run_playwright() {
@@ -156,6 +185,7 @@ run_playwright() {
         export PLAYWRIGHT_BASE_URL="$base_url"
         [ -n "$PASSWORDS_FILE" ] && export PLAYWRIGHT_PASSWORDS_FILE="$PASSWORDS_FILE"
         [ -n "$CSS_FILE" ] && export PLAYWRIGHT_CUSTOM_CSS="true"
+        [ "$SKIP_VIDEO" = true ] && export PLAYWRIGHT_SKIP_VIDEO="true"
         npx playwright test ${TEST_FILTER:+"$TEST_FILTER"}
     )
 }
@@ -197,16 +227,14 @@ run_dev() {
 
 # --- apache mode ---
 run_apache() {
-    if $CI_MODE && [ -d "$(pwd)/build/$SITE_ID" ]; then
-        echo ""
-        echo "=== [apache] [--ci] Skipping npm build: build/$SITE_ID already exists ==="
-    else
-        echo ""
-        echo "=== [apache] Building static site '$SITE_ID' ==="
-        # Explicit error check: set -e is suppressed inside functions called via ||
-        # (see run_apache || OVERALL_EXIT=$? below), so failures must be caught manually.
-        (cd web && DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
-    fi
+    # Always rebuild, for the same reason photogen always runs: hooks.server.ts reads
+    # /albums/*.json off disk during pre-rendering and bakes it into the HTML, so the
+    # static build belongs to one variant even when the site ID is shared.
+    echo ""
+    echo "=== [apache] Building static site '$SITE_ID' ==="
+    # Explicit error check: set -e is suppressed inside functions called via ||
+    # (see run_apache || OVERALL_EXIT=$? below), so failures must be caught manually.
+    (cd web && DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
 
     # Build Docker image if missing or stale
     "$SDIR/docker-check.sh" --build || return 1
@@ -230,14 +258,10 @@ run_apache() {
 
 # --- nginx mode ---
 run_nginx() {
-    if $CI_MODE && [ -d "$(pwd)/build/$SITE_ID" ]; then
-        echo ""
-        echo "=== [nginx] [--ci] Skipping npm build: build/$SITE_ID already exists ==="
-    else
-        echo ""
-        echo "=== [nginx] Building static site '$SITE_ID' ==="
-        (cd web && DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
-    fi
+    # Always rebuild; see run_apache.
+    echo ""
+    echo "=== [nginx] Building static site '$SITE_ID' ==="
+    (cd web && DDPHOTOS_ALBUMS_DIR="$ALBUMS_DIR" DDPHOTOS_SITE_ID="$SITE_ID" npm run build) || return 1
 
     # Build Docker image if missing or stale
     "$SDIR/docker-check.sh" --server nginx --build || return 1
