@@ -281,18 +281,18 @@ The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on 
 request to `main`. See that file for all the tests it runs.  Tests are configured to run in parallel
 to minimize CI run time.
 
-It also runs nightly at 5:17am Eastern. A push or pull request run tests the code; the nightly run
+It also runs nightly at 05:17 UTC. A push or pull request run tests the code; the nightly run
 tests everything the repo does *not* pin. Node, npm, `package-lock.json` and the Go toolchain are
 pinned exactly, but the ffmpeg `latest` release, the `debian:bookworm-slim` and `golang:1.25-bookworm`
 base images, the `ubuntu-latest` runner image, apt packages and Playwright's browser downloads all
 move on their own. Those break on a calendar rather than on a commit, so without a scheduled run the
 first person to find out is whoever opens the next PR. When a nightly run fails, the
 `report-nightly-failure` job opens a GitHub issue labeled `nightly-ci` (or comments on the open one)
-via [bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching a 5am run and the
+via [bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching an overnight run and the
 notification email is easy to miss. Push and pull request runs skip that job.
 
 The workflow in [.github/workflows/version-drift.yml](../.github/workflows/version-drift.yml) runs
-[bin/check-versions.sh](../bin/check-versions.sh) nightly and opens a `version-drift` issue when the
+[bin/check-versions.sh](../bin/check-versions.sh) nightly at 05:37 UTC and opens a `version-drift` issue when the
 versions in `web/.nvmrc` or `web/.npm-version` have fallen behind upstream. Pinning those exactly is
 deliberate, and the cost of it is that nothing otherwise tells you a bugfix or security release
 shipped; Dependabot cannot fill the gap (it has no `.nvmrc` ecosystem, and cannot see a version in
@@ -302,6 +302,16 @@ change that CI then tests. Run the same check locally with `make check-versions`
 Both schedules only ever run on the default branch, so a cron edit on a branch does nothing until it
 merges, and GitHub disables scheduled workflows on a public repo after 60 days of inactivity. Both
 can be triggered by hand from the Actions tab (`workflow_dispatch`).
+
+**Do not expect either at the stated minute.** Scheduled Actions are best-effort, and the delivery
+lag is measured in hours rather than minutes: on 2026-08-29 the Version Drift slot arrived 1h34m
+late and the CI slot 5h13m late. An occurrence is sometimes dropped outright, and a dropped run
+leaves no trace anywhere, so a missing run and a run that has not been delivered yet look identical.
+A newly added or edited cron also takes 15 to 60 minutes just to register, and every edit restarts
+that clock, which makes bisecting a schedule by pushing repeatedly actively misleading. None of that
+matters for a nightly report that only needs to run sometime, but do not reuse the pattern for
+anything time-sensitive. Both times are plain UTC rather than a `timezone:` key, which avoids
+reasoning about DST.
 
 The workflow in [.github/workflows/docker-release.yml](../.github/workflows/docker-release.yml)
 runs when a new git version tag is created.  If this succeeds,

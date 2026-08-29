@@ -19,26 +19,22 @@ name: Version Drift
 #
 # Scheduled runs only ever use the default branch, and GitHub disables the schedule on a
 # public repo after 60 days with no activity (warning by email first).
+#
+# Do not expect this to run at 05:37. Scheduled Actions are best-effort and the delivery
+# lag is measured in hours, not minutes: on 2026-08-29 this workflow's slot arrived 1h34m
+# late and ci.yml's arrived 5h13m late, and an occurrence is sometimes dropped outright
+# with no trace anywhere in the API. That is fine for a nightly drift report, which only
+# needs to run sometime. Do not reuse this pattern for anything time-sensitive, and when
+# a slot appears to have been missed, wait several hours before concluding anything: a
+# newly added or edited cron also takes 15-60 minutes just to register.
 
 on:
   schedule:
-    # ---------------------------------------------------------------------------------
-    # TEMPORARY -- REVERT THIS. Round two of diagnosing why no scheduled run has ever
-    # fired here. Round one kept `timezone` and fired every 10 minutes from 9-11am
-    # Eastern; the 09:20, 09:30 and 09:40 slots all produced no run at all, and a dropped
-    # scheduled run leaves no trace, so a drop and a schedule that never registers look
-    # identical from outside.
-    #
-    # This round removes the `timezone` key entirely and expresses the window in plain
-    # UTC, changing exactly one variable. A run appearing at 13:5x or 14:xx UTC means the
-    # timezone field is what stops the schedule from registering, despite being GA since
-    # March 2026. Nothing firing across ~14 more chances means the problem is not the
-    # timezone field and something else is blocking schedules in this repo.
-    #
-    # Each fire comments on issue #102, so revert promptly. Target once this is settled:
-    #     - cron: '37 5 * * *'
-    - cron: '*/10 13-15 * * *'
-    # ---------------------------------------------------------------------------------
+    # 05:37 UTC, which is the small hours in both the US and Europe. Plain UTC rather than
+    # a `timezone:` key: the exact local time does not matter for a drift report, and UTC
+    # has no DST discontinuity to reason about. Off the hour because GitHub's scheduler is
+    # busiest at :00.
+    - cron: '37 5 * * *'
   workflow_dispatch:
 
 permissions:

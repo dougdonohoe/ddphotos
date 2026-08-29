@@ -16,15 +16,19 @@ on:
   # Those break on a calendar rather than on a commit, and without this the first person
   # to find out is whoever opens the next PR.
   #
-  # Deliberately not on the hour: GitHub queues scheduled runs across all Actions and
-  # drops them under load, and the top of the hour is the worst of it. Two other
-  # constraints worth knowing: a scheduled run only ever uses the default branch (editing
-  # the cron on a PR branch changes nothing until it merges), and GitHub disables the
-  # schedule on a public repo after 60 days with no activity, warning by email first.
+  # 05:17 UTC. Plain UTC rather than a `timezone:` key: the exact local time does not
+  # matter for a nightly job, and UTC has no DST discontinuity to reason about. Off the
+  # hour because GitHub's scheduler is busiest at :00.
+  #
+  # Do not expect it at 05:17. Scheduled Actions are best-effort and the lag is measured
+  # in hours: this slot was delivered 5h13m late on 2026-08-29, and an occurrence is
+  # sometimes dropped outright, leaving no trace anywhere in the API. Two other
+  # constraints: a scheduled run only ever uses the default branch (editing the cron on a
+  # PR branch changes nothing until it merges), and GitHub disables the schedule on a
+  # public repo after 60 days with no activity, warning by email first.
   schedule:
     - cron: '17 5 * * *'
-      timezone: "America/New_York"
-  # So the nightly path can be exercised without waiting until 5am.
+  # So the nightly path can be exercised without waiting for the overnight slot.
   workflow_dispatch:
 
 env:
@@ -210,7 +214,7 @@ jobs:
       - name: Run Docker workflow tests
         run: make docker-test
 
-  # A red X on a 5am run that nobody is watching needs somewhere to land: GitHub only
+  # A red X on an overnight run that nobody is watching needs somewhere to land: GitHub only
   # emails the owner, and the run scrolls off the Actions tab. bin/ci-open-issue.sh files
   # it as an issue, or comments on the open one if the same failure is already tracked.
   #
