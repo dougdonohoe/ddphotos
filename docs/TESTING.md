@@ -402,6 +402,12 @@ shipped; Dependabot cannot fill the gap (it has no `.nvmrc` ecosystem, and canno
 `FROM node:${NODE_VERSION}-bookworm-slim`). It never edits a file: bumping Node is a deliberate
 change that CI then tests. Run the same check locally with `make check-versions`.
 
+A new Node release is not reported as drift until its Docker image exists. The tag trails the
+release by 0-2 days while it goes through `nodejs/docker-node` and `docker-library/official-images`,
+and a bump taken in that window fails the Docker build with `node:<version>-bookworm-slim: not
+found`. The script probes the registry for the tag and reports the version as pending instead, so
+the issue arrives on a later night, when the bump can actually build.
+
 Both schedules only ever run on the default branch, so a cron edit on a branch does nothing until it
 merges, and GitHub disables scheduled workflows on a public repo after 60 days of inactivity. Both
 can be triggered by hand from the Actions tab (`workflow_dispatch`).

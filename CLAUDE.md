@@ -75,6 +75,13 @@ nightly and opens a `version-drift` issue; `make check-versions` runs it locally
 file. Dependabot cannot do this job: it has no `.nvmrc` ecosystem, and its `docker` ecosystem cannot
 see a version in `FROM node:${NODE_VERSION}-bookworm-slim` because there is no literal tag to bump.
 
+It also asks Docker Hub whether `node:<newest>-bookworm-slim` exists yet, and holds the report back
+until it does. The image is not published with the release: the version goes through
+`nodejs/docker-node` and then a `docker-library/official-images` PR, which has run 0-2 days behind
+nodejs.org. A bump taken inside that window fails CI with `node:<version>-bookworm-slim: not found`.
+The script reads the variant off the `FROM` line rather than hardcoding `-bookworm-slim`, so **the
+Dockerfile stays the only place naming the base image.**
+
 ## Commands
 
 ```bash

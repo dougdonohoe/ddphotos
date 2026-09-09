@@ -17,6 +17,15 @@
 # It deliberately does not edit anything. Bumping Node is a decision that CI then tests,
 # not something that lands unattended.
 #
+# A new Node version is not actionable the moment nodejs.org has the tarballs. The Docker
+# image trails it: the version goes through nodejs/docker-node and then a
+# docker-library/official-images PR before the tag is built and pushed, which has run 0-2
+# days behind the release. docker/Dockerfile builds `FROM node:${NODE_VERSION}-...`, so a
+# bump taken during that window fails CI with `node:<version>-bookworm-slim: not found`.
+# That happened on 24.21.0 (released Mon 2026-09-07; tag still unpublished Wed 2026-09-09,
+# official-images#22231 open). So a newer Node whose image does not exist yet is reported
+# but not counted as drift, and the issue arrives a day later when the bump can build.
+#
 # Exit codes:
 #   0  every pin is current
 #   1  at least one pin is behind (the markdown report on stdout says which)
@@ -45,6 +54,14 @@ NODE_MAJOR=${NODE_PINNED%%.*}
 case "$NODE_MAJOR" in
     ''|*[!0-9]*) fail "web/.nvmrc does not start with a major version: '$NODE_PINNED'" ;;
 esac
+
+# Read the variant off `FROM node:${NODE_VERSION}-bookworm-slim` instead of repeating
+# "-bookworm-slim" here, so the Dockerfile stays the only place naming the base image.
+# shellcheck disable=SC2016  # ${NODE_VERSION} is matched literally, not expanded
+NODE_IMAGE_SUFFIX=$(sed -n 's/^FROM node:\${NODE_VERSION}\(-[A-Za-z0-9._-]*\).*/\1/p' \
+    docker/Dockerfile | head -1) || fail "cannot read docker/Dockerfile"
+[ -n "$NODE_IMAGE_SUFFIX" ] \
+    || fail "no 'FROM node:\${NODE_VERSION}-<variant>' line found in docker/Dockerfile"
 
 # A full template containing a path, not GNU's -p or a bare -t prefix: macOS ships BSD
 # mktemp, and this is the spelling both accept (same reasoning as bin/docker-test.sh).
@@ -79,6 +96,36 @@ NPM_NEWEST=$(curl -fsSL --retry 3 --retry-delay 2 --max-time 60 \
     || fail "could not fetch the current npm version from the registry"
 [ -n "$NPM_NEWEST" ] || fail "the npm registry returned no version"
 
+# Has the Docker image for a given Node version been published yet?
+#
+# Anonymous pull scope is enough for a manifest HEAD, so no Docker Hub account or secret is
+# involved. The Accept headers matter: official images publish a multi-arch index, and the
+# registry answers 404 for a tag that exists if you do not ask for the index media types.
+# No -L, because following a redirect would hand the bearer token to another host.
+node_image_published() {
+    local tag="$1$NODE_IMAGE_SUFFIX" token code
+    token=$(curl -fsSL --retry 3 --retry-delay 2 --max-time 60 \
+        'https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull' \
+        | jq -r '.token // empty') || fail "could not fetch a Docker Hub pull token"
+    [ -n "$token" ] || fail "Docker Hub returned no pull token"
+
+    code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 2 --max-time 60 -I \
+        -H "Authorization: Bearer $token" \
+        -H 'Accept: application/vnd.oci.image.index.v1+json' \
+        -H 'Accept: application/vnd.docker.distribution.manifest.list.v2+json' \
+        "https://registry-1.docker.io/v2/library/node/manifests/$tag") \
+        || fail "could not query the Docker registry for node:$tag"
+
+    case "$code" in
+        200) return 0 ;;
+        404) return 1 ;;
+        # Anything else is the check failing, not an answer about the tag. Exit 2 rather
+        # than guess: reporting drift would send someone to a bump that may not build, and
+        # reporting current would hide a real one.
+        *) fail "unexpected HTTP $code from the Docker registry for node:$tag" ;;
+    esac
+}
+
 drift=0
 report=""
 add() { report+="$1"$'\n'; }
@@ -87,6 +134,16 @@ add "### Node (\`web/.nvmrc\`)"
 add ""
 if [ "$NODE_PINNED" = "$NODE_NEWEST" ]; then
     add "Current: pinned \`$NODE_PINNED\`, newest on the ${NODE_MAJOR}.x line."
+elif ! node_image_published "$NODE_NEWEST"; then
+    # Newer upstream, but nothing to take yet: the bump would fail the Docker build. Say so
+    # and leave drift at 0, so no issue is opened until the image lands.
+    add "Current: pinned \`$NODE_PINNED\`, newest *installable* on the ${NODE_MAJOR}.x line."
+    add ""
+    add "Node \`$NODE_NEWEST\` (released $NODE_NEWEST_DATE) is out, but"
+    add "\`node:${NODE_NEWEST}${NODE_IMAGE_SUFFIX}\` has not been published to Docker Hub yet, so"
+    add "\`docker/Dockerfile\` cannot build it. The image trails the release by 0-2 days while it"
+    add "goes through nodejs/docker-node and docker-library/official-images. Holding the pin"
+    add "until the tag exists; this will report as drift on a later run."
 else
     drift=1
     add "**Behind.** Pinned \`$NODE_PINNED\`; newest on the ${NODE_MAJOR}.x line is"
