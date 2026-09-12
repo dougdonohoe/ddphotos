@@ -127,38 +127,22 @@ For a SvelteKit `adapter-static` site like DD Photos, a function is **required**
   paths produce a 403/404 from S3, caught by `custom_error_response` and served as `404.html`
 - **Photo permalinks** — `/albums/slug/42` maps to `/albums/slug.html` so the album page can open
   the lightbox to photo 42 via the URL hash
+- **Trailing slashes** — `/albums/slug/` and `/albums/slug/42/` 301 to the path without the slash,
+  matching what Apache and nginx do
 - **Domain redirects** — apex-to-www (`example.com` → `www.example.com`) and any other domain consolidation
 
-Here is a minimal function for a SvelteKit-based photo site (see also the [Cloudflare Pages Worker](#cloudflare-pages-worker) below, which handles the same routing for Cloudflare deployments):
+[docker/cloudfront-function.js](../docker/cloudfront-function.js) is a minimal function covering
+the first three (see also the [Cloudflare Pages Worker](#cloudflare-pages-worker) below, which
+handles the same routing for Cloudflare deployments). Paste it into the function editor as-is;
+domain redirects are site-specific, so add them yourself.
 
-```javascript
-function handler(event) {
-    var request = event.request;
-    var uri = request.uri;
+`bin/s3-test.sh` runs that same file in front of a local S3 server via
+[bin/s3-edge-proxy.js](../bin/s3-edge-proxy.js), so the routing it implements is covered by the
+test suite rather than only by this page. See [Testing Deployment](TESTING.md#testing-deployment).
 
-    // Root
-    if (uri === '/') {
-        request.uri = '/index.html';
-        return request;
-    }
-
-    // Photo permalink: /albums/slug/42 → /albums/slug.html
-    var photoPermalink = uri.match(/^\/albums\/([^\/]+)\/\d+$/);
-    if (photoPermalink) {
-        request.uri = '/albums/' + photoPermalink[1] + '.html';
-        return request;
-    }
-
-    // Extensionless paths → pre-rendered .html page.
-    // Unknown paths produce a 403/404 from S3, caught by custom_error_response → 404.html.
-    if (!uri.includes('.')) {
-        request.uri = uri + '.html';
-        return request;
-    }
-
-    return request;
-}
-```
+Its redirects send a relative `Location`, which the viewer resolves against the scheme and host it
+used. A function that builds an absolute `https://` URL from `request.headers.host` behaves the
+same in production.
 
 ## Cloudflare Pages Worker
 

@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 #
-# Test the S3 deploy path of deploy-photos.sh against MinIO.
+# Test the S3 deploy path of deploy-photos.sh against Garage.
 #
 # Verifies that the three-pass aws s3 sync logic places files at the correct
 # S3 keys with the correct Cache-Control headers, and that the Pass 1
 # --exclude "albums/*" filter protects album data from accidental deletion.
 #
-# Requires: Docker (for MinIO), AWS CLI v2
+# The deployed site is then served over HTTP and checked by deploy-photos.sh's normal
+# post-deploy steps: bin/test-photos-server.sh --s3 and the @deploy Playwright tests.
+# Garage (https://garagehq.deuxfleurs.fr) is the local S3 server; its s3_web endpoint
+# serves the bucket, and bin/s3-edge-proxy.js supplies the URL routing that CloudFront
+# does in production.
+#
+# Requires: Docker (for Garage), AWS CLI v2, Node (via bin/node-init.sh)
 #
 # Usage: bin/s3-test.sh
 
@@ -15,31 +21,54 @@ set -eo pipefail
 SDIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 cd "$SDIR/.."
 
-MINIO_PORT=9000
-MINIO_URL="http://localhost:$MINIO_PORT"
+# Pinned exactly: Garage publishes no 'latest' or floating major tag, and an exact
+# version keeps the same commit testing against the same server.
+GARAGE_VERSION=v2.4.1
+GARAGE_PORT=3900
+GARAGE_WEB_PORT=3902
+EDGE_PORT=3903
+GARAGE_URL="http://localhost:$GARAGE_PORT"
+SITE_URL="http://localhost:$EDGE_PORT"
 BUCKET="ddphotos-test"
-CONTAINER="minio-s3-test"
+CONTAINER="garage-s3-test"
 SITE_ID="sample"
 BUILD_DIR="$(pwd)/build"
 ALBUMS_DIR="$(pwd)/albums"
 TEMP_CONFIG=$(mktemp -d /tmp/s3-config.XXXXXX)
+GARAGE_DIR=$(mktemp -d /tmp/s3-garage.XXXXXX)
 
-# All aws commands target MinIO
-export AWS_ACCESS_KEY_ID=minioadmin
-export AWS_SECRET_ACCESS_KEY=minioadmin
+# Throwaway credentials. Garage has no fixed root credentials, so they are imported
+# into it below, which lets this script hardcode them.
+KEY_NAME="ddphotos-test-key"
+KEY_ID="GKddphotostest000000000000"
+SECRET_KEY="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+# All aws commands target Garage. Both region variables are set: Garage validates the
+# SigV4 credential scope against its own s3_region, so an AWS_REGION inherited from the
+# developer's environment would otherwise fail with AuthorizationHeaderMalformed.
+export AWS_ACCESS_KEY_ID="$KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$SECRET_KEY"
 export AWS_DEFAULT_REGION=us-east-1
-export AWS_ENDPOINT_URL="$MINIO_URL"
+export AWS_REGION=us-east-1
+export AWS_ENDPOINT_URL="$GARAGE_URL"
 
 PASS=0
 FAIL=0
 
+EDGE_PID=""
+
 cleanup() {
+    [ -n "$EDGE_PID" ] && kill "$EDGE_PID" 2>/dev/null
     docker stop "$CONTAINER" 2>/dev/null || true
-    /bin/rm -rf "$TEMP_CONFIG"
+    /bin/rm -rf "$TEMP_CONFIG" "$GARAGE_DIR"
 }
 trap cleanup EXIT
 
 # --- helpers ---
+
+garage() {
+    docker exec "$CONTAINER" /garage "$@"
+}
 
 check_present() {
     local key="$1" desc="${2:-$1}"
@@ -77,23 +106,93 @@ check_cache_control() {
     fi
 }
 
-# --- start MinIO ---
+# Wait for a command to succeed, or give up and dump the container log
+wait_for() {
+    local desc="$1"; shift
+    local _
+    for _ in $(seq 1 60); do
+        "$@" >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    echo "Error: timed out waiting for $desc" >&2
+    docker logs "$CONTAINER" 2>&1 | tail -30 >&2
+    exit 1
+}
 
-echo "=== Starting MinIO ==="
+# --- start Garage ---
+
+echo "=== Starting Garage $GARAGE_VERSION ==="
+
+# rpc_secret is required even for a single node; this is a throwaway cluster.
+cat > "$GARAGE_DIR/garage.toml" <<EOF
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "0000000000000000000000000000000000000000000000000000000000000001"
+
+[s3_api]
+s3_region = "$AWS_REGION"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage.localhost"
+index = "index.html"
+EOF
+
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 docker run -d --rm --name "$CONTAINER" \
-    -p "$MINIO_PORT:9000" \
-    -e MINIO_ROOT_USER=minioadmin \
-    -e MINIO_ROOT_PASSWORD=minioadmin \
-    minio/minio server /data
+    -p "$GARAGE_PORT:3900" \
+    -p "$GARAGE_WEB_PORT:3902" \
+    -v "$GARAGE_DIR/garage.toml:/etc/garage.toml:ro" \
+    "dxflrs/garage:$GARAGE_VERSION" /garage server
 
-echo "Waiting for MinIO S3..."
-until aws s3 ls >/dev/null 2>&1; do sleep 1; done
-aws s3 mb "s3://$BUCKET"
+# Garage is not usable straight out of the image: even a single-node cluster needs a
+# storage layout, an access key and a bucket before the S3 API will serve anything.
+echo "Waiting for Garage node..."
+wait_for "Garage node" garage status
+
+echo "Assigning cluster layout..."
+NODE_ID=$(garage node id -q 2>/dev/null | cut -d@ -f1)
+garage layout assign -z dc1 -c 1G "$NODE_ID" >/dev/null
+# Version 1 is the first layout of a freshly created cluster
+garage layout apply --version 1 >/dev/null
+
+echo "Creating key and bucket..."
+garage key import --yes -n "$KEY_NAME" "$KEY_ID" "$SECRET_KEY" >/dev/null
+garage bucket create "$BUCKET" >/dev/null
+garage bucket allow --read --write --owner "$BUCKET" --key "$KEY_NAME" >/dev/null
+
+# Serve the bucket over HTTP. The error document is what CloudFront's custom error
+# responses do in production: a missing key returns 404.html with a 404 status.
+garage bucket website --allow --index-document index.html --error-document 404.html "$BUCKET" >/dev/null
+
+echo "Waiting for Garage S3 API..."
+wait_for "Garage S3 API" aws s3 ls "s3://$BUCKET"
+
+# --- start the edge proxy ---
+
+# Node.js init (see bin/node-init.sh)
+# shellcheck source=/dev/null
+source "$SDIR/node-init.sh"
+
+echo "Starting edge proxy on $SITE_URL..."
+node bin/s3-edge-proxy.js --port "$EDGE_PORT" --origin "localhost:$GARAGE_WEB_PORT" --bucket "$BUCKET" &
+EDGE_PID=$!
+# No -f: the bucket is still empty, so any answer at all means the proxy is listening
+wait_for "edge proxy" curl -s -o /dev/null "$SITE_URL/"
 
 # --- build temp config ---
 
-# Patch site_url so photogen writes a local URL into config.json
-awk '/site_url:/{print "  site_url: http://localhost:'"$MINIO_PORT"'"; next} {print}' \
+# Patch site_url so photogen writes a local URL into config.json, which deploy-photos.sh
+# then uses as the base URL for its post-deploy tests
+awk '/site_url:/{print "  site_url: '"$SITE_URL"'"; next} {print}' \
     sample/config/albums.yaml > "$TEMP_CONFIG/albums.yaml"
 /bin/cp sample/config/descriptions.txt "$TEMP_CONFIG/descriptions.txt"
 cat > "$TEMP_CONFIG/site.env" <<EOF
@@ -104,8 +203,9 @@ EOF
 
 echo ""
 echo "=== Running S3 deploy ==="
-# Post-deploy tests are skipped: MinIO serves S3 API only, not HTTP.
-bin/deploy-photos.sh --s3 --no-server-test --no-playwright --config-dir "$TEMP_CONFIG"
+# Post-deploy runs bin/test-photos-server.sh --s3 and the @deploy Playwright tests against
+# the deployed site, served by Garage through the edge proxy.
+bin/deploy-photos.sh --s3 --playwright-smoke --config-dir "$TEMP_CONFIG"
 
 # --- assertions ---
 
