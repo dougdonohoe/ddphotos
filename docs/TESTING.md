@@ -321,7 +321,7 @@ make sample-rsync-test        # into Apache (photos-apache-ssh)
 make sample-rsync-test-nginx  # into nginx  (photos-nginx-ssh)
 
 # S3 path — syncs against Garage; verifies file placement, Cache-Control headers,
-# server routing and the post-deploy Playwright tests
+# server routing and the @deploy Playwright tests
 make sample-s3-test
 ```
 
