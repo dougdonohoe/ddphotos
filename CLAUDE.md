@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-See the [docs/](docs/) directory for full developer documentation (architecture, data flow, env vars,
+See the [docs/](docs) directory for full developer documentation (architecture, data flow, env vars,
 Makefile targets, CLI flags, etc.).
 
 ## Directory structure sync requirement
@@ -48,64 +48,41 @@ always a change to all four:
 | `docker/cloudflare-worker.js`   | Cloudflare Pages (`_worker.js`, shipped by `export --cloudflare`) |
 | `docker/cloudfront-function.js` | S3 + CloudFront (viewer-request stage)                            |
 
-The rules are extensionless path to pre-rendered `.html`, `/albums/slug/N` photo permalinks to
-`/albums/slug.html`, trailing-slash redirects, and a `404.html` for unknown paths. They differ
-only where the platform forces it: Cloudflare Pages uses 308 rather than 301 and handles some
-cases natively, and Surge has no routing layer at all, which is why `bin/test-photos-server.sh`
-has `--cloudflare`, `--s3` and `--surge` modes. **Adding a route means editing all four files and
-then teaching `bin/test-photos-server.sh` about it.**
+The rules: extensionless path to pre-rendered `.html`, `/albums/slug/N` photo permalinks to
+`/albums/slug.html`, trailing-slash redirects, and `404.html` for unknown paths. **Adding or
+changing a route means editing all four files, then teaching `bin/test-photos-server.sh` about
+it** — it has `--cloudflare`, `--s3` and `--surge` modes for the platforms that differ.
 
-`docker/cloudfront-function.js` is written for CloudFront's runtime, which has no module system.
-`bin/s3-edge-proxy.js` loads it through `vm` and calls `handler` rather than importing it, so the
-file stays deployable verbatim. **Do not add `module.exports` or `import`/`export` to it.**
-Its redirects send a relative `Location` on purpose: the S3 test serves over `http://localhost`,
-so a hardcoded `https://` would break it. See `docs/DEPLOYMENT-SERVERS.md`.
+`docker/cloudfront-function.js` is written for CloudFront's runtime, which has no module system;
+`bin/s3-edge-proxy.js` loads it through `vm` so the file stays deployable verbatim. **Do not add
+`module.exports` or `import`/`export` to it, and keep its redirect `Location` relative** — the S3
+test serves over `http://localhost`, where a hardcoded `https://` breaks.
+
+See `docs/DEPLOYMENT-SERVERS.md` for what each target's config does.
 
 ## Node/npm version sync requirement
 
 `web/.nvmrc` and `web/.npm-version` hold **exact** versions and are the single sources of truth.
-Everything else reads them: the Makefile, `bin/docker-push.sh`, `bin/node-init.sh`, and the three
-`setup-node` steps in `.github/workflows/ci.yml`. **Do not hardcode either version anywhere else.**
+The Makefile, `bin/docker-push.sh`, `bin/node-init.sh` and the three `setup-node` steps in
+`.github/workflows/ci.yml` all read them. **Do not hardcode either version anywhere else, and do
+not relax the pin to a major-only tag** — a floating `node:24` once shipped a regression with no
+commit to bisect (see `copyDirRecursive` in `web/vite.config.ts`). Bumping Node is a deliberate
+edit to `web/.nvmrc` that CI then tests.
 
-Both must stay exact rather than major-only. `docker/Dockerfile` interpolates `NODE_VERSION` into
-`FROM node:${NODE_VERSION}-bookworm-slim`, and a major-only tag like `node:24` is a moving pointer:
-the same commit then builds different images depending on when you built, and an upstream
-regression lands with no commit to bisect. That happened once already — Node 24.2.0 broke recursive
-`fs.cpSync` onto Docker bind mounts and reached the image through the floating tag (see the comment
-on `copyDirRecursive` in `web/vite.config.ts`). **Bumping Node is a deliberate edit to `web/.nvmrc`
-that CI then tests.**
+Four rules follow from that:
 
-`bin/node-init.sh` is the shell-side counterpart to the Makefile's `NODE_INIT`: the bash scripts
-that run npm/npx (`bin/run-tests.sh`, `bin/docker-test.sh`, `bin/deploy-photos.sh`) source it
-rather than each doing their own nvm setup. Both it and `NODE_INIT` use the node on PATH only
-when its **exact version matches** `web/.nvmrc` — testing for mere presence lets a distro node at
-the wrong version (Ubuntu's apt `nodejs`) shadow the repo's. Both compare against the full `node
--v` output, so neither may go back to matching on the major alone. **Keep the two in sync.**
+- `docker/Dockerfile` takes `NODE_VERSION` and `NPM_VERSION` as **required** build args.
+  **Never give them defaults** — a bare `docker build -f docker/Dockerfile .` fails by design.
+- `bin/node-init.sh` is the shell-side counterpart to the Makefile's `NODE_INIT`. **Keep the two
+  in sync, and keep both comparing the full `node -v` output** — matching on the major alone lets
+  a distro node at the wrong version shadow the repo's.
+- `web/package.json`'s `engines.node` is a major range, updated by hand. **Bump it when
+  `web/.nvmrc` crosses into a new major.**
+- `bin/check-versions.sh` reads the base image variant off the Dockerfile's `FROM` line, so **the
+  Dockerfile stays the only place naming the base image.**
 
-`docker/Dockerfile` takes both as **required** build args (`NODE_VERSION`, `NPM_VERSION`) with no
-defaults, so it cannot carry a stale copy of either version. It is built only via `make
-docker-build` and `bin/docker-push.sh`, which read the two files and pass the values in; a bare
-`docker build -f docker/Dockerfile .` fails by design. **Do not give those ARGs default values.**
-
-One exception, which must be updated by hand: the `engines.node` field in `web/package.json`.
-Paired with `engine-strict=true` in `web/.npmrc`, it makes `npm install`/`npm ci` hard-fail on the
-wrong Node, so a machine whose `nvm` default has drifted cannot silently install with it. It is
-deliberately a major range (`24.x`), not the exact version, so routine patch bumps to `web/.nvmrc`
-do not need a second edit. **When bumping `web/.nvmrc` to a new major, bump `engines.node` too.**
-
-Pinning exactly costs the one thing a floating tag gave for free: notice that a bugfix or security
-release shipped. `bin/check-versions.sh` replaces it, comparing both files against
-`nodejs.org/dist/index.json` and the npm registry. `.github/workflows/version-drift.yml` runs it
-nightly and opens a `version-drift` issue; `make check-versions` runs it locally. It never edits a
-file. Dependabot cannot do this job: it has no `.nvmrc` ecosystem, and its `docker` ecosystem cannot
-see a version in `FROM node:${NODE_VERSION}-bookworm-slim` because there is no literal tag to bump.
-
-It also asks Docker Hub whether `node:<newest>-bookworm-slim` exists yet, and holds the report back
-until it does. The image is not published with the release: the version goes through
-`nodejs/docker-node` and then a `docker-library/official-images` PR, which has run 0-2 days behind
-nodejs.org. A bump taken inside that window fails CI with `node:<version>-bookworm-slim: not found`.
-The script reads the variant off the `FROM` line rather than hardcoding `-bookworm-slim`, so **the
-Dockerfile stays the only place naming the base image.**
+Why the pins are exact, how `engine-strict` enforces them, and how the nightly drift check covers
+what Dependabot cannot: `docs/INSTALL.md` and `docs/TESTING.md`.
 
 ## Commands
 
