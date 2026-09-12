@@ -320,10 +320,15 @@ The two deploy paths can be validated locally without touching a real server:
 make sample-rsync-test        # into Apache (photos-apache-ssh)
 make sample-rsync-test-nginx  # into nginx  (photos-nginx-ssh)
 
-# S3 path — syncs against MinIO; verifies file placement and Cache-Control headers
-# (post-deploy server and Playwright tests are skipped: MinIO serves S3 API only, not HTTP)
+# S3 path — syncs against Garage; verifies file placement and Cache-Control headers
+# (post-deploy server and Playwright tests are skipped: Garage serves the S3 API, not the site)
 make sample-s3-test
 ```
+
+The S3 target runs [Garage](https://garagehq.deuxfleurs.fr) in Docker as the local S3 server,
+at a pinned version (Garage publishes no `latest` tag). `bin/s3-test.sh` creates its cluster
+layout, access key and bucket before the sync, since a fresh Garage node serves nothing until
+those exist.
 
 The two rsync targets exercise a real difference, not just a swapped base image: Apache gets its
 routing from the `.htaccess` that rsync transfers, while nginx gets it from the `nginx.conf` baked
