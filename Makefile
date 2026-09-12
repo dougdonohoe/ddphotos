@@ -365,7 +365,7 @@ sample-rsync-test-nginx:
 	bin/rsync-test.sh --server nginx
 
 .PHONY: sample-s3-test
-## sample-s3-test: test deploy-photos.sh S3 path against Garage; verifies file placement and Cache-Control headers
+## sample-s3-test: test deploy-photos.sh S3 path against Garage; verifies file placement, Cache-Control headers and serving
 sample-s3-test:
 	bin/s3-test.sh
 

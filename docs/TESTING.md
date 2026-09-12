@@ -320,8 +320,8 @@ The two deploy paths can be validated locally without touching a real server:
 make sample-rsync-test        # into Apache (photos-apache-ssh)
 make sample-rsync-test-nginx  # into nginx  (photos-nginx-ssh)
 
-# S3 path — syncs against Garage; verifies file placement and Cache-Control headers
-# (post-deploy server and Playwright tests are skipped: Garage serves the S3 API, not the site)
+# S3 path — syncs against Garage; verifies file placement, Cache-Control headers,
+# server routing and the post-deploy Playwright tests
 make sample-s3-test
 ```
 
@@ -329,6 +329,22 @@ The S3 target runs [Garage](https://garagehq.deuxfleurs.fr) in Docker as the loc
 at a pinned version (Garage publishes no `latest` tag). `bin/s3-test.sh` creates its cluster
 layout, access key and bucket before the sync, since a fresh Garage node serves nothing until
 those exist.
+
+It then checks the deploy from both sides. The S3 API side asserts on keys and headers no HTTP
+request can see: which keys each of the three `aws s3 sync` passes writes, the `Cache-Control`
+on each, and that Pass 1's `--exclude "albums/*"` leaves album data alone while Pass 2b's
+`--delete` removes it. The HTTP side is `deploy-photos.sh`'s normal post-deploy step —
+`bin/test-photos-server.sh --s3` plus the `@deploy` Playwright tests — run against the deployed
+bytes, which is what catches a site that uploaded cleanly but does not actually serve.
+
+Serving needs two pieces beyond the sync. Garage's `s3_web` endpoint publishes the bucket over
+HTTP, with an index and error document standing in for CloudFront's `custom_error_response`.
+But an S3 origin serves keys and nothing else, so every clean URL 404s: `/albums/antarctica` is
+stored as `albums/antarctica.html`. In production a
+[CloudFront Function](DEPLOYMENT-SERVERS.md#cloudfront-function) rewrites those at the edge, so
+`bin/s3-edge-proxy.js` runs that exact file — `docker/cloudfront-function.js`, loaded verbatim
+so it stays deployable — in front of Garage. The routing that a real S3 deploy depends on is
+therefore tested, not just documented.
 
 The two rsync targets exercise a real difference, not just a swapped base image: Apache gets its
 routing from the `.htaccess` that rsync transfers, while nginx gets it from the `nginx.conf` baked

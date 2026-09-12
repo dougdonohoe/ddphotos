@@ -36,6 +36,31 @@ in three semantically different places, and they are **not** interchangeable:
 gates its photo chooser and caption editor. It does not yet know about video, so a `.mov`
 is invisible there even though photogen publishes it.
 
+## URL routing sync requirement
+
+The same routing rules are implemented once per hosting target, and a change to one is almost
+always a change to all four:
+
+| File | Target |
+|------|--------|
+| `web/static/.htaccess` | Apache (rsynced with every deploy) |
+| `web/nginx.conf` | nginx (baked into the image; never deployed by the scripts) |
+| `docker/cloudflare-worker.js` | Cloudflare Pages (`_worker.js`, shipped by `export --cloudflare`) |
+| `docker/cloudfront-function.js` | S3 + CloudFront (viewer-request stage) |
+
+The rules are extensionless path to pre-rendered `.html`, `/albums/slug/N` photo permalinks to
+`/albums/slug.html`, trailing-slash redirects, and a `404.html` for unknown paths. They differ
+only where the platform forces it: Cloudflare Pages uses 308 rather than 301 and handles some
+cases natively, and Surge has no routing layer at all, which is why `bin/test-photos-server.sh`
+has `--cloudflare`, `--s3` and `--surge` modes. **Adding a route means editing all four files and
+then teaching `bin/test-photos-server.sh` about it.**
+
+`docker/cloudfront-function.js` is written for CloudFront's runtime, which has no module system.
+`bin/s3-edge-proxy.js` loads it through `vm` and calls `handler` rather than importing it, so the
+file stays deployable verbatim. **Do not add `module.exports` or `import`/`export` to it.**
+Its redirects send a relative `Location` on purpose: the S3 test serves over `http://localhost`,
+so a hardcoded `https://` would break it. See `docs/DEPLOYMENT-SERVERS.md`.
+
 ## Node/npm version sync requirement
 
 `web/.nvmrc` and `web/.npm-version` hold **exact** versions and are the single sources of truth.

@@ -6,9 +6,13 @@
 # S3 keys with the correct Cache-Control headers, and that the Pass 1
 # --exclude "albums/*" filter protects album data from accidental deletion.
 #
-# Garage (https://garagehq.deuxfleurs.fr) is the local S3 server.
+# The deployed site is then served over HTTP and checked by deploy-photos.sh's normal
+# post-deploy steps: bin/test-photos-server.sh --s3 and the @deploy Playwright tests.
+# Garage (https://garagehq.deuxfleurs.fr) is the local S3 server; its s3_web endpoint
+# serves the bucket, and bin/s3-edge-proxy.js supplies the URL routing that CloudFront
+# does in production.
 #
-# Requires: Docker (for Garage), AWS CLI v2
+# Requires: Docker (for Garage), AWS CLI v2, Node (via bin/node-init.sh)
 #
 # Usage: bin/s3-test.sh
 
@@ -21,7 +25,10 @@ cd "$SDIR/.."
 # version keeps the same commit testing against the same server.
 GARAGE_VERSION=v2.4.1
 GARAGE_PORT=3900
+GARAGE_WEB_PORT=3902
+EDGE_PORT=3903
 GARAGE_URL="http://localhost:$GARAGE_PORT"
+SITE_URL="http://localhost:$EDGE_PORT"
 BUCKET="ddphotos-test"
 CONTAINER="garage-s3-test"
 SITE_ID="sample"
@@ -48,7 +55,10 @@ export AWS_ENDPOINT_URL="$GARAGE_URL"
 PASS=0
 FAIL=0
 
+EDGE_PID=""
+
 cleanup() {
+    [ -n "$EDGE_PID" ] && kill "$EDGE_PID" 2>/dev/null
     docker stop "$CONTAINER" 2>/dev/null || true
     /bin/rm -rf "$TEMP_CONFIG" "$GARAGE_DIR"
 }
@@ -129,11 +139,17 @@ rpc_secret = "0000000000000000000000000000000000000000000000000000000000000001"
 s3_region = "$AWS_REGION"
 api_bind_addr = "[::]:3900"
 root_domain = ".s3.garage.localhost"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage.localhost"
+index = "index.html"
 EOF
 
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 docker run -d --rm --name "$CONTAINER" \
     -p "$GARAGE_PORT:3900" \
+    -p "$GARAGE_WEB_PORT:3902" \
     -v "$GARAGE_DIR/garage.toml:/etc/garage.toml:ro" \
     "dxflrs/garage:$GARAGE_VERSION" /garage server
 
@@ -153,13 +169,30 @@ garage key import --yes -n "$KEY_NAME" "$KEY_ID" "$SECRET_KEY" >/dev/null
 garage bucket create "$BUCKET" >/dev/null
 garage bucket allow --read --write --owner "$BUCKET" --key "$KEY_NAME" >/dev/null
 
+# Serve the bucket over HTTP. The error document is what CloudFront's custom error
+# responses do in production: a missing key returns 404.html with a 404 status.
+garage bucket website --allow --index-document index.html --error-document 404.html "$BUCKET" >/dev/null
+
 echo "Waiting for Garage S3 API..."
 wait_for "Garage S3 API" aws s3 ls "s3://$BUCKET"
 
+# --- start the edge proxy ---
+
+# Node.js init (see bin/node-init.sh)
+# shellcheck source=/dev/null
+source "$SDIR/node-init.sh"
+
+echo "Starting edge proxy on $SITE_URL..."
+node bin/s3-edge-proxy.js --port "$EDGE_PORT" --origin "localhost:$GARAGE_WEB_PORT" --bucket "$BUCKET" &
+EDGE_PID=$!
+# No -f: the bucket is still empty, so any answer at all means the proxy is listening
+wait_for "edge proxy" curl -s -o /dev/null "$SITE_URL/"
+
 # --- build temp config ---
 
-# Patch site_url so photogen writes a local URL into config.json
-awk '/site_url:/{print "  site_url: http://localhost:'"$GARAGE_PORT"'"; next} {print}' \
+# Patch site_url so photogen writes a local URL into config.json, which deploy-photos.sh
+# then uses as the base URL for its post-deploy tests
+awk '/site_url:/{print "  site_url: '"$SITE_URL"'"; next} {print}' \
     sample/config/albums.yaml > "$TEMP_CONFIG/albums.yaml"
 /bin/cp sample/config/descriptions.txt "$TEMP_CONFIG/descriptions.txt"
 cat > "$TEMP_CONFIG/site.env" <<EOF
@@ -170,8 +203,9 @@ EOF
 
 echo ""
 echo "=== Running S3 deploy ==="
-# Post-deploy tests are skipped: Garage serves the S3 API here, not the site over HTTP.
-bin/deploy-photos.sh --s3 --no-server-test --no-playwright --config-dir "$TEMP_CONFIG"
+# Post-deploy runs bin/test-photos-server.sh --s3 and the @deploy Playwright tests against
+# the deployed site, served by Garage through the edge proxy.
+bin/deploy-photos.sh --s3 --playwright-smoke --config-dir "$TEMP_CONFIG"
 
 # --- assertions ---
 

@@ -57,7 +57,7 @@ as defined in `config/defaults.env`.
 | `sample-test-nginx`           | Run routing tests against Docker/nginx on port 8082                                           |
 | `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Apache container, verify      |
 | `sample-rsync-test-nginx`     | Same, but rsyncs into a fresh nginx container (`bin/rsync-test.sh --server nginx`)            |
-| `sample-s3-test`              | Test the S3 deploy path against Garage: verifies file placement and Cache-Control headers     |
+| `sample-s3-test`              | Test the S3 deploy path against Garage: file placement, Cache-Control headers, and serving    |
 | `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                  |
 | `gen-deploy-tree`             | Regenerate `docs/deploy-tree.svg` (run after changing the deploy directory structure)         |
 | `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                       |
