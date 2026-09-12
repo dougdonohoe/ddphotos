@@ -41,12 +41,12 @@ is invisible there even though photogen publishes it.
 The same routing rules are implemented once per hosting target, and a change to one is almost
 always a change to all four:
 
-| File | Target |
-|------|--------|
-| `web/static/.htaccess` | Apache (rsynced with every deploy) |
-| `web/nginx.conf` | nginx (baked into the image; never deployed by the scripts) |
-| `docker/cloudflare-worker.js` | Cloudflare Pages (`_worker.js`, shipped by `export --cloudflare`) |
-| `docker/cloudfront-function.js` | S3 + CloudFront (viewer-request stage) |
+| File                            | Target                                                            |
+|---------------------------------|-------------------------------------------------------------------|
+| `web/static/.htaccess`          | Apache (rsynced with every deploy)                                |
+| `web/nginx.conf`                | nginx (baked into the image; never deployed by the scripts)       |
+| `docker/cloudflare-worker.js`   | Cloudflare Pages (`_worker.js`, shipped by `export --cloudflare`) |
+| `docker/cloudfront-function.js` | S3 + CloudFront (viewer-request stage)                            |
 
 The rules are extensionless path to pre-rendered `.html`, `/albums/slug/N` photo permalinks to
 `/albums/slug.html`, trailing-slash redirects, and a `404.html` for unknown paths. They differ
