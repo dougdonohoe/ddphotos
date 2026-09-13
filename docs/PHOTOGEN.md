@@ -119,6 +119,12 @@ To also use the file for **sort order** (instead of EXIF date), set
 `manual_sort_order: true` on the album entry in `albums.yaml`. Photos not
 listed in `photogen.txt` are sorted by date and appended at the end.
 
+> **TIFF sources are always undated.** libvips does not expose EXIF from a `.tif`/`.tiff`
+> file even when the tags are present, so every TIFF sorts as undated (scan order, at the
+> end of the album) and the run warns `N/M photos have no EXIF date`. An album of scans
+> needs `photogen.txt` with `manual_sort_order: true` to control its sequence. Every other
+> supported still format - JPEG, PNG, WebP, HEIC/HEIF, AVIF - reads its date normally.
+
 ### HTML in captions
 
 `photogen.txt` is written by the site owner, so captions may contain **inline HTML** and

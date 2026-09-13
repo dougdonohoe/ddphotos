@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/davidbyttow/govips/v2/vips"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,8 +43,87 @@ func TestResizeImage_AllSizes(t *testing.T) {
 	}
 }
 
-func TestResizeImage_HEIC(t *testing.T) {
-	inputPath := filepath.Join("testdata", "landscape-1.heic")
+// TestResizePNGWithAlpha covers the one thing a PNG source can carry that no other
+// supported format can: an alpha channel. Both JPEG outputs matter here, because JPEG has
+// no alpha to write it to — libvips flattens on export rather than failing, and this pins
+// that, since a regression would take out cover.jpg and hero.jpg for anyone whose source
+// photos are PNG exports.
+func TestResizePNGWithAlpha(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputPath := createAlphaPNG(t, tmpDir)
+
+	t.Run("grid webp keeps alpha", func(t *testing.T) {
+		outputPath := filepath.Join(tmpDir, "grid.webp")
+		result, err := ResizeImage(inputPath, outputPath, SizeGrid, false, false)
+		require.NoError(t, err)
+		assert.True(t, result.Written)
+	})
+
+	t.Run("cover jpeg flattens", func(t *testing.T) {
+		outputPath := filepath.Join(tmpDir, "cover.jpg")
+		result, err := ResizeCoverJPEG(inputPath, outputPath, false, false)
+		require.NoError(t, err)
+		assert.True(t, result.Written)
+	})
+
+	t.Run("hero jpeg flattens", func(t *testing.T) {
+		outputPath := filepath.Join(tmpDir, "hero.jpg")
+		result, err := ResizeHeroJPEG(inputPath, outputPath, "center", false, false)
+		require.NoError(t, err)
+		assert.True(t, result.Written)
+
+		meta, err := ReadPhotoMetadata(outputPath)
+		require.NoError(t, err)
+		assert.Equal(t, heroWidth, meta.Width)
+		assert.Equal(t, heroHeight, meta.Height)
+	})
+}
+
+// createAlphaPNG writes an RGBA copy of the PNG fixture into dir and returns its path.
+// The alpha band is added here rather than committed, so the fixture stays a single file.
+func createAlphaPNG(t *testing.T, dir string) string {
+	t.Helper()
+
+	img, err := vips.NewImageFromFile(filepath.Join("testdata", "landscape-1.png"))
+	require.NoError(t, err)
+	defer img.Close()
+
+	require.NoError(t, img.AddAlpha())
+	require.True(t, img.HasAlpha(), "fixture needs an alpha band or this proves nothing")
+
+	buf, _, err := img.ExportPng(vips.NewPngExportParams())
+	require.NoError(t, err)
+
+	path := filepath.Join(dir, "alpha.png")
+	require.NoError(t, os.WriteFile(path, buf, 0644))
+	return path
+}
+
+// stillFormatFixtures is one image in every source format allowed by
+// allowedPhotoExtensions except .jpg, which has its own tests above. Each is the same
+// photo, so a failure is about the format and nothing else.
+//
+// The two HEIF entries are not redundant: .heic is HEVC and .avif is AV1, and though
+// libvips reads both through heifload, each needs its own decoder underneath libheif. One
+// can work while the other fails on a thinly packaged host.
+var stillFormatFixtures = []string{
+	"landscape-1.png",
+	"landscape-1.webp",
+	"landscape-1.tiff",
+	"landscape-1.heic",
+	"landscape-1.avif",
+}
+
+func TestResizeImage_Formats(t *testing.T) {
+	for _, name := range stillFormatFixtures {
+		t.Run(name, func(t *testing.T) {
+			testResizeAllSizes(t, filepath.Join("testdata", name))
+		})
+	}
+}
+
+func testResizeAllSizes(t *testing.T, inputPath string) {
+	t.Helper()
 	tmpDir := t.TempDir()
 
 	for _, size := range AllSizes() {
@@ -302,18 +382,22 @@ func TestResizeHeroJPEG_Write(t *testing.T) {
 	t.Logf("hero: %dx%d", meta.Width, meta.Height)
 }
 
-func TestResizeHeroJPEG_HEIC(t *testing.T) {
-	tmpDir := t.TempDir()
-	outputPath := filepath.Join(tmpDir, "hero.jpg")
+func TestResizeHeroJPEG_Formats(t *testing.T) {
+	for _, name := range stillFormatFixtures {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			outputPath := filepath.Join(tmpDir, "hero.jpg")
 
-	result, err := ResizeHeroJPEG(filepath.Join("testdata", "landscape-1.heic"), outputPath, "center", false, false)
-	require.NoError(t, err)
-	assert.True(t, result.Written)
+			result, err := ResizeHeroJPEG(filepath.Join("testdata", name), outputPath, "center", false, false)
+			require.NoError(t, err)
+			assert.True(t, result.Written)
 
-	meta, err := ReadPhotoMetadata(outputPath)
-	require.NoError(t, err)
-	assert.Equal(t, heroWidth, meta.Width)
-	assert.Equal(t, heroHeight, meta.Height)
+			meta, err := ReadPhotoMetadata(outputPath)
+			require.NoError(t, err)
+			assert.Equal(t, heroWidth, meta.Width)
+			assert.Equal(t, heroHeight, meta.Height)
+		})
+	}
 }
 
 func TestResizeHeroJPEG_CropVariants(t *testing.T) {

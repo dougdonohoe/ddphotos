@@ -126,6 +126,33 @@ func TestReadPhotoMetadata_FileNotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
+// assertCacheRoundTrip pins that MetaCache never changes what a direct read reported, at
+// every stage it could: a cache miss, a cache hit, and a save/load round trip through
+// disk. want is the direct read to match.
+//
+// The round trip is the stage worth the extra lines. A field that a fresh read populates
+// but the on-disk format drops looks perfect on a clean checkout and only goes wrong on
+// the *second* run, which is the run nobody tests by hand.
+func assertCacheRoundTrip(t *testing.T, path string, want *PhotoMetadata) {
+	t.Helper()
+
+	cachePath := filepath.Join(t.TempDir(), MetaCacheFileName)
+	mc := NewMetaCache(cachePath)
+
+	fresh, err := mc.Metadata(path)
+	require.NoError(t, err)
+	assert.Equal(t, want, fresh, "cache miss must match a direct read")
+
+	cached, err := mc.Metadata(path)
+	require.NoError(t, err)
+	assert.Equal(t, want, cached, "cache hit must match a direct read")
+
+	require.NoError(t, mc.Save())
+	reloaded, err := LoadMetaCache(cachePath).Metadata(path)
+	require.NoError(t, err)
+	assert.Equal(t, want, reloaded, "reloaded cache must match a direct read")
+}
+
 func TestReadPhotoMetadata_RealImages(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -160,8 +187,40 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantDate:   "2005-01-13", // from DateTime (no DateTimeOriginal or DateTimeDigitized)
 		},
 		{
+			// PNG carries EXIF in an eXIf chunk rather than a JPEG APP1 marker, so this
+			// pins that readDateTaken reaches it through libvips all the same. Downscaled
+			// from landscape-1.jpg and palette-quantized to keep the fixture small; 1600px
+			// wide is deliberate, so it is also large enough for the hero tests.
+			name:       "png",
+			filename:   "landscape-1.png",
+			wantWidth:  1600,
+			wantHeight: 1056,
+			wantOrient: "landscape",
+			wantDate:   "2024-05-16", // from DateTimeDigitized, same source as landscape-1.jpg
+		},
+		{
+			// WebP keeps EXIF in a RIFF chunk, a third container shape after JPEG's APP1
+			// marker and PNG's eXIf chunk. Same source and downscale as landscape-1.png.
+			name:       "webp",
+			filename:   "landscape-1.webp",
+			wantWidth:  1600,
+			wantHeight: 1056,
+			wantOrient: "landscape",
+			wantDate:   "2024-05-16", // from DateTimeDigitized, same source as landscape-1.jpg
+		},
+		{
 			name:       "heic",
 			filename:   "landscape-1.heic",
+			wantWidth:  4032,
+			wantHeight: 3024,
+			wantOrient: "landscape",
+			wantDate:   "2023-04-21", // from DateTimeOriginal
+		},
+		{
+			// Same source as landscape-1.heic, re-encoded to AV1 in the same HEIF
+			// container, so it pins that EXIF survives the codec swap.
+			name:       "avif",
+			filename:   "landscape-1.avif",
 			wantWidth:  4032,
 			wantHeight: 3024,
 			wantOrient: "landscape",
@@ -184,34 +243,43 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			assert.Equal(t, tc.wantDate, meta.DateTaken.Format("2006-01-02"))
 			t.Logf("%s: date taken = %s", tc.filename, meta.DateTaken.Format("2006-01-02 15:04:05"))
 
-			// Values served from the cache, including across a save/load round trip, must
-			// match the direct read exactly. Dimensions in particular are post-AutoRotate
-			// canonical values, so a cache that lost the rotation would show up here.
-			cachePath := filepath.Join(t.TempDir(), MetaCacheFileName)
-			mc := NewMetaCache(cachePath)
-
-			fresh, err := mc.Metadata(path)
-			require.NoError(t, err)
-			assert.Equal(t, meta, fresh, "cache miss must match a direct read")
-
-			cached, err := mc.Metadata(path)
-			require.NoError(t, err)
-			assert.Equal(t, meta, cached, "cache hit must match a direct read")
-
-			require.NoError(t, mc.Save())
-			reloaded, err := LoadMetaCache(cachePath).Metadata(path)
-			require.NoError(t, err)
-			assert.Equal(t, meta, reloaded, "reloaded cache must match a direct read")
+			// Dimensions here are post-AutoRotate canonical values, so a cache that lost
+			// the rotation would show up in the round trip.
+			assertCacheRoundTrip(t, path, meta)
 		})
 	}
 }
 
-// TestReadVideoMetadata_Cached mirrors the cache round trip in
-// TestReadPhotoMetadata_RealImages, for video.
+// TestReadPhotoMetadata_TIFF pins a real gap rather than a passing feature: libvips'
+// tiffload does not surface EXIF, so a TIFF source is always undated.
 //
-// Duration is the field metaCacheVersion was bumped for, and it is the one that can only
-// break on the *second* run: a cache that dropped it would leave every video reporting
-// zero seconds, showing 0:00 on the grid badge, while a fresh checkout looked perfect.
+// landscape-1.tiff genuinely carries the tags — they were injected with exiftool, which
+// reads CreateDate and ModifyDate back out of it — and libvips still reports none. It is
+// not the fixture: files written by vipsthumbnail and by ImageMagick behave the same way.
+//
+// The consequence is in LoadPhotos, not here. An album of TIFFs sorts entirely by scan
+// order and warns "N/M photos have no EXIF date", so anyone scanning film into TIFF needs
+// photogen.txt with manual_sort_order to control sequence. If a future libvips learns to
+// read it, this test fails and says so, and the sort expectation changes with it.
+func TestReadPhotoMetadata_TIFF(t *testing.T) {
+	path := filepath.Join("testdata", "landscape-1.tiff")
+
+	meta, err := ReadPhotoMetadata(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1600, meta.Width)
+	assert.Equal(t, 1056, meta.Height)
+	assert.Equal(t, "landscape", meta.Orientation)
+	assert.True(t, meta.DateTaken.IsZero(), "libvips tiffload exposes no EXIF; see doc comment")
+
+	assertCacheRoundTrip(t, path, meta)
+}
+
+// TestReadVideoMetadata_Cached runs assertCacheRoundTrip over video, where the metadata
+// comes from ffprobe rather than libvips.
+//
+// Duration is the field metaCacheVersion was bumped for: a cache that dropped it would
+// leave every video reporting zero seconds, showing 0:00 on the grid badge.
 //
 // portrait-rotated.mov earns its place here for the same reason the photo test calls out
 // AutoRotate: its dimensions are rotation-corrected (240x320, not the stored 320x240), so
@@ -227,21 +295,7 @@ func TestReadVideoMetadata_Cached(t *testing.T) {
 			require.NoError(t, err)
 			require.Positive(t, meta.Duration, "fixture needs a duration or this proves nothing")
 
-			cachePath := filepath.Join(t.TempDir(), MetaCacheFileName)
-			mc := NewMetaCache(cachePath)
-
-			fresh, err := mc.Metadata(path)
-			require.NoError(t, err)
-			assert.Equal(t, meta, fresh, "cache miss must match a direct read")
-
-			cached, err := mc.Metadata(path)
-			require.NoError(t, err)
-			assert.Equal(t, meta, cached, "cache hit must match a direct read")
-
-			require.NoError(t, mc.Save())
-			reloaded, err := LoadMetaCache(cachePath).Metadata(path)
-			require.NoError(t, err)
-			assert.Equal(t, meta, reloaded, "reloaded cache must match a direct read")
+			assertCacheRoundTrip(t, path, meta)
 		})
 	}
 }
