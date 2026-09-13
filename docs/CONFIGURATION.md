@@ -157,7 +157,7 @@ albums output directory. The hero is never encrypted and takes priority as the `
 on the home page.
 
 The hero must be a still image (`.jpg`, `.jpeg`, `.png`, `.webp`, `.tif`, `.tiff`, `.heic`,
-`.heif`); a video is rejected at config validation, because the hero is a hard crop. An
+`.heif`, `.avif`); a video is rejected at config validation, because the hero is a hard crop. An
 album `cover:` **may** point at a video, which uses its poster frame instead. See
 [Video](PHOTOGEN.md#video).
 

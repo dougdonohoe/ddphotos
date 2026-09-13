@@ -44,7 +44,9 @@ sudo apt-get install golang-go libvips-dev pkg-config build-essential libheif-pl
 
 Note the package is `libvips-dev`, not `vips` - the headers are needed to compile
 `photogen`. The `build-essential` package supplies the C compiler that `cgo` requires, and is often
-already installed. The `libheif` library is needed for HEIC/HEIF decoding (iPhone photos).
+already installed. The `libheif` library is needed for HEIC/HEIF decoding (iPhone photos);
+`libheif-plugin-libde265` is the HEVC decoder those files use. AVIF needs no extra package -
+`libheif1` already depends on an AV1 decoder (`libheif-plugin-aomdec` or `-dav1d`).
 
 ### ffmpeg (only if you have videos)
 

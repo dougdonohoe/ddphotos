@@ -24,6 +24,7 @@ var allowedPhotoExtensions = map[string]struct{}{
 	".tiff": {},
 	".heic": {},
 	".heif": {},
+	".avif": {},
 }
 
 // sortByDate sorts photos ascending by date. Undated photos (zero DateTaken) sort to
