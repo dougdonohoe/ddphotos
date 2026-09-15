@@ -298,9 +298,9 @@ See [DEPLOYMENT-SERVERS.md](DEPLOYMENT-SERVERS.md).
 
 ## Recursive Albums (`recurse: true`)
 
-Set `recurse: true` on an album entry to collect photos from all subdirectories.
+Set `recurse: true` on an album entry to collect photos from all subfolders.
 The output is flattened: each photo's ID and filename get a sanitized prefix
-derived from its subdirectory path, preventing name collisions.
+derived from its subfolder path, preventing name collisions.
 
 ```
 Craig's/img001.jpg      → ID: craigs_img001,       file: craigs_img001.jpg
@@ -311,8 +311,8 @@ There are three modes depending on configuration:
 
 | Mode          | Config                                                       | Behavior                                                                                        |
 |---------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| Off (default) | `recurse: false`                                             | Only photos in the album root directory are collected; subdirectories ignored                   |
-| Auto sort     | `recurse: true`, no `photogen.txt`                           | All photos from root and subdirectories collected, then globally sorted by date                 |
+| Off (default) | `recurse: false`                                             | Only photos in the album root directory are collected; subfolders ignored                       |
+| Auto sort     | `recurse: true`, no `photogen.txt`                           | All photos from root and subfolders collected, then globally sorted by date                     |
 | Manual sort   | `recurse: true` + `manual_sort_order: true` + `photogen.txt` | Subfolder names in `photogen.txt` expand inline; photos and subfolder groups freely interleaved |
 
 **Per-subfolder `photogen.txt`**: place a `photogen.txt` in any subfolder for captions
@@ -341,7 +341,7 @@ The source-relative path is in the `sourcePath` field of `index.json`. To find i
 original filename, grep the decoded index or use `bin/search-cover.sh` (see below).
 
 **Working example**: the sample Uganda album (`sample/source/uganda/`) uses `recurse: true`
-with a `subfolder/` subdirectory. Its root `photogen.txt` uses `subfolder` as a placeholder
+with a `subfolder/` subfolder. Its root `photogen.txt` uses `subfolder` as a placeholder
 at the end to append those photos after the root-level ones. The album entry in
 `sample/config/albums.yaml` shows the full configuration including `cover`, `manual_sort_order`,
 and `recurse`.

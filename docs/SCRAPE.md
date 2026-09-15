@@ -55,7 +55,7 @@ Use `-format webp` when disk space matters and whatever consumes the photos hand
     └── <slug>/
         ├── photogen.txt  # per-photo captions, in the site's photo order
         ├── <name>.png    # or .jpg / .webp, per -format
-        └── <subdir>/     # only for recursive albums
+        └── <subfolder>/  # only for recursive albums
 ```
 
 Album descriptions are written inline in `albums.yaml` rather than into a

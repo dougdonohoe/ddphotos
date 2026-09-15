@@ -105,7 +105,7 @@ albums:
     description: >-               # Optional short description shown on the home page
       Two weeks hiking the Torres del Paine circuit and kayaking among glaciers.
     manual_sort_order: true       # If true, order follows photogen.txt in the source directory
-    recurse: false                # If true, collect photos from subdirectories recursively (default: false)
+    recurse: false                # If true, collect photos from subfolders recursively (default: false)
 
   # ------------------------------------------------------------------
   # Minimal example — only required fields
@@ -116,8 +116,8 @@ albums:
     source: 2025-Summer-Hiking
 
   # ------------------------------------------------------------------
-  # Recursive — photos gathered from subdirectories
-  # Subdirectory names are sanitized into a prefix to avoid filename
+  # Recursive — photos gathered from subfolders
+  # Subfolder names are sanitized into a prefix to avoid filename
   # collisions (e.g. "Craig's/img001.jpg" → ID "craigs_img001").
   # Photos sort by date; subfolders sort alphabetically within each level.
   # Add a photogen.txt to any folder for captions. With manual_sort_order:

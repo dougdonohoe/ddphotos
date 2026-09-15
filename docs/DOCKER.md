@@ -335,7 +335,7 @@ ddphotos wrangler pages deploy --project-name my-unique-site export/my-photos
 See [Cloudflare Pages Worker](DEPLOYMENT-SERVERS.md#cloudflare-pages-worker) for how the routing
 works, and [`wrangler`](#wrangler) for credentials and other details.
 
-Use `--export-site-id` to write the export to a different subdirectory name instead of
+Use `--export-site-id` to write the export to a different subfolder name instead of
 `export/<site-id>/`:
 
 ```bash

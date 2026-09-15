@@ -154,7 +154,7 @@ Backend features:
 - Concurrent image resizing via goroutines (buffered channel, WaitGroup).
 - Dry-run mode by default (use `-doit` to write files).
 - Optionally use `photogen.txt` to override sort order (default is by capture date).
-- Recursive album support: set `recurse: true` to collect photos from subdirectories, 
+- Recursive album support: set `recurse: true` to collect photos from subfolders, 
   with automatic filename prefixing to avoid collisions.
 - WebP and MP4 filenames for encrypted albums are HMAC-derived, preventing filename
   guessing even if the original source filename is known.
