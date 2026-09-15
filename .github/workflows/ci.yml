@@ -285,7 +285,7 @@ jobs:
 
   # A red X on an overnight run that nobody is watching needs somewhere to land: GitHub only
   # emails the owner, and the run scrolls off the Actions tab. bin/ci-open-issue.sh files
-  # it as an issue, or comments on the open one if the same failure is already tracked.
+  # it as an issue, or comments on the open one only if the set of failing jobs changed.
   #
   # Scheduled runs only. On a push or a PR the person who triggered it is already looking
   # at the result, and an issue would be noise.
@@ -310,7 +310,9 @@ jobs:
       - name: Open or update the nightly failure issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        # Nothing per-run goes in this file: bin/ci-open-issue.sh comments only when it
+        # differs from the last report, so a failure that repeats nightly for the same jobs
+        # stays one post. The script appends the run link itself, outside that comparison.
         run: |
           cat > "$RUNNER_TEMP/nightly-failure.md" <<EOF
           The nightly run of this workflow failed.
@@ -326,7 +328,5 @@ jobs:
           (\`debian:bookworm-slim\`, \`golang:1.25-bookworm\`), the \`ubuntu-latest\`
           runner image, an apt mirror, or a Playwright browser download. A genuinely flaky
           test is the other possibility -- re-run the workflow to tell them apart.
-
-          [Failing run]($RUN_URL)
           EOF
           bash bin/ci-open-issue.sh nightly-ci "Nightly CI is failing" "$RUNNER_TEMP/nightly-failure.md"

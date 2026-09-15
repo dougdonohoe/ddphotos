@@ -399,9 +399,11 @@ pinned exactly, but the ffmpeg `latest` release, the `debian:bookworm-slim` and 
 base images, the `ubuntu-latest` runner image, apt packages and Playwright's browser downloads all
 move on their own. Those break on a calendar rather than on a commit, so without a scheduled run the
 first person to find out is whoever opens the next PR. When a nightly run fails, the
-`report-nightly-failure` job opens a GitHub issue labeled `nightly-ci` (or comments on the open one)
-via [bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching an overnight run and the
-notification email is easy to miss. Push and pull request runs skip that job.
+`report-nightly-failure` job opens a GitHub issue labeled `nightly-ci` via
+[bin/ci-open-issue.sh](../bin/ci-open-issue.sh), because nobody is watching an overnight run and the
+notification email is easy to miss. While that issue is open, later runs comment only when the report
+changes (a different set of failing jobs), not once per failing night. Push and pull request runs
+skip that job.
 
 That split is also why two things are deliberately slower on the nightly than on a PR:
 
@@ -420,8 +422,9 @@ The workflow in [.github/workflows/version-drift.yml](../.github/workflows/versi
 versions in `web/.nvmrc` or `web/.npm-version` have fallen behind upstream. Pinning those exactly is
 deliberate, and the cost of it is that nothing otherwise tells you a bugfix or security release
 shipped; Dependabot cannot fill the gap (it has no `.nvmrc` ecosystem, and cannot see a version in
-`FROM node:${NODE_VERSION}-bookworm-slim`). It never edits a file: bumping Node is a deliberate
-change that CI then tests. Run the same check locally with `make check-versions`.
+`FROM node:${NODE_VERSION}-bookworm-slim`). The issue title names what is behind (e.g. "Bump Node
+24.20.0 to 24.21.0"), and while it stays open a later run comments and retitles only when that
+changes. It never edits a file: bumping Node is a deliberate change that CI then tests. Run the same check locally with `make check-versions`.
 
 A new Node release is not reported as drift until its Docker image exists. The tag trails the
 release by 0-2 days while it goes through `nodejs/docker-node` and `docker-library/official-images`,

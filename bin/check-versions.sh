@@ -31,9 +31,21 @@
 #   1  at least one pin is behind (the markdown report on stdout says which)
 #   2  the check itself could not run (missing tool, network, unexpected upstream shape)
 #
-# Usage: bin/check-versions.sh
+# Usage: bin/check-versions.sh [title-file]
+#
+# When drift is found and title-file is given, a one-line summary naming what is behind
+# (e.g. "Bump Node 24.20.0 to 24.21.0") is written there for use as an issue title. The
+# path is resolved before the cd below, so a relative one means the caller's directory.
 
 set -uo pipefail
+
+TITLE_FILE=""
+if [ $# -gt 0 ]; then
+    case "$1" in
+        /*) TITLE_FILE=$1 ;;
+        *) TITLE_FILE="$PWD/$1" ;;
+    esac
+fi
 
 cd "$(dirname "$0")/.." || exit 2
 
@@ -129,6 +141,7 @@ node_image_published() {
 drift=0
 report=""
 add() { report+="$1"$'\n'; }
+titles=()
 
 add "### Node (\`web/.nvmrc\`)"
 add ""
@@ -146,6 +159,7 @@ elif ! node_image_published "$NODE_NEWEST"; then
     add "until the tag exists; this will report as drift on a later run."
 else
     drift=1
+    titles+=("Node $NODE_PINNED to $NODE_NEWEST")
     add "**Behind.** Pinned \`$NODE_PINNED\`; newest on the ${NODE_MAJOR}.x line is"
     add "\`$NODE_NEWEST\` (released $NODE_NEWEST_DATE)."
     add ""
@@ -159,6 +173,7 @@ add ""
 
 if [ -n "$NEWEST_LTS_MAJOR" ] && [ "$NEWEST_LTS_MAJOR" -gt "$NODE_MAJOR" ]; then
     drift=1
+    titles+=("Node ${NODE_MAJOR}.x to ${NEWEST_LTS_MAJOR}.x LTS")
     add "### Node major line"
     add ""
     add "**A newer LTS line exists.** Pinned on ${NODE_MAJOR}.x; ${NEWEST_LTS_MAJOR}.x is now LTS."
@@ -174,9 +189,16 @@ if [ "$NPM_PINNED" = "$NPM_NEWEST" ]; then
     add "Current: pinned \`$NPM_PINNED\`, which is \`npm@latest\`."
 else
     drift=1
+    titles+=("npm $NPM_PINNED to $NPM_NEWEST")
     add "**Behind.** Pinned \`$NPM_PINNED\`; \`npm@latest\` is \`$NPM_NEWEST\`."
     add ""
     add "To take it: edit \`web/.npm-version\` and run \`make web-nvm-install\`."
+fi
+
+if [ -n "$TITLE_FILE" ] && [ ${#titles[@]} -gt 0 ]; then
+    title="Bump ${titles[0]}"
+    for t in "${titles[@]:1}"; do title+=", $t"; done
+    printf '%s\n' "$title" > "$TITLE_FILE" || fail "cannot write title file '$TITLE_FILE'"
 fi
 
 printf '%s' "$report"

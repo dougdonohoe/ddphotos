@@ -64,7 +64,7 @@ jobs:
         # under the default `set -e` the step would go red every time a pin drifted.
         run: |
           set +e
-          bash bin/check-versions.sh > "$RUNNER_TEMP/version-report.md"
+          bash bin/check-versions.sh "$RUNNER_TEMP/version-title.txt" > "$RUNNER_TEMP/version-report.md"
           status=$?
           cat "$RUNNER_TEMP/version-report.md"
           {
@@ -79,7 +79,9 @@ jobs:
         if: steps.check.outputs.status == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The title names what is behind (e.g. "Bump Node 24.20.0 to 24.21.0"), so the
+        # issue list says what to do without opening it.
         run: |
           bash bin/ci-open-issue.sh version-drift \
-            "Pinned Node or npm version is behind upstream" \
+            "$(cat "$RUNNER_TEMP/version-title.txt")" \
             "$RUNNER_TEMP/version-report.md"
