@@ -20,7 +20,7 @@ import (
 var repoRoot string
 
 // loadDefaultsEnv reads config/defaults.env and sets any keys not already in the environment.
-// This mirrors the behaviour of vite.config.ts and the shell scripts.
+// This mirrors the behavior of vite.config.ts and the shell scripts.
 func loadDefaultsEnv() {
 	candidates := []string{filepath.Join("config", "defaults.env")}
 	if repoRoot != "" {
@@ -32,7 +32,7 @@ func loadDefaultsEnv() {
 		if err != nil {
 			continue
 		}
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" || strings.HasPrefix(line, "#") {
 				continue
@@ -225,7 +225,7 @@ func main() {
 	// Filter albums if -album flag is set
 	if *albumFlag != "" {
 		slugs := make(map[string]bool)
-		for _, s := range strings.Split(*albumFlag, ",") {
+		for s := range strings.SplitSeq(*albumFlag, ",") {
 			slugs[strings.TrimSpace(s)] = true
 		}
 		var filtered []*photogen.AlbumConfig
@@ -266,7 +266,10 @@ func main() {
 		if exit.ExitRequested() {
 			fmt.Println("Exit requested, stopping.")
 			saveMetaCache(cfg)
-			exit.ExitWithStatus(nil)
+			// Non-zero: the remaining albums were never processed and albums.json was
+			// never written, so a caller of the "photogen && deploy" shape must not read
+			// this as a finished run.
+			exit.ExitWithStatus(photogen.ErrInterrupted)
 		}
 		album := photogen.NewAlbumProcessor(cfg, albumConfig)
 		if err := album.Process(i+1, len(albums)); err != nil {
