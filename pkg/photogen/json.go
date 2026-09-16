@@ -219,35 +219,42 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 }
 
 // computeDateSpan returns a human-readable date range for the album.
-// Uses the first and last dated photos; undated photos are ignored.
+// Uses the earliest and latest dated photos; undated photos are ignored.
+//
+// The endpoints are found by scanning rather than read off the ends of the slice, because
+// ap.Photos is not necessarily in date order: LoadPhotos skips sortByDate entirely when an
+// album sets manual_sort_order, and such an album is often deliberately newest-first.
+// Taking the ends there produced backwards spans like "Mar 2025 - May 2023".
 func (ap *AlbumProcessor) computeDateSpan() string {
-	var first, last time.Time
+	var earliest, latest time.Time
 	for _, p := range ap.Photos {
 		if p.DateTaken.IsZero() {
 			continue
 		}
-		if first.IsZero() {
-			first = p.DateTaken
+		if earliest.IsZero() || p.DateTaken.Before(earliest) {
+			earliest = p.DateTaken
 		}
-		last = p.DateTaken
+		if latest.IsZero() || p.DateTaken.After(latest) {
+			latest = p.DateTaken
+		}
 	}
 
-	if first.IsZero() {
+	if earliest.IsZero() {
 		return "" // no dated photos
 	}
 
 	// Same month and year
-	if first.Year() == last.Year() && first.Month() == last.Month() {
-		return first.Format("Jan 2006")
+	if earliest.Year() == latest.Year() && earliest.Month() == latest.Month() {
+		return earliest.Format("Jan 2006")
 	}
 
 	// Same year, different months
-	if first.Year() == last.Year() {
-		return fmt.Sprintf("%s - %s %d", first.Format("Jan"), last.Format("Jan"), first.Year())
+	if earliest.Year() == latest.Year() {
+		return fmt.Sprintf("%s - %s %d", earliest.Format("Jan"), latest.Format("Jan"), earliest.Year())
 	}
 
 	// Different years
-	return fmt.Sprintf("%s - %s", first.Format("Jan 2006"), last.Format("Jan 2006"))
+	return fmt.Sprintf("%s - %s", earliest.Format("Jan 2006"), latest.Format("Jan 2006"))
 }
 
 // WriteAlbumsIndex writes albums.json (or albums.enc.json if encrypted) into the site output dir.
