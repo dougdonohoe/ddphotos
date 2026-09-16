@@ -443,7 +443,9 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string, recurse boo
 
 // expandManualOrder processes photogen.txt entries in order, expanding subfolder references
 // by recursing into them. Unlisted photos are date-sorted and appended at the end;
-// unlisted subdirectories are alphabetically appended at the end. Both produce warnings.
+// unlisted subdirectories are alphabetically appended at the end. An entry repeated within
+// the file is honored at its first position and ignored thereafter. All three produce
+// warnings, which the WarnCollector replays in the end-of-run summary.
 func (ap *AlbumProcessor) expandManualOrder(
 	dir, relDir string,
 	localPhotos []*Photo,
@@ -459,6 +461,14 @@ func (ap *AlbumProcessor) expandManualOrder(
 
 	for _, entry := range pd.order {
 		if p, ok := photosByBaseID[entry]; ok {
+			// A repeat is ignored rather than appended again. Appending would list one
+			// photo twice in index.json, giving two entries the same id and src.grid and
+			// shifting every /albums/slug/N permalink after it. checkDuplicateIDs cannot
+			// catch that: it dedupes by SourcePath, and both entries are the same file.
+			if seenPhotos[entry] {
+				ap.warnf("  WARN: photogen.txt in %s lists %q more than once (ignoring the repeat)\n", dir, entry)
+				continue
+			}
 			result = append(result, p)
 			seenPhotos[entry] = true
 			continue
@@ -466,6 +476,12 @@ func (ap *AlbumProcessor) expandManualOrder(
 		actualName, ok := subdirActual[entry]
 		if !ok {
 			ap.warnf("  WARN: photogen.txt in %s references unknown entry: %s\n", dir, entry)
+			continue
+		}
+		// Checked before recursing, so a repeated subfolder costs neither the duplicate
+		// photos nor the second scan of the whole folder.
+		if seenSubdirs[strings.ToLower(actualName)] {
+			ap.warnf("  WARN: photogen.txt in %s lists subfolder %q more than once (ignoring the repeat)\n", dir, actualName)
 			continue
 		}
 		seenSubdirs[strings.ToLower(actualName)] = true

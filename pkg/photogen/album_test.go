@@ -415,6 +415,90 @@ func TestCollectPhotosRecursive(t *testing.T) {
 		assert.Equal(t, "photo_b", photos[1].ID, "unlisted photo appended at end")
 		assert.Len(t, wc.warnings, 2, "expect warning for ghost entry and unlisted photo_b")
 	})
+
+	// A repeated entry used to be appended again rather than skipped, so the same photo
+	// was listed twice in index.json: two entries sharing an id and a src.grid, and every
+	// /albums/slug/N permalink after it shifted by one. checkDuplicateIDs cannot catch it,
+	// because it dedupes by SourcePath and both entries are the same source file.
+	t.Run("manual order: a repeated photo entry is listed once and warns", func(t *testing.T) {
+		dir := t.TempDir()
+		copyPhoto(t, dir, "landscape-1.jpg", "photo_a.jpg")
+		copyPhoto(t, dir, "portrait-1.jpg", "photo_b.jpg")
+		// The repeat differs in case, since photogen.txt matching is case-insensitive:
+		// the duplicate check has to follow the same rule or it misses this.
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "photogen.txt"),
+			[]byte("photo_a\nphoto_b\nPhoto_A\n"), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(dir, "", true)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 2, "a repeated entry must not list the photo twice")
+		assert.Equal(t, "photo_a", photos[0].ID, "the first listing keeps its position")
+		assert.Equal(t, "photo_b", photos[1].ID)
+
+		require.Len(t, wc.warnings, 1, "the repeat must be reported, not silently dropped")
+		assert.Contains(t, wc.warnings[0], "photo_a")
+		assert.Contains(t, wc.warnings[0], "more than once")
+	})
+
+	// A repeated subfolder is worse than a repeated photo: the whole folder is collected
+	// and expanded again, so every photo inside it is duplicated.
+	t.Run("manual order: a repeated subfolder entry is expanded once and warns", func(t *testing.T) {
+		root := t.TempDir()
+		sub := filepath.Join(root, "trip")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
+		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
+			[]byte("trip\nroot\ntrip\n"), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(root, "", true)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 2, "a repeated subfolder must not be expanded twice")
+		assert.Equal(t, "trip_inner", photos[0].ID, "the first listing keeps its position")
+		assert.Equal(t, "root", photos[1].ID)
+
+		require.Len(t, wc.warnings, 1, "the repeat must be reported, not silently dropped")
+		assert.Contains(t, wc.warnings[0], "trip")
+		assert.Contains(t, wc.warnings[0], "more than once")
+	})
+
+	// The control: without repeats nothing changes, and in particular no warning fires.
+	t.Run("manual order: distinct entries produce no duplicate warning", func(t *testing.T) {
+		root := t.TempDir()
+		sub := filepath.Join(root, "trip")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "photo_a.jpg")
+		copyPhoto(t, root, "portrait-1.jpg", "photo_b.jpg")
+		copyPhoto(t, sub, "no-exif.jpg", "inner.jpg")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
+			[]byte("photo_b\ntrip\nphoto_a\n"), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(root, "", true)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 3)
+		assert.Equal(t, "photo_b", photos[0].ID)
+		assert.Equal(t, "trip_inner", photos[1].ID)
+		assert.Equal(t, "photo_a", photos[2].ID)
+		assert.Empty(t, wc.warnings)
+	})
 }
 
 func TestSortByDate(t *testing.T) {
