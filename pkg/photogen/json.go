@@ -166,8 +166,7 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 	if err := writeBytes(outputPath, b); err != nil {
 		return err
 	}
-	removeIfExists(ap.OutputPath(counterpart))
-	return nil
+	return removeCounterpart(ap.OutputPath(counterpart), password != "", ap.warnf)
 }
 
 // relativeSrcPath returns the relative path for a photo variant (relative to album dir).
@@ -289,7 +288,9 @@ func (c *Config) WriteAlbumsIndex(summaries []AlbumSummary) error {
 	if err := writeBytes(outputPath, b); err != nil {
 		return err
 	}
-	removeIfExists(c.SiteOutputPath(counterpart))
+	if err := removeCounterpart(c.SiteOutputPath(counterpart), c.IsSiteEncrypted(), c.Warn.Warnf); err != nil {
+		return err
+	}
 	c.TrackFile(outputPath)
 	return nil
 }
@@ -447,7 +448,9 @@ func (c *Config) WriteHTMLFile() error {
 	if err := writeBytes(outputPath, b); err != nil {
 		return err
 	}
-	removeIfExists(c.SiteOutputPath(counterpart))
+	if err := removeCounterpart(c.SiteOutputPath(counterpart), c.IsSiteEncrypted(), c.Warn.Warnf); err != nil {
+		return err
+	}
 	c.TrackFile(outputPath)
 	return nil
 }
@@ -585,9 +588,45 @@ func jsonNames(base string, encrypted bool) (output, counterpart string) {
 	return reg, enc
 }
 
-// removeIfExists deletes path if it exists, silently ignoring not-found errors.
-func removeIfExists(path string) {
+// removeIfExists deletes path, treating "already gone" as success.
+//
+// The error is returned rather than printed because what a failure means depends entirely
+// on what is being removed, and only the caller knows. See removeCounterpart.
+//
+// It is returned unwrapped: os.Remove already yields a *PathError reading
+// "remove <path>: <reason>", so anything added here only repeats the path.
+func removeIfExists(path string) error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		fmt.Printf("  WARN: failed to remove %s: %v\n", path, err)
+		return err
+	}
+	return nil
+}
+
+// removeCounterpart deletes an output this run has superseded, and decides what a failure
+// to do so means.
+//
+// confidential says whether path is the readable copy of something this run encrypted: the
+// plaintext index.json beside a new index.enc.json, or an album's cover.jpg once it has a
+// password. There a failed removal is an error, because the removal is the entire security
+// measure. The file is rsynced like any other, so a warning nobody reads leaves a public
+// URL serving every caption, filename and photo path of an album the site believes is
+// private, and with an HMAC key configured it is also the map from obfuscated output names
+// back to content.
+//
+// When it is not confidential, path is a leftover .enc.json from a run that had a password
+// and this one does not. It is unreadable without that password, so it is untidy rather
+// than dangerous: report it through warnf, where it reaches the end-of-run summary, and
+// carry on.
+func removeCounterpart(path string, confidential bool, warnf func(string, ...any)) error {
+	err := removeIfExists(path)
+	switch {
+	case err == nil:
+		return nil
+	case confidential:
+		return fmt.Errorf("%w\n    this is the readable copy of a file this run encrypted, so it "+
+			"must not reach the server; remove it by hand and re-run before deploying", err)
+	default:
+		warnf("  WARN: %v\n", err)
+		return nil
 	}
 }

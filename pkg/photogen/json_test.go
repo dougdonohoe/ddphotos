@@ -884,3 +884,110 @@ func TestWriteSitemapEscapesSiteURL(t *testing.T) {
 	assert.Contains(t, got, "https://example.com/a&amp;b/")
 	assert.NotContains(t, got, "a&b", "a raw ampersand makes the document unparseable")
 }
+
+// stickyPath returns a path that os.Remove cannot delete: a directory with something in
+// it. That is the cheapest portable stand-in for the real causes (a permission change, a
+// lock, a directory left where a file should be), and it exercises the same branch.
+func stickyPath(t *testing.T, path string) string {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Join(path, "occupied"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(path, "occupied", "x"), []byte("x"), 0o644))
+	return path
+}
+
+// removeCounterpart decides what a failed removal means, and the two answers are not
+// interchangeable: on the encrypted path the removal is the entire security measure, so a
+// failure has to stop the run rather than scroll past as a warning nobody reads.
+func TestRemoveCounterpart(t *testing.T) {
+	t.Parallel()
+
+	// A warnf that records instead of printing, so a test can assert a warning was raised
+	// without asserting on stdout.
+	newWarnf := func(got *[]string) func(string, ...any) {
+		return func(format string, args ...any) { *got = append(*got, fmt.Sprintf(format, args...)) }
+	}
+
+	t.Run("a file that is already gone is success", func(t *testing.T) {
+		t.Parallel()
+		var warnings []string
+		path := filepath.Join(t.TempDir(), "index.json")
+		assert.NoError(t, removeCounterpart(path, true, newWarnf(&warnings)))
+		assert.Empty(t, warnings, "nothing to remove is not worth a warning")
+	})
+
+	t.Run("a removable file is removed", func(t *testing.T) {
+		t.Parallel()
+		var warnings []string
+		path := filepath.Join(t.TempDir(), "index.json")
+		require.NoError(t, os.WriteFile(path, []byte("{}"), 0o644))
+		require.NoError(t, removeCounterpart(path, true, newWarnf(&warnings)))
+		assert.NoFileExists(t, path)
+		assert.Empty(t, warnings)
+	})
+
+	// The regression. Before this, the failure printed a bare WARN that never reached the
+	// end-of-run summary, and the run carried on to exit 0 with the plaintext still there.
+	t.Run("a confidential removal that fails is an error", func(t *testing.T) {
+		t.Parallel()
+		var warnings []string
+		path := stickyPath(t, filepath.Join(t.TempDir(), "index.json"))
+		err := removeCounterpart(path, true, newWarnf(&warnings))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), path, "the message names the file still on disk")
+		assert.Contains(t, err.Error(), "must not reach the server")
+		assert.Empty(t, warnings, "a leak is reported as an error, not downgraded to a warning")
+	})
+
+	// The other direction: a leftover .enc.json in a public run is useless without the
+	// password, so it is untidy rather than dangerous and must not fail the build.
+	t.Run("a non-confidential removal that fails is a warning", func(t *testing.T) {
+		t.Parallel()
+		var warnings []string
+		path := stickyPath(t, filepath.Join(t.TempDir(), "index.enc.json"))
+		assert.NoError(t, removeCounterpart(path, false, newWarnf(&warnings)))
+		require.Len(t, warnings, 1, "the failure still has to be reported")
+		assert.Contains(t, warnings[0], "WARN: ", "so it reaches the end-of-run summary")
+		assert.Contains(t, warnings[0], path)
+	})
+}
+
+// The end-to-end form: an album given a password writes index.enc.json and must not leave
+// the plaintext index.json an earlier public run wrote. That file is rsynced like any
+// other, so a warning nobody reads leaves a public URL serving every caption and photo
+// path of an album the site believes is private.
+func TestWriteAlbumIndex_StalePlaintextThatCannotBeRemoved(t *testing.T) {
+	t.Parallel()
+
+	newAP := func(t *testing.T, out, password string) *AlbumProcessor {
+		t.Helper()
+		cfg := &Config{OutputRoot: out, SiteID: "test", Warn: &WarnCollector{}}
+		if password != "" {
+			cfg.Encrypt = &EncryptConfig{AlbumPasswords: map[string]string{"myalbum": password}}
+		}
+		return NewAlbumProcessor(cfg, &AlbumConfig{Slug: "myalbum", Name: "My Album"})
+	}
+
+	t.Run("an encrypted album fails rather than leaving the plaintext", func(t *testing.T) {
+		t.Parallel()
+		out := t.TempDir()
+		ap := newAP(t, out, "secret123")
+		stickyPath(t, ap.OutputPath("index.json"))
+
+		err := ap.WriteAlbumIndex()
+		require.Error(t, err, "the run must not report success with the plaintext still there")
+		assert.Contains(t, err.Error(), "index.json")
+		assert.FileExists(t, ap.OutputPath("index.enc.json"), "the encrypted index is still written")
+	})
+
+	t.Run("a public album only warns about a stuck enc.json", func(t *testing.T) {
+		t.Parallel()
+		out := t.TempDir()
+		ap := newAP(t, out, "")
+		stickyPath(t, ap.OutputPath("index.enc.json"))
+
+		require.NoError(t, ap.WriteAlbumIndex(), "an unreadable leftover must not fail the build")
+		require.Len(t, ap.Config.Warn.warnings, 1)
+		assert.Contains(t, ap.Config.Warn.warnings[0], "index.enc.json")
+		assert.Contains(t, ap.Config.Warn.warnings[0], "[My Album]", "album warnings carry the album name")
+	})
+}
