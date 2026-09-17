@@ -28,6 +28,19 @@ cp config/site.example.env config/site.env
 A good reference are the `sample/config/` files that drives the demo site at
 [ddphotos.donohoe.info↗](https://ddphotos.donohoe.info).
 
+**Unknown keys are rejected.** Every key in the YAML files below has to be one photogen
+knows, at every level. Almost all of them are optional, so a misspelled key would otherwise
+be silently ignored and the default used instead, with nothing to show for it:
+
+```
+parse config/albums.yaml: yaml: unmarshal errors:
+  line 3: field site_nmae not found in type photogen.AlbumsSettings
+```
+
+The line number and the offending key are in the message. Album slugs and `bases` names are
+free-form, since they are map keys rather than settings. An empty file, or one that is only
+comments, is treated as "nothing configured" rather than an error.
+
 ---
 
 ## albums.yaml
