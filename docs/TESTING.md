@@ -426,6 +426,36 @@ shipped; Dependabot cannot fill the gap (it has no `.nvmrc` ecosystem, and canno
 24.20.0 to 24.21.0"), and while it stays open a later run comments and retitles only when that
 changes. It never edits a file: bumping Node is a deliberate change that CI then tests. Run the same check locally with `make check-versions`.
 
+The same workflow's `go` job runs [bin/check-go.sh](../bin/check-go.sh) and opens a separate `go`
+issue. It reports two things, both chosen because no dependency updater covers them. First, the
+`go` directive in `go.mod`: nothing bumps it (Dependabot's gomod ecosystem reads `require` lines
+only), and every `setup-go` step uses `go-version-file: go.mod`, so that directive is the Go that CI
+actually runs on. Go supports the two most recent major releases, so a directive two majors back
+means CI is testing on a toolchain that no longer gets security fixes. Second,
+[govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), which reports only
+vulnerabilities reachable from `cmd/` or `pkg/`. A reachable vulnerability leads the issue title, so
+the issue list distinguishes "act now" from "bump when convenient". Run it locally with
+`make check-go`.
+
+Reachability is the point, and it is what Dependabot cannot do. Dependabot alerts match manifest
+versions against GitHub's Advisory Database and say nothing about whether the vulnerable function is
+ever called; `govulncheck` walks the call graph, so it stays quiet about the `x/crypto/ssh` and
+`openpgp` advisories that sit in the module graph but that nothing here enters. It also catches
+advisories GitHub does not carry: `GO-2026-6222` in `golang.org/x/image` has a CVE but no GHSA, and
+this reported it while Dependabot had no open alert. Most of all it covers the standard library,
+which no dependency updater touches because it is not a dependency — the first real run found two
+reachable stdlib vulnerabilities, both a consequence of the stale `go` directive above, which is
+why the two checks share one job and one issue. That is also why `govulncheck` is not in the
+CI Go job: an advisory published overnight would fail an unrelated PR that changed nothing.
+
+Routine dependency bumps are Dependabot's job rather than this workflow's, configured in
+[.github/dependabot.yml](../.github/dependabot.yml): npm in `web/` (grouped weekly, since patch and
+minor bumps are usually read-and-merge while a major needs a changelog), GitHub Actions (monthly),
+and Go modules (weekly). Dependabot *alerts* and *security* updates were already enabled in the repo
+settings and are what every Dependabot PR merged before that file came from; the file adds the
+routine half, which nothing was reporting. Go module drift deliberately moved there from the nightly
+script: a PR with the edit made and CI run beats an issue saying a bump exists.
+
 A new Node release is not reported as drift until its Docker image exists. The tag trails the
 release by 0-2 days while it goes through `nodejs/docker-node` and `docker-library/official-images`,
 and a bump taken in that window fails the Docker build with `node:<version>-bookworm-slim: not
