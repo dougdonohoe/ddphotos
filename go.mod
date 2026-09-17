@@ -1,6 +1,6 @@
 module github.com/dougdonohoe/ddphotos
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/davidbyttow/govips/v2 v2.18.0
