@@ -1,6 +1,7 @@
 package photogen
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/dougdonohoe/ddphotos/pkg/exit"
 )
 
 func newTestProcessor(t *testing.T, photos []*Photo) *AlbumProcessor {
@@ -261,4 +264,111 @@ func TestResizePhotos_MixedAlbum(t *testing.T) {
 	for _, p := range posters {
 		assert.FileExists(t, p)
 	}
+}
+
+// --- interruption and early cancellation ---------------------------------------------
+//
+// These cover the two ways a worker pool can stop before the queue is empty. Both used to
+// be silent: an interrupted pool returned nil, and a failed pool let its siblings finish
+// every remaining item.
+
+// A pool that stops because exit was requested must say so. Returning nil let Process go
+// on to write an index.json describing WebPs that were never generated, and let photogen
+// exit 0, so a wrapper script (photogen && deploy) shipped a broken album.
+func TestResizePhotos_InterruptedReturnsError(t *testing.T) {
+	ap := newTestProcessor(t, []*Photo{
+		{FileName: "landscape-1.jpg", AbsolutePath: filepath.Join("testdata", "landscape-1.jpg")},
+	})
+
+	exit.SetExitRequested()
+	t.Cleanup(exit.ClearExitRequested)
+
+	require.ErrorIs(t, ap.ResizePhotos(), ErrInterrupted)
+
+	for _, size := range AllSizes() {
+		assert.NoFileExists(t, ap.OutputPath(string(size), WebPFileName("landscape-1.jpg")),
+			"an interrupted run must not have written %s", size)
+	}
+}
+
+// The video pool has the same interrupt path as the photo pool and needs its own case: an
+// album of nothing but videos leaves the photo pool empty, so only runVideoWorkers runs.
+func TestResizePhotos_VideoInterruptedReturnsError(t *testing.T) {
+	requireVideoTools(t)
+
+	ap := newTestProcessor(t, []*Photo{newTestVideo(t, "landscape.mov")})
+
+	exit.SetExitRequested()
+	t.Cleanup(exit.ClearExitRequested)
+
+	require.ErrorIs(t, ap.ResizePhotos(), ErrInterrupted)
+
+	mp4, posters := videoOutputs(ap, "landscape.mov")
+	assert.NoFileExists(t, mp4, "an interrupted run must not have transcoded")
+	for _, p := range posters {
+		assert.NoFileExists(t, p, "an interrupted run must not have written a poster")
+	}
+}
+
+// Process must not write the album index when the resize was cut short, because the index
+// lists every photo whether its WebPs exist. This is the end-to-end form of the
+// bug: the pool's return value only matters because Process keys off it.
+func TestProcess_InterruptedDoesNotWriteIndex(t *testing.T) {
+	srcDir := t.TempDir()
+	copyFixture(t, srcDir, "landscape-1.jpg")
+	copyFixture(t, srcDir, "portrait-1.jpg")
+
+	cfg := &Config{
+		OutputRoot: t.TempDir(),
+		SiteID:     "test",
+		Resize:     true,
+		Index:      true,
+		Warn:       &WarnCollector{},
+	}
+	ap := NewAlbumProcessor(cfg, &AlbumConfig{Slug: "test-album", Name: "Test Album", Path: srcDir})
+
+	exit.SetExitRequested()
+	t.Cleanup(exit.ClearExitRequested)
+
+	require.ErrorIs(t, ap.Process(1, 1), ErrInterrupted)
+	assert.NoFileExists(t, ap.OutputPath("index.json"), "a half-resized album must not get an index")
+	assert.NoFileExists(t, ap.OutputPath("cover.jpg"), "a half-resized album must not get a cover")
+}
+
+// After one item fails, the siblings should stop rather than work through the rest of the
+// queue. The queue is pre-filled and closed, so nothing else used to interrupt them: on a
+// video-heavy album that is minutes of transcoding whose output is thrown away.
+func TestResizePhotos_StopsRemainingWorkersAfterError(t *testing.T) {
+	dir := t.TempDir()
+	src := copyFixture(t, dir, "landscape-1.jpg")
+
+	// The missing file is first, so it heads the pre-filled queue and fails on open long
+	// before any real resize finishes. Everything behind it is work the pool should drop.
+	const good = 30
+	photos := []*Photo{{FileName: "missing.jpg", AbsolutePath: filepath.Join(dir, "missing.jpg")}}
+	for i := range good {
+		photos = append(photos, &Photo{FileName: fmt.Sprintf("good-%02d.jpg", i), AbsolutePath: src})
+	}
+
+	ap := newTestProcessor(t, photos)
+	// More workers than the failing photo has items. One photo expands to one item per
+	// size, so with only len(AllSizes()) workers every one of them would pick up a failing
+	// item and the pool would empty itself: the test would pass without proving anything.
+	ap.Config.NumWorkers = 2 * len(AllSizes())
+
+	require.Error(t, ap.ResizePhotos())
+
+	written := 0
+	for _, p := range photos[1:] {
+		for _, size := range AllSizes() {
+			if _, err := os.Stat(ap.OutputPath(string(size), WebPFileName(p.FileName))); err == nil {
+				written++
+			}
+		}
+	}
+	// 60 items sit behind the failure. The surviving workers finish whatever was already
+	// in flight and then see the cancel, so a few stragglers are expected; draining the
+	// whole queue is the regression (and took 11s of thrown-away work when measured).
+	assert.Less(t, written, 10, "workers must stop after the first error, not drain the queue (wrote %d of %d)",
+		written, good*len(AllSizes()))
 }

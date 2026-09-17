@@ -1,6 +1,7 @@
 package photogen
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,13 @@ import (
 
 	"github.com/dougdonohoe/ddphotos/pkg/exit"
 )
+
+// ErrInterrupted reports that a worker pool stopped before its queue was empty because a
+// graceful exit was requested (Ctrl-C). It has to be an error rather than a quiet return:
+// Process keys off the resize result, and a nil there means it goes on to write an
+// index.json listing photos whose WebPs were never generated, while photogen still exits
+// 0. A wrapper script of the "photogen && deploy" shape then ships the broken album.
+var ErrInterrupted = errors.New("interrupted before all photos were processed")
 
 // resizeWork represents a single resize operation: one photo at one size.
 type resizeWork struct {
@@ -128,12 +136,23 @@ func (ap *AlbumProcessor) runResizeWorkers(items []resizeWork, numWorkers int) e
 	var wg sync.WaitGroup
 	var firstErr error
 	var errOnce sync.Once
+	// Closed by whichever worker records the first error, so the others stop instead of
+	// working through a queue whose output is already doomed. The queue is pre-filled and
+	// closed, so without this they run to the end: on a big album that is minutes of
+	// resizing thrown away before the error even surfaces.
+	done := make(chan struct{})
 	for i := range numWorkers {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			for item := range work {
+				select {
+				case <-done:
+					return
+				default:
+				}
 				if exit.ExitRequested() {
+					errOnce.Do(func() { firstErr = ErrInterrupted })
 					return
 				}
 				result, err := ResizeImage(
@@ -146,6 +165,7 @@ func (ap *AlbumProcessor) runResizeWorkers(items []resizeWork, numWorkers int) e
 				if err != nil {
 					errOnce.Do(func() {
 						firstErr = fmt.Errorf("resize %s to %s: %w", item.photo.AbsolutePath, item.size, err)
+						close(done)
 					})
 					return
 				}
@@ -180,16 +200,28 @@ func (ap *AlbumProcessor) runVideoWorkers(videos []videoWork, numWorkers int) er
 	var wg sync.WaitGroup
 	var firstErr error
 	var errOnce sync.Once
+	// See runResizeWorkers: abandoning the queue matters even more here, where a single
+	// remaining item is a whole transcode.
+	done := make(chan struct{})
 	for i := range videoWorkers {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			for item := range work {
+				select {
+				case <-done:
+					return
+				default:
+				}
 				if exit.ExitRequested() {
+					errOnce.Do(func() { firstErr = ErrInterrupted })
 					return
 				}
 				if err := ap.processVideo(id, item); err != nil {
-					errOnce.Do(func() { firstErr = err })
+					errOnce.Do(func() {
+						firstErr = err
+						close(done)
+					})
 					return
 				}
 			}

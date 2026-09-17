@@ -2,9 +2,11 @@ package photogen
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -703,4 +705,95 @@ func TestGetAlbumSummary(t *testing.T) {
 		assert.NotEmpty(t, sOther.Cover, "site-only encrypted album should include cover")
 		assert.Empty(t, sOther.CoverJpeg)
 	})
+}
+
+// computeDateSpan may not assume ap.Photos is in date order. LoadPhotos skips sortByDate
+// whenever an album sets manual_sort_order, so taking the first and last dated photos in
+// slice order produced backwards spans ("Mar 2025 - May 2023") and wrong ones spanning a
+// year boundary ("Dec - Jan 2024"). It has to scan for the earliest and latest instead.
+func TestComputeDateSpan(t *testing.T) {
+	t.Parallel()
+
+	day := func(year int, month time.Month, d int) time.Time {
+		return time.Date(year, month, d, 12, 0, 0, 0, time.UTC)
+	}
+	// photos builds an album from dates in the given order; a zero time means undated.
+	// PhotoMetadata is always populated because fillMetadata leaves no photo without it.
+	photos := func(dates ...time.Time) []*Photo {
+		out := make([]*Photo, 0, len(dates))
+		for i, d := range dates {
+			out = append(out, &Photo{
+				FileName:      fmt.Sprintf("p%02d.jpg", i),
+				PhotoMetadata: &PhotoMetadata{DateTaken: d},
+			})
+		}
+		return out
+	}
+
+	tests := []struct {
+		name   string
+		photos []*Photo
+		want   string
+	}{
+		{"no photos", nil, ""},
+		{"no dated photos", photos(time.Time{}, time.Time{}), ""},
+		{"single photo", photos(day(2024, time.April, 3)), "Apr 2024"},
+		{
+			"same month, ascending",
+			photos(day(2024, time.April, 3), day(2024, time.April, 20)),
+			"Apr 2024",
+		},
+		{
+			"same year, ascending",
+			photos(day(2024, time.March, 3), day(2024, time.June, 20)),
+			"Mar - Jun 2024",
+		},
+		{
+			"different years, ascending",
+			photos(day(2023, time.May, 3), day(2025, time.March, 20)),
+			"May 2023 - Mar 2025",
+		},
+		// The manual_sort_order regressions. Each is the reverse of an ascending case
+		// above and has to produce the identical span: order is presentation, not data.
+		{
+			"same year, newest first",
+			photos(day(2024, time.June, 20), day(2024, time.March, 3)),
+			"Mar - Jun 2024",
+		},
+		{
+			"different years, newest first",
+			photos(day(2025, time.March, 20), day(2023, time.May, 3)),
+			"May 2023 - Mar 2025",
+		},
+		{
+			"crossing a year boundary, newest first",
+			photos(day(2024, time.January, 5), day(2023, time.December, 28)),
+			"Dec 2023 - Jan 2024",
+		},
+		{
+			"unsorted, with the extremes in the middle",
+			photos(
+				day(2024, time.July, 1),
+				day(2022, time.February, 14), // earliest
+				day(2024, time.August, 9),
+				day(2026, time.November, 2), // latest
+				day(2023, time.September, 30),
+			),
+			"Feb 2022 - Nov 2026",
+		},
+		// An undated photo must not become an endpoint, in either position.
+		{
+			"undated photos are ignored",
+			photos(time.Time{}, day(2024, time.May, 4), time.Time{}, day(2024, time.February, 1), time.Time{}),
+			"Feb - May 2024",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ap := &AlbumProcessor{Photos: tt.photos}
+			assert.Equal(t, tt.want, ap.computeDateSpan())
+		})
+	}
 }
