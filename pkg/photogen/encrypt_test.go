@@ -188,6 +188,49 @@ func TestEncryptConfigValidate(t *testing.T) {
 		ec := &EncryptConfig{HMACKey: "key", AlbumPasswords: map[string]string{"uganda": "abcde"}}
 		assert.NoError(t, ec.Validate())
 	})
+
+	// Rejecting a hint-only entry is correct: an album hint is only ever shown in that
+	// album's own password dialog, and an album without its own password never shows one.
+	// Reporting it as a length problem sent readers hunting for a password nobody wrote.
+	t.Run("hint-only entry reports the missing password, not a short one", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{
+			HMACKey:        "key",
+			SitePassword:   "globalpass",
+			AlbumPasswords: map[string]string{"uganda": ""},
+			AlbumHints:     map[string]string{"uganda": "A big brown ape"},
+		}
+		err := ec.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "uganda")
+		assert.Contains(t, err.Error(), "hint")
+		assert.Contains(t, err.Error(), "no password")
+		assert.NotContains(t, err.Error(), "at least", "a missing password is not a length problem")
+	})
+
+	t.Run("entry with neither password nor hint reports the missing password", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{
+			HMACKey:        "key",
+			SitePassword:   "globalpass",
+			AlbumPasswords: map[string]string{"uganda": ""},
+		}
+		err := ec.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "uganda")
+		assert.Contains(t, err.Error(), "no password")
+		assert.NotContains(t, err.Error(), "hint", "there is no hint to mention")
+		assert.NotContains(t, err.Error(), "at least")
+	})
+
+	// The length check still has to fire for a password that is present but too short.
+	t.Run("a genuinely short per-album password still reports the length", func(t *testing.T) {
+		t.Parallel()
+		ec := &EncryptConfig{HMACKey: "key", AlbumPasswords: map[string]string{"uganda": "ab"}}
+		err := ec.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "at least")
+	})
 }
 
 func TestAlbumPassword(t *testing.T) {

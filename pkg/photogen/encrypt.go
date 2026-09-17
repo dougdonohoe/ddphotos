@@ -120,6 +120,19 @@ func (ec *EncryptConfig) Validate() error {
 		}
 	}
 	for slug, p := range ec.AlbumPasswords {
+		// An entry with no password is rejected rather than reported as a short one. The
+		// two are different mistakes: a missing password usually means the author wrote an
+		// album entry to attach a hint to it, and a length complaint sends them looking
+		// for a password nobody wrote. Rejecting it also keeps the empty value from
+		// overriding site.password and publishing the album in the clear.
+		if p == "" {
+			detail := "has an entry but no password"
+			if ec.AlbumHints[slug] != "" {
+				detail = "has a hint but no password"
+			}
+			return fmt.Errorf("passwords file: album %q %s; give it a password, or remove the "+
+				"entry to encrypt the album with site.password", slug, detail)
+		}
 		if err := checkPasswordLen(fmt.Sprintf("album %q", slug), p); err != nil {
 			return err
 		}
