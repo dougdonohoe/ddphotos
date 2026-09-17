@@ -250,9 +250,16 @@ func ReadVideoMetadata(path string) (*PhotoMetadata, error) {
 			continue
 		}
 		width, height, found = s.Width, s.Height, true
+		// First rotation entry wins. A stream carries at most one display matrix, which is
+		// the only side-data type with a rotation field, so the list holds at most one of
+		// them; stopping here says that rather than leaving a swap that would undo itself
+		// if the list ever held two.
 		for _, sd := range s.SideData {
-			if sd.Rotation != nil && isQuarterTurn(*sd.Rotation) {
-				width, height = height, width
+			if sd.Rotation != nil {
+				if isQuarterTurn(*sd.Rotation) {
+					width, height = height, width
+				}
+				break
 			}
 		}
 		break
