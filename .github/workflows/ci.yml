@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install system dependencies
         # Via bin/ci-apt-install.sh rather than a bare apt-get: GitHub's runner images pin
@@ -62,7 +62,7 @@ jobs:
       # where a stale-but-working ffmpeg is fine.
       - name: Cache ffmpeg
         if: github.event_name == 'push' || github.event_name == 'pull_request'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ffmpeg
           key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docker/do-install-ffmpeg.sh') }}
@@ -84,12 +84,12 @@ jobs:
           bash docker/do-install-ffmpeg.sh
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: 'web/.nvmrc'
           cache: 'npm'
@@ -108,7 +108,7 @@ jobs:
       # the @playwright/test version. Not restored on the nightly; see "Cache ffmpeg" above.
       - name: Cache Playwright browsers
         if: github.event_name == 'push' || github.event_name == 'pull_request'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -163,7 +163,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install system dependencies
         # Via bin/ci-apt-install.sh rather than a bare apt-get: GitHub's runner images pin
@@ -176,7 +176,7 @@ jobs:
         # Not restored on the nightly, so it still exercises a fresh download; see the
         # 'test' job above.
         if: github.event_name == 'push' || github.event_name == 'pull_request'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/ffmpeg
           key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('docker/do-install-ffmpeg.sh') }}
@@ -189,12 +189,12 @@ jobs:
           bash docker/do-install-ffmpeg.sh
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: 'web/.nvmrc'
           cache: 'npm'
@@ -212,7 +212,7 @@ jobs:
       - name: Cache Playwright browsers
         # Not restored on the nightly; see the 'test' job above.
         if: github.event_name == 'push' || github.event_name == 'pull_request'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -246,10 +246,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: 'web/.nvmrc'
           cache: 'npm'
@@ -264,7 +264,7 @@ jobs:
       - name: Cache Playwright browsers
         # Not restored on the nightly; see the 'test' job above.
         if: github.event_name == 'push' || github.event_name == 'pull_request'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
@@ -305,7 +305,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Open or update the nightly failure issue
         env:
