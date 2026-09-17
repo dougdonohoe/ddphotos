@@ -310,20 +310,13 @@ func TestPhotoWebPName_DifferentKeys(t *testing.T) {
 
 // TestPhotoOutputName covers the generalization of PhotoWebPName over the output
 // extension, added so a video's .mp4 lands on the same obfuscated stem as its poster.
+//
+// The "a .webp output equals what PhotoWebPName would have produced" case is not here.
+// EncryptConfig.PhotoWebPName was deleted as dead code, so there is no second expression
+// left on this type to compare against; the surviving pair is Config.PhotoWebPName and
+// Config.PhotoOutputName, asserted in config_test.go.
 func TestPhotoOutputName(t *testing.T) {
 	t.Parallel()
-
-	t.Run("PhotoWebPName is exactly PhotoOutputName with .webp", func(t *testing.T) {
-		t.Parallel()
-		// The delegation is the whole point of the refactor. Asserted rather than assumed
-		// so the two cannot drift into separate naming schemes, which would only show up
-		// as 404s on an encrypted site.
-		for _, ec := range []*EncryptConfig{{}, {HMACKey: "test-key"}} {
-			for _, name := range []string{"IMG_3961.jpg", "clip.mov", "no-extension"} {
-				assert.Equal(t, ec.PhotoOutputName(name, ".webp"), ec.PhotoOutputName(name, ".webp"), name)
-			}
-		}
-	})
 
 	t.Run("without a key the stem is the source name and only the extension changes", func(t *testing.T) {
 		t.Parallel()

@@ -227,6 +227,15 @@ func main() {
 	cfg.MetaCache = photogen.LoadMetaCache(photogen.MetaCachePath(cfg.OutputRoot))
 	cfg.MetaCache.SetRefresh(*force)
 
+	// The descriptions file is keyed by slug and read with a plain map lookup, so an entry
+	// naming no album just produces an album with no blurb. Reported here rather than inside
+	// ToAlbumConfigs, and worded like the passwords warning below, because it is the same
+	// mistake in the other config file.
+	if stale := settings.UnknownDescriptionSlugs; len(stale) > 0 {
+		warn.Warnf("WARN: descriptions file %s has entries for albums not in albums.yaml (ignored): %s\n",
+			filepath.Join(*configDir, settings.Descriptions), strings.Join(stale, ", "))
+	}
+
 	// -passwords overrides settings.passwords; fall back to YAML setting if flag not provided
 	passwordsPath := *passwords
 	if passwordsPath == "" && settings.Passwords != "" {

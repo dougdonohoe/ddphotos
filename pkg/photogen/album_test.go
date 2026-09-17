@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -760,5 +761,73 @@ func TestProcess_EncryptedAlbumRemovesStaleCoverJPEG(t *testing.T) {
 		cfg.DryRun = true
 		require.NoError(t, NewAlbumProcessor(cfg, ac).Process(1, 1))
 		assert.FileExists(t, cover, "a dry run must not remove anything")
+	})
+}
+
+// The cover check runs against the full photo list, before -limit truncates it. -limit
+// keeps only the first N on purpose, so a cover that sorts later is still in the album;
+// warning that it is "not found" would be a lie, and it would fire in exactly the mode
+// people iterate in.
+func TestCoverWarningIgnoresLimit(t *testing.T) {
+	t.Parallel()
+
+	// Three dated photos, so the cover can be made to sort last.
+	setup := func(t *testing.T, cover string, limit int) []string {
+		t.Helper()
+		src := t.TempDir()
+		for _, n := range []string{"landscape-1.jpg", "portrait-1.jpg", "no-exif.jpg"} {
+			data, err := os.ReadFile(filepath.Join("testdata", n))
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(src, n), data, 0o644))
+		}
+		wc := &WarnCollector{}
+		cfg := &Config{OutputRoot: t.TempDir(), SiteID: "test", Limit: limit, Warn: wc}
+		ap := NewAlbumProcessor(cfg, &AlbumConfig{
+			Slug: "a", Name: "A", Path: src, Cover: cover, ManualSortOrder: true,
+		})
+		require.NoError(t, ap.LoadPhotos())
+		return wc.warnings
+	}
+
+	coverWarnings := func(warnings []string) []string {
+		var got []string
+		for _, w := range warnings {
+			if strings.Contains(w, "cover source path") {
+				got = append(got, w)
+			}
+		}
+		return got
+	}
+
+	// The regression: the cover is the third photo and -limit 1 truncates it away, but it
+	// is present in the album and must not be reported missing.
+	t.Run("a cover beyond the limit is not reported missing", func(t *testing.T) {
+		t.Parallel()
+		assert.Empty(t, coverWarnings(setup(t, "no-exif.jpg", 1)),
+			"the cover is in the album; -limit only trims what this run generates")
+	})
+
+	t.Run("a cover within the limit is not reported missing", func(t *testing.T) {
+		t.Parallel()
+		assert.Empty(t, coverWarnings(setup(t, "landscape-1.jpg", 1)))
+	})
+
+	// The warning still has to work: a cover naming no photo at all is a real mistake.
+	t.Run("a cover that names no photo is still reported", func(t *testing.T) {
+		t.Parallel()
+		got := coverWarnings(setup(t, "nope.jpg", 0))
+		require.Len(t, got, 1)
+		assert.Contains(t, got[0], "nope.jpg")
+	})
+
+	t.Run("a missing cover is reported under a limit too", func(t *testing.T) {
+		t.Parallel()
+		assert.Len(t, coverWarnings(setup(t, "nope.jpg", 1)), 1,
+			"-limit must not suppress a genuinely missing cover")
+	})
+
+	t.Run("no cover configured means no warning", func(t *testing.T) {
+		t.Parallel()
+		assert.Empty(t, coverWarnings(setup(t, "", 1)))
 	})
 }
