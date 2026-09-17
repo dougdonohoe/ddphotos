@@ -125,6 +125,11 @@ web-nvm-install:
 check-versions:
 	@bin/check-versions.sh; s=$$?; test $$s -le 1
 
+.PHONY: check-go
+## check-go: report whether the Go version in go.mod is behind, and any reachable vulnerabilities
+check-go:
+	@bin/check-go.sh; s=$$?; test $$s -le 1
+
 .PHONY: web-npm-install
 ## web-npm-install: install npm dependencies in web/
 web-npm-install:

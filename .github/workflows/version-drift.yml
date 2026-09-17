@@ -1,12 +1,15 @@
 name: Version Drift
 
-# Nightly check that web/.nvmrc and web/.npm-version have not fallen behind upstream.
+# Nightly check on the versions no dependency updater watches, plus the one vulnerability
+# question an updater cannot answer. The `check` job covers the pinned Node and npm
+# versions, the `go` job covers the Go toolchain directive and reachable vulnerabilities.
+# Each opens its own issue, so the two do not mix.
 #
-# Those two files hold exact versions deliberately (see CLAUDE.md): a floating tag like
-# `node:24` means the same commit builds a different image depending on the day, and an
-# upstream regression then arrives with no commit to bisect. The cost of pinning exactly
-# is losing the one thing a floating tag gave us for free -- finding out that a fix or a
-# security release shipped.
+# web/.nvmrc and web/.npm-version hold exact versions deliberately (see CLAUDE.md): a
+# floating tag like `node:24` means the same commit builds a different image depending on
+# the day, and an upstream regression then arrives with no commit to bisect. The cost of
+# pinning exactly is losing the one thing a floating tag gave us for free -- finding out
+# that a fix or a security release shipped.
 #
 # Dependabot cannot restore that. It has no .nvmrc ecosystem, and its docker ecosystem
 # cannot see a version in docker/Dockerfile's `FROM node:${NODE_VERSION}-bookworm-slim`
@@ -14,8 +17,26 @@ name: Version Drift
 # at the price of another bot with write access; bin/check-versions.sh is the same signal
 # in one script that also spells out what to edit.
 #
+# The Go side is different, and worth being precise about rather than assuming the argument
+# above carries over. Dependabot's gomod ecosystem works fine, and .github/dependabot.yml
+# now uses it for module bumps, so this job deliberately does NOT report module drift: a PR
+# with the edit made and CI run beats an issue saying a bump exists.
+#
+# What is left here is what no updater does. The `go` directive in go.mod is not a `require`
+# line, so nothing bumps it, and every setup-go step reads it -- so a stale directive means
+# CI tests on a Go outside its support window. And govulncheck walks the call graph, where
+# Dependabot alerts only match manifest versions against GitHub's database; that is what
+# keeps this quiet about the x/crypto/ssh advisories nothing here calls, and what caught
+# GO-2026-6222 in x/image, which has a CVE but no GHSA and so no Dependabot alert.
+#
+# Note the "another bot with write access" argument above does not apply to Dependabot here:
+# it already has write access and already opens PRs, since security updates are enabled. It
+# was an argument against adding Renovate, a second bot, for the Node pins.
+#
 # Kept out of ci.yml on purpose: this reports on the outside world rather than testing the
-# code, and it must not turn a PR red because Node shipped a patch release.
+# code, and it must not turn a PR red because Node shipped a patch release. That applies to
+# govulncheck too, and is why it is not in the Go CI job: an advisory published overnight
+# would fail an unrelated PR that changed nothing.
 #
 # Scheduled runs only ever use the default branch, and GitHub disables the schedule on a
 # public repo after 60 days with no activity (warning by email first).
@@ -85,3 +106,54 @@ jobs:
           bash bin/ci-open-issue.sh version-drift \
             "$(cat "$RUNNER_TEMP/version-title.txt")" \
             "$RUNNER_TEMP/version-report.md"
+
+  # A separate job rather than more steps on `check`, for three reasons: the Node check
+  # needs no Go toolchain and should not wait for one, a Go setup failure must not suppress
+  # the Node report, and the two file separate issues so neither buries the other.
+  go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # go-version-file rather than a literal, matching ci.yml: go.mod is the only place
+      # naming the Go version.
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Check the Go toolchain pin and for reachable vulnerabilities
+        id: check
+        # Same exit-code contract as bin/check-versions.sh above: 0 current, 1 something to
+        # report, 2 the check itself could not run. Only 2 is a workflow failure. Note the
+        # script translates govulncheck's own exit 3 into 1.
+        run: |
+          set +e
+          bash bin/check-go.sh "$RUNNER_TEMP/go-title.txt" > "$RUNNER_TEMP/go-report.md"
+          status=$?
+          cat "$RUNNER_TEMP/go-report.md"
+          {
+            echo "## Go"
+            echo
+            cat "$RUNNER_TEMP/go-report.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          [ "$status" -le 1 ]
+
+      - name: Open or update the Go issue
+        if: steps.check.outputs.status == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The title leads with a reachable vulnerability when there is one, so the issue
+        # list distinguishes "act now" from "bump when convenient" without being opened.
+        run: |
+          bash bin/ci-open-issue.sh go \
+            "$(cat "$RUNNER_TEMP/go-title.txt")" \
+            "$RUNNER_TEMP/go-report.md"

@@ -1,0 +1,56 @@
+# Dependabot version updates: routine bumps, opened as PRs.
+#
+# Distinct from the two Dependabot features already enabled in repo settings. *Alerts* and
+# *security updates* fire only when a dependency version matches an advisory in GitHub's
+# database; every Dependabot PR merged here before this file existed was one of those. This
+# file adds the other half: bumps that are simply newer, which nothing was reporting.
+#
+# The division of labour with .github/workflows/version-drift.yml is deliberate. Dependabot
+# handles anything that is a version in a manifest a PR can bump. The nightly script handles
+# what Dependabot structurally cannot: govulncheck's call-graph analysis, and the versions no
+# ecosystem covers (web/.nvmrc, web/.npm-version, and the `go` directive in go.mod, none of
+# which are `require` lines anybody's updater reads).
+#
+# Not listed here, on purpose:
+#
+#   docker  -- docker/Dockerfile builds `FROM node:${NODE_VERSION}-bookworm-slim`. There is
+#              no literal tag for Dependabot to bump; web/.nvmrc is the real source and the
+#              nightly job watches it.
+version: 2
+
+updates:
+  # npm was the real gap. Nothing reported routine drift in web/: `npm audit` is manual and
+  # security-only, and CI never runs it. When this file landed, 18 packages were behind,
+  # six of them by a major.
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: saturday
+    # One PR for the routine bumps instead of a dozen. Grouped by risk rather than by name:
+    # a patch or minor bump is usually a read-and-merge, while a major needs a look at the
+    # changelog, so majors are left to arrive on their own.
+    groups:
+      minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  # Eight actions across the workflows and nothing watched them, so a new major would have
+  # gone unnoticed until something broke. Monthly: these move a few times a year.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+
+  # Four direct requirements, so no grouping and no real volume. This replaces the module
+  # drift the nightly Go job used to report: a PR with the edit already made and CI already
+  # run beats an issue saying a bump exists.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday
