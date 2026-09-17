@@ -50,11 +50,9 @@ func openImage(inputPath, outputPath, dryRunLabel string, force, dryRun bool) (*
 		return nil, &ResizeResult{DryRun: true, Message: fmt.Sprintf("DRYRUN: would write %s (%s)", outputPath, dryRunLabel)}, nil
 	}
 
-	params := vips.NewImportParams()
-	params.FailOnError.Set(false)
-	img, err := vips.LoadImageFromFile(inputPath, params)
+	img, err := loadImage(inputPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load image %s: %w", inputPath, annotateImageLoadErr(err))
+		return nil, nil, fmt.Errorf("load image %s: %w", inputPath, err)
 	}
 
 	if err := img.AutoRotate(); err != nil {

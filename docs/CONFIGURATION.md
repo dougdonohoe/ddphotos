@@ -230,8 +230,16 @@ albums:
 | `key`                    | HMAC-SHA256 secret used to derive UUID-format WebP filenames for encrypted albums, preventing filename guessing (e.g. `IMG_3961.webp` becomes `3f8a1c2d-...webp`) |
 | `site.password`          | Encrypts `albums.json` and all per-album `index.json` files site-wide                                                                                             |
 | `site.hint`              | Optional hint shown in the site-wide password dialog (always visible, even before a password attempt)                                                             |
-| `albums.<slug>.password` | Per-album password; encrypts only that album's `index.json`. Falls back to `site.password` if not set                                                             |
+| `albums.<slug>.password` | Per-album password; encrypts only that album's `index.json`. Required whenever an `albums.<slug>` entry is present                                                |
 | `albums.<slug>.hint`     | Optional hint shown in that album's password dialog                                                                                                               |
+
+**An album with no `albums.<slug>` entry is still encrypted when `site.password` is set.** Its
+`index.json` is encrypted with the site password, and a visitor unlocks it by entering that
+password once: the frontend stores it under `ddp_site_<siteId>` and reuses it for every album
+that has no password of its own. Such an album never shows a dialog of its own, which is why an
+entry carrying only a `hint` is rejected at startup rather than treated as "encrypted with the
+site password, plus a hint". A hint is only ever displayed in that album's own password dialog,
+so to give an album a hint, give it a unique password.
 
 An `albums.<slug>` entry whose slug is not in `albums.yaml` — typically an album that was
 deleted but whose password was left behind — is ignored, and `photogen` prints a warning
