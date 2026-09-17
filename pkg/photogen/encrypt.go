@@ -205,10 +205,9 @@ func (ec *EncryptConfig) RestrictToAlbums(knownSlugs []string) []string {
 }
 
 // PhotoOutputName returns the obfuscated output filename for a derived artifact of a
-// source file, so that a
-// video's .mp4 is obfuscated by the same HMAC as its poster's .webp rather than leaking
-// the original filename. The HMAC covers only the source filename, so every output
-// derived from one source shares a stem and differs only by extension.
+// source file, so that a video's .mp4 is obfuscated by the same HMAC as its poster's .webp
+// rather than leaking the original filename. The HMAC covers only the source filename, so
+// every output derived from one source shares a stem and differs only by extension.
 func (ec *EncryptConfig) PhotoOutputName(filename, outExt string) string {
 	if ec.HMACKey == "" {
 		return strings.TrimSuffix(filename, filepath.Ext(filename)) + outExt

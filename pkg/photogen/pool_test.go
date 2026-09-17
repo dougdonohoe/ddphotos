@@ -69,6 +69,24 @@ func TestRunPool(t *testing.T) {
 		}
 	})
 
+	// A count of zero would start no goroutines, leave wg.Wait to return at once, and hand
+	// back nil having processed nothing: a complete-looking run that did none of the work.
+	// No caller can reach it today (Config.Workers returns at least 2, and the video pool
+	// uses max(n/2, 1)), but runPool is a generic helper and a future caller computing its
+	// own count should not get a silent no-op.
+	t.Run("a non-positive worker count still runs the queue", func(t *testing.T) {
+		t.Parallel()
+		for _, workers := range []int{0, -1} {
+			var calls atomic.Int32
+			require.NoError(t, runPool(seq(5), workers, func(_ int, _ int) error {
+				calls.Add(1)
+				return nil
+			}), "workers=%d", workers)
+			assert.Equal(t, int32(5), calls.Load(),
+				"workers=%d must still process every item, not silently do nothing", workers)
+		}
+	})
+
 	t.Run("worker ids are 1-based", func(t *testing.T) {
 		t.Parallel()
 		var mu sync.Mutex

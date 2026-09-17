@@ -20,7 +20,9 @@ var ErrInterrupted = errors.New("interrupted before all photos were processed")
 // The queue is a buffered channel pre-filled with every item and closed before any worker
 // starts, so workers drain it with no further coordination and the pool ends by itself.
 // Workers are capped at len(items), since a goroutine with nothing to take is pure
-// overhead.
+// overhead, and floored at 1: no caller can currently pass less, but a zero would start no
+// goroutines at all and return nil having processed nothing, which is exactly the
+// half-finished run reported as complete that ErrInterrupted exists to prevent.
 //
 // Two conditions end the pool early, and both matter:
 //
@@ -39,6 +41,9 @@ func runPool[T any](items []T, workers int, fn func(workerID int, item T) error)
 	}
 	if workers > len(items) {
 		workers = len(items)
+	}
+	if workers < 1 {
+		workers = 1
 	}
 
 	work := make(chan T, len(items))
