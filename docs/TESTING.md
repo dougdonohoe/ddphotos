@@ -395,7 +395,7 @@ to minimize CI run time.
 
 It also runs nightly at 05:17 UTC. A push or pull request run tests the code; the nightly run
 tests everything the repo does *not* pin. Node, npm, `package-lock.json` and the Go toolchain are
-pinned exactly, but the ffmpeg `latest` release, the `debian:bookworm-slim` and `golang:1.25-bookworm`
+pinned exactly, but the ffmpeg `latest` release, the `debian:bookworm-slim` and `golang:1.##-bookworm`
 base images, the `ubuntu-latest` runner image, apt packages and Playwright's browser downloads all
 move on their own. Those break on a calendar rather than on a commit, so without a scheduled run the
 first person to find out is whoever opens the next PR. When a nightly run fails, the
