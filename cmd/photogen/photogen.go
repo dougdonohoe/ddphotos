@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -79,6 +80,34 @@ func saveMetaCache(cfg *photogen.Config) {
 	if err := cfg.MetaCache.Save(); err != nil {
 		fmt.Printf("WARN: could not save metadata cache: %s\n", err)
 	}
+}
+
+// validateCleanFlags rejects flag combinations that would make -clean delete output the
+// run did not regenerate. CleanOutputDir removes anything under a processed album that is
+// not in the expected set, so any flag that leaves real output untracked turns -clean into
+// a delete of the user's work.
+//
+// Both rules protect the same thing from different directions: without -resize nothing is
+// tracked at all, and with -limit the photo list is truncated before tracking happens, so
+// everything past the limit looks unexpected. outputPath is named in the first message so
+// the user can remove the directory by hand if that is what they actually wanted.
+func validateCleanFlags(clean, resize bool, limit int, outputPath string) error {
+	if !clean {
+		return nil
+	}
+	if !resize {
+		return fmt.Errorf("-clean requires -resize.\n"+
+			"Without -resize, photogen does not track resized images, so -clean would\n"+
+			"delete all of them. If you really want to remove all output files,\n"+
+			"delete the output directory manually (e.g. rm -rf %s).", outputPath)
+	}
+	if limit > 0 {
+		return errors.New("-clean cannot be combined with -limit.\n" +
+			"-limit truncates the photo list before the output files are tracked, so -clean\n" +
+			"would delete every already-generated photo past the limit. Drop -limit for a\n" +
+			"full run, or drop -clean while developing.")
+	}
+	return nil
 }
 
 func main() {
@@ -190,16 +219,12 @@ func main() {
 		}
 	}
 
-	// Don't allow -clean without -resize (you can delete all resized photos!)
 	cfg.Clean = *clean
+	if err := validateCleanFlags(*clean, *resize, *limit, cfg.SiteOutputPath()); err != nil {
+		fmt.Printf("ERROR: %s\n", err)
+		exit.ExitWithStatus(err)
+	}
 	if *clean {
-		if !*resize {
-			fmt.Println("ERROR: -clean requires -resize.")
-			fmt.Println("Without -resize, photogen does not track resized images, so -clean would")
-			fmt.Println("delete all of them. If you really want to remove all output files,")
-			fmt.Printf("delete the output directory manually (e.g. rm -rf %s).\n", cfg.SiteOutputPath())
-			exit.ExitWithStatus(fmt.Errorf("-clean requires -resize"))
-		}
 		cfg.InitClean()
 	}
 
