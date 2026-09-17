@@ -10,7 +10,7 @@ ARG NODE_VERSION
 ARG NPM_VERSION
 
 # ── Stage 1: Build photogen (Go + libvips) ────────────────────────────────────
-FROM golang:1.25-bookworm AS go-builder
+FROM golang:1.27-bookworm AS go-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips-dev pkg-config \
