@@ -71,12 +71,6 @@ func IsMediaFile(name string) bool {
 	return IsPhotoFile(name) || IsVideoFile(name)
 }
 
-// VideoFileName returns the transcoded output filename for a source video.
-func VideoFileName(filename string) string {
-	ext := filepath.Ext(filename)
-	return strings.TrimSuffix(filename, ext) + ".mp4"
-}
-
 // videoTools holds resolved paths to the ffmpeg and ffprobe executables.
 type videoTools struct {
 	ffmpeg  string
@@ -256,9 +250,16 @@ func ReadVideoMetadata(path string) (*PhotoMetadata, error) {
 			continue
 		}
 		width, height, found = s.Width, s.Height, true
+		// First rotation entry wins. A stream carries at most one display matrix, which is
+		// the only side-data type with a rotation field, so the list holds at most one of
+		// them; stopping here says that rather than leaving a swap that would undo itself
+		// if the list ever held two.
 		for _, sd := range s.SideData {
-			if sd.Rotation != nil && isQuarterTurn(*sd.Rotation) {
-				width, height = height, width
+			if sd.Rotation != nil {
+				if isQuarterTurn(*sd.Rotation) {
+					width, height = height, width
+				}
+				break
 			}
 		}
 		break

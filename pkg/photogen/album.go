@@ -139,6 +139,17 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 		}
 	}
 
+	// An encrypted album must not have a cover.jpg. It is a readable JPEG of the album's
+	// cover photo, published for OG tags, and GetAlbumSummary already withholds CoverJpeg
+	// for encrypted albums for exactly that reason. Skipping WriteCoverJPEG below is not
+	// enough on its own: an album that was public before its password was added keeps the
+	// file an earlier run wrote, on disk and on the server. Removing it here rather than
+	// relying on -clean, which the user has to opt into.
+	encrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
+	if encrypted && !ap.Config.DryRun {
+		removeIfExists(ap.OutputPath(CoverJPEGName))
+	}
+
 	// resize photos if enabled
 	if ap.Config.Resize {
 		if err := ap.ResizePhotos(); err != nil {
@@ -147,7 +158,6 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 		}
 		// Cover JPEG is only used for OG images; skip for encrypted albums since
 		// CoverJpeg is omitted from the summary and the file would be guessable.
-		encrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
 		if !encrypted {
 			if err := ap.WriteCoverJPEG(); err != nil {
 				fmt.Printf("Error writing cover JPEG: %v\n", err)
@@ -232,7 +242,7 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 //
 //   - both files resolve to the same output name via PhotoWebPName, so the video's poster
 //     and the still's resize fight over one grid/<name>.webp
-//   - reorderByDescriptionFile keys photos by ID, so with a photogen.txt one entry
+//   - expandManualOrder looks photos up by base ID, so with a photogen.txt one entry
 //     silently replaces the other and the album publishes the same item twice
 //   - photogen.txt cannot caption them separately either, since its keys are the same IDs
 //
@@ -240,9 +250,8 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 func checkDuplicateIDs(where string, photos []*Photo) error {
 	sources := map[string][]string{}
 	for _, p := range photos {
-		// Deduped: a list that has already been through reorderByDescriptionFile can hold
-		// the same *Photo twice, and reporting one file as conflicting with itself is
-		// noise. Genuine collisions always have distinct source paths.
+		// Deduped by source path: reporting one file as conflicting with itself is noise,
+		// and a genuine collision always involves two distinct sources.
 		if !slices.Contains(sources[p.ID], p.SourcePath) {
 			sources[p.ID] = append(sources[p.ID], p.SourcePath)
 		}
@@ -387,9 +396,9 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string, recurse boo
 		})
 	}
 
-	// Checked here, before fillMetadata and the reordering below, because
-	// reorderByDescriptionFile keys by ID and would quietly collapse a colliding pair into
-	// one entry — by then the evidence of what conflicted is gone.
+	// Checked here, before fillMetadata and the reordering below, because the manual-order
+	// expansion looks photos up by ID and would quietly collapse a colliding pair into one
+	// entry — by then the evidence of what conflicted is gone.
 	if err := checkDuplicateIDs(dir, localPhotos); err != nil {
 		return nil, err
 	}
@@ -632,43 +641,6 @@ func sanitizePrefix(relDir string) string {
 	return strings.Join(segs, "_")
 }
 
-// reorderByDescriptionFile rebuilds the photo list using the order from photogen.txt.
-// Photos not mentioned are warned about, sorted by date, and appended at the end.
-func (ap *AlbumProcessor) reorderByDescriptionFile(photos []*Photo, order []string) []*Photo {
-	byID := make(map[string]*Photo, len(photos))
-	for _, p := range photos {
-		byID[p.ID] = p
-	}
-
-	seen := make(map[string]bool, len(order))
-	result := make([]*Photo, 0, len(photos))
-
-	for _, id := range order {
-		p, ok := byID[id]
-		if !ok {
-			ap.warnf("  WARN: photogen.txt references unknown photo: %s\n", id)
-			continue
-		}
-		result = append(result, p)
-		seen[p.ID] = true
-	}
-
-	// Collect photos not mentioned in photogen.txt, sort by date, append at end
-	var extras []*Photo
-	for _, p := range photos {
-		if !seen[p.ID] {
-			extras = append(extras, p)
-		}
-	}
-	if len(extras) > 0 {
-		ap.warnf("  WARN: %d photo(s) not in photogen.txt (sorted by date, appended at end)\n", len(extras))
-		sortByDate(extras)
-		result = append(result, extras...)
-	}
-
-	return result
-}
-
 // coverPhoto returns the configured cover photo, or the first photo if no cover is configured.
 // Returns nil if the album has no photos.
 func (ap *AlbumProcessor) coverPhoto() *Photo {
@@ -699,6 +671,11 @@ func (ap *AlbumProcessor) coverImageSource(cover *Photo) string {
 	return ap.OutputPath(string(SizeFull), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
 }
 
+// CoverJPEGName is the album-level JPEG of the cover photo, served as the Open Graph image
+// for crawlers that will not render a WebP. It sits in the album directory alongside
+// grid/, full/ and video/, and exists only for unencrypted albums.
+const CoverJPEGName = "cover.jpg"
+
 // WriteCoverJPEG generates a JPEG version of the album cover for use as an Open Graph image.
 // Output: outputRoot/albums/{slug}/cover.jpg
 func (ap *AlbumProcessor) WriteCoverJPEG() error {
@@ -706,7 +683,7 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 	if cover == nil {
 		return nil
 	}
-	outputPath := ap.OutputPath("cover.jpg")
+	outputPath := ap.OutputPath(CoverJPEGName)
 	ap.Config.TrackFile(outputPath)
 
 	source := ap.coverImageSource(cover)

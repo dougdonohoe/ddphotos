@@ -5,43 +5,37 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 )
 
 var (
-	exitRequested   int32
-	exitError       error
-	cleanupCalled   bool
-	cleanupLock     sync.Mutex
-	cleanupCallback func()
+	// A flag rather than a counter, so atomic.Bool says what it is and needs no 0/1
+	// comparison at the call sites.
+	exitRequested atomic.Bool
+	exitError     error
+	exitLock      sync.Mutex
 )
 
 // ExitRequested returns true if exit has been requested.
 //
 //goland:noinspection GoNameStartsWithPackageName
 func ExitRequested() bool {
-	return atomic.LoadInt32(&exitRequested) == 1
+	return exitRequested.Load()
 }
 
 // SetExitRequested requests a graceful exit.
 func SetExitRequested() {
-	atomic.StoreInt32(&exitRequested, 1)
+	exitRequested.Store(true)
 }
 
 // SetExitRequestedWithError requests a graceful exit and records err,
 // which causes a non-zero exit status.
 func SetExitRequestedWithError(err error) {
 	SetExitRequested()
-	cleanupLock.Lock()
-	defer cleanupLock.Unlock()
+	exitLock.Lock()
+	defer exitLock.Unlock()
 	exitError = err
-}
-
-// SetCleanupCallback registers a function to call when a signal is received or a panic is handled.
-func SetCleanupCallback(cb func()) {
-	cleanupCallback = cb
 }
 
 // Fatal prints an error message and exits with a non-zero status.
@@ -60,46 +54,13 @@ func Fatal(msg string, err error) {
 //
 //goland:noinspection GoNameStartsWithPackageName
 func ExitWithStatus(err error) {
-	cleanupLock.Lock()
-	defer cleanupLock.Unlock()
+	exitLock.Lock()
+	defer exitLock.Unlock()
 	code := 0
 	if err != nil || exitError != nil {
 		code = 1
 	}
 	os.Exit(code)
-}
-
-// CatchPanic recovers from a panic, prints the error and stack trace, and triggers
-// a graceful exit (calling the cleanup callback if set). Note that any values returned
-// from the enclosing function are reset to their zero values (e.g., bool is false,
-// error is nil). A function that returns true to continue works well with this:
-//
-//	func process() bool {
-//	   defer CatchPanic()
-//	   ...
-//	}
-//
-// This will automatically return false on panic.
-func CatchPanic() {
-	if r := recover(); r != nil {
-		fmt.Printf("PANIC %v\n%s", r, string(debug.Stack()))
-		exitTriggered(fmt.Errorf("panic: %v", r))
-	}
-}
-
-// CatchPanicError recovers from a panic, prints the error and stack trace, and stores
-// the panic value in the provided error pointer. The common use case is a named return
-// variable:
-//
-//	func broken() (err error) {
-//	   defer exit.CatchPanicError(&err)
-//	   ...
-//	}
-func CatchPanicError(err *error) {
-	if r := recover(); r != nil {
-		fmt.Printf("PANIC %v\n%s", r, string(debug.Stack()))
-		*err = fmt.Errorf("panic: %v", r)
-	}
 }
 
 // PanicOnError panics if err is non-nil.
@@ -109,8 +70,9 @@ func PanicOnError(err error) {
 	}
 }
 
-// HandleSignal listens for CTRL-C (SIGINT) and triggers a graceful exit,
-// calling the cleanup callback if one is set.
+// HandleSignal listens for CTRL-C (SIGINT) and requests a graceful exit. Work in progress
+// checks ExitRequested and stops; it does not record an error, so an error already set by
+// SetExitRequestedWithError survives and still decides the exit status.
 func HandleSignal() {
 	signals := make(chan os.Signal, 1)
 	// NOTE: was catching syscall.SIGPIPE to allow use of 'tee',
@@ -120,22 +82,11 @@ func HandleSignal() {
 	go func() {
 		sig := <-signals
 		fmt.Printf("\n\n*** Signal '%s' detected, exiting... ***\n\n", sig)
-		exitTriggered(nil)
+		SetExitRequested()
 	}()
 }
 
 // ClearExitRequested clears the exit-requested flag (useful in unit tests).
 func ClearExitRequested() {
-	atomic.StoreInt32(&exitRequested, 0)
-}
-
-func exitTriggered(err error) {
-	cleanupLock.Lock()
-	defer cleanupLock.Unlock()
-	SetExitRequested()
-	exitError = err
-	if cleanupCallback != nil && !cleanupCalled {
-		cleanupCallback()
-		cleanupCalled = true
-	}
+	exitRequested.Store(false)
 }

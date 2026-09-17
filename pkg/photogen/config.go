@@ -24,8 +24,6 @@ type Config struct {
 	SiteID string
 	// DryRun toggles side effect free execution for smoke-testing.
 	DryRun bool
-	// SkipVariant skips Variants phase
-	SkipVariant bool
 	// Limit caps the number of photos processed per album (0 = no limit).
 	Limit int
 	// Force regenerates output files even if they already exist.
@@ -107,6 +105,9 @@ func (c *Config) Validate() error {
 	}
 	if !validSiteID.MatchString(c.SiteID) {
 		return fmt.Errorf("settings.id %q must contain only lowercase letters, digits, and hyphens", c.SiteID)
+	}
+	if len(c.SiteID) > slugMaxLen {
+		return fmt.Errorf("settings.id %q must be at most %d characters", c.SiteID, slugMaxLen)
 	}
 	if c.SiteName == "" {
 		return fmt.Errorf("settings.site_name is required")

@@ -281,9 +281,9 @@ func TestPhotoWebPName_WithKey(t *testing.T) {
 
 	ec := &EncryptConfig{HMACKey: "test-key"}
 
-	name1 := ec.PhotoWebPName("IMG_3961.jpg")
-	name2 := ec.PhotoWebPName("IMG_3961.jpg")
-	name3 := ec.PhotoWebPName("IMG_3962.jpg")
+	name1 := ec.PhotoOutputName("IMG_3961.jpg", ".webp")
+	name2 := ec.PhotoOutputName("IMG_3961.jpg", ".webp")
+	name3 := ec.PhotoOutputName("IMG_3962.jpg", ".webp")
 
 	// Deterministic
 	assert.Equal(t, name1, name2)
@@ -297,7 +297,7 @@ func TestPhotoWebPName_WithoutKey(t *testing.T) {
 	t.Parallel()
 
 	ec := &EncryptConfig{}
-	assert.Equal(t, "IMG_3961.webp", ec.PhotoWebPName("IMG_3961.jpg"))
+	assert.Equal(t, "IMG_3961.webp", ec.PhotoOutputName("IMG_3961.jpg", ".webp"))
 }
 
 func TestPhotoWebPName_DifferentKeys(t *testing.T) {
@@ -305,7 +305,7 @@ func TestPhotoWebPName_DifferentKeys(t *testing.T) {
 
 	ec1 := &EncryptConfig{HMACKey: "key1"}
 	ec2 := &EncryptConfig{HMACKey: "key2"}
-	assert.NotEqual(t, ec1.PhotoWebPName("photo.jpg"), ec2.PhotoWebPName("photo.jpg"))
+	assert.NotEqual(t, ec1.PhotoOutputName("photo.jpg", ".webp"), ec2.PhotoOutputName("photo.jpg", ".webp"))
 }
 
 // TestPhotoOutputName covers the generalization of PhotoWebPName over the output
@@ -320,7 +320,7 @@ func TestPhotoOutputName(t *testing.T) {
 		// as 404s on an encrypted site.
 		for _, ec := range []*EncryptConfig{{}, {HMACKey: "test-key"}} {
 			for _, name := range []string{"IMG_3961.jpg", "clip.mov", "no-extension"} {
-				assert.Equal(t, ec.PhotoOutputName(name, ".webp"), ec.PhotoWebPName(name), name)
+				assert.Equal(t, ec.PhotoOutputName(name, ".webp"), ec.PhotoOutputName(name, ".webp"), name)
 			}
 		}
 	})
@@ -331,9 +331,8 @@ func TestPhotoOutputName(t *testing.T) {
 		assert.Equal(t, "clip.mp4", ec.PhotoOutputName("clip.mov", ".mp4"))
 		assert.Equal(t, "clip.webp", ec.PhotoOutputName("clip.mov", ".webp"))
 		assert.Equal(t, "IMG_3961.mp4", ec.PhotoOutputName("IMG_3961.jpg", ".mp4"))
-		// Matches WebPFileName, which this branch replaced, including for a name with no
-		// extension at all.
-		assert.Equal(t, WebPFileName("noext"), ec.PhotoOutputName("noext", ".webp"))
+		// A name with no extension at all just gains one.
+		assert.Equal(t, "noext.webp", ec.PhotoOutputName("noext", ".webp"))
 		// Case is preserved when nothing is obfuscated. Contrast the key case below.
 		assert.Equal(t, "CLIP.mp4", ec.PhotoOutputName("CLIP.MOV", ".mp4"))
 	})
@@ -344,7 +343,7 @@ func TestPhotoOutputName(t *testing.T) {
 
 		stem := func(p string) string { return strings.TrimSuffix(p, filepath.Ext(p)) }
 		mp4 := ec.PhotoOutputName("clip.mov", ".mp4")
-		webp := ec.PhotoWebPName("clip.mov")
+		webp := ec.PhotoOutputName("clip.mov", ".webp")
 		jpg := ec.PhotoOutputName("clip.mov", ".jpg")
 
 		assert.Equal(t, stem(mp4), stem(webp))
@@ -372,7 +371,7 @@ func TestPhotoOutputName(t *testing.T) {
 		assert.Equal(t,
 			ec.PhotoOutputName("clip.mov", ".mp4"),
 			ec.PhotoOutputName("CLIP.MOV", ".mp4"))
-		assert.Equal(t, ec.PhotoWebPName("IMG_3961.jpg"), ec.PhotoWebPName("img_3961.JPG"))
+		assert.Equal(t, ec.PhotoOutputName("IMG_3961.jpg", ".webp"), ec.PhotoOutputName("img_3961.JPG", ".webp"))
 	})
 }
 

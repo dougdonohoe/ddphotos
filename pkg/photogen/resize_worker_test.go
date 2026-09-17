@@ -36,7 +36,7 @@ func TestResizePhotos_Success(t *testing.T) {
 
 	// Both size variants should have been written.
 	for _, size := range AllSizes() {
-		outPath := ap.OutputPath(string(size), WebPFileName("landscape-1.jpg"))
+		outPath := ap.OutputPath(string(size), "landscape-1.webp")
 		_, statErr := os.Stat(outPath)
 		assert.NoError(t, statErr, "expected output file for size %s", size)
 	}
@@ -83,7 +83,7 @@ func TestResizePhotos_DryRun(t *testing.T) {
 
 	// No files should have been written.
 	for _, size := range AllSizes() {
-		outPath := ap.OutputPath(string(size), WebPFileName("landscape-1.jpg"))
+		outPath := ap.OutputPath(string(size), "landscape-1.webp")
 		_, statErr := os.Stat(outPath)
 		assert.True(t, os.IsNotExist(statErr), "expected no output file for size %s in dry-run", size)
 	}
@@ -257,7 +257,7 @@ func TestResizePhotos_MixedAlbum(t *testing.T) {
 	require.NoError(t, ap.ResizePhotos())
 
 	for _, size := range AllSizes() {
-		assert.FileExists(t, ap.OutputPath(string(size), WebPFileName("landscape-1.jpg")))
+		assert.FileExists(t, ap.OutputPath(string(size), "landscape-1.webp"))
 	}
 	mp4, posters := videoOutputs(ap, "landscape.mov")
 	assert.FileExists(t, mp4)
@@ -286,7 +286,7 @@ func TestResizePhotos_InterruptedReturnsError(t *testing.T) {
 	require.ErrorIs(t, ap.ResizePhotos(), ErrInterrupted)
 
 	for _, size := range AllSizes() {
-		assert.NoFileExists(t, ap.OutputPath(string(size), WebPFileName("landscape-1.jpg")),
+		assert.NoFileExists(t, ap.OutputPath(string(size), "landscape-1.webp"),
 			"an interrupted run must not have written %s", size)
 	}
 }
@@ -361,7 +361,7 @@ func TestResizePhotos_StopsRemainingWorkersAfterError(t *testing.T) {
 	written := 0
 	for _, p := range photos[1:] {
 		for _, size := range AllSizes() {
-			if _, err := os.Stat(ap.OutputPath(string(size), WebPFileName(p.FileName))); err == nil {
+			if _, err := os.Stat(ap.OutputPath(string(size), strings.TrimSuffix(p.FileName, ".jpg")+".webp")); err == nil {
 				written++
 			}
 		}

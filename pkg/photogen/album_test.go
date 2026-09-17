@@ -193,6 +193,30 @@ func TestCollectPhotosRecursive(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// tripAlbum builds the layout every manual-order subfolder case below needs: a root
+	// photo plus a "trip" subfolder holding one more, with the given photogen.txt. It
+	// returns the collected photos and the warnings raised, which is what those cases
+	// assert on. Only the file contents and the recurse flag differ between them.
+	tripAlbum := func(t *testing.T, photogenTxt string, recurse bool) ([]*Photo, []string) {
+		t.Helper()
+		root := t.TempDir()
+		sub := filepath.Join(root, "trip")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
+		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
+			[]byte(photogenTxt), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(root, "", recurse)
+		require.NoError(t, err)
+		return photos, wc.warnings
+	}
+
 	t.Run("no subfolders - no prefix", func(t *testing.T) {
 		dir := t.TempDir()
 		copyPhoto(t, dir, "landscape-1.jpg", "photo_a.jpg")
@@ -425,7 +449,7 @@ func TestCollectPhotosRecursive(t *testing.T) {
 		copyPhoto(t, dir, "landscape-1.jpg", "photo_a.jpg")
 		copyPhoto(t, dir, "portrait-1.jpg", "photo_b.jpg")
 		// The repeat differs in case, since photogen.txt matching is case-insensitive:
-		// the duplicate check has to follow the same rule or it misses this.
+		// the duplicate check has to follow the same rule, or it misses this.
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "photogen.txt"),
 			[]byte("photo_a\nphoto_b\nPhoto_A\n"), 0o644))
 
@@ -449,29 +473,15 @@ func TestCollectPhotosRecursive(t *testing.T) {
 	// A repeated subfolder is worse than a repeated photo: the whole folder is collected
 	// and expanded again, so every photo inside it is duplicated.
 	t.Run("manual order: a repeated subfolder entry is expanded once and warns", func(t *testing.T) {
-		root := t.TempDir()
-		sub := filepath.Join(root, "trip")
-		require.NoError(t, os.Mkdir(sub, 0o755))
-		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
-		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
-		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
-			[]byte("trip\nroot\ntrip\n"), 0o644))
-
-		wc := &WarnCollector{}
-		ap := &AlbumProcessor{
-			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
-			Config:      &Config{Warn: wc},
-		}
-		photos, err := ap.collectPhotosRecursive(root, "", true)
-		require.NoError(t, err)
+		photos, warnings := tripAlbum(t, "trip\nroot\ntrip\n", true)
 
 		require.Len(t, photos, 2, "a repeated subfolder must not be expanded twice")
 		assert.Equal(t, "trip_inner", photos[0].ID, "the first listing keeps its position")
 		assert.Equal(t, "root", photos[1].ID)
 
-		require.Len(t, wc.warnings, 1, "the repeat must be reported, not silently dropped")
-		assert.Contains(t, wc.warnings[0], "trip")
-		assert.Contains(t, wc.warnings[0], "more than once")
+		require.Len(t, warnings, 1, "the repeat must be reported, not silently dropped")
+		assert.Contains(t, warnings[0], "trip")
+		assert.Contains(t, warnings[0], "more than once")
 	})
 
 	// The control: without repeats nothing changes, and in particular no warning fires.
@@ -505,81 +515,39 @@ func TestCollectPhotosRecursive(t *testing.T) {
 	// table says recurse: false means "subfolders ignored", and manual ordering is no
 	// exception: photogen.txt orders what is collected, it does not decide what to collect.
 	t.Run("manual order: a listed subfolder is skipped when recurse is false", func(t *testing.T) {
-		root := t.TempDir()
-		sub := filepath.Join(root, "trip")
-		require.NoError(t, os.Mkdir(sub, 0o755))
-		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
-		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
-		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
-			[]byte("trip\nroot\n"), 0o644))
-
-		wc := &WarnCollector{}
-		ap := &AlbumProcessor{
-			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
-			Config:      &Config{Warn: wc},
-		}
-		photos, err := ap.collectPhotosRecursive(root, "", false)
-		require.NoError(t, err)
+		photos, warnings := tripAlbum(t, "trip\nroot\n", false)
 
 		require.Len(t, photos, 1, "recurse: false must win over a photogen.txt subfolder entry")
 		assert.Equal(t, "root", photos[0].ID)
 
-		require.Len(t, wc.warnings, 1, "ignoring a listed subfolder must be reported")
-		assert.Contains(t, wc.warnings[0], "trip")
-		assert.Contains(t, wc.warnings[0], "not recursive")
+		require.Len(t, warnings, 1, "ignoring a listed subfolder must be reported")
+		assert.Contains(t, warnings[0], "trip")
+		assert.Contains(t, warnings[0], "not recursive")
 	})
 
 	// The unlisted path recursed unconditionally too, so a subfolder nobody mentioned was
 	// still pulled in. It gets its own warning, distinct from the appended-at-end one.
 	t.Run("manual order: an unlisted subfolder is skipped when recurse is false", func(t *testing.T) {
-		root := t.TempDir()
-		sub := filepath.Join(root, "trip")
-		require.NoError(t, os.Mkdir(sub, 0o755))
-		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
-		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
-		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
-			[]byte("root\n"), 0o644))
-
-		wc := &WarnCollector{}
-		ap := &AlbumProcessor{
-			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
-			Config:      &Config{Warn: wc},
-		}
-		photos, err := ap.collectPhotosRecursive(root, "", false)
-		require.NoError(t, err)
+		photos, warnings := tripAlbum(t, "root\n", false)
 
 		require.Len(t, photos, 1, "recurse: false must skip an unlisted subfolder too")
 		assert.Equal(t, "root", photos[0].ID)
 
-		require.Len(t, wc.warnings, 1, "skipping an unlisted subfolder must be reported")
-		assert.Contains(t, wc.warnings[0], "trip")
-		assert.Contains(t, wc.warnings[0], "not recursive")
-		assert.NotContains(t, wc.warnings[0], "appended at end",
+		require.Len(t, warnings, 1, "skipping an unlisted subfolder must be reported")
+		assert.Contains(t, warnings[0], "trip")
+		assert.Contains(t, warnings[0], "not recursive")
+		assert.NotContains(t, warnings[0], "appended at end",
 			"the skip warning must not claim the subfolder was appended")
 	})
 
 	// recurse: true is unaffected: the subfolder still expands at the entry's position.
 	t.Run("manual order: a listed subfolder still expands when recurse is true", func(t *testing.T) {
-		root := t.TempDir()
-		sub := filepath.Join(root, "trip")
-		require.NoError(t, os.Mkdir(sub, 0o755))
-		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
-		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
-		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
-			[]byte("trip\nroot\n"), 0o644))
-
-		wc := &WarnCollector{}
-		ap := &AlbumProcessor{
-			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
-			Config:      &Config{Warn: wc},
-		}
-		photos, err := ap.collectPhotosRecursive(root, "", true)
-		require.NoError(t, err)
+		photos, warnings := tripAlbum(t, "trip\nroot\n", true)
 
 		require.Len(t, photos, 2)
 		assert.Equal(t, "trip_inner", photos[0].ID)
 		assert.Equal(t, "root", photos[1].ID)
-		assert.Empty(t, wc.warnings)
+		assert.Empty(t, warnings)
 	})
 }
 
@@ -624,71 +592,6 @@ func TestSortByDate(t *testing.T) {
 		assert.Equal(t, "first", photos[0].ID)
 		assert.Equal(t, "second", photos[1].ID)
 		assert.Equal(t, "third", photos[2].ID)
-	})
-}
-
-func TestReorderByDescriptionFile(t *testing.T) {
-	t.Parallel()
-
-	day := func(d int) time.Time {
-		return time.Date(2024, 1, d, 0, 0, 0, 0, time.UTC)
-	}
-
-	photos := []*Photo{
-		{ID: "img_0001", FileName: "IMG_0001.jpg", PhotoMetadata: &PhotoMetadata{DateTaken: day(1)}},
-		{ID: "img_0002", FileName: "IMG_0002.jpg", PhotoMetadata: &PhotoMetadata{DateTaken: day(2)}},
-		{ID: "img_0003", FileName: "IMG_0003.jpg", PhotoMetadata: &PhotoMetadata{DateTaken: day(3)}},
-		{ID: "img_0004", FileName: "IMG_0004.jpg", PhotoMetadata: &PhotoMetadata{DateTaken: day(4)}},
-	}
-
-	ap := &AlbumProcessor{}
-
-	t.Run("full manual order", func(t *testing.T) {
-		order := []string{"img_0003", "img_0001", "img_0004", "img_0002"}
-		result := ap.reorderByDescriptionFile(photos, order)
-		require.Len(t, result, 4)
-		assert.Equal(t, "img_0003", result[0].ID)
-		assert.Equal(t, "img_0001", result[1].ID)
-		assert.Equal(t, "img_0004", result[2].ID)
-		assert.Equal(t, "img_0002", result[3].ID)
-	})
-
-	t.Run("unmentioned photos appended sorted by date", func(t *testing.T) {
-		// Only mention two photos; img_0002 and img_0004 should appear at end sorted by date
-		order := []string{"img_0003", "img_0001"}
-		result := ap.reorderByDescriptionFile(photos, order)
-		require.Len(t, result, 4)
-		assert.Equal(t, "img_0003", result[0].ID)
-		assert.Equal(t, "img_0001", result[1].ID)
-		assert.Equal(t, "img_0002", result[2].ID, "unmentioned photos sorted by date")
-		assert.Equal(t, "img_0004", result[3].ID, "unmentioned photos sorted by date")
-	})
-
-	t.Run("unknown ID in order is skipped", func(t *testing.T) {
-		order := []string{"img_0001", "img_9999", "img_0002"}
-		result := ap.reorderByDescriptionFile(photos, order)
-		// img_9999 is unknown, img_0003 and img_0004 are unmentioned extras
-		require.Len(t, result, 4)
-		assert.Equal(t, "img_0001", result[0].ID)
-		assert.Equal(t, "img_0002", result[1].ID)
-		assert.Equal(t, "img_0003", result[2].ID)
-		assert.Equal(t, "img_0004", result[3].ID)
-	})
-
-	t.Run("unmentioned undated photos appended after dated extras in scan order", func(t *testing.T) {
-		mixed := []*Photo{
-			{ID: "no-date-a", FileName: "no-date-a.jpg", PhotoMetadata: &PhotoMetadata{}},
-			{ID: "img_0002", FileName: "IMG_0002.jpg", PhotoMetadata: &PhotoMetadata{DateTaken: day(2)}},
-			{ID: "no-date-b", FileName: "no-date-b.jpg", PhotoMetadata: &PhotoMetadata{}},
-			{ID: "img_0004", FileName: "IMG_0004.jpg", PhotoMetadata: &PhotoMetadata{DateTaken: day(4)}},
-		}
-		order := []string{"img_0002"} // only mention one; rest are extras
-		result := ap.reorderByDescriptionFile(mixed, order)
-		require.Len(t, result, 4)
-		assert.Equal(t, "img_0002", result[0].ID)
-		assert.Equal(t, "img_0004", result[1].ID, "dated extra sorted by date")
-		assert.Equal(t, "no-date-a", result[2].ID, "undated extras in scan order")
-		assert.Equal(t, "no-date-b", result[3].ID, "undated extras in scan order")
 	})
 }
 
@@ -785,5 +688,77 @@ func TestDuplicatePhotoIDs(t *testing.T) {
 		photos, err := ap.collectPhotosRecursive(dir, "", true)
 		require.NoError(t, err)
 		assert.Len(t, photos, 2)
+	})
+}
+
+// An album that gains a password must not keep the readable cover.jpg an earlier public
+// run published. Process skips WriteCoverJPEG for an encrypted album rather than reversing
+// it, so the old file survived on disk and on the server; -clean removed it, but only for
+// users who run with -clean.
+func TestProcess_EncryptedAlbumRemovesStaleCoverJPEG(t *testing.T) {
+	t.Parallel()
+
+	setup := func(t *testing.T) (*AlbumConfig, string, string) {
+		t.Helper()
+		src := t.TempDir()
+		for _, n := range []string{"landscape-1.jpg", "portrait-1.jpg"} {
+			data, err := os.ReadFile(filepath.Join("testdata", n))
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(src, n), data, 0o644))
+		}
+		return &AlbumConfig{Slug: "myalbum", Name: "My Album", Path: src}, src, t.TempDir()
+	}
+
+	newConfig := func(out string, password string) *Config {
+		c := &Config{OutputRoot: out, SiteID: "test", Resize: true, Index: true, Warn: &WarnCollector{}}
+		if password != "" {
+			c.Encrypt = &EncryptConfig{
+				HMACKey:        "k",
+				AlbumPasswords: map[string]string{"myalbum": password},
+			}
+		}
+		return c
+	}
+
+	t.Run("a password added after a public run removes the old cover", func(t *testing.T) {
+		t.Parallel()
+		ac, _, out := setup(t)
+
+		public := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, public.Process(1, 1))
+		cover := public.OutputPath("cover.jpg")
+		require.FileExists(t, cover, "a public album publishes a cover for OG tags")
+
+		// No -clean: the stale file has to go on its own.
+		locked := NewAlbumProcessor(newConfig(out, "secret123"), ac)
+		require.NoError(t, locked.Process(1, 1))
+		assert.NoFileExists(t, cover, "an encrypted album must not keep a readable cover")
+	})
+
+	t.Run("a public album keeps its cover across runs", func(t *testing.T) {
+		t.Parallel()
+		ac, _, out := setup(t)
+
+		first := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, first.Process(1, 1))
+		cover := first.OutputPath("cover.jpg")
+
+		second := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, second.Process(1, 1))
+		assert.FileExists(t, cover, "the removal must be scoped to encrypted albums")
+	})
+
+	t.Run("a dry run deletes nothing", func(t *testing.T) {
+		t.Parallel()
+		ac, _, out := setup(t)
+
+		public := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, public.Process(1, 1))
+		cover := public.OutputPath("cover.jpg")
+
+		cfg := newConfig(out, "secret123")
+		cfg.DryRun = true
+		require.NoError(t, NewAlbumProcessor(cfg, ac).Process(1, 1))
+		assert.FileExists(t, cover, "a dry run must not remove anything")
 	})
 }

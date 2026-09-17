@@ -258,10 +258,3 @@ func GetSizeConfig(size ImageSize) (ImageSizeConfig, bool) {
 	cfg, ok := sizeConfigs[size]
 	return cfg, ok
 }
-
-// WebPFileName converts a filename to use .webp extension.
-// Example: "photo.jpg" -> "photo.webp"
-func WebPFileName(filename string) string {
-	ext := filepath.Ext(filename)
-	return filename[:len(filename)-len(ext)] + ".webp"
-}

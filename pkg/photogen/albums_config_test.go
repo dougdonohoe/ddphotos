@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -558,4 +559,87 @@ func parseYAML(t *testing.T, configDir, content string) *AlbumsFile {
 	af, err := LoadAlbumsFile(path)
 	require.NoError(t, err)
 	return af
+}
+
+// A slug becomes a URL path segment, an output directory name, and a <loc> value in
+// sitemap.xml, so it has to be safe in all three without per-use escaping. The pattern is
+// the one the DD Photos App already enforces in its album and site dialogs, so a slug
+// accepted there is accepted here and vice versa.
+func TestAlbumSlugValidation(t *testing.T) {
+	t.Parallel()
+
+	fileWith := func(slug string) *AlbumsFile {
+		return &AlbumsFile{
+			Albums: []AlbumEntry{{Slug: slug, Name: "A", Source: "/tmp"}},
+		}
+	}
+
+	valid := []string{
+		"uganda",
+		"the-way",
+		"ski-trip-2007",
+		"a",
+		"9",
+		"Antarctica",
+		"under_score",
+		"MiXeD-Case_99",
+	}
+	for _, slug := range valid {
+		t.Run("valid/"+slug, func(t *testing.T) {
+			t.Parallel()
+			assert.NoError(t, fileWith(slug).validate())
+		})
+	}
+
+	invalid := map[string]string{
+		"leading dash":       "-uganda",
+		"leading underscore": "_uganda",
+		"space":              "ski trip",
+		"slash":              "trips/uganda",
+		"dot":                "uganda.2007",
+		"ampersand":          "me&you",
+		"angle bracket":      "a<b",
+		"quote":              "it's",
+		"percent":            "a%20b",
+		"non-ascii":          "café",
+		"trailing space":     "uganda ",
+	}
+
+	for name, slug := range invalid {
+		t.Run("invalid/"+name, func(t *testing.T) {
+			t.Parallel()
+			err := fileWith(slug).validate()
+			require.Error(t, err, "slug %q must be rejected", slug)
+			assert.Contains(t, err.Error(), slug, "the message names the offending slug")
+		})
+	}
+
+	// An empty slug keeps its own, more specific message rather than being swept into the
+	// pattern error, since "slug is required" is the more useful thing to say.
+	t.Run("invalid/empty keeps its own message", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith("").validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "required")
+	})
+}
+
+func TestAlbumSlugLengthCap(t *testing.T) {
+	t.Parallel()
+
+	fileWith := func(slug string) *AlbumsFile {
+		return &AlbumsFile{Albums: []AlbumEntry{{Slug: slug, Name: "A", Source: "/tmp"}}}
+	}
+
+	t.Run("exactly the maximum is allowed", func(t *testing.T) {
+		t.Parallel()
+		assert.NoError(t, fileWith(strings.Repeat("a", slugMaxLen)).validate())
+	})
+
+	t.Run("one over the maximum is rejected", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith(strings.Repeat("a", slugMaxLen+1)).validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "64")
+	})
 }

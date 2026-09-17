@@ -2,9 +2,11 @@ package photogen
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigWorkers(t *testing.T) {
@@ -161,7 +163,7 @@ func TestConfigPhotoOutputName(t *testing.T) {
 		ec := &EncryptConfig{HMACKey: "test-key", SitePassword: "site-pass"}
 		c := &Config{Encrypt: ec}
 		assert.Equal(t, ec.PhotoOutputName("clip.mov", ".mp4"), c.PhotoOutputName("a", "clip.mov", ".mp4"))
-		assert.Equal(t, ec.PhotoWebPName("photo.jpg"), c.PhotoWebPName("a", "photo.jpg"))
+		assert.Equal(t, ec.PhotoOutputName("photo.jpg", ".webp"), c.PhotoWebPName("a", "photo.jpg"))
 	})
 
 	t.Run("PhotoWebPName is PhotoOutputName with .webp", func(t *testing.T) {
@@ -183,5 +185,32 @@ func TestConfigPhotoOutputName(t *testing.T) {
 		assert.Equal(t, "IMG_3961.mp4", c.PhotoOutputName("a", "IMG_3961.HEIC", ".mp4"))
 		assert.Equal(t, "a.b.c.webp", c.PhotoWebPName("a", "a.b.c.jpg"), "only the final extension is replaced")
 		assert.Equal(t, "no-extension.webp", c.PhotoWebPName("a", "no-extension"))
+	})
+}
+
+// The length cap matches the field limit the DD Photos App enforces on the same values,
+// so a site id or slug that is typable there is accepted here.
+func TestSiteIDLengthCap(t *testing.T) {
+	t.Parallel()
+
+	valid := func(id string) *Config {
+		return &Config{
+			OutputRoot: "/tmp/out", SiteID: id, SiteName: "My Site",
+			SiteDescription: "Desc", CopyrightOwner: "Me", CopyrightYear: 2020,
+		}
+	}
+
+	t.Run("exactly the maximum is allowed", func(t *testing.T) {
+		t.Parallel()
+		id := strings.Repeat("a", slugMaxLen)
+		assert.NoError(t, valid(id).Validate())
+	})
+
+	t.Run("one over the maximum is rejected", func(t *testing.T) {
+		t.Parallel()
+		id := strings.Repeat("a", slugMaxLen+1)
+		err := valid(id).Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "64")
 	})
 }

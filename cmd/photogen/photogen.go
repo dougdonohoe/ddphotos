@@ -157,7 +157,6 @@ func main() {
 		OutputRoot:       filepath.Clean(resolvedAlbumsDir),
 		SiteID:           resolvedSiteID,
 		DryRun:           !(*doit),
-		SkipVariant:      true,
 		Limit:            *limit,
 		Force:            *force,
 		Resize:           *resize,

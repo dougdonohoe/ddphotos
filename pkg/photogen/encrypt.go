@@ -204,15 +204,8 @@ func (ec *EncryptConfig) RestrictToAlbums(knownSlugs []string) []string {
 	return slugs
 }
 
-// PhotoWebPName returns the output WebP filename for a source photo.
-// If HMACKey is set, returns a deterministic UUID-format name derived via
-// HMAC-SHA256 so that original filenames (e.g. IMG_3961.jpg) cannot be guessed.
-// If HMACKey is empty, falls back to the standard WebP filename.
-func (ec *EncryptConfig) PhotoWebPName(filename string) string {
-	return ec.PhotoOutputName(filename, ".webp")
-}
-
-// PhotoOutputName is PhotoWebPName generalized over the output extension, so that a
+// PhotoOutputName returns the obfuscated output filename for a derived artifact of a
+// source file, so that a
 // video's .mp4 is obfuscated by the same HMAC as its poster's .webp rather than leaking
 // the original filename. The HMAC covers only the source filename, so every output
 // derived from one source shares a stem and differs only by extension.

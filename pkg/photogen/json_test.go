@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -796,4 +797,90 @@ func TestComputeDateSpan(t *testing.T) {
 			assert.Equal(t, tt.want, ap.computeDateSpan())
 		})
 	}
+}
+
+// readSitemap writes a sitemap for the given summaries and returns its contents.
+func readSitemap(t *testing.T, c *Config, summaries []AlbumSummary) string {
+	t.Helper()
+	require.NoError(t, c.WriteSitemap(summaries))
+	data, err := os.ReadFile(c.SiteOutputPath("sitemap.xml"))
+	require.NoError(t, err)
+	return string(data)
+}
+
+func TestWriteSitemap(t *testing.T) {
+	t.Parallel()
+
+	newCfg := func(t *testing.T) *Config {
+		t.Helper()
+		return &Config{OutputRoot: t.TempDir(), SiteID: "test", SiteURL: "https://example.com"}
+	}
+
+	t.Run("lists the site root and every public album", func(t *testing.T) {
+		t.Parallel()
+		got := readSitemap(t, newCfg(t), []AlbumSummary{
+			{Slug: "uganda"}, {Slug: "antarctica"},
+		})
+		assert.Contains(t, got, "<loc>https://example.com/</loc>")
+		assert.Contains(t, got, "<loc>https://example.com/albums/uganda</loc>")
+		assert.Contains(t, got, "<loc>https://example.com/albums/antarctica</loc>")
+	})
+
+	// An encrypted album's slug is the one thing a crawler could learn about it, and
+	// handing it over contradicts the neighbouring decision to withhold CoverJpeg so
+	// search engines cannot index content that requires a password.
+	t.Run("omits encrypted albums", func(t *testing.T) {
+		t.Parallel()
+		got := readSitemap(t, newCfg(t), []AlbumSummary{
+			{Slug: "public-one"},
+			{Slug: "private-one", Encrypted: true},
+		})
+		assert.Contains(t, got, "<loc>https://example.com/albums/public-one</loc>")
+		assert.NotContains(t, got, "private-one", "an encrypted album's slug must not reach a crawler")
+	})
+
+	// A fully encrypted site leaves nothing but the root, which is a real public page:
+	// it serves the password prompt. The result is a valid sitemap with one entry.
+	t.Run("an all-encrypted site still lists the root", func(t *testing.T) {
+		t.Parallel()
+		got := readSitemap(t, newCfg(t), []AlbumSummary{
+			{Slug: "a", Encrypted: true}, {Slug: "b", Encrypted: true},
+		})
+		assert.Contains(t, got, "<loc>https://example.com/</loc>")
+		assert.Equal(t, 1, strings.Count(got, "<loc>"), "no album URLs should remain")
+		assert.Contains(t, got, "</urlset>", "the document must still be well formed")
+	})
+
+	// WriteSitemap used to call os.Create directly, which works only because
+	// WriteAlbumsIndex happens to run first and create the directory. Nothing states or
+	// enforces that ordering, so the sitemap has to stand on its own.
+	t.Run("creates the output directory itself", func(t *testing.T) {
+		t.Parallel()
+		c := newCfg(t)
+		require.NoDirExists(t, c.SiteOutputPath())
+		got := readSitemap(t, c, []AlbumSummary{{Slug: "uganda"}})
+		assert.Contains(t, got, "<loc>https://example.com/albums/uganda</loc>")
+	})
+
+	t.Run("dry run writes nothing but tracks the file", func(t *testing.T) {
+		t.Parallel()
+		c := newCfg(t)
+		c.DryRun = true
+		c.InitClean()
+		require.NoError(t, c.WriteSitemap([]AlbumSummary{{Slug: "uganda"}}))
+		assert.NoFileExists(t, c.SiteOutputPath("sitemap.xml"))
+		assert.True(t, c.ExpectedFiles()[c.SiteOutputPath("sitemap.xml")])
+	})
+}
+
+// <loc> is XML, so whatever ends up inside it has to be escaped. Slugs are constrained by
+// slugPattern to characters that need no escaping, but SiteURL is free-form config.
+func TestWriteSitemapEscapesSiteURL(t *testing.T) {
+	t.Parallel()
+
+	c := &Config{OutputRoot: t.TempDir(), SiteID: "test", SiteURL: "https://example.com/a&b"}
+	got := readSitemap(t, c, []AlbumSummary{{Slug: "uganda"}})
+
+	assert.Contains(t, got, "https://example.com/a&amp;b/")
+	assert.NotContains(t, got, "a&b", "a raw ampersand makes the document unparseable")
 }
