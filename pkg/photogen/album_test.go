@@ -499,6 +499,88 @@ func TestCollectPhotosRecursive(t *testing.T) {
 		assert.Equal(t, "photo_a", photos[2].ID)
 		assert.Empty(t, wc.warnings)
 	})
+
+	// expandManualOrder used to recurse regardless of the recurse flag, so an album
+	// deliberately marked non-recursive silently gained its subfolders' photos. The docs
+	// table says recurse: false means "subfolders ignored", and manual ordering is no
+	// exception: photogen.txt orders what is collected, it does not decide what to collect.
+	t.Run("manual order: a listed subfolder is skipped when recurse is false", func(t *testing.T) {
+		root := t.TempDir()
+		sub := filepath.Join(root, "trip")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
+		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
+			[]byte("trip\nroot\n"), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(root, "", false)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 1, "recurse: false must win over a photogen.txt subfolder entry")
+		assert.Equal(t, "root", photos[0].ID)
+
+		require.Len(t, wc.warnings, 1, "ignoring a listed subfolder must be reported")
+		assert.Contains(t, wc.warnings[0], "trip")
+		assert.Contains(t, wc.warnings[0], "not recursive")
+	})
+
+	// The unlisted path recursed unconditionally too, so a subfolder nobody mentioned was
+	// still pulled in. It gets its own warning, distinct from the appended-at-end one.
+	t.Run("manual order: an unlisted subfolder is skipped when recurse is false", func(t *testing.T) {
+		root := t.TempDir()
+		sub := filepath.Join(root, "trip")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
+		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
+			[]byte("root\n"), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(root, "", false)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 1, "recurse: false must skip an unlisted subfolder too")
+		assert.Equal(t, "root", photos[0].ID)
+
+		require.Len(t, wc.warnings, 1, "skipping an unlisted subfolder must be reported")
+		assert.Contains(t, wc.warnings[0], "trip")
+		assert.Contains(t, wc.warnings[0], "not recursive")
+		assert.NotContains(t, wc.warnings[0], "appended at end",
+			"the skip warning must not claim the subfolder was appended")
+	})
+
+	// recurse: true is unaffected: the subfolder still expands at the entry's position.
+	t.Run("manual order: a listed subfolder still expands when recurse is true", func(t *testing.T) {
+		root := t.TempDir()
+		sub := filepath.Join(root, "trip")
+		require.NoError(t, os.Mkdir(sub, 0o755))
+		copyPhoto(t, root, "landscape-1.jpg", "root.jpg")
+		copyPhoto(t, sub, "portrait-1.jpg", "inner.jpg")
+		require.NoError(t, os.WriteFile(filepath.Join(root, "photogen.txt"),
+			[]byte("trip\nroot\n"), 0o644))
+
+		wc := &WarnCollector{}
+		ap := &AlbumProcessor{
+			AlbumConfig: &AlbumConfig{ManualSortOrder: true},
+			Config:      &Config{Warn: wc},
+		}
+		photos, err := ap.collectPhotosRecursive(root, "", true)
+		require.NoError(t, err)
+
+		require.Len(t, photos, 2)
+		assert.Equal(t, "trip_inner", photos[0].ID)
+		assert.Equal(t, "root", photos[1].ID)
+		assert.Empty(t, wc.warnings)
+	})
 }
 
 func TestSortByDate(t *testing.T) {

@@ -443,9 +443,11 @@ func (ap *AlbumProcessor) collectPhotosRecursive(dir, relDir string, recurse boo
 
 // expandManualOrder processes photogen.txt entries in order, expanding subfolder references
 // by recursing into them. Unlisted photos are date-sorted and appended at the end;
-// unlisted subdirectories are alphabetically appended at the end. An entry repeated within
-// the file is honored at its first position and ignored thereafter. All three produce
-// warnings, which the WarnCollector replays in the end-of-run summary.
+// unlisted subfolders are alphabetically appended at the end. An entry repeated within
+// the file is honored at its first position and ignored thereafter. When recurse is false
+// no subfolder is collected at all, listed or not, matching the documented meaning of
+// recurse: false. Every one of those cases produces a warning, which the WarnCollector
+// replays in the end-of-run summary.
 func (ap *AlbumProcessor) expandManualOrder(
 	dir, relDir string,
 	localPhotos []*Photo,
@@ -484,7 +486,17 @@ func (ap *AlbumProcessor) expandManualOrder(
 			ap.warnf("  WARN: photogen.txt in %s lists subfolder %q more than once (ignoring the repeat)\n", dir, actualName)
 			continue
 		}
+		// Marked seen even when skipped below, so the unlisted-subfolder pass does not
+		// report the same folder a second time.
 		seenSubdirs[strings.ToLower(actualName)] = true
+		// recurse: false wins over the entry. photogen.txt orders what gets collected; it
+		// does not decide what gets collected, and the album was deliberately configured
+		// as non-recursive. Silently overriding that from a file in the album directory
+		// would make the album's contents depend on which folders happen to be named.
+		if !recurse {
+			ap.warnf("  WARN: photogen.txt in %s lists subfolder %q but the album is not recursive (ignoring it)\n", dir, actualName)
+			continue
+		}
 		subPhotos, err := ap.collectPhotosRecursive(filepath.Join(dir, actualName), filepath.Join(relDir, actualName), recurse)
 		if err != nil {
 			return nil, err
@@ -507,12 +519,18 @@ func (ap *AlbumProcessor) expandManualOrder(
 		result = append(result, extraPhotos...)
 	}
 
-	// Append unlisted subdirectories (alphabetically) with a warning.
+	// Append unlisted subfolders (alphabetically) with a warning.
 	for _, sd := range subdirs {
 		if seenSubdirs[strings.ToLower(sd)] {
 			continue
 		}
-		ap.warnf("  WARN: subdirectory %q in %s not in photogen.txt (appended at end)\n", sd, dir)
+		// Same rule as a listed subfolder above, and more clear-cut: nothing here even
+		// hints that the user wanted this folder included.
+		if !recurse {
+			ap.warnf("  WARN: subfolder %q in %s ignored because the album is not recursive\n", sd, dir)
+			continue
+		}
+		ap.warnf("  WARN: subfolder %q in %s not in photogen.txt (appended at end)\n", sd, dir)
 		subPhotos, err := ap.collectPhotosRecursive(filepath.Join(dir, sd), filepath.Join(relDir, sd), recurse)
 		if err != nil {
 			return nil, err
