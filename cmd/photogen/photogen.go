@@ -82,16 +82,50 @@ func saveMetaCache(cfg *photogen.Config) {
 	}
 }
 
+// siteWriteStep is one site-level output, paired with the phrase used to report it.
+// what completes "Error <what>: ...", matching the messages these steps printed when each
+// was written out by hand.
+type siteWriteStep struct {
+	what string
+	run  func() error
+}
+
+// runSiteWrites performs the site-level writes and returns the first error, or nil.
+//
+// Returning the error rather than only printing it is the whole point. These six files are
+// what the site is assembled from, and photogen's exit status is what a wrapper script of
+// the "photogen && deploy" shape keys off, so a run whose albums.json could not be written
+// must not report success. This is the same guarantee ErrInterrupted gives the resize pool,
+// arrived at from the other direction: there the run stopped early, here it finished but
+// did not produce what it said it would.
+//
+// Every step is still attempted after one fails, which is the behavior these calls already
+// had. They write independent files, and stopping at the first problem would make the user
+// rediscover the rest one run at a time.
+func runSiteWrites(steps []siteWriteStep) error {
+	var firstErr error
+	for _, step := range steps {
+		if err := step.run(); err != nil {
+			fmt.Printf("Error %s: %s\n", step.what, err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	return firstErr
+}
+
 // validateCleanFlags rejects flag combinations that would make -clean delete output the
 // run did not regenerate. CleanOutputDir removes anything under a processed album that is
 // not in the expected set, so any flag that leaves real output untracked turns -clean into
 // a delete of the user's work.
 //
-// Both rules protect the same thing from different directions: without -resize nothing is
-// tracked at all, and with -limit the photo list is truncated before tracking happens, so
-// everything past the limit looks unexpected. outputPath is named in the first message so
-// the user can remove the directory by hand if that is what they actually wanted.
-func validateCleanFlags(clean, resize bool, limit int, outputPath string) error {
+// All three rules protect the same thing from different directions: without -resize nothing
+// is tracked at all, without -index none of the JSON is tracked, and with -limit the photo
+// list is truncated before tracking happens, so everything past the limit looks unexpected.
+// outputPath is named in the first message so the user can remove the directory by hand if
+// that is what they actually wanted.
+func validateCleanFlags(clean, resize, index bool, limit int, outputPath string) error {
 	if !clean {
 		return nil
 	}
@@ -100,6 +134,16 @@ func validateCleanFlags(clean, resize bool, limit int, outputPath string) error 
 			"Without -resize, photogen does not track resized images, so -clean would\n"+
 			"delete all of them. If you really want to remove all output files,\n"+
 			"delete the output directory manually (e.g. rm -rf %s).", outputPath)
+	}
+	// Measured before this rule existed: `-resize -clean` on an already-built sample site
+	// removed albums.json, config.json, html.json, sitemap.xml and every album's
+	// index.json, and exited 0. The images survive, so the result is a site that serves
+	// nothing but a 404.
+	if !index {
+		return errors.New("-clean requires -index.\n" +
+			"Without -index, photogen does not track albums.json, config.json,\n" +
+			"sitemap.xml, html.json or any album's index.json, so -clean would delete\n" +
+			"all of them and leave a site with images but no data.")
 	}
 	if limit > 0 {
 		return errors.New("-clean cannot be combined with -limit.\n" +
@@ -219,7 +263,7 @@ func main() {
 	}
 
 	cfg.Clean = *clean
-	if err := validateCleanFlags(*clean, *resize, *limit, cfg.SiteOutputPath()); err != nil {
+	if err := validateCleanFlags(*clean, *resize, *index, *limit, cfg.SiteOutputPath()); err != nil {
 		fmt.Printf("ERROR: %s\n", err)
 		exit.ExitWithStatus(err)
 	}
@@ -319,36 +363,44 @@ func main() {
 	saveMetaCache(cfg)
 
 	// Write albums.json, config.json, sitemap.xml, custom CSS, and build metadata if index generation is enabled
+	var siteWriteErr error
 	if cfg.Index {
-		if err := cfg.WriteAlbumsIndex(summaries); err != nil {
-			fmt.Printf("Error writing albums index: %s\n", err)
-		}
-		if err := cfg.WriteConfigJSON(); err != nil {
-			fmt.Printf("Error writing config.json: %s\n", err)
-		}
-		if err := cfg.WriteBuildMeta(*configDir); err != nil {
-			fmt.Printf("Error writing build metadata: %s\n", err)
-		}
-		if err := cfg.WriteHTMLFile(); err != nil {
-			fmt.Printf("Error writing html file: %s\n", err)
-		}
-		if err := cfg.WriteSitemap(summaries); err != nil {
-			fmt.Printf("Error writing sitemap.xml: %s\n", err)
-		}
-		if err := cfg.WriteCSSFile(); err != nil {
-			fmt.Printf("Error copying CSS: %s\n", err)
+		siteWriteErr = runSiteWrites([]siteWriteStep{
+			{"writing albums index", func() error { return cfg.WriteAlbumsIndex(summaries) }},
+			{"writing config.json", cfg.WriteConfigJSON},
+			{"writing build metadata", func() error { return cfg.WriteBuildMeta(*configDir) }},
+			{"writing html file", cfg.WriteHTMLFile},
+			{"writing sitemap.xml", func() error { return cfg.WriteSitemap(summaries) }},
+			{"copying CSS", cfg.WriteCSSFile},
+		})
+		if siteWriteErr != nil {
+			exit.SetExitRequestedWithError(siteWriteErr)
 		}
 	}
 
 	// Clean up old files
 	if cfg.Clean {
-		fmt.Println("\nCleaning...")
-		var slugs []string
-		for _, a := range albums {
-			slugs = append(slugs, a.Slug)
-		}
-		if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, cfg.ExpectedFiles(), cfg.DryRun); err != nil {
-			fmt.Printf("Error cleaning output dir: %s\n", err)
+		// A site writer calls TrackFile only after it has written successfully, so a file
+		// that failed to write is not in the expected set and -clean would delete the
+		// previous, still-good copy on top of not having replaced it. Measured: with
+		// albums.json read-only, the run left the site with no albums.json at all.
+		//
+		// This is validateCleanFlags' rule reached by a different route, so it gets the
+		// same answer: anything that leaves real output untracked must not be cleaned
+		// against.
+		if siteWriteErr != nil {
+			fmt.Println("\nSkipping clean: a site file failed to write, so the output does " +
+				"not match this run and cleaning would delete the previous copy too.")
+		} else {
+			fmt.Println("\nCleaning...")
+			var slugs []string
+			for _, a := range albums {
+				slugs = append(slugs, a.Slug)
+			}
+			if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, cfg.ExpectedFiles(), cfg.DryRun); err != nil {
+				fmt.Printf("Error cleaning output dir: %s\n", err)
+				exit.SetExitRequestedWithError(err)
+			}
 		}
 	}
 
