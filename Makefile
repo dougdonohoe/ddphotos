@@ -89,7 +89,7 @@ RACE ?= -race
 # via GOTOOLCHAIN auto-download does not supply, so `go test -cover` fails with
 # `go: no such tool "covdata"` on any package that has no test files (cmd/decode,
 # cmd/photogen). That bites whenever the installed Go is older than the `go` directive in
-# go.mod — e.g. Ubuntu 24.04, whose apt golang-go is 1.22 and downloads 1.27 on demand.
+# go.mod — e.g. Ubuntu 24.04, whose apt golang-go is 1.22 and downloads 1.## on demand.
 # Use `make test-cover` for coverage; it needs a real Go install (see docs/INSTALL.md).
 test:
 	go test -v $(RACE) $(GO_PKGS)
