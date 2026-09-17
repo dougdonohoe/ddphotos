@@ -18,6 +18,15 @@
 #
 # Usage: bin/ci-open-issue.sh <label> <title> <body-file>
 #
+# The issue is opened by github-actions[bot], which is nobody's activity, so a repo watched
+# at the usual "participating and @mentions" level sends no email about it. To fix that the
+# issue is assigned, which notifies immediately *and* subscribes the assignee to the thread,
+# so the comments later runs add arrive too. By default that is the repo owner, and only when
+# the owner is a user: an organization cannot be an assignee. Set CI_ISSUE_ASSIGNEE to name
+# someone else, or to the empty string to turn assignment off.
+#
+# Assignment is never fatal. A fork whose owner lacks push access still gets its issue.
+#
 # Requires the `gh` CLI (preinstalled on GitHub runners) with GH_TOKEN set, and
 # `issues: write` on the job. The default GITHUB_TOKEN is enough -- no PAT and no secret --
 # but this repo's default workflow permission is read-only, so the job must ask for it:
@@ -61,6 +70,30 @@ BODY="$BODY
 
 $MARKER"
 
+# An explicitly set CI_ISSUE_ASSIGNEE wins, including an empty one meaning "do not assign".
+# Unset falls back to the repo owner, when that owner is a user rather than an organization.
+if [ -n "${CI_ISSUE_ASSIGNEE+isset}" ]; then
+    ASSIGNEE=$CI_ISSUE_ASSIGNEE
+else
+    ASSIGNEE=$(gh api 'repos/{owner}/{repo}' \
+        --jq 'if .owner.type == "User" then .owner.login else "" end' 2>/dev/null) || ASSIGNEE=""
+fi
+
+# Assigns only when nobody is assigned yet, so a human who deliberately reassigns or clears
+# the issue is not overruled every night. Runs on a new and an existing issue alike, which
+# also picks up issues opened before this script assigned anything.
+ensure_assignee() {
+    local issue=$1 current
+    [ -n "$ASSIGNEE" ] || return 0
+    current=$(gh issue view "$issue" --json assignees --jq '.assignees | length' 2>/dev/null) || return 0
+    [ "$current" = "0" ] || return 0
+    if gh issue edit "$issue" --add-assignee "$ASSIGNEE" >/dev/null 2>&1; then
+        echo "Assigned issue #$issue to $ASSIGNEE"
+    else
+        echo "Could not assign issue #$issue to $ASSIGNEE (not fatal)" >&2
+    fi
+}
+
 # Idempotent: succeeds the first time, errors harmlessly every night after. Created here
 # rather than assumed so a fork gets the same behavior with no manual repo setup.
 gh label create "$LABEL" --color FBCA04 --description "Opened automatically by a scheduled workflow" >/dev/null 2>&1 || true
@@ -88,7 +121,11 @@ if [ -n "$EXISTING" ]; then
         echo "Retitling issue #$EXISTING"
         gh issue edit "$EXISTING" --title "$TITLE"
     fi
+
+    ensure_assignee "$EXISTING"
 else
     echo "Opening a new issue"
-    gh issue create --label "$LABEL" --title "$TITLE" --body "$BODY"
+    NEW_URL=$(gh issue create --label "$LABEL" --title "$TITLE" --body "$BODY")
+    echo "$NEW_URL"
+    ensure_assignee "${NEW_URL##*/}"
 fi
