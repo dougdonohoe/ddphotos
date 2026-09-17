@@ -90,8 +90,14 @@ var slugPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 // Photos App enforces on both, so anything typable there is accepted here.
 const slugMaxLen = 64
 
-// validate checks required fields and that all base references exist in the bases map.
+// validate checks required fields, that slugs are unique, and that all base references
+// exist in the bases map. It runs from LoadAlbumsFile, before ToAlbumConfigs resolves or
+// stats any path, so a bad file is rejected before the run touches the filesystem.
 func (af *AlbumsFile) validate() error {
+	// Keyed by the lowercased slug, holding the slug as written, so one pass catches both
+	// an exact repeat and a pair that differs only by case.
+	seenSlugs := make(map[string]string, len(af.Albums))
+
 	for i, a := range af.Albums {
 		if a.Slug == "" {
 			return fmt.Errorf("album[%d]: slug is required", i)
@@ -103,6 +109,23 @@ func (af *AlbumsFile) validate() error {
 		if len(a.Slug) > slugMaxLen {
 			return fmt.Errorf("album %q: slug must be at most %d characters", a.Slug, slugMaxLen)
 		}
+		// A slug is both the output directory and the URL path segment, so two albums
+		// sharing one means the second overwrites the first's index.json and images while
+		// albums.json advertises both. Neither -clean nor checkDuplicateIDs can see it:
+		// TrackFile accumulates across albums, and the ID check runs per album.
+		if prior, dup := seenSlugs[strings.ToLower(a.Slug)]; dup {
+			if prior == a.Slug {
+				return fmt.Errorf("album %q: duplicate slug; each album needs its own, "+
+					"because the slug is the output directory and the URL", a.Slug)
+			}
+			// Distinct to Go, one directory to macOS and Windows. The build would put both
+			// albums in whichever spelling was created first, and a case-sensitive server
+			// would then 404 the other spelling's URL.
+			return fmt.Errorf("albums %q and %q: slugs differ only by case, which is the "+
+				"same directory on a case-insensitive filesystem; give one of them a "+
+				"distinct slug", prior, a.Slug)
+		}
+		seenSlugs[strings.ToLower(a.Slug)] = a.Slug
 		if a.Name == "" {
 			return fmt.Errorf("album %q: name is required", a.Slug)
 		}

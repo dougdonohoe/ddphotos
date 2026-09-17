@@ -145,9 +145,14 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 	// enough on its own: an album that was public before its password was added keeps the
 	// file an earlier run wrote, on disk and on the server. Removing it here rather than
 	// relying on -clean, which the user has to opt into.
+	//
+	// A removal that fails stops the album, because the file it failed to remove is the one
+	// thing on the encrypted path that is still readable.
 	encrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
 	if encrypted && !ap.Config.DryRun {
-		removeIfExists(ap.OutputPath(CoverJPEGName))
+		if err := removeCounterpart(ap.OutputPath(CoverJPEGName), true, ap.warnf); err != nil {
+			return err
+		}
 	}
 
 	// resize photos if enabled

@@ -44,7 +44,7 @@ bin/photogen -resize -index -clean -doit  # developer mode
 | `-css`              | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](CONFIGURATION.md#custom-css))                                                    |
 | `-customization`    | *(auto)*      | Path to a customization file; overrides the default `<config-dir>/customization.yaml` (see [customization.yaml](CONFIGURATION.md#customizationyaml)) |
 | `-no-customization` | `false`       | Ignore `customization.yaml` even when present                                                                                                        |
-| `-clean`            | `false`       | Remove stale files from processed album directories after a run (requires `-resize`)                                                                 |
+| `-clean`            | `false`       | Remove stale files from processed album directories after a run (requires `-resize` and `-index`; cannot be combined with `-limit`)                  |
 | `-hero-only`        | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation (see [Hero Image](CONFIGURATION.md#hero-image))                 |
 
 ## Metadata Cache
@@ -127,7 +127,7 @@ listed in `photogen.txt` are sorted by date and appended at the end.
 
 ### HTML in captions
 
-`photogen.txt` is written by the site owner, so captions may contain **inline HTML** and
+`photogen.txt` is written by the site owner, so captions may contain **inline HTML**, and
 it is rendered rather than escaped, the same way `site_title_html` and album descriptions
 are:
 
