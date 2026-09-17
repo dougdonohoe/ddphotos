@@ -122,6 +122,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # govulncheck type-checks the packages it scans, and govips is cgo, so its preamble
+      # needs the libvips headers to resolve. Without them every C constant comes back
+      # unknown and the scan dies with "duplicate key unknown in map literal" from
+      # vips/foreign.go -- which is what the first run of this job did.
+      #
+      # Deliberately a shorter list than ci.yml's: this only ever builds, never decodes an
+      # image, so libheif-plugin-libde265 (a runtime HEIC decoder) is not needed here.
+      # Via bin/ci-apt-install.sh for the mirror defences described in its header.
+      - name: Install libvips headers
+        run: bash bin/ci-apt-install.sh libvips-dev pkg-config
+
       # go-version-file rather than a literal, matching ci.yml: go.mod is the only place
       # naming the Go version.
       - name: Setup Go
