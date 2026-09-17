@@ -58,12 +58,34 @@ func ReadMediaMetadata(path string) (*PhotoMetadata, error) {
 	return ReadPhotoMetadata(path)
 }
 
+// loadImage opens a file with libvips using the import parameters photogen standardizes
+// on. It is the only place in the package that calls vips.LoadImageFromFile, so a
+// metadata read and a resize cannot disagree about how forgiving to be.
+//
+// FailOnError is off deliberately. A photo library accumulates files with minor defects,
+// a damaged run of scan data or a truncated trailing one, that every viewer renders
+// without complaint, and rejecting one of them would abort an entire build. The params
+// are always passed explicitly because govips substitutes NewImportParams() for nil,
+// which sets FailOnError to true.
+//
+// The returned error is annotated but not wrapped, leaving callers to add their own
+// context. The caller owns the image and must Close it.
+func loadImage(path string) (*vips.ImageRef, error) {
+	params := vips.NewImportParams()
+	params.FailOnError.Set(false)
+	img, err := vips.LoadImageFromFile(path, params)
+	if err != nil {
+		return nil, annotateImageLoadErr(err)
+	}
+	return img, nil
+}
+
 // ReadPhotoMetadata extracts dimensions, orientation, and date taken from a still image.
 // Uses govips for dimensions and libvips' EXIF fields for the date.
 func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
-	img, err := vips.LoadImageFromFile(path, nil)
+	img, err := loadImage(path)
 	if err != nil {
-		return nil, fmt.Errorf("load image: %w", annotateImageLoadErr(err))
+		return nil, fmt.Errorf("load image: %w", err)
 	}
 	defer img.Close()
 

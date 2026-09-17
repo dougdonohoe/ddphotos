@@ -319,3 +319,58 @@ func TestDeriveOrientation(t *testing.T) {
 		assert.Equal(t, tc.want, got, "deriveOrientation(%d, %d)", tc.width, tc.height)
 	}
 }
+
+// corruptJPEG returns a copy of a real fixture with a run of scan data overwritten. The
+// header and EXIF stay intact, so the file still declares its true dimensions and date;
+// only the compressed pixels are damaged. This is the shape of defect a photo library
+// actually accumulates, and the one libvips' FailOnError rejects.
+func corruptJPEG(t *testing.T, dir string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "landscape-1.jpg"))
+	require.NoError(t, err)
+	start := len(data) / 2
+	for i := start; i < start+8192 && i < len(data); i++ {
+		data[i] = 0xAB
+	}
+	path := filepath.Join(dir, "corrupt.jpg")
+	require.NoError(t, os.WriteFile(path, data, 0o644))
+	return path
+}
+
+// loadImage is the single place photogen opens a file with libvips, and it must stay
+// tolerant. The strict load it is compared against is what govips substitutes for nil
+// params, so the comparison shows the setting is doing real work.
+func TestLoadImageToleratesCorruptScanData(t *testing.T) {
+	path := corruptJPEG(t, t.TempDir())
+
+	// A strict load fails, but only once something forces the pixels to be decoded.
+	strict, err := vips.LoadImageFromFile(path, nil)
+	require.NoError(t, err, "the header is intact, so the load itself succeeds either way")
+	_, _, strictErr := strict.ExportNative()
+	strict.Close()
+	require.Error(t, strictErr, "a strict decode must reject this file, or the test proves nothing")
+	assert.Contains(t, strictErr.Error(), "Corrupt JPEG data")
+
+	// The shared loader tolerates it through a full decode.
+	img, err := loadImage(path)
+	require.NoError(t, err)
+	defer img.Close()
+	_, _, err = img.ExportNative()
+	assert.NoError(t, err, "loadImage must tolerate damaged scan data")
+}
+
+// The metadata path must accept any file the resize path accepts: a photo whose WebPs
+// photogen will happily generate must not be one that kills the run when its dimensions
+// are read.
+func TestReadPhotoMetadataToleratesCorruptScanData(t *testing.T) {
+	path := corruptJPEG(t, t.TempDir())
+
+	meta, err := ReadPhotoMetadata(path)
+	require.NoError(t, err)
+	assert.Equal(t, 5028, meta.Width)
+	assert.Equal(t, 3317, meta.Height)
+	assert.False(t, meta.DateTaken.IsZero(), "EXIF is intact, only the scan data is damaged")
+
+	_, err = ResizeImage(path, filepath.Join(t.TempDir(), "out.webp"), SizeGrid, true, false)
+	assert.NoError(t, err, "the resize path must accept the same file")
+}
