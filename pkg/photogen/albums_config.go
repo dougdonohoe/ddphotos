@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // AlbumsFile is the top-level structure parsed from an albums YAML file.
@@ -69,18 +67,7 @@ type AlbumEntry struct {
 // LoadAlbumsFile reads and parses an albums YAML file. It validates required fields
 // and base references but does not resolve or check path existence on disk.
 func LoadAlbumsFile(path string) (*AlbumsFile, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var af AlbumsFile
-	if err := yaml.Unmarshal(data, &af); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	if err := af.validate(); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	return &af, nil
+	return loadYAML[AlbumsFile](path)
 }
 
 // slugPattern is the permitted album slug format: a letter or digit, then any mix of

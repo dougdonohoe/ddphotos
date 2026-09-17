@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
-	"gopkg.in/yaml.v3"
 )
 
 // EncryptConfig holds the keys and passwords loaded from a passwords file.
@@ -55,6 +54,10 @@ type passwordsFile struct {
 
 // LoadEncryptConfig reads a YAML passwords file and returns an EncryptConfig.
 //
+// It uses readYAML rather than loadYAML because the parsed passwordsFile is not the usable
+// value: it is flattened into an EncryptConfig below, and EncryptConfig.Validate needs the
+// album list, so it runs later from Config.Validate.
+//
 // Format:
 //
 //	key: hmac-secret
@@ -66,13 +69,9 @@ type passwordsFile struct {
 //	    password: per-album-password
 //	    hint: optional hint
 func LoadEncryptConfig(path string) (*EncryptConfig, error) {
-	data, err := os.ReadFile(path)
+	pf, err := readYAML[passwordsFile](path)
 	if err != nil {
-		return nil, fmt.Errorf("load encrypt config %s: %w", path, err)
-	}
-	var pf passwordsFile
-	if err := yaml.Unmarshal(data, &pf); err != nil {
-		return nil, fmt.Errorf("load encrypt config %s: %w", path, err)
+		return nil, err
 	}
 	ec := &EncryptConfig{
 		AlbumPasswords: map[string]string{},

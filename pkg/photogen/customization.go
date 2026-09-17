@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // DefaultCustomizationFile is the filename looked for alongside albums.yaml in the config
@@ -36,18 +34,7 @@ type NavLink struct {
 
 // LoadCustomizations reads and validates a customization file.
 func LoadCustomizations(path string) (*Customizations, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	var c Customizations
-	if err := yaml.Unmarshal(data, &c); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	if err := c.validate(); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	return &c, nil
+	return loadYAML[Customizations](path)
 }
 
 // ResolveCustomizations applies the precedence between the -no-customization flag, an explicit
