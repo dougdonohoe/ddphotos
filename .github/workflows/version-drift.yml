@@ -75,7 +75,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Compare pinned Node and npm versions against upstream
         id: check
@@ -120,7 +120,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # govulncheck type-checks the packages it scans, and govips is cgo, so its preamble
       # needs the libvips headers to resolve. Without them every C constant comes back
@@ -136,7 +136,7 @@ jobs:
       # go-version-file rather than a literal, matching ci.yml: go.mod is the only place
       # naming the Go version.
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
 
