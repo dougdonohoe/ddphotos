@@ -124,21 +124,6 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 		return err
 	}
 
-	// warn once if configured cover is not found
-	if ap.AlbumConfig.Cover != "" {
-		fullCover := filepath.ToSlash(filepath.Join(filepath.Base(ap.AlbumConfig.Path), ap.AlbumConfig.Cover))
-		found := false
-		for _, p := range ap.Photos {
-			if p.SourcePath == fullCover {
-				found = true
-				break
-			}
-		}
-		if !found {
-			ap.warnf("  WARN: cover source path %q not found in album, using first photo\n", ap.AlbumConfig.Cover)
-		}
-	}
-
 	// An encrypted album must not have a cover.jpg. It is a readable JPEG of the album's
 	// cover photo, published for OG tags, and GetAlbumSummary already withholds CoverJpeg
 	// for encrypted albums for exactly that reason. Skipping WriteCoverJPEG below is not
@@ -210,6 +195,11 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 		sortByDate(photos)
 	}
 
+	// Checked against the full list, and so before the limit truncates it. -limit keeps only
+	// the first N on purpose, so a cover that sorts later is still in the album and warning
+	// that it is "not found" would be a lie, in exactly the mode people iterate in.
+	coverMissing := ap.AlbumConfig.Cover != "" && !containsCover(photos, ap.coverSourcePath())
+
 	// Apply limit (truncate after full collection)
 	if ap.Config != nil && ap.Config.Limit > 0 && len(photos) > ap.Config.Limit {
 		photos = photos[:ap.Config.Limit]
@@ -233,8 +223,27 @@ func (ap *AlbumProcessor) LoadPhotos() error {
 	if noDates > 0 {
 		ap.warnf("  WARN: %d/%d photos have no EXIF date\n", noDates, len(ap.Photos))
 	}
+	if coverMissing {
+		ap.warnf("  WARN: cover source path %q not found in album, using first photo\n", ap.AlbumConfig.Cover)
+	}
 
 	return nil
+}
+
+// coverSourcePath returns the configured cover as it appears in a photo's SourcePath:
+// source-relative, prefixed with the album directory name, slash-separated.
+func (ap *AlbumProcessor) coverSourcePath() string {
+	return filepath.ToSlash(filepath.Join(filepath.Base(ap.AlbumConfig.Path), ap.AlbumConfig.Cover))
+}
+
+// containsCover reports whether any photo has the given SourcePath.
+func containsCover(photos []*Photo, sourcePath string) bool {
+	for _, p := range photos {
+		if p.SourcePath == sourcePath {
+			return true
+		}
+	}
+	return false
 }
 
 // checkDuplicateIDs reports an error when two source files reduce to the same photo ID.

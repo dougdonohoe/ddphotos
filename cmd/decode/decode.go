@@ -10,6 +10,7 @@
 // automatically from the filename:
 //
 //   - albums.enc.json  → site-wide password (site.password)
+//   - html.enc.json    → site-wide password (site.password)
 //   - index.enc.json   → per-album password for the parent directory slug
 package main
 
@@ -93,9 +94,23 @@ func main() {
 
 // passwordForFile returns the appropriate password for the given enc.json path:
 //   - albums.enc.json → site-wide password
+//   - html.enc.json   → site-wide password
 //   - index.enc.json  → per-album password for the parent directory (album slug)
+//
+// html.enc.json used to fall through to the album branch and work only by accident: the
+// parent directory of a site-level file is the site ID, the site ID is normally absent from
+// AlbumPasswords, and AlbumPassword falls back to SitePassword when a slug is missing. That
+// accident breaks as soon as an album's slug equals the site ID and the album has its own
+// password, which nothing forbids, since validSiteID and slugPattern both accept the same
+// strings. Measured before this change: with settings.id "uganda" and an album "uganda"
+// carrying its own password, decoding uganda/html.enc.json failed with "cipher: message
+// authentication failed" while uganda/albums.enc.json decoded fine.
+//
+// These three names come from jsonNames in pkg/photogen/json.go, which is where the set is
+// decided; a fourth encrypted artifact would need adding here too.
 func passwordForFile(ec *photogen.EncryptConfig, encPath string) string {
-	if filepath.Base(encPath) == "albums.enc.json" {
+	switch filepath.Base(encPath) {
+	case "albums.enc.json", "html.enc.json":
 		return ec.SitePassword
 	}
 	slug := filepath.Base(filepath.Dir(encPath))

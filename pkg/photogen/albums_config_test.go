@@ -716,3 +716,65 @@ func TestDuplicateAlbumSlugs(t *testing.T) {
 		assert.Contains(t, err.Error(), "name is required")
 	})
 }
+
+// A descriptions entry naming no album is read with a plain map lookup, so it used to be
+// silently dropped, leaving an album with no blurb and no hint why. The same mistake in the
+// passwords file has always been reported, so the two config files now behave alike.
+func TestUnknownDescriptionSlugs(t *testing.T) {
+	t.Parallel()
+
+	// newFile returns a two-album file plus a config dir holding the given descriptions.
+	newFile := func(t *testing.T, descriptions string) (*AlbumsFile, string) {
+		t.Helper()
+		dir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "photos"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "desc.txt"), []byte(descriptions), 0o644))
+		af := &AlbumsFile{
+			Settings: AlbumsSettings{Descriptions: "desc.txt"},
+			Albums: []AlbumEntry{
+				{Slug: "uganda", Name: "Uganda", Source: "photos"},
+				{Slug: "the-way", Name: "The Way", Source: "photos"},
+			},
+		}
+		return af, dir
+	}
+
+	t.Run("entries that match albums are not reported", func(t *testing.T) {
+		t.Parallel()
+		af, dir := newFile(t, "uganda Gorillas\nthe-way Camino\n")
+		configs, err := af.ToAlbumConfigs(dir)
+		require.NoError(t, err)
+		assert.Equal(t, "Gorillas", configs[0].Description)
+		assert.Empty(t, af.Settings.UnknownDescriptionSlugs)
+	})
+
+	t.Run("an entry naming no album is reported", func(t *testing.T) {
+		t.Parallel()
+		af, dir := newFile(t, "uganda Gorillas\nuganda-2007 Typo\nghost Nope\n")
+		_, err := af.ToAlbumConfigs(dir)
+		require.NoError(t, err, "an unknown entry is a warning, not a failure")
+		assert.Equal(t, []string{"ghost", "uganda-2007"}, af.Settings.UnknownDescriptionSlugs,
+			"sorted, so the message is stable across runs")
+	})
+
+	// An inline description takes precedence, so the file entry goes unused. It still names
+	// a real album, though, and must not be reported as unknown.
+	t.Run("an inline description does not make the file entry unknown", func(t *testing.T) {
+		t.Parallel()
+		af, dir := newFile(t, "uganda From the file\nthe-way Camino\n")
+		af.Albums[0].Description = "Inline wins"
+		configs, err := af.ToAlbumConfigs(dir)
+		require.NoError(t, err)
+		assert.Equal(t, "Inline wins", configs[0].Description)
+		assert.Empty(t, af.Settings.UnknownDescriptionSlugs)
+	})
+
+	t.Run("no descriptions file means nothing to report", func(t *testing.T) {
+		t.Parallel()
+		af, dir := newFile(t, "")
+		af.Settings.Descriptions = ""
+		_, err := af.ToAlbumConfigs(dir)
+		require.NoError(t, err)
+		assert.Empty(t, af.Settings.UnknownDescriptionSlugs)
+	})
+}

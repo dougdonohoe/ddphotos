@@ -500,7 +500,10 @@ func (c *Config) WriteCSSFile() error {
 	if err != nil {
 		return fmt.Errorf("read css: %w", err)
 	}
-	if err := os.WriteFile(outputPath, data, filePerms); err != nil {
+	// Through writeBytes like every other output, for its MkdirAll: os.WriteFile on its own
+	// fails when the site directory does not exist, which only stays hidden because
+	// WriteAlbumsIndex runs first in the same block and creates it.
+	if err := writeBytes(outputPath, data); err != nil {
 		return fmt.Errorf("write css: %w", err)
 	}
 	fmt.Printf("  copied: %s\n", outputPath)

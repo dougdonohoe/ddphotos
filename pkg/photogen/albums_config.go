@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -38,6 +39,12 @@ type AlbumsSettings struct {
 	// Resolved paths (populated by ToAlbumConfigs; not from YAML).
 	HeroImagePath string `yaml:"-"`
 	CustomCSSPath string `yaml:"-"`
+
+	// UnknownDescriptionSlugs lists entries in the descriptions file that match no album,
+	// sorted (populated by ToAlbumConfigs; not from YAML). Reported by the caller rather
+	// than here, the same way EncryptConfig.RestrictToAlbums hands back its stale slugs, so
+	// that config loading stays free of the warning machinery.
+	UnknownDescriptionSlugs []string `yaml:"-"`
 }
 
 // HeroEntry configures a full-width hero image displayed at the top of the home page.
@@ -197,6 +204,18 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 			Recurse:         a.Recurse,
 			Description:     desc,
 		})
+		delete(descriptions, a.Slug)
+	}
+
+	// Whatever is left named no album. A typo'd or renamed slug in the descriptions file
+	// used to be silently dropped, leaving an album with no blurb and no hint why, while
+	// the same mistake in the passwords file has always been reported.
+	if len(descriptions) > 0 {
+		af.Settings.UnknownDescriptionSlugs = make([]string, 0, len(descriptions))
+		for slug := range descriptions {
+			af.Settings.UnknownDescriptionSlugs = append(af.Settings.UnknownDescriptionSlugs, slug)
+		}
+		sort.Strings(af.Settings.UnknownDescriptionSlugs)
 	}
 
 	if af.Settings.Hero != nil {
