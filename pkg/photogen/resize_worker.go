@@ -44,7 +44,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 		if photo.IsVideo {
 			vw := videoWork{
 				photo: photo,
-				// Derived from the source filename, not from VideoFileName's .mp4 form,
+				// Derived from the source filename rather than from an already-.mp4 name,
 				// so an encrypted album hashes the same stem as the poster stills.
 				videoPath:   ap.OutputPath(VideoDirName, ap.Config.PhotoOutputName(ap.AlbumConfig.Slug, photo.FileName, ".mp4")),
 				posterPaths: make(map[ImageSize]string, len(sizes)),

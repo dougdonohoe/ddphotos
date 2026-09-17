@@ -71,12 +71,6 @@ func IsMediaFile(name string) bool {
 	return IsPhotoFile(name) || IsVideoFile(name)
 }
 
-// VideoFileName returns the transcoded output filename for a source video.
-func VideoFileName(filename string) string {
-	ext := filepath.Ext(filename)
-	return strings.TrimSuffix(filename, ext) + ".mp4"
-}
-
 // videoTools holds resolved paths to the ffmpeg and ffprobe executables.
 type videoTools struct {
 	ffmpeg  string

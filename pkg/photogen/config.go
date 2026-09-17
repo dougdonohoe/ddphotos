@@ -24,8 +24,6 @@ type Config struct {
 	SiteID string
 	// DryRun toggles side effect free execution for smoke-testing.
 	DryRun bool
-	// SkipVariant skips Variants phase
-	SkipVariant bool
 	// Limit caps the number of photos processed per album (0 = no limit).
 	Limit int
 	// Force regenerates output files even if they already exist.

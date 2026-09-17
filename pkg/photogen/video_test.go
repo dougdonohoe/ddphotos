@@ -321,16 +321,19 @@ func TestParseVideoCreationTime(t *testing.T) {
 }
 
 func TestVideoOutputNaming(t *testing.T) {
-	assert.Equal(t, "clip.mp4", VideoFileName("clip.mov"))
-	assert.Equal(t, "clip.mp4", VideoFileName("clip.MOV"))
-	assert.Equal(t, "clip.mp4", VideoFileName("clip.mp4"))
+	// The unencrypted path swaps the extension whatever the source case. This is the call
+	// ResizePhotos actually makes; a video has no naming helper of its own.
+	c := &Config{}
+	assert.Equal(t, "clip.mp4", c.PhotoOutputName("a", "clip.mov", ".mp4"))
+	assert.Equal(t, "clip.mp4", c.PhotoOutputName("a", "clip.MOV", ".mp4"))
+	assert.Equal(t, "clip.mp4", c.PhotoOutputName("a", "clip.mp4", ".mp4"))
 
 	t.Run("encrypted albums share one stem across outputs", func(t *testing.T) {
 		// The MP4 and its poster must hash to the same unguessable stem, or the pair is
 		// trivially correlated by anyone who can list the directory.
 		ec := &EncryptConfig{HMACKey: "test-key"}
 		video := ec.PhotoOutputName("clip.mov", ".mp4")
-		poster := ec.PhotoWebPName("clip.mov")
+		poster := ec.PhotoOutputName("clip.mov", ".webp")
 
 		assert.Equal(t, ".mp4", filepath.Ext(video))
 		assert.Equal(t, ".webp", filepath.Ext(poster))
@@ -344,7 +347,7 @@ func TestVideoOutputNaming(t *testing.T) {
 	t.Run("unencrypted albums keep the original name", func(t *testing.T) {
 		ec := &EncryptConfig{}
 		assert.Equal(t, "clip.mp4", ec.PhotoOutputName("clip.mov", ".mp4"))
-		assert.Equal(t, "clip.webp", ec.PhotoWebPName("clip.mov"))
+		assert.Equal(t, "clip.webp", ec.PhotoOutputName("clip.mov", ".webp"))
 	})
 }
 

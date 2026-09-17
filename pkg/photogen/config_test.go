@@ -163,7 +163,7 @@ func TestConfigPhotoOutputName(t *testing.T) {
 		ec := &EncryptConfig{HMACKey: "test-key", SitePassword: "site-pass"}
 		c := &Config{Encrypt: ec}
 		assert.Equal(t, ec.PhotoOutputName("clip.mov", ".mp4"), c.PhotoOutputName("a", "clip.mov", ".mp4"))
-		assert.Equal(t, ec.PhotoWebPName("photo.jpg"), c.PhotoWebPName("a", "photo.jpg"))
+		assert.Equal(t, ec.PhotoOutputName("photo.jpg", ".webp"), c.PhotoWebPName("a", "photo.jpg"))
 	})
 
 	t.Run("PhotoWebPName is PhotoOutputName with .webp", func(t *testing.T) {
