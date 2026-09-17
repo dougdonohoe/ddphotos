@@ -643,3 +643,76 @@ func TestAlbumSlugLengthCap(t *testing.T) {
 		assert.Contains(t, err.Error(), "64")
 	})
 }
+
+// A slug is both the output directory and the URL path segment, so two albums sharing one
+// is not survivable: the second overwrites the first's index.json and images, albums.json
+// advertises both, and sitemap.xml emits the same <loc> twice. Nothing downstream catches
+// it, which is why it has to be rejected here, before ToAlbumConfigs touches the disk.
+func TestDuplicateAlbumSlugs(t *testing.T) {
+	t.Parallel()
+
+	fileWith := func(slugs ...string) *AlbumsFile {
+		af := &AlbumsFile{}
+		for _, s := range slugs {
+			af.Albums = append(af.Albums, AlbumEntry{Slug: s, Name: "A " + s, Source: "/tmp"})
+		}
+		return af
+	}
+
+	t.Run("distinct slugs are allowed", func(t *testing.T) {
+		t.Parallel()
+		assert.NoError(t, fileWith("uganda", "antarctica", "the-way").validate())
+	})
+
+	t.Run("an exact repeat is rejected", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith("uganda", "antarctica", "uganda").validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate slug")
+		assert.Contains(t, err.Error(), "uganda", "the message names the offending slug")
+	})
+
+	// Distinct to Go, one directory to macOS and Windows: the build puts both albums in
+	// whichever spelling was created first, and a case-sensitive server then 404s the
+	// other spelling's URL. So the same build behaves differently per platform.
+	t.Run("a case-only difference is rejected", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith("Uganda", "UGANDA").validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "differ only by case")
+		assert.Contains(t, err.Error(), "Uganda")
+		assert.Contains(t, err.Error(), "UGANDA")
+	})
+
+	// The two cases get different messages because the fixes differ: an exact repeat is
+	// usually a copy-paste to delete, a case clash needs one slug renamed.
+	t.Run("the two cases report differently", func(t *testing.T) {
+		t.Parallel()
+		exact := fileWith("trip", "trip").validate()
+		cased := fileWith("trip", "Trip").validate()
+		require.Error(t, exact)
+		require.Error(t, cased)
+		assert.NotContains(t, exact.Error(), "differ only by case")
+		assert.NotContains(t, cased.Error(), "duplicate slug")
+	})
+
+	// Mixed case is legal for a slug (only the site ID is lowercase-only, and the app's
+	// REGEXP_SLUG agrees), so the check must not reject a single mixed-case slug.
+	t.Run("a lone mixed-case slug is still allowed", func(t *testing.T) {
+		t.Parallel()
+		assert.NoError(t, fileWith("Uganda", "antarctica").validate())
+	})
+
+	// Per-album field checks still run first, so a file with both problems reports the
+	// missing field rather than the duplicate.
+	t.Run("a missing field on an earlier album wins", func(t *testing.T) {
+		t.Parallel()
+		af := &AlbumsFile{Albums: []AlbumEntry{
+			{Slug: "trip", Name: "", Source: "/tmp"},
+			{Slug: "trip", Name: "B", Source: "/tmp"},
+		}}
+		err := af.validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "name is required")
+	})
+}
