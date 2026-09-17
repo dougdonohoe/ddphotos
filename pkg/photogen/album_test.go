@@ -787,3 +787,75 @@ func TestDuplicatePhotoIDs(t *testing.T) {
 		assert.Len(t, photos, 2)
 	})
 }
+
+// An album that gains a password must not keep the readable cover.jpg an earlier public
+// run published. Process skips WriteCoverJPEG for an encrypted album rather than reversing
+// it, so the old file survived on disk and on the server; -clean removed it, but only for
+// users who run with -clean.
+func TestProcess_EncryptedAlbumRemovesStaleCoverJPEG(t *testing.T) {
+	t.Parallel()
+
+	setup := func(t *testing.T) (*AlbumConfig, string, string) {
+		t.Helper()
+		src := t.TempDir()
+		for _, n := range []string{"landscape-1.jpg", "portrait-1.jpg"} {
+			data, err := os.ReadFile(filepath.Join("testdata", n))
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(src, n), data, 0o644))
+		}
+		return &AlbumConfig{Slug: "myalbum", Name: "My Album", Path: src}, src, t.TempDir()
+	}
+
+	newConfig := func(out string, password string) *Config {
+		c := &Config{OutputRoot: out, SiteID: "test", Resize: true, Index: true, Warn: &WarnCollector{}}
+		if password != "" {
+			c.Encrypt = &EncryptConfig{
+				HMACKey:        "k",
+				AlbumPasswords: map[string]string{"myalbum": password},
+			}
+		}
+		return c
+	}
+
+	t.Run("a password added after a public run removes the old cover", func(t *testing.T) {
+		t.Parallel()
+		ac, _, out := setup(t)
+
+		public := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, public.Process(1, 1))
+		cover := public.OutputPath("cover.jpg")
+		require.FileExists(t, cover, "a public album publishes a cover for OG tags")
+
+		// No -clean: the stale file has to go on its own.
+		locked := NewAlbumProcessor(newConfig(out, "secret123"), ac)
+		require.NoError(t, locked.Process(1, 1))
+		assert.NoFileExists(t, cover, "an encrypted album must not keep a readable cover")
+	})
+
+	t.Run("a public album keeps its cover across runs", func(t *testing.T) {
+		t.Parallel()
+		ac, _, out := setup(t)
+
+		first := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, first.Process(1, 1))
+		cover := first.OutputPath("cover.jpg")
+
+		second := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, second.Process(1, 1))
+		assert.FileExists(t, cover, "the removal must be scoped to encrypted albums")
+	})
+
+	t.Run("a dry run deletes nothing", func(t *testing.T) {
+		t.Parallel()
+		ac, _, out := setup(t)
+
+		public := NewAlbumProcessor(newConfig(out, ""), ac)
+		require.NoError(t, public.Process(1, 1))
+		cover := public.OutputPath("cover.jpg")
+
+		cfg := newConfig(out, "secret123")
+		cfg.DryRun = true
+		require.NoError(t, NewAlbumProcessor(cfg, ac).Process(1, 1))
+		assert.FileExists(t, cover, "a dry run must not remove anything")
+	})
+}

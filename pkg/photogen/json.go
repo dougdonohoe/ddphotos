@@ -210,7 +210,7 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		// CoverJpeg is used for OG/crawler meta tags — only set for unencrypted albums so
 		// search engines cannot index content that requires a password.
 		if !albumEncrypted {
-			summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, "cover.jpg")
+			summary.CoverJpeg = filepath.Join(ap.AlbumConfig.Slug, CoverJPEGName)
 		}
 		summary.DateSpan = ap.computeDateSpan()
 	}

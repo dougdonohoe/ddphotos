@@ -139,6 +139,17 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 		}
 	}
 
+	// An encrypted album must not have a cover.jpg. It is a readable JPEG of the album's
+	// cover photo, published for OG tags, and GetAlbumSummary already withholds CoverJpeg
+	// for encrypted albums for exactly that reason. Skipping WriteCoverJPEG below is not
+	// enough on its own: an album that was public before its password was added keeps the
+	// file an earlier run wrote, on disk and on the server. Removing it here rather than
+	// relying on -clean, which the user has to opt into.
+	encrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
+	if encrypted && !ap.Config.DryRun {
+		removeIfExists(ap.OutputPath(CoverJPEGName))
+	}
+
 	// resize photos if enabled
 	if ap.Config.Resize {
 		if err := ap.ResizePhotos(); err != nil {
@@ -147,7 +158,6 @@ func (ap *AlbumProcessor) Process(index, total int) error {
 		}
 		// Cover JPEG is only used for OG images; skip for encrypted albums since
 		// CoverJpeg is omitted from the summary and the file would be guessable.
-		encrypted := ap.Config.IsAlbumEncrypted(ap.AlbumConfig.Slug)
 		if !encrypted {
 			if err := ap.WriteCoverJPEG(); err != nil {
 				fmt.Printf("Error writing cover JPEG: %v\n", err)
@@ -699,6 +709,11 @@ func (ap *AlbumProcessor) coverImageSource(cover *Photo) string {
 	return ap.OutputPath(string(SizeFull), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
 }
 
+// CoverJPEGName is the album-level JPEG of the cover photo, served as the Open Graph image
+// for crawlers that will not render a WebP. It sits in the album directory alongside
+// grid/, full/ and video/, and exists only for unencrypted albums.
+const CoverJPEGName = "cover.jpg"
+
 // WriteCoverJPEG generates a JPEG version of the album cover for use as an Open Graph image.
 // Output: outputRoot/albums/{slug}/cover.jpg
 func (ap *AlbumProcessor) WriteCoverJPEG() error {
@@ -706,7 +721,7 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 	if cover == nil {
 		return nil
 	}
-	outputPath := ap.OutputPath("cover.jpg")
+	outputPath := ap.OutputPath(CoverJPEGName)
 	ap.Config.TrackFile(outputPath)
 
 	source := ap.coverImageSource(cover)
