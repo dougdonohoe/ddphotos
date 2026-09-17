@@ -1,13 +1,14 @@
 package photogen
 
 import (
-	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -508,44 +509,46 @@ func (c *Config) WriteCSSFile() error {
 func (c *Config) WriteSitemap(summaries []AlbumSummary) error {
 	outputPath := c.SiteOutputPath("sitemap.xml")
 
+	// Encrypted albums are left out. The slug is the one thing a crawler could learn about
+	// a password-protected album, and withholding it matches the decision in
+	// GetAlbumSummary to omit CoverJpeg so search engines cannot index content that needs a
+	// password. The site root stays listed either way: it is a real public page that serves
+	// the password prompt, so a fully encrypted site gets a sitemap with that one entry.
+	//
+	// Every <loc> is XML-escaped. slugPattern (albums_config.go) already restricts a slug
+	// to characters that need no escaping, but SiteURL is free-form config, and a raw "&"
+	// there would make the whole document unparseable to a crawler.
+	locs := []string{c.SiteURL + "/"}
+	for _, album := range summaries {
+		if album.Encrypted {
+			continue
+		}
+		locs = append(locs, c.SiteURL+"/albums/"+album.Slug)
+	}
+
 	if c.DryRun {
-		fmt.Printf("DRYRUN: would write %s (%d URLs)\n", outputPath, len(summaries)+1)
+		fmt.Printf("DRYRUN: would write %s (%d URLs)\n", outputPath, len(locs))
 		c.TrackFile(outputPath)
 		return nil
 	}
 
-	file, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("create sitemap: %w", err)
-	}
-	defer file.Close()
-
-	w := bufio.NewWriter(file)
-
-	// Write XML header and urlset opening tag
-	w.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>` + c.SiteURL + `/</loc>
-  </url>
 `)
-
-	// Write each album URL
-	for _, album := range summaries {
-		w.WriteString(`  <url>
-    <loc>` + c.SiteURL + `/albums/` + album.Slug + `</loc>
-  </url>
-`)
+	for _, loc := range locs {
+		b.WriteString("  <url>\n    <loc>")
+		if err := xml.EscapeText(&b, []byte(loc)); err != nil {
+			return fmt.Errorf("escape sitemap URL %s: %w", loc, err)
+		}
+		b.WriteString("</loc>\n  </url>\n")
 	}
-
-	w.WriteString(`</urlset>
+	b.WriteString(`</urlset>
 `)
 
-	if err := w.Flush(); err != nil {
-		return fmt.Errorf("write sitemap: %w", err)
+	if err := writeBytes(outputPath, []byte(b.String())); err != nil {
+		return err
 	}
-
-	fmt.Printf("  wrote: %s\n", outputPath)
 	c.TrackFile(outputPath)
 	return nil
 }

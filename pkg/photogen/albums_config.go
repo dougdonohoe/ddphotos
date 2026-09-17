@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -75,11 +76,32 @@ func LoadAlbumsFile(path string) (*AlbumsFile, error) {
 	return &af, nil
 }
 
+// slugPattern is the permitted album slug format: a letter or digit, then any mix of
+// letters, digits, dashes and underscores. A slug is used as a URL path segment and an
+// output directory name, so constraining it once here keeps both safe.
+//
+// It mirrors REGEXP_SLUG in the DD Photos App's PhotosConstants, so both tools accept the
+// same album slugs. The site ID is deliberately stricter (validSiteID in config.go, and
+// REGEXP_SITE_ID in the app): lowercase only, no underscores, since it names a directory
+// that has to behave identically on case-sensitive and case-insensitive filesystems.
+var slugPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
+
+// slugMaxLen caps an album slug and the site ID. It is the field length limit the DD
+// Photos App enforces on both, so anything typable there is accepted here.
+const slugMaxLen = 64
+
 // validate checks required fields and that all base references exist in the bases map.
 func (af *AlbumsFile) validate() error {
 	for i, a := range af.Albums {
 		if a.Slug == "" {
 			return fmt.Errorf("album[%d]: slug is required", i)
+		}
+		if !slugPattern.MatchString(a.Slug) {
+			return fmt.Errorf("album %q: slug must start with a letter or digit and contain "+
+				"only letters, digits, dashes and underscores", a.Slug)
+		}
+		if len(a.Slug) > slugMaxLen {
+			return fmt.Errorf("album %q: slug must be at most %d characters", a.Slug, slugMaxLen)
 		}
 		if a.Name == "" {
 			return fmt.Errorf("album %q: name is required", a.Slug)

@@ -108,6 +108,9 @@ func (c *Config) Validate() error {
 	if !validSiteID.MatchString(c.SiteID) {
 		return fmt.Errorf("settings.id %q must contain only lowercase letters, digits, and hyphens", c.SiteID)
 	}
+	if len(c.SiteID) > slugMaxLen {
+		return fmt.Errorf("settings.id %q must be at most %d characters", c.SiteID, slugMaxLen)
+	}
 	if c.SiteName == "" {
 		return fmt.Errorf("settings.site_name is required")
 	}
