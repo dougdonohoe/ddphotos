@@ -442,7 +442,10 @@ versions against GitHub's Advisory Database and say nothing about whether the vu
 ever called; `govulncheck` walks the call graph, so it stays quiet about the `x/crypto/ssh` and
 `openpgp` advisories that sit in the module graph but that nothing here enters. It also catches
 advisories GitHub does not carry: `GO-2026-6222` in `golang.org/x/image` has a CVE but no GHSA, and
-this reported it while Dependabot had no open alert. That is also why `govulncheck` is not in the
+this reported it while Dependabot had no open alert. Most of all it covers the standard library,
+which no dependency updater touches because it is not a dependency — the first real run found two
+reachable stdlib vulnerabilities, both a consequence of the stale `go` directive above, which is
+why the two checks share one job and one issue. That is also why `govulncheck` is not in the
 CI Go job: an advisory published overnight would fail an unrelated PR that changed nothing.
 
 Routine dependency bumps are Dependabot's job rather than this workflow's, configured in

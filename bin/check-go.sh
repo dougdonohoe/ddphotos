@@ -25,6 +25,13 @@
 #      not carry: GO-2026-6222 (x/image) has a CVE but no GHSA, and showed up here while
 #      Dependabot had no open alert for it.
 #
+#      Most of all it covers the standard library, which no dependency updater touches
+#      because it is not a dependency. The first real run of this job found two, both
+#      reachable and both a consequence of (1): GO-2026-6088 in encoding/xml via
+#      loadImage -> vips.LoadImageFromFile -> xml.Decoder.Decode, and GO-2026-4602 in os via
+#      CleanOutputDir -> os.ReadDir, neither present on a newer toolchain. So the two checks
+#      here are one story: a stale `go` directive is not untidiness, it is the vulnerability.
+#
 # This deliberately does not edit go.mod. Bumping the Go version is a decision CI then tests,
 # the same rule bin/check-versions.sh follows for Node.
 #
