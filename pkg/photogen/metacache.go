@@ -95,8 +95,9 @@ func (mc *MetaCache) SetRefresh(refresh bool) {
 
 // LoadMetaCache reads the cache at path. It never fails: a missing, unreadable,
 // malformed, or wrong-version file simply yields an empty cache that repopulates
-// itself over the course of the run.
-func LoadMetaCache(path string) *MetaCache {
+// itself over the course of the run. An unreadable file is reported through warn, which
+// may be nil (it then only prints).
+func LoadMetaCache(path string, warn *WarnCollector) *MetaCache {
 	mc := NewMetaCache(path)
 
 	data, err := os.ReadFile(path)
@@ -106,7 +107,7 @@ func LoadMetaCache(path string) *MetaCache {
 
 	var f metaCacheFile
 	if err := json.Unmarshal(data, &f); err != nil {
-		fmt.Printf("  WARN: ignoring unreadable metadata cache %s: %v\n", path, err)
+		warn.Warnf("  WARN: ignoring unreadable metadata cache %s: %v\n", path, err)
 		return mc
 	}
 	if f.Version != metaCacheVersion {

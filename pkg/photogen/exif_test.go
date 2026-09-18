@@ -148,7 +148,7 @@ func assertCacheRoundTrip(t *testing.T, path string, want *PhotoMetadata) {
 	assert.Equal(t, want, cached, "cache hit must match a direct read")
 
 	require.NoError(t, mc.Save())
-	reloaded, err := LoadMetaCache(cachePath).Metadata(path)
+	reloaded, err := LoadMetaCache(cachePath, nil).Metadata(path)
 	require.NoError(t, err)
 	assert.Equal(t, want, reloaded, "reloaded cache must match a direct read")
 }
