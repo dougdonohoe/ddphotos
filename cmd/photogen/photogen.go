@@ -78,7 +78,7 @@ var (
 // run, it does not invalidate anything that was generated.
 func saveMetaCache(cfg *photogen.Config) {
 	if err := cfg.MetaCache.Save(); err != nil {
-		fmt.Printf("WARN: could not save metadata cache: %s\n", err)
+		cfg.Warn.Warnf("WARN: could not save metadata cache: %s\n", err)
 	}
 }
 
@@ -224,7 +224,7 @@ func main() {
 	// Photo metadata (dimensions, orientation, EXIF date) is cached between runs so
 	// unchanged photos are not re-decoded. -force means "redo everything", so it
 	// re-reads every photo and rewrites those entries.
-	cfg.MetaCache = photogen.LoadMetaCache(photogen.MetaCachePath(cfg.OutputRoot))
+	cfg.MetaCache = photogen.LoadMetaCache(photogen.MetaCachePath(cfg.OutputRoot), warn)
 	cfg.MetaCache.SetRefresh(*force)
 
 	// The descriptions file is keyed by slug and read with a plain map lookup, so an entry
@@ -406,7 +406,7 @@ func main() {
 			for _, a := range albums {
 				slugs = append(slugs, a.Slug)
 			}
-			if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, cfg.ExpectedFiles(), cfg.DryRun); err != nil {
+			if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, cfg.ExpectedFiles(), cfg.DryRun, warn); err != nil {
 				fmt.Printf("Error cleaning output dir: %s\n", err)
 				exit.SetExitRequestedWithError(err)
 			}

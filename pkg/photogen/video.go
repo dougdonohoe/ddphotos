@@ -131,6 +131,10 @@ func runFFmpegInstaller() bool {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
+		// Deliberately a bare print rather than a WarnCollector warning. This runs inside
+		// ensureVideoTools' sync.Once, which has no Config in reach, and a failed install
+		// is never the only signal: resolution fails next, and every video then fails with
+		// an error carrying VideoToolsHint.
 		fmt.Printf("  WARN: ffmpeg install failed: %v\n", err)
 		return false
 	}
@@ -456,8 +460,7 @@ func runCommand(name string, args ...string) error {
 // describeExecErr surfaces stderr from an *exec.ExitError, which Output() captures but
 // whose Error() string omits.
 func describeExecErr(err error) error {
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		if msg := strings.TrimSpace(string(exitErr.Stderr)); msg != "" {
 			return fmt.Errorf("%w: %s", err, msg)
 		}

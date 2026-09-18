@@ -147,7 +147,7 @@ func TestMetaCache_LoadAndSave(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, mc.Save())
 
-		reloaded := LoadMetaCache(path)
+		reloaded := LoadMetaCache(path, nil)
 		assert.Equal(t, 1, reloaded.Len())
 		got, err := reloaded.Metadata(src)
 		require.NoError(t, err)
@@ -155,15 +155,18 @@ func TestMetaCache_LoadAndSave(t *testing.T) {
 	})
 
 	t.Run("a missing file loads as an empty cache", func(t *testing.T) {
-		mc := LoadMetaCache(filepath.Join(t.TempDir(), "does-not-exist.json"))
+		mc := LoadMetaCache(filepath.Join(t.TempDir(), "does-not-exist.json"), nil)
 		assert.Equal(t, 0, mc.Len())
 	})
 
 	t.Run("a malformed file loads as an empty cache", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), MetaCacheFileName)
 		require.NoError(t, os.WriteFile(path, []byte("{not json"), 0644))
-		mc := LoadMetaCache(path)
+		wc := &WarnCollector{}
+		mc := LoadMetaCache(path, wc)
 		assert.Equal(t, 0, mc.Len())
+		require.Len(t, wc.warnings, 1, "an unreadable cache is reported in the summary")
+		assert.Contains(t, wc.warnings[0], path)
 	})
 
 	t.Run("a wrong version loads as an empty cache", func(t *testing.T) {
@@ -175,7 +178,7 @@ func TestMetaCache_LoadAndSave(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(path, body, 0644))
 
-		mc := LoadMetaCache(path)
+		mc := LoadMetaCache(path, nil)
 		assert.Equal(t, 0, mc.Len())
 	})
 
@@ -196,14 +199,14 @@ func TestMetaCache_LoadAndSave(t *testing.T) {
 		_, err := mc.Metadata(src)
 		require.NoError(t, err)
 		require.NoError(t, mc.Save())
-		require.Equal(t, 1, LoadMetaCache(path).Len())
+		require.Equal(t, 1, LoadMetaCache(path, nil).Len())
 
 		require.NoError(t, os.Remove(src))
 		// Touch something so the cache is dirty and actually rewrites.
 		mc.RecordDerived(path, path, "")
 		require.NoError(t, mc.Save())
 
-		assert.Equal(t, 0, LoadMetaCache(path).Len(), "pruned entry must not persist")
+		assert.Equal(t, 0, LoadMetaCache(path, nil).Len(), "pruned entry must not persist")
 	})
 
 	t.Run("save leaves no temp files behind", func(t *testing.T) {
@@ -445,7 +448,7 @@ func TestMetaCache_Derived(t *testing.T) {
 		mc.RecordDerived(out, src, "top")
 		require.NoError(t, mc.Save())
 
-		reloaded := LoadMetaCache(mc.path)
+		reloaded := LoadMetaCache(mc.path, nil)
 		assert.True(t, reloaded.DerivedUpToDate(out, src, "top"))
 		assert.False(t, reloaded.DerivedUpToDate(out, src, "center"))
 	})

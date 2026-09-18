@@ -174,7 +174,7 @@ func TestResizePhotos_VideoTracksFilesForClean(t *testing.T) {
 
 	// Prove it end to end rather than trusting the map: a real clean must leave them.
 	siteDir := filepath.Join(ap.Config.OutputRoot, ap.Config.SiteID)
-	require.NoError(t, CleanOutputDir(siteDir, []string{ap.AlbumConfig.Slug}, expected, false))
+	require.NoError(t, CleanOutputDir(siteDir, []string{ap.AlbumConfig.Slug}, expected, false, nil))
 	assert.FileExists(t, mp4, "-clean must not delete the transcoded video")
 	for _, p := range posters {
 		assert.FileExists(t, p, "-clean must not delete a poster")
