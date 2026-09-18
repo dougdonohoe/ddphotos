@@ -28,7 +28,7 @@ jobs:
 
       - name: Set up QEMU
         # Enables cross-compilation for non-native architectures (arm64 on amd64 runner)
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         # Required for multi-platform builds (linux/amd64 + linux/arm64)
