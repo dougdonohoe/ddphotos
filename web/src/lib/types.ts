@@ -80,9 +80,9 @@ export interface SiteHtmlContent {
 
 // Wraps a value that may arrive encrypted or already decoded.
 // Discriminate on the `encrypted` field to access the appropriate variant.
-export type MaybeEncrypted<T> =
-	| { encrypted: false; data: T }
-	| { encrypted: true; blob: string; hint?: string };
+type Decoded<T> = { encrypted: false; data: T };
+type Encrypted = { encrypted: true; blob: string; hint?: string };
+export type MaybeEncrypted<T> = Decoded<T> | Encrypted;
 
 // Data loaded by the home page load function.
 export interface SiteData {
