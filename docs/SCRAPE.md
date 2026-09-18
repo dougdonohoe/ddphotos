@@ -128,7 +128,7 @@ through untouched and nothing is re-encoded.
 
 ## Fidelity
 
-Rebuilding [the sample site](https://ddphotos.donohoe.info) from its deployed copy reproduces
+Rebuilding [the sample site↗](https://ddphotos.donohoe.info) from its deployed copy reproduces
 `albums.json` and `html.json` byte for byte, and every album's `index.json` matches on slug, title,
 description, `dateSpan`, cover, photo order, ids, captions, dates, and orientation — in all three
 formats. The two fields that differ are `width`/`height`, which now describe the 1600px variant

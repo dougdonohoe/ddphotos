@@ -325,7 +325,7 @@ make sample-rsync-test-nginx  # into nginx  (photos-nginx-ssh)
 make sample-s3-test
 ```
 
-The S3 target runs [Garage](https://garagehq.deuxfleurs.fr) in Docker as the local S3 server,
+The S3 target runs [Garage↗](https://garagehq.deuxfleurs.fr) in Docker as the local S3 server,
 at a pinned version (Garage publishes no `latest` tag). `bin/s3-test.sh` creates its cluster
 layout, access key and bucket before the sync, since a fresh Garage node serves nothing until
 those exist.
@@ -432,7 +432,7 @@ issue. It reports two things, both chosen because no dependency updater covers t
 only), and every `setup-go` step uses `go-version-file: go.mod`, so that directive is the Go that CI
 actually runs on. Go supports the two most recent major releases, so a directive two majors back
 means CI is testing on a toolchain that no longer gets security fixes. Second,
-[govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), which reports only
+[govulncheck↗](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck), which reports only
 vulnerabilities reachable from `cmd/` or `pkg/`. A reachable vulnerability leads the issue title, so
 the issue list distinguishes "act now" from "bump when convenient". Run it locally with
 `make check-go`.

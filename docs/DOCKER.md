@@ -77,7 +77,7 @@ albums:
 ### 5. Deploy
 
 **Quick option #1 — [Cloudflare Pages↗](https://pages.cloudflare.com)** - free, unlimited bandwidth (requires
-a [Cloudflare account](https://dash.cloudflare.com/login); `wrangler` is bundled — no local install needed):
+a [Cloudflare account↗](https://dash.cloudflare.com/login); `wrangler` is bundled — no local install needed):
 
 ```bash
 # One-time login (opens browser; credentials cached for future deploys)

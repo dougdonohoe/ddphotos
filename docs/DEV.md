@@ -204,7 +204,7 @@ gh secret set DOCKERHUB_TOKEN   # prompts for value — keeps token out of shell
 
 To generate the `DOCKERHUB_TOKEN`:
 
-1. Log in to [hub.docker.com](https://hub.docker.com)
+1. Log in to [hub.docker.com↗](https://hub.docker.com)
 2. Account Settings → Personal access tokens → Generate new token
 3. Set access to **Read, Write** (Write is required to push images; Admin is not needed)
 4. Copy the token and paste it when `gh secret set DOCKERHUB_TOKEN` prompts you
@@ -318,7 +318,7 @@ is defined in a private infra repo.
 
 #### Cloudflare (wrangler)
 
- * `CLOUDFLARE_API_TOKEN` — create at [dash.cloudflare.com](https://dash.cloudflare.com) 
+ * `CLOUDFLARE_API_TOKEN` — create at [dash.cloudflare.com↗](https://dash.cloudflare.com) 
    * _My Profile > API Tokens > + Create Token_ 
    * **Create Custom Token** with **Account > Cloudflare Pages > Edit**
  * `CLOUDFLARE_ACCOUNT_ID` — visible in the Cloudflare dashboard sidebar
