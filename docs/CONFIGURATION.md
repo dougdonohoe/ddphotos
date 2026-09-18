@@ -80,6 +80,23 @@ settings:
 | `site_subtitle_html` | no       | HTML rendered below the site title in a smaller font                                                         |
 | `site_overview_html` | no       | HTML rendered above the album cards (slightly larger than album descriptions)                                |
 
+### Album Slugs
+
+Each album's `slug` is both its output directory and its URL (`/albums/<slug>`), so
+`photogen` checks every slug before it reads any photos, and stops with an error naming
+the album if one breaks a rule:
+
+- It must **start with a letter or digit** and contain only **letters, digits, dashes and
+  underscores**. No dots, spaces or slashes, so `uganda.2007` and `_draft` are rejected.
+- It can be **at most 64 characters**, the same limit the DD Photos App enforces.
+- It must be **unique**. Two albums with the same slug would share one output directory,
+  and the second would silently overwrite the first.
+- Two slugs must not **differ only by case**, such as `Patagonia` and `patagonia`. They are
+  distinct URLs but the same directory on macOS and Windows.
+
+Upper case is allowed otherwise. The site `id` is stricter: lowercase letters, digits and
+hyphens only.
+
 ### Source Bases
 
 The `bases:` block defines named paths to where your source photos live. Albums (and
@@ -138,7 +155,7 @@ static JSON files that the browser fetches at runtime:
 | `html.json` / `html.enc.json`                   | `site_title_html`, `site_subtitle_html`, `site_overview_html`                     | Site password is set                      |
 | `albums.json` / `albums.enc.json`               | Album list with names, slugs, descriptions, date ranges, cover photos             | Site password is set                      |
 | `<album>/index.json` / `<album>/index.enc.json` | Per-album photo list: filenames, dimensions, dates, captions                      | Album or site password is set             |
-| `sitemap.xml`                                   | URLs for each album, built from `site_url`                                        | Never                                     |
+| `sitemap.xml`                                   | Site root plus each album without a password, built from `site_url`               | Never                                     |
 | `hero.jpg`                                      | Cropped hero banner image                                                         | Never                                     |
 | `custom.css`                                    | Copied from the file named in `settings.css`                                      | Never                                     |
 
@@ -219,6 +236,11 @@ same unlock step.
 
 Decryption happens entirely in the browser using the Web Crypto API — passwords are never
 sent to a server.
+
+**Encrypted albums are left out of `sitemap.xml`.** An album's slug is the one thing a
+crawler could learn about it without the password, so the sitemap withholds it. The site
+root is always listed, since it is a public page that serves the password prompt, which
+means a site-wide password leaves a sitemap with that single entry.
 
 **Do not commit real passwords.** Store the passwords file outside the repo or in a
 git-ignored directory (e.g. `.secrets/`).

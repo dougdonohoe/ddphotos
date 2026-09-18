@@ -97,7 +97,10 @@ albums:
   # ------------------------------------------------------------------
   # Full example — all fields shown
   # ------------------------------------------------------------------
-  - slug: patagonia               # URL slug and output directory name (no spaces)
+  - slug: patagonia               # URL slug and output directory name; must be unique.
+                                  # Letters, digits, dashes and underscores, starting with a
+                                  # letter or digit, at most 64 characters. See
+                                  # docs/CONFIGURATION.md "Album Slugs".
     name: Patagonia               # Human-readable album title
     base: drive                   # References bases.drive above
     source: 2026-Patagonia        # Joined to base path
