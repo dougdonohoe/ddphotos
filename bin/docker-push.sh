@@ -47,12 +47,14 @@ else
 fi
 
 GIT_DESCRIBE=$(git describe --tags --long --dirty --always 2>/dev/null || echo "unknown")
+GO_VERSION=$(sed -n 's/^go \([0-9]*\.[0-9]*\).*/\1/p' go.mod)  # major.minor, e.g. 1.27
 NODE_VERSION=$(cat web/.nvmrc)
 NPM_VERSION=$(cat web/.npm-version)
 
 docker buildx build \
     --pull \
     --platform linux/amd64,linux/arm64 \
+    --build-arg GO_VERSION="$GO_VERSION" \
     --build-arg NODE_VERSION="$NODE_VERSION" \
     --build-arg NPM_VERSION="$NPM_VERSION" \
     --build-arg DDPHOTOS_VERSION="$VERSION" \

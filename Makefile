@@ -393,6 +393,7 @@ DDPHOTOS_IMAGE  ?= ddphotos
 ## docker-build: build the ddphotos Docker image
 docker-build:
 	docker build --pull -t $(DDPHOTOS_IMAGE) \
+		--build-arg GO_VERSION=$$(sed -n 's/^go \([0-9]*\.[0-9]*\).*/\1/p' go.mod) \
 		--build-arg NODE_VERSION=$$(cat web/.nvmrc) \
 		--build-arg NPM_VERSION=$$(cat web/.npm-version) \
 		--build-arg DDPHOTOS_GIT_DESCRIBE="$$(git describe --tags --long --dirty --always 2>/dev/null || echo unknown)" \

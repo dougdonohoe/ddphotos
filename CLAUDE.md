@@ -71,7 +71,8 @@ edit to `web/.nvmrc` that CI then tests.
 
 Four rules follow from that:
 
-- `docker/Dockerfile` takes `NODE_VERSION` and `NPM_VERSION` as **required** build args.
+- `docker/Dockerfile` takes `NODE_VERSION` and `NPM_VERSION` (and `GO_VERSION`, the major.minor
+  of go.mod's `go` directive) as **required** build args.
   **Never give them defaults** — a bare `docker build -f docker/Dockerfile .` fails by design.
 - `bin/node-init.sh` is the shell-side counterpart to the Makefile's `NODE_INIT`. **Keep the two
   in sync, and keep both comparing the full `node -v` output** — matching on the major alone lets

@@ -1,16 +1,19 @@
 # syntax=docker/dockerfile:1
 # check=skip=InvalidDefaultArgInFrom
-# (NODE_VERSION is intentionally defaultless — see below — which trips that lint check.
-#  The two directives above must stay adjacent: a comment ends parser-directive parsing.)
+# (GO_VERSION|NODE_VERSION|NPM_VERSION are intentionally defaultless — see below — which trips that lint
+#  check. The two directives above must stay adjacent: a comment ends parser-directive parsing.)
 
-# Required build args, deliberately without defaults: web/.nvmrc and web/.npm-version are the
-# single source of truth, and a stale default here would silently build a mis-versioned image.
-# Use `make docker-build` (or bin/docker-push.sh), which reads both files and passes them in.
+# Required build args, deliberately without defaults: go.mod, web/.nvmrc and web/.npm-version are
+# the single source of truth, and a stale default here would silently build a mis-versioned image.
+# Use `make docker-build` (or bin/docker-push.sh), which reads those files and passes them in.
+# GO_VERSION is the major.minor of go.mod's `go` directive (e.g. 1.27), so --pull picks up the
+# latest patch release of that line.
+ARG GO_VERSION
 ARG NODE_VERSION
 ARG NPM_VERSION
 
 # ── Stage 1: Build photogen (Go + libvips) ────────────────────────────────────
-FROM golang:1.27-bookworm AS go-builder
+FROM golang:${GO_VERSION}-bookworm AS go-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libvips-dev pkg-config \
