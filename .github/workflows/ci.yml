@@ -12,9 +12,9 @@ on:
   # already covered by the push and pull_request runs. What a scheduled run adds is the
   # part that still floats underneath us: the ffmpeg `latest` release, the
   # debian:bookworm-slim and golang:1.##-bookworm base images, the ubuntu-latest runner
-  # image, the actions at @v4/@v5, apt packages, and Playwright's browser downloads.
-  # Those break on a calendar rather than on a commit, and without this the first person
-  # to find out is whoever opens the next PR.
+  # image, the actions at major-version tags (@vN), apt packages, and Playwright's
+  # browser downloads. Those break on a calendar rather than on a commit, and without this
+  # the first person to find out is whoever opens the next PR.
   #
   # 05:17 UTC. Plain UTC rather than a `timezone:` key: the exact local time does not
   # matter for a nightly job, and UTC has no DST discontinuity to reason about. Off the
