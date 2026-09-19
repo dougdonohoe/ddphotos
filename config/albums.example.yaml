@@ -111,6 +111,43 @@ albums:
     recurse: false                # If true, collect photos from subfolders recursively (default: false)
 
   # ------------------------------------------------------------------
+  # Synced from Immich — photogen downloads the album, then builds it
+  #
+  # With a 'sync:' block, photogen fetches the album's photos before the
+  # normal build and uses the download folder as the source. 'base:' and
+  # 'source:' are derived and must not be set.
+  #
+  # Downloads land in sync/{provider}/{slug} under the root DD Photos
+  # folder (a sibling of config/). That is a source folder like any other:
+  # it is not part of the generated site and is never deployed.
+  #
+  # 'name:' and 'description:' are optional here. Anything set on the album
+  # wins; anything omitted is taken from the Immich album.
+  #
+  # Credentials live in immich.env in same directory as this file:
+  #
+  #   IMMICH_API_KEY=your-api-key
+  #   IMMICH_INSTANCE_URL=http://immich.example.com:2283
+  #
+  # The URL is accepted with or without a trailing /api. A value already set
+  # in the environment wins over the file, so CI and Docker runs need no
+  # secrets file on disk.
+  # ------------------------------------------------------------------
+  - slug: galapagos
+    name: Galápagos 2024          # Optional: omitted, the Immich album name is used
+    # description: >-             # Optional: omitted, the Immich album description is used
+    #   Snorkeling with sea lions and a lot of blue-footed boobies.
+    # cover: IMG_0042.jpg         # Optional: file name as stored in Immich
+    sync:
+      provider: immich            # Upstream type; an album syncs from exactly one
+      album_id: d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18   # Immich album UUID
+      captions: true              # Write photogen.txt from each asset's description
+      immich:                     # Optional; provider-specific settings only
+        prefer_full_size: true    # Prefer Immich's full-size JPEG where it has one
+                                  # (RAW, HEIC, and assets edited in Immich), falling
+                                  # back to the original file (if photogen supports it)
+
+  # ------------------------------------------------------------------
   # Minimal example — only required fields
   # ------------------------------------------------------------------
   - slug: hiking
