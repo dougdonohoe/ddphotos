@@ -530,10 +530,17 @@ my-ddphotos/
   albums/            ← photogen output (generated, not edited)
   build/             ← static site output (generated, not edited)
   export/            ← export output (generated, not edited)
+  sync/              ← albums downloaded from a photo manager (only if you use sync:)
 ```
 
 `sample-photos/` is an ordinary folder on your machine, so you can browse, caption and
 delete its photos like any other album source.
+
+`sync/` appears only when an album in `albums.yaml` has a `sync:` block. It is a source
+folder like `sample-photos/`, not output: photogen downloads into
+`sync/<site-id>/<provider>/<slug>/` and then builds the album from there, and nothing
+under it is deployed. The one file in there you may edit is `photogen.txt`; see
+[Syncing an Album](CONFIGURATION.md#syncing-an-album-from-a-photo-manager).
 
 ---
 

@@ -255,6 +255,12 @@ bin/photogen -resize -index -clean -doit
 **NOTE**: output goes to `albums/<site-id>` at the repo root by default. For example,
 the sample site is in `albums/sample`.
 
+If any album in `albums.yaml` has a `sync:` block, `photogen` also creates `sync/` at the
+repo root and downloads that album's photos into `sync/<site-id>/<provider>/<slug>/`. It
+is a source folder, not output: nothing under it is deployed, and both `albums/` and
+`sync/` are gitignored. Syncing runs even without `-doit` — see
+[Syncing](PHOTOGEN.md#syncing).
+
 ### Run Site
 
 Once `photogen` has been successfully run, you can run the

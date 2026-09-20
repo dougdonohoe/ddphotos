@@ -24,6 +24,9 @@ __pycache__/
 # photogen output
 /albums
 
+# photogen sync downloads (never deployed)
+/sync
+
 # per-site static builds (npm run build output)
 /build
 

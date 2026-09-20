@@ -143,6 +143,96 @@ which is always mounted.
 > In Docker mode that is always your ddphotos folder, so it behaves as described above. In
 > developer mode, run `photogen` from that folder.
 
+### Syncing an Album from a Photo Manager
+
+Most albums point at a folder you curate yourself. An album can instead carry a `sync:`
+block, and `photogen` will fetch its photos from an upstream photo manager before the
+normal build:
+
+```yaml
+albums:
+  - slug: galapagos
+    name: Galápagos 2024          # optional; falls back to the upstream album name
+    # description: >-             # optional; falls back to the upstream description
+    #   Snorkeling with sea lions and a lot of blue-footed boobies.
+    # cover: IMG_0042.jpg         # optional; the file name as it lands in the sync folder
+    sync:
+      provider: immich            # an album syncs from exactly one provider
+      album_id: d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18
+      captions: true              # write photogen.txt from each asset's description
+```
+
+| Key        | Required | Default | Meaning                                             |
+|------------|----------|---------|-----------------------------------------------------|
+| `provider` | yes      | none    | `immich` or `mock` (see [TESTING.md](TESTING.md))   |
+| `album_id` | yes      | none    | Provider-specific album identifier (Immich: a UUID) |
+| `captions` | no       | `true`  | Write and maintain `photogen.txt` from descriptions |
+
+#### Where synced media lives
+
+```
+{DDPHOTOS_SYNC_DIR}/{site-id}/{provider}/{slug}/
+├── metadata.yaml     # written by sync; do not edit
+├── photogen.txt      # written by sync when captions are on; yours to edit
+├── IMG_1583.jpeg
+└── IMG_1584.jpeg
+```
+
+`DDPHOTOS_SYNC_DIR` defaults to `sync/` beside `config/` and is resolved exactly like
+`DDPHOTOS_ALBUMS_DIR`: the `-sync-dir` flag, then the environment, then
+`config/defaults.env`. It is namespaced by `settings.id` for the same reason `albums/` is:
+two config files sharing one root and one slug would otherwise share a folder and prune
+each other's photos.
+
+The folder is an ordinary album source, so everything downstream — scanning, EXIF, resize,
+cover, index — is unchanged. Nothing under it is deployed; the deploy and export scripts
+work from `albums/` and `build/`.
+
+**`photogen.txt` is the only file in there you may edit.** Everything else is managed:
+sync writes the media and `metadata.yaml`, and deletes anything it does not recognize.
+
+#### Validation rules
+
+- `sync:` and `source:`/`base:` are mutually exclusive, because a synced album's source is
+  derived rather than configured.
+- `source:` is required *unless* the album has a `sync:` block.
+- `name:` is optional when `sync:` is present. It resolves as: the `albums.yaml` value,
+  then the upstream name recorded in `metadata.yaml`, then the slug.
+- `description:` resolves as: the inline value, then the descriptions file, then the
+  upstream description. The upstream value slots below both existing sources, so
+  "inline wins over the file" is unchanged.
+- `provider` must be a name `photogen` knows, and `album_id` must not be empty.
+- Everything else about the album — slug rules, `cover:`, `manual_sort_order:`,
+  `recurse:` — is unchanged.
+
+#### Captions
+
+With `captions: true` (the default), sync maintains `photogen.txt` from the upstream
+descriptions. Because a caption can change upstream *or* locally between runs,
+`metadata.yaml` records what upstream said last time and the two are merged:
+
+| What changed         | Result                                     |
+|----------------------|--------------------------------------------|
+| Only upstream        | The upstream text is written               |
+| Only your local edit | Your edit is kept, on this and every run   |
+| Both                 | The upstream text wins, and photogen warns |
+
+Empty is a value, so clearing a description upstream clears an untouched local caption.
+Line order is preserved — existing photos keep their position and new ones are appended —
+so a manual ordering used by `manual_sort_order: true` survives a re-sync. To make local
+captions permanently authoritative, set `captions: false`.
+
+Upstream descriptions are plain text and DD Photos captions render as HTML, so `&`, `<`
+and `>` are escaped on the way in. A caption you write by hand in `photogen.txt` is still
+raw HTML, exactly as it is for a non-synced album.
+
+#### Running it
+
+Syncing happens on every run unless you pass `-no-sync`, and **it is real work even
+without `-doit`**: it downloads and it prunes. That is deliberate, since a dry run whose
+whole point is to show what would be built needs the source folder to exist. See
+[PHOTOGEN.md](PHOTOGEN.md) for `-sync-only`, `-no-sync` and `-sync-dir`.
+
 ### How Config Reaches the Frontend
 
 `photogen` acts as a conduit between `albums.yaml` and the site frontend. The frontend

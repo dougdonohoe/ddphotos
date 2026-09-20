@@ -1,0 +1,29 @@
+# Test file used by docker-test.sh to drive the sync framework through the image with the
+# mock provider, which needs no network. It proves the whole vertical slice inside the
+# container: the sync folder is created under DDPHOTOS_SYNC_DIR (/ddphotos/sync, so it
+# lands on the host), media is downloaded into it, metadata.yaml and photogen.txt are
+# written, and the album then builds from that folder like any other source.
+#
+# 'name:' and 'description:' are deliberately absent, so both have to come from the mock
+# provider's listing via metadata.yaml. 'source:' and 'base:' must not be set.
+#
+# The mock paths are relative, which is what makes this work in the container: they are
+# anchored to the config dir, and docker/ddphotos mounts that. An absolute host path would
+# not, because build_config_bases_mounts only knows about 'source:' and 'base:'.
+settings:
+  id: test-sync-mock
+  site_name: "Test Sync Mock"
+  site_url: https://sync-mock.example.com
+  site_description: "Test the sync framework with the mock provider"
+  copyright_owner: "Sir Sync A Lot"
+  copyright_year: 1979
+
+albums:
+  - slug: the-way-sync
+    sync:
+      provider: mock
+      album_id: theway
+      captions: true
+      mock:
+        assets: sync-listing.json
+        media_dir: sync-media

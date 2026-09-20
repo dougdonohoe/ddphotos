@@ -160,7 +160,7 @@ albums:
     manual_sort_order: true
 `, photoBase))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		require.Len(t, configs, 1)
 
@@ -185,7 +185,7 @@ albums:
     source: %s
 `, photoDir))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		require.Len(t, configs, 1)
 		assert.Equal(t, photoDir, configs[0].Path)
@@ -213,7 +213,7 @@ albums:
     source: myalbum
 `, relBase))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, photoDir, configs[0].Path)
 	})
@@ -229,7 +229,7 @@ albums:
     name: Local
     source: myphotos
 `)
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, photosDir, configs[0].Path)
 	})
@@ -242,7 +242,7 @@ albums:
     name: Ghost Album
     source: /nonexistent/path/to/photos
 `)
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.ErrorContains(t, err, "does not exist")
 	})
 
@@ -258,7 +258,7 @@ albums:
     description: Inline description here.
 `, photoDir))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Inline description here.", configs[0].Description)
 	})
@@ -283,7 +283,7 @@ albums:
     description: Inline wins.
 `, photoDir))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Inline wins.", configs[0].Description)
 	})
@@ -307,7 +307,7 @@ albums:
     source: %s
 `, photoDir))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "From the file.", configs[0].Description)
 	})
@@ -331,7 +331,7 @@ albums:
     source: %s
 `, photoDir))
 
-		configs, err := af.ToAlbumConfigs(configDir)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "", configs[0].Description)
 	})
@@ -356,7 +356,7 @@ bases:
 albums: []
 `, photoBase))
 
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, heroFile, af.Settings.HeroImagePath)
 	})
@@ -382,7 +382,7 @@ bases:
 albums: []
 `, relBase))
 
-		_, err = af.ToAlbumConfigs(configDir)
+		_, err = af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, heroFile, af.Settings.HeroImagePath)
 	})
@@ -399,7 +399,7 @@ settings:
 albums: []
 `)
 
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, heroFile, af.Settings.HeroImagePath)
 	})
@@ -416,7 +416,7 @@ settings:
 albums: []
 `, heroFile))
 
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, heroFile, af.Settings.HeroImagePath)
 	})
@@ -454,7 +454,7 @@ settings:
     image: /nonexistent/hero.jpg
 albums: []
 `)
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.ErrorContains(t, err, "does not exist")
 	})
 }
@@ -477,7 +477,7 @@ albums:
     source: %s
 `, photoDir))
 
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, cssFile, af.Settings.CustomCSSPath)
 	})
@@ -495,7 +495,7 @@ albums:
     source: %s
 `, photoDir))
 
-		_, err := af.ToAlbumConfigs(configDir)
+		_, err := af.ToAlbumConfigs(configDir, nil)
 		require.ErrorContains(t, err, "does not exist")
 	})
 }
@@ -742,7 +742,7 @@ func TestUnknownDescriptionSlugs(t *testing.T) {
 	t.Run("entries that match albums are not reported", func(t *testing.T) {
 		t.Parallel()
 		af, dir := newFile(t, "uganda Gorillas\nthe-way Camino\n")
-		configs, err := af.ToAlbumConfigs(dir)
+		configs, err := af.ToAlbumConfigs(dir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Gorillas", configs[0].Description)
 		assert.Empty(t, af.Settings.UnknownDescriptionSlugs)
@@ -751,7 +751,7 @@ func TestUnknownDescriptionSlugs(t *testing.T) {
 	t.Run("an entry naming no album is reported", func(t *testing.T) {
 		t.Parallel()
 		af, dir := newFile(t, "uganda Gorillas\nuganda-2007 Typo\nghost Nope\n")
-		_, err := af.ToAlbumConfigs(dir)
+		_, err := af.ToAlbumConfigs(dir, nil)
 		require.NoError(t, err, "an unknown entry is a warning, not a failure")
 		assert.Equal(t, []string{"ghost", "uganda-2007"}, af.Settings.UnknownDescriptionSlugs,
 			"sorted, so the message is stable across runs")
@@ -763,7 +763,7 @@ func TestUnknownDescriptionSlugs(t *testing.T) {
 		t.Parallel()
 		af, dir := newFile(t, "uganda From the file\nthe-way Camino\n")
 		af.Albums[0].Description = "Inline wins"
-		configs, err := af.ToAlbumConfigs(dir)
+		configs, err := af.ToAlbumConfigs(dir, nil)
 		require.NoError(t, err)
 		assert.Equal(t, "Inline wins", configs[0].Description)
 		assert.Empty(t, af.Settings.UnknownDescriptionSlugs)
@@ -773,8 +773,197 @@ func TestUnknownDescriptionSlugs(t *testing.T) {
 		t.Parallel()
 		af, dir := newFile(t, "")
 		af.Settings.Descriptions = ""
-		_, err := af.ToAlbumConfigs(dir)
+		_, err := af.ToAlbumConfigs(dir, nil)
 		require.NoError(t, err)
 		assert.Empty(t, af.Settings.UnknownDescriptionSlugs)
+	})
+}
+
+// A sync: block changes which of an album's other keys are required, so the rules are
+// worth pinning down: source becomes derived rather than configured, the name can come
+// from upstream, and naming both a provider and a folder is a contradiction rather than a
+// preference photogen could act on.
+func TestSyncEntryValidation(t *testing.T) {
+	t.Parallel()
+
+	fileWith := func(a AlbumEntry) *AlbumsFile {
+		a.Slug = "album"
+		return &AlbumsFile{Albums: []AlbumEntry{a}}
+	}
+	minimal := func() *SyncEntry {
+		return &SyncEntry{Provider: "mock", AlbumID: "abc"}
+	}
+
+	t.Run("a synced album needs neither name nor source", func(t *testing.T) {
+		t.Parallel()
+		assert.NoError(t, fileWith(AlbumEntry{Sync: minimal()}).validate())
+	})
+
+	t.Run("a local album still needs both", func(t *testing.T) {
+		t.Parallel()
+		require.ErrorContains(t, fileWith(AlbumEntry{Source: "/tmp"}).validate(), "name is required")
+		require.ErrorContains(t, fileWith(AlbumEntry{Name: "A"}).validate(), "source is required")
+	})
+
+	t.Run("sync and source are mutually exclusive", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith(AlbumEntry{Source: "/tmp", Sync: minimal()}).validate()
+		require.ErrorContains(t, err, "mutually exclusive")
+	})
+
+	t.Run("sync and base are mutually exclusive", func(t *testing.T) {
+		t.Parallel()
+		af := fileWith(AlbumEntry{Base: "drive", Sync: minimal()})
+		af.Bases = map[string]string{"drive": "/tmp"}
+		require.ErrorContains(t, af.validate(), "mutually exclusive")
+	})
+
+	t.Run("provider is required and must be one photogen knows", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith(AlbumEntry{Sync: &SyncEntry{AlbumID: "abc"}}).validate()
+		require.ErrorContains(t, err, "sync.provider is required")
+
+		err = fileWith(AlbumEntry{Sync: &SyncEntry{Provider: "flickr", AlbumID: "abc"}}).validate()
+		require.ErrorContains(t, err, "not a known provider")
+		// The message lists what would have worked.
+		assert.Contains(t, err.Error(), "immich")
+		assert.Contains(t, err.Error(), "mock")
+	})
+
+	t.Run("album_id is required", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith(AlbumEntry{Sync: &SyncEntry{Provider: "mock"}}).validate()
+		require.ErrorContains(t, err, "sync.album_id is required")
+	})
+
+	t.Run("every message names the album", func(t *testing.T) {
+		t.Parallel()
+		err := fileWith(AlbumEntry{Sync: &SyncEntry{Provider: "mock"}}).validate()
+		require.ErrorContains(t, err, `album "album"`)
+	})
+
+	t.Run("captions default to on", func(t *testing.T) {
+		t.Parallel()
+		off := false
+		on := true
+		assert.True(t, (&SyncEntry{}).CaptionsEnabled(), "an omitted key means on")
+		assert.True(t, (&SyncEntry{Captions: &on}).CaptionsEnabled())
+		assert.False(t, (&SyncEntry{Captions: &off}).CaptionsEnabled())
+	})
+
+	t.Run("the mock block belongs to the mock provider only", func(t *testing.T) {
+		t.Parallel()
+		s := &SyncEntry{Provider: "immich", AlbumID: "abc",
+			Mock: &MockSyncEntry{Assets: "a.json", MediaDir: "m"}}
+		require.ErrorContains(t, fileWith(AlbumEntry{Sync: s}).validate(), "only valid with provider")
+	})
+
+	t.Run("the mock block needs both its paths", func(t *testing.T) {
+		t.Parallel()
+		s := minimal()
+		s.Mock = &MockSyncEntry{MediaDir: "m"}
+		require.ErrorContains(t, fileWith(AlbumEntry{Sync: s}).validate(), "sync.mock.assets is required")
+
+		s.Mock = &MockSyncEntry{Assets: "a.json"}
+		require.ErrorContains(t, fileWith(AlbumEntry{Sync: s}).validate(), "sync.mock.media_dir is required")
+	})
+
+	t.Run("the mock fail switch is a closed set", func(t *testing.T) {
+		t.Parallel()
+		s := minimal()
+		for _, ok := range []string{"", "list", "fetch"} {
+			s.Mock = &MockSyncEntry{Assets: "a.json", MediaDir: "m", Fail: ok}
+			assert.NoError(t, fileWith(AlbumEntry{Sync: s}).validate())
+		}
+		s.Mock = &MockSyncEntry{Assets: "a.json", MediaDir: "m", Fail: "explode"}
+		require.ErrorContains(t, fileWith(AlbumEntry{Sync: s}).validate(), "sync.mock.fail")
+	})
+}
+
+func TestToAlbumConfigs_Sync(t *testing.T) {
+	t.Parallel()
+
+	syncYAML := `
+settings:
+  id: test
+  site_name: Test
+  site_description: Test
+  copyright_owner: Tester
+  copyright_year: 2020
+albums:
+  - slug: galapagos
+    sync:
+      provider: mock
+      album_id: abc
+      mock:
+        assets: listing.json
+        media_dir: media
+`
+
+	t.Run("source is the sync folder, and it has to exist first", func(t *testing.T) {
+		t.Parallel()
+		configDir := t.TempDir()
+		root := t.TempDir()
+		af := parseYAML(t, configDir, syncYAML)
+		paths := &SyncPaths{Root: root, SiteID: "test"}
+
+		// CreateSyncDirs has not run yet, so the path check fails the same way it does
+		// for a source: folder that does not exist.
+		_, err := af.ToAlbumConfigs(configDir, paths)
+		require.ErrorContains(t, err, "does not exist")
+
+		require.NoError(t, af.CreateSyncDirs(paths))
+		configs, err := af.ToAlbumConfigs(configDir, paths)
+		require.NoError(t, err)
+		require.Len(t, configs, 1)
+		assert.Equal(t, SyncAlbumPath(root, "test", "mock", "galapagos"), configs[0].Path)
+	})
+
+	t.Run("the mock paths are anchored to the config dir", func(t *testing.T) {
+		t.Parallel()
+		configDir := t.TempDir()
+		root := t.TempDir()
+		af := parseYAML(t, configDir, syncYAML)
+		paths := &SyncPaths{Root: root, SiteID: "test"}
+		require.NoError(t, af.CreateSyncDirs(paths))
+
+		configs, err := af.ToAlbumConfigs(configDir, paths)
+		require.NoError(t, err)
+		require.NotNil(t, configs[0].Sync)
+		assert.Equal(t, "mock", configs[0].Sync.Provider)
+		assert.Equal(t, "abc", configs[0].Sync.AlbumID)
+		assert.True(t, configs[0].Sync.Captions)
+		assert.Equal(t, filepath.Join(configDir, "listing.json"), configs[0].Sync.Mock.AssetsPath)
+		assert.Equal(t, filepath.Join(configDir, "media"), configs[0].Sync.Mock.MediaDir)
+	})
+
+	t.Run("a synced album with no sync paths names the flag that would fix it", func(t *testing.T) {
+		t.Parallel()
+		configDir := t.TempDir()
+		af := parseYAML(t, configDir, syncYAML)
+		_, err := af.ToAlbumConfigs(configDir, nil)
+		require.ErrorContains(t, err, "-sync-dir")
+	})
+
+	t.Run("a local album is unaffected by sync paths being present", func(t *testing.T) {
+		t.Parallel()
+		configDir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(configDir, "photos"), 0o755))
+		af := parseYAML(t, configDir, `
+settings:
+  id: test
+  site_name: Test
+  site_description: Test
+  copyright_owner: Tester
+  copyright_year: 2020
+albums:
+  - slug: local
+    name: Local
+    source: photos
+`)
+		configs, err := af.ToAlbumConfigs(configDir, &SyncPaths{Root: t.TempDir(), SiteID: "test"})
+		require.NoError(t, err)
+		assert.Nil(t, configs[0].Sync)
+		assert.Equal(t, filepath.Join(configDir, "photos"), configs[0].Path)
 	})
 }

@@ -1,0 +1,29 @@
+{
+  "album": {
+    "name": "The Way (synced)",
+    "description": "Walked <the way> & lived"
+  },
+  "assets": [
+    {
+      "id": "b68fbc77-bbed-4008-a118-ba8637148081",
+      "file_name": "2024-The-Way-10.jpg",
+      "caption": "A <b>bold</b> caption & an ampersand",
+      "checksum": "mock-sum-10",
+      "updated_at": "2026-09-18T22:43:56Z"
+    },
+    {
+      "id": "c79ffd88-ccff-5119-b229-cb9748259192",
+      "file_name": "2024-The-Way-13.jpg",
+      "caption": "",
+      "checksum": "mock-sum-13",
+      "updated_at": "2026-09-18T22:44:02Z"
+    },
+    {
+      "id": "d8a00e99-ddaa-622a-c33a-dca859360203",
+      "file_name": "not-a-photo.arw",
+      "caption": "RAW, which photogen cannot load",
+      "checksum": "mock-sum-raw",
+      "updated_at": "2026-09-18T22:44:09Z"
+    }
+  ]
+}

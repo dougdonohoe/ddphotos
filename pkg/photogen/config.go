@@ -70,8 +70,21 @@ type Config struct {
 	// MetaCache caches photo metadata between runs so unchanged photos are not
 	// re-decoded. nil disables caching.
 	MetaCache *MetaCache
+	// Sync describes the sync stage for the run summary. nil means no album syncs.
+	Sync *SyncSummary
 	// expectedFiles tracks files generated in this run (for --clean).
 	expectedFiles map[string]bool
+}
+
+// SyncSummary is what the run summary says about syncing. It exists only for reporting:
+// the sync stage itself reads everything it needs off the individual AlbumConfigs.
+type SyncSummary struct {
+	// Root is the resolved sync directory.
+	Root string
+	// Albums is how many albums have a sync: block.
+	Albums int
+	// Skip records that -no-sync was given.
+	Skip bool
 }
 
 // AlbumConfig describes an album source folder and metadata overrides.
@@ -93,6 +106,32 @@ type AlbumConfig struct {
 	Recurse bool
 	// Description is an optional blurb shown on the album page.
 	Description string
+	// Sync, when set, means Path is a folder the sync stage owns and fills from an
+	// upstream provider rather than a folder the user maintains. Nil for a local album.
+	Sync *AlbumSyncConfig
+}
+
+// AlbumSyncConfig is the resolved, run-ready form of an album's sync: block.
+type AlbumSyncConfig struct {
+	// Provider is the registered provider name ("immich", "mock").
+	Provider string
+	// AlbumID identifies the album upstream.
+	AlbumID string
+	// Captions is whether photogen.txt is written and maintained from the upstream
+	// descriptions. The YAML default is true.
+	Captions bool
+	// Mock holds the mock provider's resolved settings. Nil for every other provider.
+	Mock *MockSyncConfig
+}
+
+// MockSyncConfig is the resolved form of a sync.mock: block, with its paths made absolute.
+type MockSyncConfig struct {
+	// AssetsPath is the listing fixture.
+	AssetsPath string
+	// MediaDir is the folder Fetch reads bytes from.
+	MediaDir string
+	// Fail is "", "list" or "fetch".
+	Fail string
 }
 
 // Validate ensures the config is valid before running processors.
@@ -244,6 +283,14 @@ func (c *Config) Summary() string {
 		cssDesc = c.CustomCSS
 	}
 
+	syncDesc := "none"
+	if c.Sync != nil {
+		syncDesc = fmt.Sprintf("%s (%d album(s))", c.Sync.Root, c.Sync.Albums)
+		if c.Sync.Skip {
+			syncDesc += " [skipped: -no-sync]"
+		}
+	}
+
 	cacheDesc := "disabled"
 	if c.MetaCache != nil {
 		cacheDesc = fmt.Sprintf("%s (%d entries)", c.MetaCache.path, c.MetaCache.Len())
@@ -264,6 +311,7 @@ func (c *Config) Summary() string {
 		fmt.Sprintf("  encrypt:  %s", encryptDesc),
 		fmt.Sprintf("  hero:     %s", heroDesc),
 		fmt.Sprintf("  css:      %s", cssDesc),
+		fmt.Sprintf("  sync:     %s", syncDesc),
 	}
 	return strings.Join(lines, "\n")
 }

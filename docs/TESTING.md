@@ -372,20 +372,79 @@ The script runs the following steps in a fresh temp workspace:
    that the relative base `sample-base` resolves to `sample-photos/`
 4. Back-compat: runs `photogen` against a config that still uses the pre-`sample-photos`
    container-internal paths (`/ddphotos-init` and friends) and verifies it still works
-5. Runs `decode` on an encrypted album index and verifies the output, including files outside `DDPHOTOS_DIR` (via `--passwords` flag and embedded `pwFile` path)
-6. Runs `search-cover` against the decoded album and verifies the cover file is found
-7. Regression test: runs `decode` and `search-cover` with an external `--config-dir` (outside `DDPHOTOS_DIR`) to verify the config mount path is handled correctly
-8. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
-9. Runs `build` and verifies the static site output
-10. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
-11. Tests `export` (symlink mode), `export --copy` (all files resolved, no symlinks), and `export --cloudflare` (adds `_worker.js`)
-12. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
-13. Runs `init --script-only` and verifies only the script is installed (no `config/`,
+5. Runs `photogen` against an album with a `sync:` block using the [`mock` provider](#the-mock-sync-provider),
+   and verifies the sync folder, downloaded media, `metadata.yaml`, escaped captions in
+   `photogen.txt`, the upstream album name reaching `albums.json`, and the built album —
+   then re-runs it to verify the second sync downloads nothing and leaves mtimes untouched
+6. Runs `decode` on an encrypted album index and verifies the output, including files outside `DDPHOTOS_DIR` (via `--passwords` flag and embedded `pwFile` path)
+7. Runs `search-cover` against the decoded album and verifies the cover file is found
+8. Regression test: runs `decode` and `search-cover` with an external `--config-dir` (outside `DDPHOTOS_DIR`) to verify the config mount path is handled correctly
+9. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
+10. Runs `build` and verifies the static site output
+11. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
+12. Tests `export` (symlink mode), `export --copy` (all files resolved, no symlinks), and `export --cloudflare` (adds `_worker.js`)
+13. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
+14. Runs `init --script-only` and verifies only the script is installed (no `config/`,
     `albums/` or `sample-photos/`)
 
 Playwright tests skip assertions that depend on sample-site-specific albums (e.g. `antarctica`) when
 those albums are not present in the init site, so the full test suite runs cleanly against the
 smaller built-in sample. The temp workspace is cleaned up automatically on exit.
+
+## The `mock` Sync Provider
+
+`photogen` can sync an album's photos from an upstream photo manager (see
+[Syncing](PHOTOGEN.md#syncing)). To make that testable with nothing installed and no
+network, there is a second provider whose only job is to stand in for a real one:
+
+```yaml
+albums:
+  - slug: antarctica
+    sync:
+      provider: mock
+      album_id: antarctica
+      captions: true
+      mock:
+        assets: sync-listing.json     # the listing fixture, relative to the config dir
+        media_dir: sync-media         # where Fetch reads bytes from, relative to the config dir
+        fail: ""                      # "", "list" or "fetch"
+```
+
+The listing fixture is the provider interface written out as JSON — an album and its
+assets. `size`, `checksum`, `updated_at`, `is_video` and `warnings` are all optional:
+
+```json
+{
+  "album": { "name": "Antarctica", "description": "Ice, and a lot of it" },
+  "assets": [
+    { "id": "b68fbc77-bbed-4008-a118-ba8637148081",
+      "file_name": "IMG_1583.jpeg",
+      "caption": "So wide open!",
+      "checksum": "mock-sum-1583",
+      "updated_at": "2026-09-18T22:43:56Z" }
+  ]
+}
+```
+
+Two things about it are deliberate:
+
+- **`Fetch` opens a real file** from `media_dir`, so the whole transfer path runs — temp
+  file, copy, rename, the skip-if-present check and the mtime that check depends on —
+  rather than a stub that would prove none of it.
+- **`fail:` makes the provider fail on demand.** "Do not prune on a provider failure" is
+  the behavior in this feature most worth a test, because it is the one whose absence
+  loses photos, and testing it needs a provider that can fail.
+
+It ships in the binary rather than behind a build tag: a tag would keep it out of the
+image and defeat `make docker-test`. It is deliberately left out of
+`config/albums.example.yaml` and the user-facing provider list.
+
+Go tests build their fixtures in a `t.TempDir()` (`pkg/photogen/sync_run_test.go`), and
+`bin/docker-test.sh` drives it through the image with the committed fixtures
+`web/testdata/albums.sync-mock.yaml` and `web/testdata/sync-mock-listing.json`.
+
+`sample/config/` stays sync-free: the sample site is used for screenshots and the
+published demo, so `make sample-photogen` has to stay offline.
 
 ## CI (GitHub Actions)
 

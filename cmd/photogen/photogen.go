@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -71,6 +72,9 @@ var (
 	heroOnly        = flag.Bool("hero-only", false, "regenerate hero image only, skipping all album and index processing")
 	customization   = flag.String("customization", "", "path to customization file; overrides the default <config-dir>/"+photogen.DefaultCustomizationFile)
 	noCustomization = flag.Bool("no-customization", false, "ignore "+photogen.DefaultCustomizationFile+" even if present")
+	syncDir         = flag.String("sync-dir", "", "sync directory override (overrides DDPHOTOS_SYNC_DIR env var)")
+	syncOnly        = flag.Bool("sync-only", false, "sync albums from their providers, then exit without resizing or indexing")
+	noSync          = flag.Bool("no-sync", false, "skip syncing; build synced albums from whatever is already on disk")
 )
 
 // saveMetaCache persists the photo metadata cache, reporting failures as warnings
@@ -159,10 +163,19 @@ func main() {
 	exit.HandleSignal()
 	loadDefaultsEnv()
 
-	albums, settings, err := photogen.LoadAlbumConfigs(*configDir, "albums.yaml")
+	// Config loading runs in two halves, and the order matters.
+	//
+	// LoadAlbumsFile parses and validates the YAML without touching the filesystem.
+	// ToAlbumConfigs is what resolves and stats every album source, and it fails outright
+	// on a directory that does not exist. A synced album's source is a folder photogen
+	// creates itself, under a path that includes the resolved site ID — which -site-id can
+	// override — so the site ID and the sync root have to be settled, and the folders
+	// created, before ToAlbumConfigs runs. Hence, the split.
+	af, err := photogen.LoadAlbumsFile(filepath.Join(*configDir, "albums.yaml"))
 	if err != nil {
 		exit.Fatal("Error loading config", err)
 	}
+	settings := &af.Settings
 
 	customizations, err := photogen.ResolveCustomizations(*configDir, *customization, *noCustomization)
 	if err != nil {
@@ -189,6 +202,35 @@ func main() {
 		fmt.Println("  Set DDPHOTOS_ALBUMS_DIR in the environment, use the -out flag,")
 		fmt.Println("  or ensure config/defaults.env is present in the working directory.")
 		exit.ExitWithStatus(fmt.Errorf("DDPHOTOS_ALBUMS_DIR not set"))
+	}
+
+	// Sync directory: -sync-dir flag > DDPHOTOS_SYNC_DIR env var > defaults.env, mirroring
+	// the albums directory above. Only looked at when an album actually syncs, so a site
+	// with no sync: blocks never needs it set.
+	var syncPaths *photogen.SyncPaths
+	if af.HasSyncedAlbums() {
+		resolvedSyncDir := os.Getenv("DDPHOTOS_SYNC_DIR")
+		if *syncDir != "" {
+			resolvedSyncDir = *syncDir
+		}
+		if resolvedSyncDir == "" {
+			fmt.Println("Error: sync directory is not set, but albums.yaml has a sync: block.")
+			fmt.Println("  Set DDPHOTOS_SYNC_DIR in the environment, use the -sync-dir flag,")
+			fmt.Println("  or ensure config/defaults.env is present in the working directory.")
+			exit.ExitWithStatus(fmt.Errorf("DDPHOTOS_SYNC_DIR not set"))
+		}
+		syncPaths = &photogen.SyncPaths{Root: filepath.Clean(resolvedSyncDir), SiteID: resolvedSiteID}
+		// Created before ToAlbumConfigs, which stats every album source. Unconditional, so
+		// -no-sync on an album that has never synced yields an empty album rather than an
+		// error about a path photogen was going to create anyway.
+		if err := af.CreateSyncDirs(syncPaths); err != nil {
+			exit.Fatal("Error creating sync directories", err)
+		}
+	}
+
+	albums, err := af.ToAlbumConfigs(*configDir, syncPaths)
+	if err != nil {
+		exit.Fatal("Error loading config", err)
 	}
 
 	resolvedCSSPath := settings.CustomCSSPath
@@ -219,6 +261,17 @@ func main() {
 		SiteSubtitleHTML: settings.SiteSubtitleHTML,
 		SiteOverviewHTML: settings.SiteOverviewHTML,
 		AlbumNav:         customizations.AlbumNav,
+	}
+
+	// Summarize syncing
+	if syncPaths != nil {
+		n := 0
+		for _, a := range albums {
+			if a.Sync != nil {
+				n++
+			}
+		}
+		cfg.Sync = &photogen.SyncSummary{Root: syncPaths.Root, Albums: n, Skip: *noSync}
 	}
 
 	// Photo metadata (dimensions, orientation, EXIF date) is cached between runs so
@@ -296,6 +349,24 @@ func main() {
 			exit.Fatal("Error writing hero JPEG", err)
 		}
 		saveMetaCache(cfg)
+		exit.ExitWithStatus(nil)
+	}
+
+	// Sync stage. It sits after --hero-only, which never syncs, and before -album
+	// filtering, which narrows the resize and index stages only: a filtered run still
+	// syncs every album, because a folder left half-synced is a folder the next full run
+	// silently builds from.
+	if err := photogen.RunSync(context.Background(), cfg, albums, *noSync); err != nil {
+		warn.PrintSummary()
+		exit.Fatal("Error syncing albums", err)
+	}
+	if *syncOnly {
+		// Otherwise -sync-only on a config with no sync: block exits 0 in silence,
+		// which reads as "it worked" rather than "there was nothing to do".
+		if cfg.Sync == nil {
+			fmt.Println("\n[SYNC] nothing to do: no album in albums.yaml has a sync: block")
+		}
+		warn.PrintSummary()
 		exit.ExitWithStatus(nil)
 	}
 

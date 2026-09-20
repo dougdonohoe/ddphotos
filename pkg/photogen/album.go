@@ -601,7 +601,7 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 		descriptions: make(map[string]string),
 	}
 
-	txtPath := filepath.Join(albumPath, "photogen.txt")
+	txtPath := filepath.Join(albumPath, photogenFileName)
 	err := scanLines(txtPath, func(line string) {
 		name, desc := parsePhotogenLine(line)
 		id := strings.ToLower(name)

@@ -155,6 +155,7 @@ RUN echo "$DDPHOTOS_IMAGE" > /docker/IMAGE \
 ENV VITE_DOCKER_IMAGE=$DDPHOTOS_IMAGE
 
 ENV DDPHOTOS_ALBUMS_DIR=/ddphotos/albums \
+    DDPHOTOS_SYNC_DIR=/ddphotos/sync \
     VITE_GIT_BRANCH="" \
     VITE_GIT_REPO_SLUG=dougdonohoe/ddphotos \
     VITE_GIT_REPO_URL=https://github.com/dougdonohoe/ddphotos

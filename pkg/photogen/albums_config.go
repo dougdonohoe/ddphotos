@@ -62,6 +62,40 @@ type AlbumEntry struct {
 	Description     string `yaml:"description"` // optional inline description; takes precedence over descriptions file
 	ManualSortOrder bool   `yaml:"manual_sort_order"`
 	Recurse         bool   `yaml:"recurse"` // if true, collect photos from subdirectories recursively
+
+	// Sync, when set, makes this album's photos come from an upstream photo manager
+	// instead of a folder the user maintains. Source and Base are then derived and must
+	// not be set. Nil means an ordinary local album.
+	Sync *SyncEntry `yaml:"sync"`
+}
+
+// SyncEntry configures where an album's photos are fetched from. It is the YAML shape of
+// the sync: block; the resolved, run-ready form is AlbumSyncConfig in config.go.
+type SyncEntry struct {
+	Provider string `yaml:"provider"` // registered provider name ("immich", "mock")
+	AlbumID  string `yaml:"album_id"` // provider-specific album identifier
+	// Captions controls whether photogen.txt is written and maintained from the upstream
+	// descriptions. A pointer because the default is true: a plain bool cannot tell
+	// "captions: false" from a key that was never written.
+	Captions *bool `yaml:"captions"`
+	// Mock holds the mock provider's settings. Provider sub-blocks are modeled as real
+	// struct fields because readYAML runs with KnownFields(true), so there is no catch-all
+	// to put them in.
+	Mock *MockSyncEntry `yaml:"mock"`
+}
+
+// CaptionsEnabled reports whether photogen.txt should be maintained for this album,
+// applying the documented default of true.
+func (s *SyncEntry) CaptionsEnabled() bool {
+	return s.Captions == nil || *s.Captions
+}
+
+// MockSyncEntry configures the mock provider, whose only job is to make the sync plumbing
+// testable without a real upstream. See docs/TESTING.md.
+type MockSyncEntry struct {
+	Assets   string `yaml:"assets"`    // listing fixture, relative to the config dir
+	MediaDir string `yaml:"media_dir"` // folder Fetch reads bytes from, relative to the config dir
+	Fail     string `yaml:"fail"`      // "", "list" or "fetch": make the provider fail on demand
 }
 
 // LoadAlbumsFile reads and parses an albums YAML file. It validates required fields
@@ -120,11 +154,23 @@ func (af *AlbumsFile) validate() error {
 				"distinct slug", prior, a.Slug)
 		}
 		seenSlugs[strings.ToLower(a.Slug)] = a.Slug
-		if a.Name == "" {
+		// A synced album's source folder is derived (photogen creates and fills it), and
+		// its name can come from upstream, so both requirements relax. Everything else
+		// about the album is unchanged.
+		if a.Sync == nil && a.Name == "" {
 			return fmt.Errorf("album %q: name is required", a.Slug)
 		}
-		if a.Source == "" {
+		if a.Sync == nil && a.Source == "" {
 			return fmt.Errorf("album %q: source is required", a.Slug)
+		}
+		if a.Sync != nil {
+			if a.Source != "" || a.Base != "" {
+				return fmt.Errorf("album %q: sync and source/base are mutually exclusive — "+
+					"a synced album downloads into a folder photogen owns, so remove source and base", a.Slug)
+			}
+			if err := a.Sync.validate(a.Slug); err != nil {
+				return err
+			}
 		}
 		if a.Base != "" {
 			if _, ok := af.Bases[a.Base]; !ok {
@@ -158,10 +204,62 @@ func (af *AlbumsFile) validate() error {
 	return nil
 }
 
+// SyncPaths locates the folders that synced albums download into. It is an input to
+// ToAlbumConfigs rather than state on AlbumsFile because the site ID is not knowable from
+// the YAML alone: -site-id overrides settings.id, so the caller has to resolve both the
+// sync root and the ID before any album path can be derived.
+//
+// A nil *SyncPaths means sync is not configured for this run, which is an error for any
+// album that has a sync: block.
+type SyncPaths struct {
+	// Root is the resolved DDPHOTOS_SYNC_DIR.
+	Root string
+	// SiteID is the resolved settings.id, which namespaces the sync root the same way it
+	// namespaces the albums output directory.
+	SiteID string
+}
+
+// validate checks the sync: block's own fields. slug names the album in every message,
+// since this runs inside a loop over albums and the block itself has no identity.
+func (s *SyncEntry) validate(slug string) error {
+	if s.Provider == "" {
+		return fmt.Errorf("album %q: sync.provider is required (one of: %s)",
+			slug, strings.Join(syncProviderNames(), ", "))
+	}
+	if !isSyncProvider(s.Provider) {
+		return fmt.Errorf("album %q: sync.provider %q is not a known provider (one of: %s)",
+			slug, s.Provider, strings.Join(syncProviderNames(), ", "))
+	}
+	if s.AlbumID == "" {
+		return fmt.Errorf("album %q: sync.album_id is required", slug)
+	}
+	if s.Mock != nil {
+		if s.Provider != mockProviderName {
+			return fmt.Errorf("album %q: sync.mock is only valid with provider %q, not %q",
+				slug, mockProviderName, s.Provider)
+		}
+		if s.Mock.Assets == "" {
+			return fmt.Errorf("album %q: sync.mock.assets is required", slug)
+		}
+		if s.Mock.MediaDir == "" {
+			return fmt.Errorf("album %q: sync.mock.media_dir is required", slug)
+		}
+		switch s.Mock.Fail {
+		case "", "list", "fetch":
+		default:
+			return fmt.Errorf("album %q: sync.mock.fail must be \"list\" or \"fetch\", got %q",
+				slug, s.Mock.Fail)
+		}
+	}
+	return nil
+}
+
 // ToAlbumConfigs resolves source paths, loads descriptions, and returns []*AlbumConfig
 // ready for processing. configDir is used to resolve relative paths and locate the
-// descriptions file. Returns an error if any source path does not exist on disk.
-func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
+// descriptions file. sync locates the download folder for albums with a sync: block and
+// may be nil when the run has no sync configured. Returns an error if any source path does
+// not exist on disk.
+func (af *AlbumsFile) ToAlbumConfigs(configDir string, sync *SyncPaths) ([]*AlbumConfig, error) {
 	descriptions := map[string]string{}
 	if af.Settings.Descriptions != "" {
 		descPath := filepath.Join(configDir, af.Settings.Descriptions)
@@ -174,7 +272,7 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 
 	configs := make([]*AlbumConfig, 0, len(af.Albums))
 	for _, a := range af.Albums {
-		path, err := af.resolvePath(configDir, a)
+		path, err := af.resolvePath(configDir, a, sync)
 		if err != nil {
 			return nil, err
 		}
@@ -190,6 +288,7 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string) ([]*AlbumConfig, error) {
 			ManualSortOrder: a.ManualSortOrder,
 			Recurse:         a.Recurse,
 			Description:     desc,
+			Sync:            a.resolveSync(configDir),
 		})
 		delete(descriptions, a.Slug)
 	}
@@ -253,8 +352,57 @@ func (af *AlbumsFile) resolveFSPath(configDir, base, relPath, errContext string)
 }
 
 // resolvePath returns the absolute source path for an album entry, verifying it exists.
-func (af *AlbumsFile) resolvePath(configDir string, a AlbumEntry) (string, error) {
-	return af.resolveFSPath(configDir, a.Base, a.Source, fmt.Sprintf("album %q", a.Slug))
+//
+// A synced album's source is derived rather than configured: it is the folder the sync
+// stage downloads into. The caller creates those folders before calling ToAlbumConfigs
+// (see CreateSyncDirs), so the existence check below holds for them too.
+func (af *AlbumsFile) resolvePath(configDir string, a AlbumEntry, sync *SyncPaths) (string, error) {
+	errContext := fmt.Sprintf("album %q", a.Slug)
+	if a.Sync != nil {
+		if sync == nil {
+			return "", fmt.Errorf("%s: has a sync: block but no sync directory is configured — "+
+				"set DDPHOTOS_SYNC_DIR or pass -sync-dir", errContext)
+		}
+		path := SyncAlbumPath(sync.Root, sync.SiteID, a.Sync.Provider, a.Slug)
+		if _, err := os.Stat(path); err != nil {
+			return "", fmt.Errorf("%s: sync folder %q does not exist", errContext, path)
+		}
+		return path, nil
+	}
+	return af.resolveFSPath(configDir, a.Base, a.Source, errContext)
+}
+
+// resolveSync returns the run-ready form of the album's sync: block, with the mock
+// provider's paths anchored to the config dir the same way every other relative path in
+// this file is. Nil for an ordinary local album.
+func (a AlbumEntry) resolveSync(configDir string) *AlbumSyncConfig {
+	if a.Sync == nil {
+		return nil
+	}
+	cfg := &AlbumSyncConfig{
+		Provider: a.Sync.Provider,
+		AlbumID:  a.Sync.AlbumID,
+		Captions: a.Sync.CaptionsEnabled(),
+	}
+	if m := a.Sync.Mock; m != nil {
+		cfg.Mock = &MockSyncConfig{
+			AssetsPath: resolveConfigRelative(configDir, m.Assets),
+			MediaDir:   resolveConfigRelative(configDir, m.MediaDir),
+			Fail:       m.Fail,
+		}
+	}
+	return cfg
+}
+
+// resolveConfigRelative anchors a relative path to configDir, leaving an absolute path
+// alone. Unlike resolveFSPath it does not stat: the mock provider reports its own missing
+// files, with a message that says which key named them.
+func resolveConfigRelative(configDir, path string) string {
+	p := winToUnixPath(path)
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(configDir, p)
 }
 
 // resolveHeroPath returns the absolute path for the hero image, verifying it exists.
@@ -287,13 +435,17 @@ func LoadAlbumDescriptions(path string) (map[string]string, error) {
 // LoadAlbumConfigs is the top-level helper: reads configDir/albumsFilename, resolves
 // all paths, loads descriptions, and returns album configs ready for processing.
 // The YAML settings are also returned so callers can use site_url, output_dir, etc.
+//
+// It passes no SyncPaths, so a file containing a sync: block is rejected. cmd/photogen
+// does the two halves itself, because it has to resolve the site ID and create the sync
+// folders in between (see the ordering comment in main).
 func LoadAlbumConfigs(configDir, albumsFilename string) ([]*AlbumConfig, *AlbumsSettings, error) {
 	path := filepath.Join(configDir, albumsFilename)
 	af, err := LoadAlbumsFile(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	configs, err := af.ToAlbumConfigs(configDir)
+	configs, err := af.ToAlbumConfigs(configDir, nil)
 	if err != nil {
 		return nil, nil, err
 	}

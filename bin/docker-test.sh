@@ -22,6 +22,7 @@ EXT_CONFIG_DIR=""
 ABS_CONFIG_DIR=""
 SC_TEST_DIR=""
 LEGACY_CONFIG_DIR=""
+SYNC_CONFIG_DIR=""
 WIN_CONFIG_DIR=""
 WIN_OUT_DIR=""
 RUN_PID=""
@@ -134,6 +135,7 @@ cleanup() {
     if [ -n "$ABS_CONFIG_DIR" ]; then /bin/rm -rf "$ABS_CONFIG_DIR"; fi
     if [ -n "$SC_TEST_DIR" ];   then /bin/rm -rf "$SC_TEST_DIR";   fi
     if [ -n "$LEGACY_CONFIG_DIR" ]; then /bin/rm -rf "$LEGACY_CONFIG_DIR"; fi
+    if [ -n "$SYNC_CONFIG_DIR" ]; then /bin/rm -rf "$SYNC_CONFIG_DIR"; fi
     if [ -n "$WIN_CONFIG_DIR" ]; then /bin/rm -rf "$WIN_CONFIG_DIR"; fi
     if [ -n "$WIN_OUT_DIR" ];    then /bin/rm -rf "$WIN_OUT_DIR";    fi
     # Only removes TMP_ROOT if empty, so anything unexpected is left for inspection
@@ -307,6 +309,62 @@ LEGACY_CONFIG_DIR=$(mktempd)
 [ -d "$TEST_DIR/albums/$LEGACY_SITE_ID/temporary" ] || fail "albums/$LEGACY_SITE_ID/temporary not created"
 [ -f "$TEST_DIR/albums/$LEGACY_SITE_ID/hero.jpg" ]  || fail "albums/$LEGACY_SITE_ID/hero.jpg not created"
 pass "photogen with legacy /ddphotos-* paths OK (album dir and hero.jpg created)"
+
+# ── 5c. Photogen: sync framework via the mock provider ────────────────────────
+# Drives the whole sync vertical slice through the image with no network: the sync folder
+# is created under DDPHOTOS_SYNC_DIR (/ddphotos/sync, so it lands on the host), media is
+# downloaded into it, metadata.yaml and photogen.txt are written, and the album builds from
+# that folder. The albums.yaml has no name: or description:, so both have to arrive from
+# the provider's listing, which is what proves the metadata fallback ran.
+#
+# The mock paths are relative, so they anchor to the config dir that docker/ddphotos already
+# mounts; build_config_bases_mounts only knows about source: and base:, so an absolute host
+# path under sync.mock would not be mounted.
+step "Photogen: sync framework (mock provider)"
+SYNC_SITE_ID="test-sync-mock"
+SYNC_SLUG="the-way-sync"
+SYNC_CONFIG_DIR=$(mktempd)
+mkdir -p "$SYNC_CONFIG_DIR/sync-media"
+# *.jpg only: a bare docker run has no ffmpeg volume, so the sample album's video is out.
+/bin/cp "$REPO_ROOT"/sample/source/theway/2024-The-Way-10.jpg \
+        "$REPO_ROOT"/sample/source/theway/2024-The-Way-13.jpg "$SYNC_CONFIG_DIR/sync-media/"
+/bin/cp "$REPO_ROOT/web/testdata/albums.sync-mock.yaml"   "$SYNC_CONFIG_DIR/albums.yaml"
+/bin/cp "$REPO_ROOT/web/testdata/sync-mock-listing.json"  "$SYNC_CONFIG_DIR/sync-listing.json"
+
+SYNC_DIR="$TEST_DIR/sync/$SYNC_SITE_ID/mock/$SYNC_SLUG"
+sync_out=$("${DDPHOTOS[@]}" --config-dir "$SYNC_CONFIG_DIR" photogen 2>&1) || (echo "$sync_out" && fail "sync photogen failed")
+
+[ -d "$SYNC_DIR" ] || (echo "$sync_out" && fail "$SYNC_DIR not created on the host")
+[ -f "$SYNC_DIR/2024-The-Way-10.jpg" ] || fail "sync did not download 2024-The-Way-10.jpg"
+[ -f "$SYNC_DIR/2024-The-Way-13.jpg" ] || fail "sync did not download 2024-The-Way-13.jpg"
+[ -f "$SYNC_DIR/metadata.yaml" ] || fail "sync did not write metadata.yaml"
+[ -f "$SYNC_DIR/photogen.txt" ] || fail "sync did not write photogen.txt"
+# RAW is skipped with a warning rather than failing the run.
+! [ -f "$SYNC_DIR/not-a-photo.arw" ] || fail "sync downloaded an unsupported file type"
+echo "$sync_out" | grep -q "not-a-photo.arw" || (echo "$sync_out" && fail "no warning for the skipped RAW file")
+# Captions are escaped on the way in, because DD Photos renders them as HTML.
+grep -q "A &lt;b&gt;bold&lt;/b&gt; caption &amp; an ampersand" "$SYNC_DIR/photogen.txt" \
+    || (cat "$SYNC_DIR/photogen.txt" && fail "caption was not escaped into photogen.txt")
+# name: and description: are absent from albums.yaml, so these came from the provider.
+grep -q "The Way (synced)" "$TEST_DIR/albums/$SYNC_SITE_ID/albums.json" \
+    || fail "album name did not fall back to the synced metadata"
+[ -d "$TEST_DIR/albums/$SYNC_SITE_ID/$SYNC_SLUG" ] || fail "albums/$SYNC_SITE_ID/$SYNC_SLUG not created"
+pass "photogen sync via mock provider OK (downloaded, metadata.yaml, photogen.txt, album built)"
+
+# Re-running is one listing and zero downloads: the skip check keeps mtimes untouched,
+# which is what stops the metadata cache re-decoding every photo on the next build.
+step "Photogen: sync is incremental on a second run"
+# BSD and GNU date both take a file here; stat is the fallback. Checked for emptiness
+# below, because two empty strings compare equal and would pass this test for free.
+before_mtime=$(date -r "$SYNC_DIR/2024-The-Way-10.jpg" +%s 2>/dev/null || stat -c %Y "$SYNC_DIR/2024-The-Way-10.jpg")
+[ -n "$before_mtime" ] || fail "could not read the mtime of the synced photo"
+resync_out=$("${DDPHOTOS[@]}" --config-dir "$SYNC_CONFIG_DIR" photogen 2>&1) || (echo "$resync_out" && fail "re-sync failed")
+echo "$resync_out" | grep -q "0 downloaded, 2 up to date" \
+    || (echo "$resync_out" && fail "second sync did not skip both downloads")
+after_mtime=$(date -r "$SYNC_DIR/2024-The-Way-10.jpg" +%s 2>/dev/null || stat -c %Y "$SYNC_DIR/2024-The-Way-10.jpg")
+[ -n "$after_mtime" ] || fail "could not read the mtime of the synced photo"
+[ "$before_mtime" = "$after_mtime" ] || fail "a skipped download still changed the file mtime"
+pass "photogen sync second run OK (0 downloaded, mtimes untouched)"
 
 # ── 5b. Photogen: Windows-style C:\ path mapping ───────────────────────────────
 # A Windows drive path (C:\Users\...) in albums.yaml must map to the container
