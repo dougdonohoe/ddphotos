@@ -590,6 +590,27 @@ func parsePhotogenLine(line string) (name, desc string) {
 	return name, strings.TrimSpace(desc)
 }
 
+// photogenFileName is the per-directory captions and manual-order file. It sits in an
+// album's source folder, is written by hand or by the DD Photos App, and is the one file
+// in a synced album's folder that sync will not overwrite wholesale.
+const photogenFileName = "photogen.txt"
+
+// photogenID normalizes a photogen.txt entry name to the key photos are looked up by:
+// lowercase, with a media extension stripped so "img_001.jpg" and "img_001" both work.
+//
+// An extension that is neither photo nor video is left alone, because a bare subfolder
+// name may legitimately contain a dot.
+//
+// Shared with the sync caption merge, which has to produce lines this reads back
+// unchanged; a second copy of this rule is exactly how the two would drift.
+func photogenID(name string) string {
+	id := strings.ToLower(name)
+	if IsMediaFile(id) {
+		id = strings.TrimSuffix(id, strings.ToLower(filepath.Ext(id)))
+	}
+	return id
+}
+
 // loadPhotoDescriptions reads photogen.txt from albumPath.
 // Format: one line per entry: "name_or_filename [Description]"
 // Photo entries may include or omit the image extension (e.g. "img_001.jpg" or "img_001").
@@ -604,13 +625,7 @@ func loadPhotoDescriptions(albumPath string) (*photoDescriptions, error) {
 	txtPath := filepath.Join(albumPath, photogenFileName)
 	err := scanLines(txtPath, func(line string) {
 		name, desc := parsePhotogenLine(line)
-		id := strings.ToLower(name)
-		// Strip a media extension if present so "img_001.jpg" and "img_001" both work,
-		// and likewise "clip.mov" and "clip". Extensions that are neither photo nor
-		// video are left alone: a bare subfolder name may legitimately contain a dot.
-		if IsMediaFile(id) {
-			id = strings.TrimSuffix(id, strings.ToLower(filepath.Ext(id)))
-		}
+		id := photogenID(name)
 		pd.descriptions[id] = desc
 		pd.order = append(pd.order, id)
 	})

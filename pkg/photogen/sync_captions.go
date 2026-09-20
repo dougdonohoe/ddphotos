@@ -7,9 +7,6 @@ import (
 	"strings"
 )
 
-// photogenFileName is the per-directory captions and manual-order file.
-const photogenFileName = "photogen.txt"
-
 // captionLine is one parsed photogen.txt entry.
 type captionLine struct {
 	id   string // the lookup key: lowercase name with any media extension stripped
@@ -18,11 +15,11 @@ type captionLine struct {
 
 // readCaptionLines parses photogen.txt in file order.
 //
-// It deliberately mirrors loadPhotoDescriptions rather than reusing it: the merge needs the
-// entries in file order, where loadPhotoDescriptions hands back a map and an order of IDs.
-// Both read through scanLines, so both skip blank and # lines the same way, and both key on
-// the lowercase extension-stripped name — which is what lets a line written here be found
-// again when the album is built.
+// It exists alongside loadPhotoDescriptions rather than reusing it because the merge needs
+// the entries in file order, where loadPhotoDescriptions hands back a map plus an order of
+// IDs. The parts that have to agree are shared outright: both read through scanLines, so
+// both skip blank and # lines the same way, and both key on photogenID — which is what
+// lets a line written here be found again when the album is built.
 func readCaptionLines(path string) ([]captionLine, error) {
 	var lines []captionLine
 	err := scanLines(path, func(line string) {
@@ -36,15 +33,6 @@ func readCaptionLines(path string) ([]captionLine, error) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	return lines, nil
-}
-
-// photogenID normalizes a photogen.txt name to the key photogen looks photos up by.
-func photogenID(name string) string {
-	id := strings.ToLower(name)
-	if IsMediaFile(id) {
-		id = strings.TrimSuffix(id, strings.ToLower(filepath.Ext(id)))
-	}
-	return id
 }
 
 // mergeCaption resolves one photo's caption from the three values a sync has to reconcile:

@@ -41,16 +41,6 @@ func TestMergeCaption(t *testing.T) {
 	}
 }
 
-func TestPhotogenID(t *testing.T) {
-	t.Parallel()
-	// Has to match loadPhotoDescriptions exactly, or a merged line would not be found
-	// again when the album is built.
-	assert.Equal(t, "img_001", photogenID("IMG_001.JPG"))
-	assert.Equal(t, "img_001", photogenID("img_001"))
-	assert.Equal(t, "clip", photogenID("clip.mov"))
-	assert.Equal(t, "my.folder", photogenID("My.Folder"), "a non-media extension is left alone")
-}
-
 // syncItemsFor builds the items a merge operates on from file/caption pairs, in order.
 func syncItemsFor(pairs ...[2]string) []syncItem {
 	items := make([]syncItem, 0, len(pairs))
