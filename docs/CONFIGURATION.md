@@ -231,7 +231,11 @@ raw HTML, exactly as it is for a non-synced album.
 Syncing happens on every run unless you pass `-no-sync`, and **it is real work even
 without `-doit`**: it downloads and it prunes. That is deliberate, since a dry run whose
 whole point is to show what would be built needs the source folder to exist. See
-[PHOTOGEN.md](PHOTOGEN.md) for `-sync-only`, `-no-sync` and `-sync-dir`.
+[PHOTOGEN.md](PHOTOGEN.md#syncing) for `-sync-only`, `-no-sync` and `-sync-dir`.
+
+`sample/config-sync/` is a complete working example that needs no network or account:
+run `make sample-sync` to sync two albums from the offline
+[`mock` provider](TESTING.md#the-mock-sync-provider) and serve the result.
 
 ### How Config Reaches the Frontend
 

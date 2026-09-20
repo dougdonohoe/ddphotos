@@ -58,6 +58,9 @@ are documented in
 [Syncing an Album](CONFIGURATION.md#syncing-an-album-from-a-photo-manager); this section
 covers what it means at the command line.
 
+To see it work without setting anything up, `make sample-sync` syncs two albums from the
+offline [`mock` provider](TESTING.md#the-mock-sync-provider) and serves the result.
+
 **Syncing is the one thing `photogen` does without `-doit`.** It downloads, and it prunes
 anything in the sync folder that is no longer in the upstream album. That is deliberate: a
 dry run exists to show what *would* be built, and it cannot do that without the source

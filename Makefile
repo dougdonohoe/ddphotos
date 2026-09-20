@@ -311,6 +311,11 @@ sample-photogen-demo-1:
 sample-photogen-demo-2:
 	go run cmd/photogen/photogen.go -config-dir sample/config -resize -index -clean -css sample/config/custom-example.css -passwords sample/config/passwords-uganda.yaml -site-id sample-demo-2 -doit
 
+.PHONY: sample-photogen-sync
+## sample-photogen-sync: run photogen against the sync demo config (mock provider, offline)
+sample-photogen-sync:
+	go run cmd/photogen/photogen.go -config-dir sample/config-sync -resize -index -clean -doit
+
 .PHONY: sample-demo-1
 ## sample-demo-1: one-step demo with custom CSS + password protection — photogen's and runs dev server
 sample-demo-1: sample-photogen-demo-1
@@ -320,6 +325,11 @@ sample-demo-1: sample-photogen-demo-1
 ## sample-demo-2: one-step demo with custom CSS + 1 album password protection — photogen's and runs dev server
 sample-demo-2: sample-photogen-demo-2
 	DDPHOTOS_SITE_ID=sample-demo-2 $(MAKE) web-npm-run-dev
+
+.PHONY: sample-sync
+## sample-sync: one-step sync demo — syncs from the mock provider, photogen's and runs dev server
+sample-sync: sample-photogen-sync
+	DDPHOTOS_SITE_ID=sample-sync $(MAKE) web-npm-run-dev
 
 .PHONY: sample-build
 ## sample-build: build web app using sample config

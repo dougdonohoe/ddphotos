@@ -443,8 +443,22 @@ Go tests build their fixtures in a `t.TempDir()` (`pkg/photogen/sync_run_test.go
 `bin/docker-test.sh` drives it through the image with the committed fixtures
 `web/testdata/albums.sync-mock.yaml` and `web/testdata/sync-mock-listing.json`.
 
-`sample/config/` stays sync-free: the sample site is used for screenshots and the
-published demo, so `make sample-photogen` has to stay offline.
+For a version you can run and look at, `sample/config-sync/` is a working sync config
+built on the same provider:
+
+```bash
+make sample-photogen-sync   # sync two albums from the mock provider, then resize and index
+make sample-sync            # the above, then start the dev server on the synced site
+```
+
+It downloads into `sync/sample-sync/mock/<slug>/` and builds to `albums/sample-sync/`,
+both gitignored. It deliberately prints two warnings — a skipped RAW file and the video
+half of a Live Photo pair — because those are the two filters most likely to surprise
+someone syncing from a real photo manager. A run that shows them is working.
+
+`sample/config/` itself stays sync-free: the sample site is what the screenshots and the
+published demo are built from, so `make sample-photogen` has to stay offline and
+independent of any of this.
 
 ## CI (GitHub Actions)
 
