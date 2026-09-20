@@ -233,23 +233,35 @@ func (s *SyncEntry) validate(slug string) error {
 	if s.AlbumID == "" {
 		return fmt.Errorf("album %q: sync.album_id is required", slug)
 	}
+	// Only the provider-to-block pairing is checked here, because it is the one rule that
+	// needs both halves. Each provider sub-block checks its own fields, so adding a
+	// provider does not grow this function.
 	if s.Mock != nil {
 		if s.Provider != mockProviderName {
 			return fmt.Errorf("album %q: sync.mock is only valid with provider %q, not %q",
 				slug, mockProviderName, s.Provider)
 		}
-		if s.Mock.Assets == "" {
-			return fmt.Errorf("album %q: sync.mock.assets is required", slug)
+		if err := s.Mock.validate(slug); err != nil {
+			return err
 		}
-		if s.Mock.MediaDir == "" {
-			return fmt.Errorf("album %q: sync.mock.media_dir is required", slug)
-		}
-		switch s.Mock.Fail {
-		case "", "list", "fetch":
-		default:
-			return fmt.Errorf("album %q: sync.mock.fail must be \"list\" or \"fetch\", got %q",
-				slug, s.Mock.Fail)
-		}
+	}
+	return nil
+}
+
+// validate checks the mock provider's own settings. slug names the album, matching every
+// other message raised while validating an album entry.
+func (m *MockSyncEntry) validate(slug string) error {
+	if m.Assets == "" {
+		return fmt.Errorf("album %q: sync.mock.assets is required", slug)
+	}
+	if m.MediaDir == "" {
+		return fmt.Errorf("album %q: sync.mock.media_dir is required", slug)
+	}
+	switch m.Fail {
+	case "", "list", "fetch":
+	default:
+		return fmt.Errorf("album %q: sync.mock.fail must be \"list\" or \"fetch\", got %q",
+			slug, m.Fail)
 	}
 	return nil
 }
