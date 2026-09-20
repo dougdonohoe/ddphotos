@@ -142,10 +142,6 @@ albums:
       provider: immich            # Upstream type; an album syncs from exactly one
       album_id: d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18   # Immich album UUID
       captions: true              # Write photogen.txt from each asset's description
-      immich:                     # Optional; provider-specific settings only
-        prefer_full_size: true    # Prefer Immich's full-size JPEG where it has one
-                                  # (RAW, HEIC, and assets edited in Immich), falling
-                                  # back to the original file (if photogen supports it)
 
   # ------------------------------------------------------------------
   # Minimal example — only required fields
