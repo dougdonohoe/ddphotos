@@ -263,7 +263,8 @@ func main() {
 		AlbumNav:         customizations.AlbumNav,
 	}
 
-	// Summarize syncing
+	// The sync: line in the run summary printed below. Reporting only: the sync stage
+	// itself reads what it needs off each album's own AlbumConfig.
 	if syncPaths != nil {
 		n := 0
 		for _, a := range albums {
@@ -363,11 +364,19 @@ func main() {
 	if *syncOnly {
 		// Otherwise -sync-only on a config with no sync: block exits 0 in silence,
 		// which reads as "it worked" rather than "there was nothing to do".
-		if cfg.Sync == nil {
+		if syncPaths == nil {
 			fmt.Println("\n[SYNC] nothing to do: no album in albums.yaml has a sync: block")
 		}
 		warn.PrintSummary()
 		exit.ExitWithStatus(nil)
+	}
+
+	// Separate the sync stage's output from whatever the run prints next. Gated on
+	// syncPaths rather than printed by RunSync itself so that -sync-only, which exits
+	// just above, does not end on a stray blank line or double one up with the warning
+	// summary, and so an ordinary run with no synced albums still opens at its banner.
+	if syncPaths != nil {
+		fmt.Println()
 	}
 
 	// Filter albums if -album flag is set
