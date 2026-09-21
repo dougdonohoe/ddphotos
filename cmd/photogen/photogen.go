@@ -109,6 +109,17 @@ func runSiteWrites(steps []siteWriteStep) error {
 	return firstErr
 }
 
+// validateSyncFlags rejects -no-sync with -sync-only. One says "do not sync", the other "sync
+// and nothing else", so together they would download nothing, build nothing and exit 0,
+// which reads as success.
+func validateSyncFlags(noSync, syncOnly bool) error {
+	if noSync && syncOnly {
+		return errors.New("-no-sync and -sync-only cannot be combined: -sync-only syncs and\n" +
+			"stops before building, and -no-sync skips the sync, so together they do nothing.")
+	}
+	return nil
+}
+
 // validateCleanFlags rejects flag combinations that would make -clean delete output the
 // run did not regenerate. CleanOutputDir removes anything under a processed album that is
 // not in the expected set, so any flag that leaves real output untracked turns -clean into
@@ -151,6 +162,10 @@ func validateCleanFlags(clean, resize, index bool, limit int, outputPath string)
 func main() {
 	flag.Parse()
 	exit.HandleSignal()
+	if err := validateSyncFlags(*noSync, *syncOnly); err != nil {
+		fmt.Printf("ERROR: %s\n", err)
+		exit.ExitWithStatus(err)
+	}
 	loadDefaultsEnv()
 
 	// Config loading runs in two halves, and the order matters.
