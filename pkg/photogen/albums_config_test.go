@@ -793,6 +793,13 @@ func TestSyncEntryValidation(t *testing.T) {
 	minimal := func() *SyncEntry {
 		return &SyncEntry{Provider: "mock", AlbumID: "abc"}
 	}
+	// fileWith fixes the slug, so the rules that compare albums to each other need this.
+	fileWithAll := func(albums ...AlbumEntry) *AlbumsFile {
+		return &AlbumsFile{Albums: albums}
+	}
+	immichAlbum := func(slug, albumID string) AlbumEntry {
+		return AlbumEntry{Slug: slug, Sync: &SyncEntry{Provider: "immich", AlbumID: albumID}}
+	}
 
 	t.Run("a synced album needs neither name nor source", func(t *testing.T) {
 		t.Parallel()
@@ -849,6 +856,50 @@ func TestSyncEntryValidation(t *testing.T) {
 		assert.True(t, (&SyncEntry{}).CaptionsEnabled(), "an omitted key means on")
 		assert.True(t, (&SyncEntry{Captions: &on}).CaptionsEnabled())
 		assert.False(t, (&SyncEntry{Captions: &off}).CaptionsEnabled())
+	})
+
+	// Two albums pointing at one upstream album is a copy/paste slip: each gets its own sync
+	// folder, so the same photos download twice and publish as two identical albums.
+	t.Run("two albums cannot sync the same upstream album", func(t *testing.T) {
+		t.Parallel()
+		id := "d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18"
+		err := fileWithAll(immichAlbum("galapagos", id), immichAlbum("antarctica", id)).validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "galapagos", "names the album that claimed it first")
+		assert.Contains(t, err.Error(), "antarctica", "and the one that repeated it")
+		assert.Contains(t, err.Error(), id)
+	})
+
+	// An Immich album_id is a UUID, where case carries no meaning, so two spellings of one
+	// id are one album.
+	t.Run("a repeat that differs only by case is still a repeat", func(t *testing.T) {
+		t.Parallel()
+		af := fileWithAll(
+			immichAlbum("a", "d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18"),
+			immichAlbum("b", "D8052D5C-9FF1-4228-9F02-5CDD3D2E2D18"),
+		)
+		require.ErrorContains(t, af.validate(), "each synced album needs its own upstream album")
+	})
+
+	// The id is only meaningful to the provider that issued it, so the same string under two
+	// providers is two different albums.
+	t.Run("the same id under different providers is allowed", func(t *testing.T) {
+		t.Parallel()
+		af := fileWithAll(
+			AlbumEntry{Slug: "a", Sync: &SyncEntry{Provider: "mock", AlbumID: "antarctica",
+				Mock: &MockSyncEntry{Assets: "a.json", MediaDir: "m"}}},
+			immichAlbum("b", "d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18"),
+		)
+		require.NoError(t, af.validate())
+	})
+
+	t.Run("distinct upstream albums are fine", func(t *testing.T) {
+		t.Parallel()
+		af := fileWithAll(
+			immichAlbum("a", "d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18"),
+			immichAlbum("b", "ef8acfb8-43fb-4c63-90c0-307b88b8f97a"),
+		)
+		require.NoError(t, af.validate())
 	})
 
 	t.Run("the mock block belongs to the mock provider only", func(t *testing.T) {

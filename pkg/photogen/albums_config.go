@@ -126,6 +126,13 @@ func (af *AlbumsFile) validate() error {
 	// an exact repeat and a pair that differs only by case.
 	seenSlugs := make(map[string]string, len(af.Albums))
 
+	// syncTarget is one upstream album. Provider-scoped because an id only means anything
+	// to the provider that issued it: a mock fixture called "antarctica" and an Immich
+	// album called "antarctica" are not the same thing.
+	type syncTarget struct{ provider, albumID string }
+	// Holding the slug that claimed each target, so the error can name both albums.
+	seenSyncTargets := make(map[syncTarget]string, len(af.Albums))
+
 	for i, a := range af.Albums {
 		if a.Slug == "" {
 			return fmt.Errorf("album[%d]: slug is required", i)
@@ -171,6 +178,21 @@ func (af *AlbumsFile) validate() error {
 			if err := a.Sync.validate(a.Slug); err != nil {
 				return err
 			}
+			// Two albums naming one upstream album is a copy/paste slip rather than a
+			// configuration. Each gets its own sync folder, so the same photos download
+			// twice, resize twice and publish as two albums with identical contents —
+			// and nothing downstream can tell that was not deliberate.
+			//
+			// Compared lowercased because an Immich album_id is a UUID, where case
+			// carries no meaning. If a provider ever issues case-sensitive ids, this is
+			// the line that has to learn to normalize per provider.
+			target := syncTarget{a.Sync.Provider, strings.ToLower(a.Sync.AlbumID)}
+			if prior, dup := seenSyncTargets[target]; dup {
+				return fmt.Errorf("albums %q and %q: both sync album_id %q from provider %q; "+
+					"each synced album needs its own upstream album, or the same photos are "+
+					"downloaded and published twice", prior, a.Slug, a.Sync.AlbumID, a.Sync.Provider)
+			}
+			seenSyncTargets[target] = a.Slug
 		}
 		if a.Base != "" {
 			if _, ok := af.Bases[a.Base]; !ok {
