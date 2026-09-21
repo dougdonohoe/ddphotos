@@ -122,6 +122,18 @@ type AlbumSyncConfig struct {
 	Captions bool
 	// Mock holds the mock provider's resolved settings. Nil for every other provider.
 	Mock *MockSyncConfig
+	// Immich holds the immich provider's resolved settings. Nil for every other provider.
+	Immich *ImmichSyncConfig
+}
+
+// ImmichSyncConfig is the resolved form of an album whose provider is immich. There is no
+// immich: block in the YAML — Immich needs no per-album settings — so this exists only to
+// hand the provider the path its credentials live at, which is the one thing it cannot work
+// out for itself.
+type ImmichSyncConfig struct {
+	// EnvFile is <config-dir>/immich.env. A missing file is not an error: the real
+	// environment may supply everything, which is what CI and Docker runs do.
+	EnvFile string
 }
 
 // MockSyncConfig is the resolved form of a sync.mock: block, with its paths made absolute.

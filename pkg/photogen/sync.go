@@ -2,7 +2,6 @@ package photogen
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,8 +19,8 @@ const (
 	// mockProviderName is the test provider. It ships in the binary rather than behind a
 	// build tag, because a tag would keep it out of the image and defeat make docker-test.
 	mockProviderName = "mock"
-	// immichProviderName is registered here so a config naming it validates and the error
-	// the user sees says what is actually true. The client itself lands in part 2.
+	// immichProviderName is the real upstream: see provider_immich.go. It is also what
+	// resolveSync keys the immich.env path off, since Immich has no YAML sub-block.
 	immichProviderName = "immich"
 
 	// maxAlbumPhotos caps how many assets one synced album may have. Over the limit is an
@@ -39,6 +38,10 @@ const (
 // SyncProvider fetches one album's metadata, asset list and bytes. It is the only part of
 // syncing that knows about a particular upstream; everything above it is shared, which is
 // what makes the whole sync run testable through the mock provider.
+//
+// A provider that decides not to publish an asset drops it and says why through the warnf
+// it was constructed with, rather than returning it: filterSyncAssets prints the Warnings of
+// assets it is given, so a warning on an asset the provider withheld would never be seen.
 type SyncProvider interface {
 	// Name returns the provider key used in albums.yaml ("immich", "mock").
 	Name() string
@@ -87,12 +90,16 @@ func isSyncProvider(name string) bool {
 // newSyncProvider builds the provider an album's sync: block names. Validation has already
 // checked that the name is registered, so the default branch only fires if the two lists
 // drift apart.
-func newSyncProvider(cfg *AlbumSyncConfig) (SyncProvider, error) {
+//
+// warnf is the album's warning channel, and is how a provider reports an asset it skipped.
+// It carries the album slug, which is why a provider belongs to one album and is not reused
+// across them.
+func newSyncProvider(cfg *AlbumSyncConfig, warnf func(string, ...any)) (SyncProvider, error) {
 	switch cfg.Provider {
 	case mockProviderName:
 		return newMockProvider(cfg.Mock)
 	case immichProviderName:
-		return nil, errors.New("the immich provider is not available in this build yet")
+		return newImmichProvider(cfg.Immich, warnf)
 	default:
 		return nil, fmt.Errorf("unknown sync provider %q", cfg.Provider)
 	}
@@ -318,7 +325,7 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 
 	fmt.Printf("\n[%d/%d] Syncing %s (%s)\n", index, total, ac.Slug, ac.Sync.Provider)
 
-	provider, err := newSyncProvider(ac.Sync)
+	provider, err := newSyncProvider(ac.Sync, warnf)
 	if err != nil {
 		return err
 	}

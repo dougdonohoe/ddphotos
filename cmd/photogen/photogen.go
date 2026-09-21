@@ -30,21 +30,11 @@ func loadDefaultsEnv() {
 	}
 
 	for _, path := range candidates {
-		data, err := os.ReadFile(path)
+		vals, err := photogen.ParseEnvFile(path)
 		if err != nil {
 			continue
 		}
-		for line := range strings.SplitSeq(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			eq := strings.IndexByte(line, '=')
-			if eq < 0 {
-				continue
-			}
-			key := strings.TrimSpace(line[:eq])
-			val := strings.TrimSpace(line[eq+1:])
+		for key, val := range vals {
 			if _, exists := os.LookupEnv(key); !exists {
 				os.Setenv(key, val) //nolint:errcheck
 			}

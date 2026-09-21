@@ -154,8 +154,12 @@ RUN echo "$DDPHOTOS_IMAGE" > /docker/IMAGE \
     && sed -i "s|^IMAGE=\"ddphotos\"|IMAGE=\"$DDPHOTOS_IMAGE\"|" /docker/ddphotos
 ENV VITE_DOCKER_IMAGE=$DDPHOTOS_IMAGE
 
+# DDPHOTOS_IN_DOCKER has no value beyond being set: photogen has no other way to know it is
+# containerized, and it needs to know because an IMMICH_INSTANCE_URL of localhost means the
+# container rather than the machine Immich runs on. See normalizeImmichURL.
 ENV DDPHOTOS_ALBUMS_DIR=/ddphotos/albums \
     DDPHOTOS_SYNC_DIR=/ddphotos/sync \
+    DDPHOTOS_IN_DOCKER=1 \
     VITE_GIT_BRANCH="" \
     VITE_GIT_REPO_SLUG=dougdonohoe/ddphotos \
     VITE_GIT_REPO_URL=https://github.com/dougdonohoe/ddphotos

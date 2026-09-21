@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -365,13 +366,84 @@ func TestRunSync(t *testing.T) {
 		assert.Equal(t, "Local", ac.Name)
 	})
 
-	t.Run("the immich provider says plainly that it is not here yet", func(t *testing.T) {
+	// The whole chain with the real provider: credentials off disk, Immich's own filtering,
+	// then the shared filtering, naming, download, caption merge and prune on top of it.
+	t.Run("a full run against an immich instance", func(t *testing.T) {
 		t.Parallel()
-		ac := &AlbumConfig{Slug: "album", Path: t.TempDir(), Sync: &AlbumSyncConfig{
-			Provider: immichProviderName, AlbumID: "x",
+
+		caption := "A <b>bold</b> caption & an ampersand"
+		assets := []map[string]any{
+			{"id": "a1", "originalFileName": "IMG_1.jpg", "checksum": "sum-1", "type": "IMAGE",
+				"visibility": immichVisibilityTimeline,
+				"exifInfo":   map[string]any{"description": caption, "fileSizeInByte": 5}},
+			// Immich's own rule: hidden never publishes.
+			{"id": "a2", "originalFileName": "IMG_2.jpg", "checksum": "sum-2", "type": "IMAGE",
+				"visibility": "hidden"},
+			// The shared layer's rules, which the provider must not duplicate: RAW is
+			// unsupported, and a video sharing a photo's base name would collide on the
+			// photo ID photogen derives from the file name.
+			{"id": "a3", "originalFileName": "IMG_3.arw", "checksum": "sum-3", "type": "IMAGE",
+				"visibility": immichVisibilityTimeline},
+			{"id": "a4", "originalFileName": "IMG_1.mov", "checksum": "sum-4", "type": "VIDEO",
+				"visibility": immichVisibilityTimeline},
+		}
+		page, err := json.Marshal(map[string]any{
+			"assets": map[string]any{"items": assets, "nextPage": nil},
+		})
+		require.NoError(t, err)
+
+		s := &immichServer{t: t,
+			album: []byte(`{"albumName":"Upstream Album","description":"Ice & <snow>"}`),
+			pages: [][]byte{page},
+			media: map[string]string{"a1": "bytes"},
+		}
+		srv := s.start()
+
+		// Through the env file rather than the environment, so this stays parallel and the
+		// file half of the credential rule is what gets exercised.
+		configDir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(configDir, ImmichEnvFileName),
+			[]byte("IMMICH_API_KEY=test-key\nIMMICH_INSTANCE_URL="+srv.URL+"\n"), 0o644))
+
+		dir := t.TempDir()
+		// A file from an earlier sync that the album no longer has, to prove the prune runs.
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stale.jpg"), []byte("old"), 0o644))
+
+		ac := &AlbumConfig{Slug: "album", Path: dir, Sync: &AlbumSyncConfig{
+			Provider: immichProviderName, AlbumID: "album-uuid", Captions: true,
+			Immich: &ImmichSyncConfig{EnvFile: filepath.Join(configDir, ImmichEnvFileName)},
 		}}
-		err := RunSync(context.Background(), &Config{Warn: &WarnCollector{}}, []*AlbumConfig{ac}, false)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "immich")
+		wc := &WarnCollector{}
+		require.NoError(t, RunSync(context.Background(), &Config{Warn: wc}, []*AlbumConfig{ac}, false))
+
+		assert.Equal(t, "Upstream Album", ac.Name)
+		assert.Equal(t, "Ice &amp; &lt;snow&gt;", ac.Description)
+
+		entries, err := os.ReadDir(dir)
+		require.NoError(t, err)
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		assert.ElementsMatch(t, []string{"IMG_1.jpg", SyncMetadataFileName, photogenFileName}, names)
+
+		got, err := os.ReadFile(filepath.Join(dir, photogenFileName))
+		require.NoError(t, err)
+		assert.Equal(t, "IMG_1.jpg A &lt;b&gt;bold&lt;/b&gt; caption &amp; an ampersand\n", string(got))
+
+		meta, err := loadSyncMetadata(dir)
+		require.NoError(t, err)
+		assert.Equal(t, immichProviderName, meta.Provider)
+		assert.Equal(t, "album-uuid", meta.AlbumID)
+		require.Len(t, meta.Photos, 1)
+		assert.Equal(t, "sum-1", meta.Photos[0].Checksum)
+
+		// One warning per dropped asset: the hidden one from the provider, the RAW and the
+		// clashing video from the shared layer.
+		joined := strings.Join(wc.warnings, "")
+		assert.Contains(t, joined, "IMG_2.jpg")
+		assert.Contains(t, joined, "IMG_3.arw")
+		assert.Contains(t, joined, "IMG_1.mov")
+		assert.Len(t, wc.warnings, 3)
 	})
 }

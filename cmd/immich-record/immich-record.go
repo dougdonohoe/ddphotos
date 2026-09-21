@@ -1,0 +1,247 @@
+// immich-record records an Immich album's API responses as test fixtures.
+//
+// Usage:
+//
+//	go run cmd/immich-record/immich-record.go -out <dir> <album-uuid>
+//
+// It writes one file per call the sync provider makes:
+//
+//	album.json           GET  /api/albums/{id}
+//	search-page1.json    POST /api/search/metadata, page 1 (then page2, page3, ...)
+//	request-page1.json   the request body that produced it
+//
+// Credentials come from IMMICH_API_KEY and IMMICH_INSTANCE_URL, or from immich.env in the
+// directory given by -config-dir, exactly as photogen resolves them.
+//
+// Two things are scrubbed before anything is written: owner.email, which appears in asset and
+// album payloads and is a real person's address, and the API key, which must never reach a
+// file that gets committed. The recorder exists as a command rather than a one-off script
+// because it doubles as a check that the request and response structs still match a real
+// server — a field Immich renames shows up here first.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// pageSize matches immichPageSize in pkg/photogen, so recorded fixtures page the way a real
+// run does. Override it to record a multi-page listing from a small album.
+var (
+	out       = flag.String("out", filepath.Join("pkg", "photogen", "testdata", "immich"), "directory to write fixtures into")
+	configDir = flag.String("config-dir", "config", "directory holding immich.env")
+	pageSize  = flag.Int("size", 500, "page size for the search request")
+)
+
+func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: immich-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uuid>\n\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+	if flag.NArg() != 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+	if err := run(flag.Arg(0)); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run(albumID string) error {
+	apiKey, baseURL, err := credentials(*configDir)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(*out, 0o755); err != nil {
+		return err
+	}
+
+	client := &http.Client{Timeout: 60 * time.Second}
+
+	body, err := call(client, apiKey, http.MethodGet, baseURL+"/api/albums/"+albumID, nil)
+	if err != nil {
+		return err
+	}
+	if err := write(filepath.Join(*out, "album.json"), body, apiKey); err != nil {
+		return err
+	}
+
+	for page := 1; ; {
+		req := map[string]any{
+			"albumIds": []string{albumID},
+			"order":    "asc",
+			"withExif": true,
+			"size":     *pageSize,
+			"page":     page,
+		}
+		reqBody, err := json.Marshal(req)
+		if err != nil {
+			return err
+		}
+		suffix := "page" + strconv.Itoa(page) + ".json"
+		if err := write(filepath.Join(*out, "request-"+suffix), reqBody, apiKey); err != nil {
+			return err
+		}
+
+		body, err := call(client, apiKey, http.MethodPost, baseURL+"/api/search/metadata", reqBody)
+		if err != nil {
+			return err
+		}
+		if err := write(filepath.Join(*out, "search-"+suffix), body, apiKey); err != nil {
+			return err
+		}
+
+		var parsed struct {
+			Assets struct {
+				Items    []any   `json:"items"`
+				NextPage *string `json:"nextPage"`
+			} `json:"assets"`
+		}
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return fmt.Errorf("parse search page %d: %w", page, err)
+		}
+		fmt.Printf("  page %d: %d asset(s)\n", page, len(parsed.Assets.Items))
+		if parsed.Assets.NextPage == nil || *parsed.Assets.NextPage == "" {
+			return nil
+		}
+		next, err := strconv.Atoi(*parsed.Assets.NextPage)
+		if err != nil {
+			return fmt.Errorf("unexpected nextPage %q", *parsed.Assets.NextPage)
+		}
+		page = next
+	}
+}
+
+// credentials mirrors loadImmichCredentials: the environment wins over the file, and the URL
+// is accepted with or without its /api suffix. It is a copy rather than a call because the
+// real one is unexported, and a recorder that drifts from it is a recorder that fails loudly.
+func credentials(configDir string) (apiKey, baseURL string, err error) {
+	fileVals := map[string]string{}
+	data, readErr := os.ReadFile(filepath.Join(configDir, "immich.env"))
+	if readErr == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			k, v, ok := strings.Cut(line, "=")
+			if !ok {
+				continue
+			}
+			fileVals[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"'`)
+		}
+	}
+	lookup := func(key string) string {
+		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+			return v
+		}
+		return fileVals[key]
+	}
+
+	apiKey = lookup("IMMICH_API_KEY")
+	baseURL = strings.TrimSuffix(strings.TrimSuffix(lookup("IMMICH_INSTANCE_URL"), "/"), "/api")
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	if apiKey == "" || baseURL == "" {
+		return "", "", fmt.Errorf("set IMMICH_API_KEY and IMMICH_INSTANCE_URL, or put them in %s",
+			filepath.Join(configDir, "immich.env"))
+	}
+	return apiKey, baseURL, nil
+}
+
+func call(client *http.Client, apiKey, method, url string, body []byte) ([]byte, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	//goland:noinspection GoUnhandledErrorResult
+	defer resp.Body.Close() //nolint:errcheck
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// The key is not in the message: only what the server said about it.
+		return nil, fmt.Errorf("%s %s failed (%d): %s", method, url, resp.StatusCode, strings.TrimSpace(string(data)))
+	}
+	return data, nil
+}
+
+// write scrubs, pretty-prints and saves one payload.
+func write(path string, data []byte, apiKey string) error {
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return fmt.Errorf("parse the response for %s: %w", path, err)
+	}
+	v = scrub(v)
+
+	pretty, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	pretty = append(pretty, '\n')
+	// Belt and braces: the key is not in any field scrub knows about, but a fixture that
+	// leaked one would be committed before anyone noticed.
+	if apiKey != "" && bytes.Contains(pretty, []byte(apiKey)) {
+		return fmt.Errorf("refusing to write %s: it contains the API key", path)
+	}
+	if err := os.WriteFile(path, pretty, 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("  wrote: %s\n", path)
+	return nil
+}
+
+// scrubbedKeys are replaced wherever they appear, at any depth. email is a real person's
+// address; the others are tokens.
+var scrubbedKeys = map[string]string{
+	"email":          "owner@example.com",
+	"apiKey":         "scrubbed",
+	"accessToken":    "scrubbed",
+	"password":       "scrubbed",
+	"profileImageId": "",
+}
+
+func scrub(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, val := range t {
+			if replacement, ok := scrubbedKeys[k]; ok {
+				t[k] = replacement
+				continue
+			}
+			t[k] = scrub(val)
+		}
+		return t
+	case []any:
+		for i, val := range t {
+			t[i] = scrub(val)
+		}
+		return t
+	default:
+		return v
+	}
+}

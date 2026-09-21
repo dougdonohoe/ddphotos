@@ -460,6 +460,51 @@ someone syncing from a real photo manager. A run that shows them is working.
 published demo are built from, so `make sample-photogen` has to stay offline and
 independent of any of this.
 
+## The Immich Provider and Its Fixtures
+
+The `immich` provider is tested against an `httptest.Server` replaying responses recorded from
+a real instance. The fixtures live in `pkg/photogen/testdata/immich/`:
+
+```
+album.json            GET  /api/albums/{id}
+request-page1.json    the search request body that produced the next file
+search-page1.json     POST /api/search/metadata — one page holding the whole album
+paged/                the same album at size 3, so paging is tested on real responses
+```
+
+`nextPage` is why the `paged/` set exists: it is a nullable **string** (`"2"`, `"3"`, then
+`null`), and `total` is the count in that page rather than the album's, so paging arithmetic
+would be wrong in a way one fixture cannot show.
+
+Nothing here needs an Immich instance. To refresh the fixtures, which does:
+
+```bash
+bin/immich-record <album-uuid>                          # into pkg/photogen/testdata/immich
+bin/immich-record -size 3 -out <dir> <album-uuid>       # a multi-page set
+```
+
+The UUID is the last path segment of the album's URL in Immich, so the easiest way to get it
+is to open the album and copy it out of the address bar:
+
+```
+http://localhost:2283/albums/ef8acfb8-43fb-4c63-90c0-307b88b8f97a
+                             └─────────── album UUID ───────────┘
+```
+
+It is the same value an album's `sync.album_id` takes in `albums.yaml`.
+
+It reads `IMMICH_API_KEY` and `IMMICH_INSTANCE_URL` the way `photogen` does — the environment,
+then `config/immich.env` — and writes one pretty-printed file per call. Two things are scrubbed
+before anything is written: `owner.email`, which Immich includes in album and asset payloads
+and is a real person's address, and any token-shaped field. It also refuses outright to write a
+file containing the API key.
+
+Re-recording doubles as a check that Immich has not renamed a field: a run that succeeds and a
+test suite that still passes means the request and response structs still match a real server.
+Both are worth doing after an Immich upgrade, since the provider uses the **deprecated flat
+search shape** deliberately — it works on current and older servers, and is slated for removal
+in Immich v4.
+
 ## CI (GitHub Actions)
 
 The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on every push or pull 

@@ -3,13 +3,14 @@
 A DD Photos site is driven by a handful of config files. Both Docker and developer modes
 use the same files — only the path conventions differ.
 
-| File                  | Required | Purpose                                                |
-|-----------------------|----------|--------------------------------------------------------|
-| `albums.yaml`         | yes      | Albums, site settings, photo base paths                |
-| `customization.yaml`  | no       | Overrides to the site's chrome                         |
-| `passwords.yaml`      | no       | Password protection (name it via `settings.passwords`) |
-| `custom.css`          | no       | Style overrides (name it via `settings.css`)           |
-| `site.env`            | no       | Deploy credentials                                     |
+| File                 | Required | Purpose                                                   |
+|----------------------|----------|-----------------------------------------------------------|
+| `albums.yaml`        | yes      | Albums, site settings, photo base paths                   |
+| `customization.yaml` | no       | Overrides to the site's chrome                            |
+| `passwords.yaml`     | no       | Password protection (name it via `settings.passwords`)    |
+| `custom.css`         | no       | Style overrides (name it via `settings.css`)              |
+| `site.env`           | no       | Deploy credentials                                        |
+| `immich.env`         | no       | Immich credentials (only for albums with a `sync:` block) |
 
 **Docker mode:** `ddphotos init` creates a `config/` directory holding all of the above,
 ready to edit directly — no copying needed. It also installs a `sample-photos/` folder
@@ -168,6 +169,59 @@ albums:
 | `album_id` | yes      | none    | Provider-specific album identifier (Immich: a UUID) |
 | `captions` | no       | `true`  | Write and maintain `photogen.txt` from descriptions |
 
+**Finding the `album_id`:** in Immich, open the album and copy the last path segment out of
+your browser's address bar.
+
+```
+http://localhost:2283/albums/d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18
+                             └──────────── album_id ────────────┘
+```
+
+#### Immich credentials: `immich.env`
+
+Credentials live in `immich.env` beside `albums.yaml`, so they stay out of a file you might
+share:
+
+```bash
+# config/immich.env
+IMMICH_API_KEY=your-api-key
+IMMICH_INSTANCE_URL=http://localhost:2283
+```
+
+- The key comes from Immich's **Account Settings → API Keys**. It needs exactly three
+  permissions: `asset.read`, `asset.download` and `album.read`. Nothing else is used —
+  `photogen` downloads originals rather than Immich's derived files, so it never touches the
+  endpoints the other permissions cover.
+- **The URL is accepted with or without a trailing `/api`**, because people paste what the
+  browser shows and the API docs show `/api`. An instance behind a reverse proxy at
+  `https://photos.example.com/immich` works too; only a trailing `/api` is removed.
+- **A value already set in the environment wins over the file**, the same precedence
+  `DDPHOTOS_ALBUMS_DIR` has, so a CI run needs no secrets file on disk and the file is
+  optional when both variables are exported.
+- One instance is assumed. `config/immich.env` and `config/immich-*.env` are gitignored.
+- The API key is never logged, never printed in an error, and never written to
+  `metadata.yaml`.
+
+`photogen` looks for the file only when an album actually names the `immich` provider. If you
+run in Docker and your Immich is on the same machine, `http://localhost:2283` is still the
+right thing to write — see [Docker](DOCKER.md#syncing-from-immich-in-docker) for why.
+
+#### What Immich publishes, and what it does not
+
+A few assets in an Immich album do not reach the site, and each one says so as a warning:
+
+| Asset                | What happens                                                                                        |
+|----------------------|-----------------------------------------------------------------------------------------------------|
+| Hidden or locked     | Skipped. An **archived** asset is published, on the grounds that you put it in the album on purpose |
+| In the trash         | Skipped                                                                                             |
+| RAW                  | Skipped: photogen cannot resize it                                                                  |
+| A Live Photo's video | Skipped when a photo and a video in the album share a base name; the still is published             |
+| Edited in Immich     | **Published, unedited.** Immich serves the pre-edit original, and its edited copy carries no EXIF   |
+
+The last one is worth knowing about: Immich strips metadata from every file it derives, so an
+edited version would arrive with no date and sort to the end of the album. The original is the
+lesser of the two problems, and the warning names the photo.
+
 #### Where synced media lives
 
 ```
@@ -202,6 +256,9 @@ sync writes the media and `metadata.yaml`, and deletes anything it does not reco
   upstream description. The upstream value slots below both existing sources, so
   "inline wins over the file" is unchanged.
 - `provider` must be a name `photogen` knows, and `album_id` must not be empty.
+- For the `immich` provider, `album_id` must look like a UUID. A truncated or mistyped one is
+  rejected while the config is read, rather than part-way through the run: Immich answers a
+  malformed id with a bare "Validation failed" that names neither the field nor the reason.
 - Everything else about the album — slug rules, `cover:`, `manual_sort_order:`,
   `recurse:` — is unchanged.
 

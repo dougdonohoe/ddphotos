@@ -126,14 +126,18 @@ albums:
   # 'name:' and 'description:' are optional here. Anything set on the album
   # wins; anything omitted is taken from the Immich album.
   #
-  # Credentials live in immich.env in same directory as this file:
+  # Credentials live in immich.env in the same directory as this file:
   #
   #   IMMICH_API_KEY=your-api-key
   #   IMMICH_INSTANCE_URL=http://immich.example.com:2283
   #
+  # The key comes from Immich's Account Settings > API Keys and needs exactly
+  # three permissions: asset.read, asset.download and album.read.
+  #
   # The URL is accepted with or without a trailing /api. A value already set
   # in the environment wins over the file, so CI and Docker runs need no
-  # secrets file on disk.
+  # secrets file on disk. In Docker, localhost is still the right thing to
+  # write: photogen rewrites it to reach the host, and says so.
   #
   # Syncing downloads and prunes even without -doit, because a dry run has to
   # have a source folder to describe. Use -no-sync to build from what is

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Record an Immich album's API responses as test fixtures for pkg/photogen.
+#
+# Needs a reachable Immich instance and credentials, either exported or in
+# config/immich.env. Overwrites the fixtures in the output directory.
+#
+# Usage:
+#   bin/immich-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uuid>
+set -eo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+RECORD="$REPO_ROOT/cmd/immich-record/immich-record.go"
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: bin/immich-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uuid>" >&2
+    exit 1
+fi
+
+go run "$RECORD" "$@"

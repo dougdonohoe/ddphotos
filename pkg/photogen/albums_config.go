@@ -245,6 +245,15 @@ func (s *SyncEntry) validate(slug string) error {
 			return err
 		}
 	}
+	// Last, because it is the only check that reads a value rather than the shape of the
+	// block: told the wrong provider, complaining that album_id is not a UUID would send
+	// the reader after the wrong mistake. What a valid id looks like is the provider's
+	// business, so this only knows to ask.
+	if s.Provider == immichProviderName {
+		if err := validateImmichAlbumID(slug, s.AlbumID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -402,6 +411,12 @@ func (a AlbumEntry) resolveSync(configDir string) *AlbumSyncConfig {
 			MediaDir:   resolveConfigRelative(configDir, m.MediaDir),
 			Fail:       m.Fail,
 		}
+	}
+	// Immich has no YAML block to key off, so this hangs off the provider name. Not stat'ed,
+	// for the same reason the mock paths are not: the provider reports its own missing file,
+	// and here the file is optional anyway because the environment may supply the credentials.
+	if a.Sync.Provider == immichProviderName {
+		cfg.Immich = &ImmichSyncConfig{EnvFile: filepath.Join(configDir, ImmichEnvFileName)}
 	}
 	return cfg
 }

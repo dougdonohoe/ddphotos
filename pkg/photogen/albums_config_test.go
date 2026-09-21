@@ -935,6 +935,32 @@ albums:
 		assert.True(t, configs[0].Sync.Captions)
 		assert.Equal(t, filepath.Join(configDir, "listing.json"), configs[0].Sync.Mock.AssetsPath)
 		assert.Equal(t, filepath.Join(configDir, "media"), configs[0].Sync.Mock.MediaDir)
+		assert.Nil(t, configs[0].Sync.Immich, "another provider's block is not filled in")
+	})
+
+	// Immich has no YAML block, so its resolved config hangs off the provider name. Without
+	// this the provider has no way to find its credentials: newSyncProvider never sees the
+	// config dir.
+	t.Run("the immich env file is resolved against the config dir", func(t *testing.T) {
+		t.Parallel()
+		configDir := t.TempDir()
+		root := t.TempDir()
+		af := parseYAML(t, configDir, strings.Replace(syncYAML, `      provider: mock
+      album_id: abc
+      mock:
+        assets: listing.json
+        media_dir: media
+`, `      provider: immich
+      album_id: d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18
+`, 1))
+		paths := &SyncPaths{Root: root, SiteID: "test"}
+		require.NoError(t, af.CreateSyncDirs(paths))
+
+		configs, err := af.ToAlbumConfigs(configDir, paths)
+		require.NoError(t, err)
+		require.NotNil(t, configs[0].Sync.Immich)
+		assert.Equal(t, filepath.Join(configDir, ImmichEnvFileName), configs[0].Sync.Immich.EnvFile)
+		assert.Nil(t, configs[0].Sync.Mock)
 	})
 
 	t.Run("a synced album with no sync paths names the flag that would fix it", func(t *testing.T) {

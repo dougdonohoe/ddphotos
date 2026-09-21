@@ -8,6 +8,8 @@ config/site.env
 config/albums.yaml
 config/albums-laptop.yaml
 config/descriptions.txt
+config/immich.env
+config/immich-*.env
 
 
 # macOS

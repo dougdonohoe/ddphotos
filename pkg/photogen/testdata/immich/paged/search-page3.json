@@ -1,0 +1,71 @@
+{
+  "albums": {
+    "count": 0,
+    "facets": [],
+    "items": [],
+    "total": 0
+  },
+  "assets": {
+    "count": 1,
+    "facets": [],
+    "items": [
+      {
+        "checksum": "97sXYR1FNdtyPxZw0otha9VLtxY=",
+        "createdAt": "2026-09-18T22:37:56.114Z",
+        "duplicateId": null,
+        "duration": null,
+        "exifInfo": {
+          "city": "Big Sky",
+          "country": "United States of America",
+          "dateTimeOriginal": "2026-03-23T04:37:51.853+00:00",
+          "description": "",
+          "exifImageHeight": 4284,
+          "exifImageWidth": 5712,
+          "exposureTime": "1/30",
+          "fNumber": 1.8,
+          "fileSizeInByte": 6344025,
+          "focalLength": 6.764999866,
+          "iso": 1000,
+          "latitude": 45.263825,
+          "lensModel": "iPhone 17 Pro back triple camera 6.765mm f/1.78",
+          "longitude": -111.362503,
+          "make": "Apple",
+          "model": "iPhone 17 Pro",
+          "modifyDate": "2026-04-01T21:48:24+00:00",
+          "orientation": "1",
+          "projectionType": null,
+          "rating": null,
+          "state": "Montana",
+          "timeZone": "UTC-6"
+        },
+        "fileCreatedAt": "2026-03-23T04:37:51.853Z",
+        "fileModifiedAt": "2026-04-01T21:48:24.000Z",
+        "hasMetadata": true,
+        "height": 4284,
+        "id": "aea161a3-87de-41e0-8d68-78aad5650a38",
+        "isArchived": false,
+        "isEdited": false,
+        "isFavorite": false,
+        "isOffline": false,
+        "isTrashed": false,
+        "libraryId": null,
+        "livePhotoVideoId": null,
+        "localDateTime": "2026-03-22T22:37:51.853Z",
+        "originalFileName": "IMG_3885.jpeg",
+        "originalMimeType": "image/jpeg",
+        "originalPath": "/data/library/admin/2026/2026-03-23/IMG_3885.jpg",
+        "ownerId": "d3af7476-eda9-4c69-8e3c-ce9d8ddd9dde",
+        "people": [],
+        "resized": true,
+        "thumbhash": "mSgKDYKWg2hfqGaHZoaXdntPxvU0",
+        "type": "IMAGE",
+        "updatedAt": "2026-09-18T22:37:59.806Z",
+        "visibility": "timeline",
+        "width": 5712
+      }
+    ],
+    "nextCursor": null,
+    "nextPage": null,
+    "total": 1
+  }
+}
