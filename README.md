@@ -85,6 +85,10 @@ It doesn't matter, but once you get a selection of photos that comprise an album
 you export the photos into a folder.  All the photos (and videos) in a folder make up an album.
 It's that simple.
 
+If you keep your photos in [Immich↗](https://immich.app), you can skip the export: an album
+can sync straight from it. See
+[Syncing an Album](docs/CONFIGURATION.md#syncing-an-album-from-a-photo-manager).
+
 You can create an optional `photogen.txt` file in each album folder to
 define captions for each photo/video.  This file can also be used to define the
 album's sort order, if order-by-date isn't sufficient.
@@ -104,39 +108,6 @@ Finally, there is a build step which creates a static site that can easily be
 deployed to a machine that has a web server (like Apache or nginx), to AWS S3,
 or exported to any static hosting service. No code runs on a server.  No database is needed.
 It's just HTML, CSS, JavaScript and your (resized) photos.
-
-## Syncing from Immich
-
-Exporting to a folder is the part people find fiddly, so an album can skip it and pull its
-photos from [Immich](https://immich.app) instead. Give the album a `sync:` block rather than a
-`source:`:
-
-```yaml
-albums:
-  - slug: galapagos
-    sync:
-      provider: immich
-      album_id: d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18
-```
-
-and put your credentials in `immich.env` beside `albums.yaml`:
-
-```bash
-IMMICH_API_KEY=your-api-key
-IMMICH_INSTANCE_URL=http://localhost:2283
-```
-
-`photogen` then downloads the album before the normal build and treats the download folder as
-an ordinary album source. It fetches originals rather than Immich's derived files, because
-Immich strips the EXIF that DD Photos sorts an album by. Captions come from each asset's
-description, and because a caption can change in Immich *or* in your `photogen.txt`, the two
-are merged rather than one overwriting the other. Re-running downloads nothing that has not
-changed.
-
-The album name and description default to Immich's, so the example above is the whole
-configuration. See
-[Syncing an Album](docs/CONFIGURATION.md#syncing-an-album-from-a-photo-manager) for the full
-picture, and `make sample-sync` for a working demo that needs no Immich account at all.
 
 ## Key Features
 
@@ -191,9 +162,9 @@ Backend features:
   with automatic filename prefixing to avoid collisions.
 - WebP and MP4 filenames for encrypted albums are HMAC-derived, preventing filename
   guessing even if the original source filename is known.
-- Optional album syncing from [Immich](https://immich.app): `photogen` downloads the album's
-  originals, keeps captions merged in both directions, and re-downloads nothing that has not
-  changed. Nothing synced is ever deployed; it is a source folder like any other.
+- Optional album syncing from [Immich↗](https://immich.app): albums are downloaded before the
+  build instead of exported by hand, with captions merged in both directions and nothing
+  re-downloaded that has not changed.
 
 ## Tech Details
 

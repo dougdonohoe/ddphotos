@@ -52,42 +52,13 @@ These variables are consumed by:
 
 ## Immich Sync Variables
 
-Read only by `photogen`, and only when an album in `albums.yaml` has a `sync:` block whose
-provider is `immich`. A site with no such album never looks for them.
+Read only by `photogen`, and only when an album has a `sync:` block whose provider is
+`immich`. They normally live in `immich.env` beside `albums.yaml` rather than the
+environment; see [Immich credentials](CONFIGURATION.md#immich-credentials-immichenv) for that
+file, where the key comes from, and which wins.
 
-| Variable              | Description                                                                                                       |
-|-----------------------|-------------------------------------------------------------------------------------------------------------------|
-| `IMMICH_API_KEY`      | Immich API key (Account Settings → API Keys). Needs `asset.read`, `asset.download` and `album.read`, nothing more |
-| `IMMICH_INSTANCE_URL` | Instance URL, e.g. `http://localhost:2283`. Accepted with or without a trailing `/api`                            |
-
-Both normally live in `immich.env` beside `albums.yaml`, so secrets stay out of the YAML:
-
-```bash
-# config/immich.env
-IMMICH_API_KEY=your-api-key
-IMMICH_INSTANCE_URL=http://localhost:2283
-```
-
-**A value set in the environment wins over the file**, the same precedence
-`DDPHOTOS_ALBUMS_DIR` has, so a CI run needs no secrets file on disk. The file is optional
-when both variables are exported. `config/immich.env` and `config/immich-*.env` are
-gitignored. The API key is never logged, never printed in an error, and never written to
-`metadata.yaml`.
-
-See [Syncing an Album](CONFIGURATION.md#syncing-an-album-from-a-photo-manager) for the
-`sync:` block itself.
-
-## Container Variables
-
-| Variable             | Description                                                                                      |
-|----------------------|--------------------------------------------------------------------------------------------------|
-| `DDPHOTOS_IN_DOCKER` | Set to `1` by `docker/Dockerfile`. Its presence is the whole signal; the value is never read     |
-
-`photogen` has no other way to tell it is containerized, and it needs to know for one reason:
-inside the container, `localhost` is the container. When `DDPHOTOS_IN_DOCKER` is set and
-`IMMICH_INSTANCE_URL` names a loopback address (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`),
-the host is rewritten to `host.docker.internal` and the run says so. A hostname, LAN IP or
-public URL passes through untouched. See [Docker](DOCKER.md#syncing-from-immich-in-docker).
-
-**Do not set it by hand.** Setting it outside a container makes `photogen` rewrite a
-`localhost` URL to a name that does not resolve there.
+| Variable              | Description                                                                                                                                                                                                                                    |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `IMMICH_API_KEY`      | Immich API key. Needs `asset.read`, `asset.download` and `album.read`                                                                                                                                                                          |
+| `IMMICH_INSTANCE_URL` | Instance URL, e.g. `http://localhost:2283`. Accepted with or without a trailing `/api`                                                                                                                                                         |
+| `DDPHOTOS_IN_DOCKER`  | Set to `1` by the Docker image, and not something to set by hand. It is what tells `photogen` to reach the host rather than the container when `IMMICH_INSTANCE_URL` names `localhost` — see [Docker](DOCKER.md#syncing-from-immich-in-docker) |

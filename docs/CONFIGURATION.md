@@ -188,39 +188,29 @@ IMMICH_API_KEY=your-api-key
 IMMICH_INSTANCE_URL=http://localhost:2283
 ```
 
-- The key comes from Immich's **Account Settings → API Keys**. It needs exactly three
-  permissions: `asset.read`, `asset.download` and `album.read`. Nothing else is used —
-  `photogen` downloads originals rather than Immich's derived files, so it never touches the
-  endpoints the other permissions cover.
-- **The URL is accepted with or without a trailing `/api`**, because people paste what the
-  browser shows and the API docs show `/api`. An instance behind a reverse proxy at
-  `https://photos.example.com/immich` works too; only a trailing `/api` is removed.
-- **A value already set in the environment wins over the file**, the same precedence
-  `DDPHOTOS_ALBUMS_DIR` has, so a CI run needs no secrets file on disk and the file is
-  optional when both variables are exported.
-- One instance is assumed. `config/immich.env` and `config/immich-*.env` are gitignored.
-- The API key is never logged, never printed in an error, and never written to
-  `metadata.yaml`.
+- The key comes from Immich's **Account Settings → API Keys**, and needs exactly three
+  permissions: `asset.read`, `asset.download` and `album.read`.
+- The URL is accepted with or without a trailing `/api`. An instance behind a reverse proxy
+  at `https://photos.example.com/immich` works too.
+- **A value set in the environment wins over the file**, so a CI run needs no secrets file on
+  disk. The file is read only when an album actually names the `immich` provider.
+- `config/immich.env` and `config/immich-*.env` are gitignored. The API key is never logged,
+  printed in an error, or written to `metadata.yaml`.
 
-`photogen` looks for the file only when an album actually names the `immich` provider. If you
-run in Docker and your Immich is on the same machine, `http://localhost:2283` is still the
-right thing to write — see [Docker](DOCKER.md#syncing-from-immich-in-docker) for why.
+In Docker, `http://localhost:2283` is still the right value to write — see
+[Docker](DOCKER.md#syncing-from-immich-in-docker).
 
 #### What Immich publishes, and what it does not
 
 A few assets in an Immich album do not reach the site, and each one says so as a warning:
 
-| Asset                | What happens                                                                                        |
-|----------------------|-----------------------------------------------------------------------------------------------------|
-| Hidden or locked     | Skipped. An **archived** asset is published, on the grounds that you put it in the album on purpose |
-| In the trash         | Skipped                                                                                             |
-| RAW                  | Skipped: photogen cannot resize it                                                                  |
-| A Live Photo's video | Skipped when a photo and a video in the album share a base name; the still is published             |
-| Edited in Immich     | **Published, unedited.** Immich serves the pre-edit original, and its edited copy carries no EXIF   |
-
-The last one is worth knowing about: Immich strips metadata from every file it derives, so an
-edited version would arrive with no date and sort to the end of the album. The original is the
-lesser of the two problems, and the warning names the photo.
+| Asset                | What happens                                                                                                                                                    |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Hidden or locked     | Skipped. An **archived** asset is published, on the grounds that you put it in the album on purpose                                                             |
+| In the trash         | Skipped                                                                                                                                                         |
+| RAW                  | Skipped: photogen cannot resize it                                                                                                                              |
+| A Live Photo's video | Skipped when a photo and a video in the album share a base name; the still is published                                                                         |
+| Edited in Immich     | **Published, unedited.** Immich serves the pre-edit original, and strips the EXIF date from its edited copy, which would sort the photo to the end of the album |
 
 #### Where synced media lives
 
@@ -256,9 +246,9 @@ sync writes the media and `metadata.yaml`, and deletes anything it does not reco
   upstream description. The upstream value slots below both existing sources, so
   "inline wins over the file" is unchanged.
 - `provider` must be a name `photogen` knows, and `album_id` must not be empty.
-- For the `immich` provider, `album_id` must look like a UUID. A truncated or mistyped one is
-  rejected while the config is read, rather than part-way through the run: Immich answers a
-  malformed id with a bare "Validation failed" that names neither the field nor the reason.
+- For the `immich` provider, `album_id` must look like a UUID, and no two albums may sync the
+  same one from the same provider. Both are checked as the config is read, before anything
+  downloads.
 - Everything else about the album — slug rules, `cover:`, `manual_sort_order:`,
   `recurse:` — is unchanged.
 

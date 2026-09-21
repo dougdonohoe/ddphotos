@@ -483,21 +483,13 @@ bin/immich-record <album-uuid>                          # into pkg/photogen/test
 bin/immich-record -size 3 -out <dir> <album-uuid>       # a multi-page set
 ```
 
-The UUID is the last path segment of the album's URL in Immich, so the easiest way to get it
-is to open the album and copy it out of the address bar:
+The UUID is the last path segment of the album's URL in Immich, the same value
+[`sync.album_id`](CONFIGURATION.md#syncing-an-album-from-a-photo-manager) takes.
 
-```
-http://localhost:2283/albums/ef8acfb8-43fb-4c63-90c0-307b88b8f97a
-                             └─────────── album UUID ───────────┘
-```
-
-It is the same value an album's `sync.album_id` takes in `albums.yaml`.
-
-It reads `IMMICH_API_KEY` and `IMMICH_INSTANCE_URL` the way `photogen` does — the environment,
-then `config/immich.env` — and writes one pretty-printed file per call. Two things are scrubbed
-before anything is written: `owner.email`, which Immich includes in album and asset payloads
-and is a real person's address, and any token-shaped field. It also refuses outright to write a
-file containing the API key.
+It reads credentials the way `photogen` does, and writes one pretty-printed file per call.
+Two things are scrubbed before anything is written: `owner.email`, which Immich includes in
+album and asset payloads, and any token-shaped field. It also refuses outright to write a file
+containing the API key.
 
 Re-recording doubles as a check that Immich has not renamed a field: a run that succeeds and a
 test suite that still passes means the request and response structs still match a real server.

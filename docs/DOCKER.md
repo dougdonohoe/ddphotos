@@ -546,35 +546,26 @@ under it is deployed. The one file in there you may edit is `photogen.txt`; see
 
 ## Syncing from Immich in Docker
 
-Put your credentials in `immich.env` beside `albums.yaml`, in your ddphotos folder:
-
-```bash
-# config/immich.env
-IMMICH_API_KEY=your-api-key
-IMMICH_INSTANCE_URL=http://localhost:2283
-```
-
-The file needs no special handling: the whole ddphotos folder is mounted into the container,
-so `config/immich.env` is already there. `IMMICH_API_KEY` and `IMMICH_INSTANCE_URL` exported
-in your shell are passed through too, and take precedence over the file.
+Put your credentials in `config/immich.env` as
+[Configuration](CONFIGURATION.md#immich-credentials-immichenv) describes. Nothing else is
+needed: the whole ddphotos folder is mounted into the container, so the file is already
+there. `IMMICH_API_KEY` and `IMMICH_INSTANCE_URL` exported in your shell are passed through
+too, and win over the file.
 
 **`http://localhost:2283` is the right value to write even though the container is not your
-machine.** Inside a container `localhost` is the container, so photogen rewrites it, and says
-so when it does:
+machine.** Inside a container `localhost` *is* the container, so `photogen` rewrites it to
+`host.docker.internal`, Docker's name for the machine the container runs on, and says so:
 
 ```
 note: running in Docker, so IMMICH_INSTANCE_URL "http://localhost:2283" is used as "http://host.docker.internal:2283"
 ```
 
-`host.docker.internal` is Docker's name for the machine the container runs on. Docker Desktop
-on macOS and Windows resolves it natively; Docker Engine on Linux needs
-`--add-host=host.docker.internal:host-gateway`, which the `ddphotos` script passes on every
-`photogen` run. Only a loopback address is rewritten — `localhost`, `127.0.0.1`, `::1` and
-`0.0.0.0`. A hostname, LAN IP or public URL is used exactly as written.
+Only a loopback address is rewritten — `localhost`, `127.0.0.1`, `::1` and `0.0.0.0`. A
+hostname, LAN IP or public URL is used exactly as written.
 
-If the rewritten name still does not resolve, which happens when the image is run by hand
-without that flag, the error names the URL you configured, the one it tried, and both ways
-out: add the flag, or set `IMMICH_INSTANCE_URL` to a hostname or LAN IP.
+Docker Desktop on macOS and Windows resolves `host.docker.internal` natively; Docker Engine
+on Linux needs `--add-host=host.docker.internal:host-gateway`, which the `ddphotos` script
+passes on every `photogen` run.
 
 ```bash
 ddphotos photogen -- -sync-only     # pull the albums down and stop
