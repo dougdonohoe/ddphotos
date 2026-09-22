@@ -7,6 +7,8 @@
 // It writes one file per call the sync provider makes:
 //
 //	album.json           GET  /api/albums/{id}
+//	albums.json          GET  /api/albums (every album the key can see; used by the DD Photos App)
+//	api-key-me.json      GET  /api/api-keys/me (the key's own record; used by the DD Photos App)
 //	search-page1.json    POST /api/search/metadata, page 1 (then page2, page3, ...)
 //	request-page1.json   the request body that produced it
 //
@@ -35,7 +37,7 @@ import (
 )
 
 // pageSize matches immichPageSize in pkg/photogen, so recorded fixtures page the way a real
-// run does. Override it to record a multi-page listing from a small album.
+// run does. Override it to record a multipage listing from a small album.
 var (
 	out       = flag.String("out", filepath.Join("pkg", "photogen", "testdata", "immich"), "directory to write fixtures into")
 	configDir = flag.String("config-dir", "config", "directory holding immich.env")
@@ -75,6 +77,21 @@ func run(albumID string) error {
 	}
 	if err := write(filepath.Join(*out, "album.json"), body, apiKey); err != nil {
 		return err
+	}
+
+	// The DD Photos App lists albums to choose from and checks a key's permissions. photogen
+	// makes neither call, but recording them here keeps one source for every Immich fixture.
+	for _, rec := range []struct{ path, file string }{
+		{"/api/albums", "albums.json"},
+		{"/api/api-keys/me", "api-key-me.json"},
+	} {
+		body, err := call(client, apiKey, http.MethodGet, baseURL+rec.path, nil)
+		if err != nil {
+			return err
+		}
+		if err := write(filepath.Join(*out, rec.file), body, apiKey); err != nil {
+			return err
+		}
 	}
 
 	for page := 1; ; {
@@ -130,7 +147,7 @@ func credentials(configDir string) (apiKey, baseURL string, err error) {
 	fileVals := map[string]string{}
 	data, readErr := os.ReadFile(filepath.Join(configDir, "immich.env"))
 	if readErr == nil {
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" || strings.HasPrefix(line, "#") {
 				continue

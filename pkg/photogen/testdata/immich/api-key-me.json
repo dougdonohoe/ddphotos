@@ -1,0 +1,13 @@
+{
+  "createdAt": "2026-09-19T13:50:10.305Z",
+  "id": "2d831340-097d-48b7-9844-7678d4f81760",
+  "name": "API Key",
+  "permissions": [
+    "album.read",
+    "assetFile.read",
+    "assetFile.download",
+    "asset.read",
+    "asset.download"
+  ],
+  "updatedAt": "2026-09-19T13:50:10.305Z"
+}
