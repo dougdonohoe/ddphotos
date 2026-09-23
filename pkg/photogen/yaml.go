@@ -71,3 +71,17 @@ func loadYAML[T any, PT interface {
 	}
 	return v, nil
 }
+
+// writeYAMLAtomic marshals v and replaces path with the result, prefixed by header.
+//
+// Atomic for the same reason MetaCache.Save is: an interrupted or failed run must never
+// leave a half-written record that the next run then parses as the truth. header is written
+// verbatim ahead of the document and is expected to end in a newline; it is how a generated
+// file says it is generated, since yaml.Marshal has nowhere to put a comment.
+func writeYAMLAtomic(path, header string, v any) error {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", path, err)
+	}
+	return writeFileAtomic(path, append([]byte(header), data...))
+}

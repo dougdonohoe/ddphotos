@@ -372,20 +372,130 @@ The script runs the following steps in a fresh temp workspace:
    that the relative base `sample-base` resolves to `sample-photos/`
 4. Back-compat: runs `photogen` against a config that still uses the pre-`sample-photos`
    container-internal paths (`/ddphotos-init` and friends) and verifies it still works
-5. Runs `decode` on an encrypted album index and verifies the output, including files outside `DDPHOTOS_DIR` (via `--passwords` flag and embedded `pwFile` path)
-6. Runs `search-cover` against the decoded album and verifies the cover file is found
-7. Regression test: runs `decode` and `search-cover` with an external `--config-dir` (outside `DDPHOTOS_DIR`) to verify the config mount path is handled correctly
-8. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
-9. Runs `build` and verifies the static site output
-10. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
-11. Tests `export` (symlink mode), `export --copy` (all files resolved, no symlinks), and `export --cloudflare` (adds `_worker.js`)
-12. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
-13. Runs `init --script-only` and verifies only the script is installed (no `config/`,
+5. Runs `photogen` against an album with a `sync:` block using the [`mock` provider](#the-mock-sync-provider),
+   and verifies the sync folder, downloaded media, `metadata.yaml`, escaped captions in
+   `photogen.txt`, the upstream album name reaching `albums.json`, and the built album —
+   then re-runs it to verify the second sync downloads nothing and leaves mtimes untouched
+6. Runs `decode` on an encrypted album index and verifies the output, including files outside `DDPHOTOS_DIR` (via `--passwords` flag and embedded `pwFile` path)
+7. Runs `search-cover` against the decoded album and verifies the cover file is found
+8. Regression test: runs `decode` and `search-cover` with an external `--config-dir` (outside `DDPHOTOS_DIR`) to verify the config mount path is handled correctly
+9. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
+10. Runs `build` and verifies the static site output
+11. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
+12. Tests `export` (symlink mode), `export --copy` (all files resolved, no symlinks), and `export --cloudflare` (adds `_worker.js`)
+13. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
+14. Runs `init --script-only` and verifies only the script is installed (no `config/`,
     `albums/` or `sample-photos/`)
 
 Playwright tests skip assertions that depend on sample-site-specific albums (e.g. `antarctica`) when
 those albums are not present in the init site, so the full test suite runs cleanly against the
 smaller built-in sample. The temp workspace is cleaned up automatically on exit.
+
+## The `mock` Sync Provider
+
+`photogen` can sync an album's photos from an upstream photo manager (see
+[Syncing](PHOTOGEN.md#syncing)). To make that testable with nothing installed and no
+network, there is a second provider whose only job is to stand in for a real one:
+
+```yaml
+albums:
+  - slug: antarctica
+    sync:
+      provider: mock
+      album_id: antarctica
+      captions: true
+      mock:
+        assets: sync-listing.json     # the listing fixture, relative to the config dir
+        media_dir: sync-media         # where Fetch reads bytes from, relative to the config dir
+        fail: ""                      # "", "list" or "fetch"
+```
+
+The listing fixture is the provider interface written out as JSON — an album and its
+assets. `size`, `checksum`, `updated_at`, `is_video` and `warnings` are all optional:
+
+```json
+{
+  "album": { "name": "Antarctica", "description": "Ice, and a lot of it" },
+  "assets": [
+    { "id": "b68fbc77-bbed-4008-a118-ba8637148081",
+      "file_name": "IMG_1583.jpeg",
+      "caption": "So wide open!",
+      "checksum": "mock-sum-1583",
+      "updated_at": "2026-09-18T22:43:56Z" }
+  ]
+}
+```
+
+Two things about it are deliberate:
+
+- **`Fetch` opens a real file** from `media_dir`, so the whole transfer path runs — temp
+  file, copy, rename, the skip-if-present check and the mtime that check depends on —
+  rather than a stub that would prove none of it.
+- **`fail:` makes the provider fail on demand.** "Do not prune on a provider failure" is
+  the behavior in this feature most worth a test, because it is the one whose absence
+  loses photos, and testing it needs a provider that can fail.
+
+It ships in the binary rather than behind a build tag: a tag would keep it out of the
+image and defeat `make docker-test`. It is deliberately left out of
+`config/albums.example.yaml` and the user-facing provider list.
+
+Go tests build their fixtures in a `t.TempDir()` (`pkg/photogen/sync_run_test.go`), and
+`bin/docker-test.sh` drives it through the image with the committed fixtures
+`web/testdata/albums.sync-mock.yaml` and `web/testdata/sync-mock-listing.json`.
+
+For a version you can run and look at, `sample/config-sync/` is a working sync config
+built on the same provider:
+
+```bash
+make sample-photogen-sync   # sync two albums from the mock provider, then resize and index
+make sample-sync            # the above, then start the dev server on the synced site
+```
+
+It downloads into `sync/sample-sync/mock/<slug>/` and builds to `albums/sample-sync/`,
+both gitignored. It deliberately prints two warnings — a skipped RAW file and the video
+half of a Live Photo pair — because those are the two filters most likely to surprise
+someone syncing from a real photo manager. A run that shows them is working.
+
+`sample/config/` itself stays sync-free: the sample site is what the screenshots and the
+published demo are built from, so `make sample-photogen` has to stay offline and
+independent of any of this.
+
+## The Immich Provider and Its Fixtures
+
+The `immich` provider is tested against an `httptest.Server` replaying responses recorded from
+a real instance. The fixtures live in `pkg/photogen/testdata/immich/`:
+
+```
+album.json            GET  /api/albums/{id}
+request-page1.json    the search request body that produced the next file
+search-page1.json     POST /api/search/metadata — one page holding the whole album
+paged/                the same album at size 3, so paging is tested on real responses
+```
+
+`nextPage` is why the `paged/` set exists: it is a nullable **string** (`"2"`, `"3"`, then
+`null`), and `total` is the count in that page rather than the album's, so paging arithmetic
+would be wrong in a way one fixture cannot show.
+
+Nothing here needs an Immich instance. To refresh the fixtures, which does:
+
+```bash
+bin/immich-record <album-uuid>                          # into pkg/photogen/testdata/immich
+bin/immich-record -size 3 -out <dir> <album-uuid>       # a multi-page set
+```
+
+The UUID is the last path segment of the album's URL in Immich, the same value
+[`sync.album_id`](CONFIGURATION.md#syncing-an-album-from-a-photo-manager) takes.
+
+It reads credentials the way `photogen` does, and writes one pretty-printed file per call.
+Two things are scrubbed before anything is written: `owner.email`, which Immich includes in
+album and asset payloads, and any token-shaped field. It also refuses outright to write a file
+containing the API key.
+
+Re-recording doubles as a check that Immich has not renamed a field: a run that succeeds and a
+test suite that still passes means the request and response structs still match a real server.
+Both are worth doing after an Immich upgrade, since the provider uses the **deprecated flat
+search shape** deliberately — it works on current and older servers, and is slated for removal
+in Immich v4.
 
 ## CI (GitHub Actions)
 

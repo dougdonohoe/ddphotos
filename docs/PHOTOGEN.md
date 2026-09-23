@@ -46,6 +46,52 @@ bin/photogen -resize -index -clean -doit  # developer mode
 | `-no-customization` | `false`       | Ignore `customization.yaml` even when present                                                                                                        |
 | `-clean`            | `false`       | Remove stale files from processed album directories after a run (requires `-resize` and `-index`; cannot be combined with `-limit`)                  |
 | `-hero-only`        | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation (see [Hero Image](CONFIGURATION.md#hero-image))                 |
+| `-sync-dir`         | *(from env)*  | Sync directory override (overrides `DDPHOTOS_SYNC_DIR`)                                                                                              |
+| `-sync-only`        | `false`       | Sync albums from their providers, then exit without resizing or indexing (see [Syncing](#syncing))                                                   |
+| `-no-sync`          | `false`       | Skip syncing; build synced albums from whatever is already on disk                                                                                   |
+
+## Syncing
+
+An album with a `sync:` block in `albums.yaml` has its photos fetched from an upstream
+photo manager before the normal build. The configuration, folder layout and caption merge
+are documented in
+[Syncing an Album](CONFIGURATION.md#syncing-an-album-from-a-photo-manager); this section
+covers what it means at the command line.
+
+To see it work without setting anything up, `make sample-sync` syncs two albums from the
+offline [`mock` provider](TESTING.md#the-mock-sync-provider) and serves the result.
+
+**Syncing is the one thing `photogen` does without `-doit`.** It downloads, and it prunes
+anything in the sync folder that is no longer in the upstream album. That is deliberate: a
+dry run exists to show what *would* be built, and it cannot do that without the source
+folder. The run says so before it starts:
+
+```
+[SYNC] 2 album(s) — downloads and prunes even without -doit
+```
+
+Two flags change that:
+
+- **`-no-sync`** skips the download entirely and builds each synced album from whatever is
+  already in its folder. The folder is still created if it does not exist, so a
+  never-synced album produces an empty album rather than an error, and the album name and
+  description are still read from `metadata.yaml`.
+- **`-sync-only`** syncs and stops, before resize, index and hero. Useful for pulling
+  changes down and looking at them before committing to a build.
+
+`-hero-only` exits before any album work, so it never syncs.
+
+`-force`, `-limit`, `-album` and `-clean` apply to the resize and index stages only. In
+particular **`-album` does not narrow the sync pass**: a filtered run still syncs every
+album, because a folder left half-synced is one the next full run would silently build
+from. There is no "force re-download" flag — delete the album's sync folder to start over.
+
+Failures stop the run. A provider error, a failed download or an album over the size cap
+all exit non-zero, and in every case nothing is pruned and no new `metadata.yaml` is
+written, so the folder is left exactly as the last good sync left it. Ctrl-C behaves the
+same way. Per-asset problems that are not failures — a skipped RAW file, a caption that
+changed in two places — are warnings, and appear inline and again in the end-of-run
+summary.
 
 ## Metadata Cache
 

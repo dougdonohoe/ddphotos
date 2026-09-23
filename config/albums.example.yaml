@@ -111,6 +111,49 @@ albums:
     recurse: false                # If true, collect photos from subfolders recursively (default: false)
 
   # ------------------------------------------------------------------
+  # Synced from Immich — photogen downloads the album, then builds it
+  #
+  # With a 'sync:' block, photogen fetches the album's photos before the
+  # normal build and uses the download folder as the source. 'base:' and
+  # 'source:' are derived and must not be set.
+  #
+  # Downloads land in sync/{site-id}/{provider}/{slug} under the root DD
+  # Photos folder (a sibling of config/), namespaced by settings.id the same
+  # way albums/ is. That is a source folder like any other: it is not part of
+  # the generated site and is never deployed. Set DDPHOTOS_SYNC_DIR or pass
+  # -sync-dir to put it somewhere else.
+  #
+  # 'name:' and 'description:' are optional here. Anything set on the album
+  # wins; anything omitted is taken from the Immich album.
+  #
+  # Credentials live in immich.env in the same directory as this file:
+  #
+  #   IMMICH_API_KEY=your-api-key
+  #   IMMICH_INSTANCE_URL=http://immich.example.com:2283
+  #
+  # The key comes from Immich's Account Settings > API Keys and needs exactly
+  # three permissions: asset.read, asset.download and album.read.
+  #
+  # The URL is accepted with or without a trailing /api. A value already set
+  # in the environment wins over the file, so CI and Docker runs need no
+  # secrets file on disk. In Docker, localhost is still the right thing to
+  # write: photogen rewrites it to reach the host, and says so.
+  #
+  # Syncing downloads and prunes even without -doit, because a dry run has to
+  # have a source folder to describe. Use -no-sync to build from what is
+  # already on disk, or -sync-only to sync and stop.
+  # ------------------------------------------------------------------
+  - slug: galapagos
+    name: Galápagos 2024          # Optional: omitted, the Immich album name is used
+    # description: >-             # Optional: omitted, the Immich album description is used
+    #   Snorkeling with sea lions and a lot of blue-footed boobies.
+    # cover: IMG_0042.jpg         # Optional: file name as stored in Immich
+    sync:
+      provider: immich            # Upstream type; an album syncs from exactly one
+      album_id: d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18   # Immich album UUID
+      captions: true              # Write photogen.txt from each asset's description
+
+  # ------------------------------------------------------------------
   # Minimal example — only required fields
   # ------------------------------------------------------------------
   - slug: hiking

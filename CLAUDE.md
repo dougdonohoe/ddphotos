@@ -14,6 +14,43 @@ If the `albums/` or `build/` directory structure changes, keep these in sync
 - `bin/gen-deploy-tree.py` — generates the directory tree image used in docs
 - `## Syncing Logic` section in `docs/DEPLOY.md`
 
+There is a third root-level directory, `sync/` (`DDPHOTOS_SYNC_DIR`), holding albums
+photogen downloads from an upstream photo manager:
+`sync/{site-id}/{provider}/{slug}/`, each with `metadata.yaml`, `photogen.txt` and the
+media. **It is a source, not output.** Nothing under it is deployed, so the four files
+above need no change when it moves — but `pkg/photogen/sync.go` (`SyncAlbumPath`),
+`config/defaults.env`, `docker/Dockerfile`'s `ENV` block and the layout in
+`docs/CONFIGURATION.md` all name the shape and do.
+
+## Docker host-reachability sync requirement
+
+Three files make an `IMMICH_INSTANCE_URL` of `localhost` work inside the container, and the
+feature is broken if any one of them changes alone:
+
+- `docker/Dockerfile` sets `DDPHOTOS_IN_DOCKER=1`, which is the only way photogen can tell
+- `normalizeImmichURL` (`pkg/photogen/provider_immich.go`) reads it and rewrites a loopback
+  host to `host.docker.internal`
+- `docker/ddphotos` passes `--add-host=host.docker.internal:host-gateway` on the `photogen`
+  run, which Docker Engine on Linux needs and Docker Desktop ignores
+
+`docs/DOCKER.md` and `docs/ENV.md` document the behavior. The same `docker/ddphotos` block
+also passes `IMMICH_API_KEY` / `IMMICH_INSTANCE_URL` through when they are set in the host
+environment, which is what makes "a real environment variable wins over `immich.env`" true in
+Docker mode too.
+
+## Sync provider responsibilities
+
+A `SyncProvider` (`pkg/photogen/sync.go`) decides only what needs its own upstream's fields.
+**Unsupported extensions (including RAW) and photo-wins base-name clashes are decided once,
+for every provider, in `filterSyncAssets`** — the second is what protects `checkDuplicateIDs`,
+which is a hard error. A provider that re-implements either one will double its warnings. A
+provider skipping an asset warns through the `warnf` it was constructed with, because
+`filterSyncAssets` only prints the `Warnings` of assets it is handed.
+
+Provider names live in exactly one place, `syncProviderNames`; `isSyncProvider` gates
+validation and `newSyncProvider`'s switch gates construction, so adding a name to one without
+the other is what the switch's `default` branch exists to catch.
+
 ## Type sync requirement
 
 The Go structs in `pkg/photogen/json.go` (`AlbumIndex`, `AlbumSummary`, `PhotoIndex`, `PhotoSrcIndex`)

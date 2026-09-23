@@ -74,6 +74,26 @@ func TestRunSiteWrites(t *testing.T) {
 // -clean deletes anything under a processed album that the run did not track. All three
 // rules here exist because a flag combination leaves files untracked that are nonetheless
 // real output, so the delete would take work the user still wants.
+func TestValidateSyncFlags(t *testing.T) {
+	t.Parallel()
+
+	t.Run("either flag alone, or neither, is allowed", func(t *testing.T) {
+		t.Parallel()
+		assert.NoError(t, validateSyncFlags(false, false))
+		assert.NoError(t, validateSyncFlags(true, false))
+		assert.NoError(t, validateSyncFlags(false, true))
+	})
+
+	// Together they download nothing, build nothing and exit 0, which reads as success.
+	t.Run("both together are rejected", func(t *testing.T) {
+		t.Parallel()
+		err := validateSyncFlags(true, true)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "-no-sync")
+		assert.Contains(t, err.Error(), "-sync-only")
+	})
+}
+
 func TestValidateCleanFlags(t *testing.T) {
 	t.Parallel()
 

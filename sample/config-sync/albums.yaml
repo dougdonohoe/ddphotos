@@ -1,0 +1,64 @@
+# =============================================================================
+# photogen sync demo — a self-contained, offline example of the sync: block
+# =============================================================================
+# Run it with:
+#
+#   make sample-photogen-sync   # sync, resize, index
+#   make sample-sync            # the above, then the dev server
+#
+# Both albums below use the 'mock' provider, whose job is to stand in for a real
+# upstream (see docs/TESTING.md). It reads its album listing from a JSON file
+# and its bytes from a folder on disk, so this needs no network and no Immich
+# instance, but every part of the sync run is real: photogen downloads into
+# sync/sample-sync/mock/<slug>/, writes metadata.yaml and photogen.txt there,
+# prunes what is no longer upstream, and then builds the album from that folder
+# like any other source.
+#
+# This lives beside sample/config/ rather than in it on purpose. The sample site
+# is what the screenshots and the published demo are built from, and it has to
+# stay sync-free so `make sample-photogen` never depends on any of this.
+#
+# 'mock.assets' and 'mock.media_dir' are resolved relative to THIS directory,
+# which is why they are written as ../source/... — the same anchoring that makes
+# relative paths work inside the Docker container.
+#
+# Two entries in antarctica.json and the-way.json name files that are
+# deliberately NOT on disk: a RAW file, and the video half of a Live Photo pair.
+# Both are filtered out with a warning before anything is fetched, so they
+# demonstrate those rules without shipping the files. A run that prints those
+# two warnings is working correctly.
+# =============================================================================
+
+settings:
+  id: sample-sync
+  site_name: "DD Photos Sync Demo"
+  site_url: https://ddphotos.donohoe.info
+  site_description: "A demo of syncing albums into DD Photos from an upstream photo manager"
+  copyright_owner: "Doug and Cindy Donohoe"
+  copyright_year: 2001
+  site_subtitle_html: >-
+    Albums synced from an upstream photo manager, then published.
+
+albums:
+  # Name and description are both omitted, so both come from the upstream album
+  # via metadata.yaml. Captions come from each asset's description.
+  - slug: antarctica
+    sync:
+      provider: mock
+      album_id: antarctica
+      captions: true
+      mock:
+        assets: antarctica.json
+        media_dir: ../source/antarctica
+
+  # A name set here wins over the upstream one. This album also carries a video,
+  # a RAW file and a Live Photo pair, so it shows what sync does with each.
+  - slug: the-way
+    name: The Way (sync - overridden)
+    sync:
+      provider: mock
+      album_id: theway
+      captions: true
+      mock:
+        assets: the-way.json
+        media_dir: ../source/theway

@@ -156,6 +156,17 @@ func TestParsePhotogenLine(t *testing.T) {
 	}
 }
 
+// photogen.txt entries and the names of the files they caption have to reduce to the same
+// key, or a caption silently attaches to nothing. The sync caption merge writes lines
+// through this too, so it is the single place that rule lives.
+func TestPhotogenID(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "img_001", photogenID("IMG_001.JPG"))
+	assert.Equal(t, "img_001", photogenID("img_001"))
+	assert.Equal(t, "clip", photogenID("clip.mov"))
+	assert.Equal(t, "my.folder", photogenID("My.Folder"), "a non-media extension is left alone")
+}
+
 func TestSanitizePrefix(t *testing.T) {
 	t.Parallel()
 

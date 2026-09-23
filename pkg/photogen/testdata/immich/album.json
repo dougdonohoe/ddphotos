@@ -1,0 +1,35 @@
+{
+  "albumName": "Big Sky 2026",
+  "albumThumbnailAssetId": "aea161a3-87de-41e0-8d68-78aad5650a38",
+  "albumUsers": [
+    {
+      "role": "owner",
+      "user": {
+        "avatarColor": "orange",
+        "email": "owner@example.com",
+        "id": "d3af7476-eda9-4c69-8e3c-ce9d8ddd9dde",
+        "name": "Doug Donohoe",
+        "profileChangedAt": "2026-09-18T22:22:30.988365+00:00",
+        "profileImagePath": ""
+      }
+    }
+  ],
+  "assetCount": 7,
+  "contributorCounts": [
+    {
+      "assetCount": 7,
+      "userId": "d3af7476-eda9-4c69-8e3c-ce9d8ddd9dde"
+    }
+  ],
+  "createdAt": "2026-09-18T22:38:50.769Z",
+  "description": "Ski trip to Big Sky, Montana",
+  "endDate": "2026-03-22T00:00:00.000Z",
+  "hasSharedLink": true,
+  "id": "e3daf26c-677a-4b1d-8733-55279d1abfab",
+  "isActivityEnabled": false,
+  "lastModifiedAssetTimestamp": "2026-09-18T22:37:59.806Z",
+  "order": "asc",
+  "shared": true,
+  "startDate": "2026-03-20T00:00:00.000Z",
+  "updatedAt": "2026-09-18T22:46:30.311Z"
+}

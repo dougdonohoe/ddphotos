@@ -530,10 +530,46 @@ my-ddphotos/
   albums/            ← photogen output (generated, not edited)
   build/             ← static site output (generated, not edited)
   export/            ← export output (generated, not edited)
+  sync/              ← albums downloaded from a photo manager (only if you use sync:)
 ```
 
 `sample-photos/` is an ordinary folder on your machine, so you can browse, caption and
 delete its photos like any other album source.
+
+`sync/` appears only when an album in `albums.yaml` has a `sync:` block. It is a source
+folder like `sample-photos/`, not output: photogen downloads into
+`sync/<site-id>/<provider>/<slug>/` and then builds the album from there, and nothing
+under it is deployed. The one file in there you may edit is `photogen.txt`; see
+[Syncing an Album](CONFIGURATION.md#syncing-an-album-from-a-photo-manager).
+
+---
+
+## Syncing from Immich in Docker
+
+Put your credentials in `config/immich.env` as
+[Configuration](CONFIGURATION.md#immich-credentials-immichenv) describes. Nothing else is
+needed: the whole ddphotos folder is mounted into the container, so the file is already
+there. `IMMICH_API_KEY` and `IMMICH_INSTANCE_URL` exported in your shell are passed through
+too, and win over the file.
+
+**`http://localhost:2283` is the right value to write even though the container is not your
+machine.** Inside a container `localhost` *is* the container, so `photogen` rewrites it to
+`host.docker.internal`, Docker's name for the machine the container runs on, and says so:
+
+```
+note: running in Docker, so IMMICH_INSTANCE_URL "http://localhost:2283" is used as "http://host.docker.internal:2283"
+```
+
+Only a loopback address is rewritten — `localhost`, `127.0.0.1`, `::1` and `0.0.0.0`. A
+hostname, LAN IP or public URL is used exactly as written.
+
+Docker Desktop on macOS and Windows resolves `host.docker.internal` natively; Docker Engine
+on Linux needs `--add-host=host.docker.internal:host-gateway`, which the `ddphotos` script
+passes on every `photogen` run.
+
+```bash
+ddphotos photogen -- -sync-only     # pull the albums down and stop
+```
 
 ---
 

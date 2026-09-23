@@ -1,0 +1,51 @@
+{
+  "album": {
+    "name": "Antarctica (synced)",
+    "description": "Ten days below the Antarctic Convergence, synced from an upstream photo manager."
+  },
+  "assets": [
+    {
+      "id": "0a1b2c3d-0001-4000-8000-000000000001",
+      "file_name": "icebergs_12.jpg",
+      "caption": "Iceberg, right ahead!",
+      "checksum": "mock-sum-icebergs-12",
+      "updated_at": "2026-09-18T22:40:00Z"
+    },
+    {
+      "id": "0a1b2c3d-0002-4000-8000-000000000002",
+      "file_name": "icebergs_44.jpg",
+      "caption": "Penguin colony on an iceberg.",
+      "checksum": "mock-sum-icebergs-44",
+      "updated_at": "2026-09-18T22:41:00Z"
+    },
+    {
+      "id": "0a1b2c3d-0003-4000-8000-000000000003",
+      "file_name": "sunset_02.jpg",
+      "caption": "Sunset comes late here, thanks to the <midnight sun> & a very high latitude.",
+      "checksum": "mock-sum-sunset-02",
+      "updated_at": "2026-09-18T22:42:00Z"
+    },
+    {
+      "id": "0a1b2c3d-0004-4000-8000-000000000004",
+      "file_name": "devil_is_adelies_04.jpg",
+      "caption": "Adelie penguins coming back from a swim.",
+      "checksum": "mock-sum-adelies-04",
+      "updated_at": "2026-09-18T22:43:00Z"
+    },
+    {
+      "id": "0a1b2c3d-0005-4000-8000-000000000005",
+      "file_name": "neko_harbour_01.jpg",
+      "caption": "",
+      "checksum": "mock-sum-neko-01",
+      "updated_at": "2026-09-18T22:44:00Z"
+    },
+    {
+      "id": "0a1b2c3d-0006-4000-8000-000000000006",
+      "file_name": "penguins_movie.mov",
+      "caption": "Gentoos, going about their day.",
+      "is_video": true,
+      "checksum": "mock-sum-penguins-movie",
+      "updated_at": "2026-09-18T22:45:00Z"
+    }
+  ]
+}

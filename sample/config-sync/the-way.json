@@ -1,0 +1,59 @@
+{
+  "album": {
+    "name": "The Way (upstream name, overridden in albums.yaml)",
+    "description": "530 miles of the Camino del Norte, synced from an upstream photo manager."
+  },
+  "assets": [
+    {
+      "id": "1b2c3d4e-0001-4000-8000-000000000001",
+      "file_name": "2024-The-Way-13.jpg",
+      "caption": "The coast road, somewhere past Bilbao.",
+      "checksum": "mock-sum-way-13",
+      "updated_at": "2026-09-18T23:10:00Z"
+    },
+    {
+      "id": "1b2c3d4e-0002-4000-8000-000000000002",
+      "file_name": "2024-The-Way-14.jpg",
+      "caption": "A caption with <b>markup</b> & an ampersand, escaped on the way in.",
+      "checksum": "mock-sum-way-14",
+      "updated_at": "2026-09-18T23:11:00Z"
+    },
+    {
+      "id": "1b2c3d4e-0003-4000-8000-000000000003",
+      "file_name": "2024-The-Way-38.avif",
+      "caption": "An AVIF, which photogen handles like any other still.",
+      "checksum": "mock-sum-way-38",
+      "updated_at": "2026-09-18T23:12:00Z"
+    },
+    {
+      "id": "1b2c3d4e-0004-4000-8000-000000000004",
+      "file_name": "IMG_9728.heic",
+      "caption": "A Live Photo. Only the still is published.",
+      "checksum": "mock-sum-9728-heic",
+      "updated_at": "2026-09-18T23:13:00Z"
+    },
+    {
+      "id": "1b2c3d4e-0005-4000-8000-000000000005",
+      "file_name": "IMG_9728.mov",
+      "caption": "The video half of the Live Photo above. Not on disk: it is skipped with a warning before anything is fetched, because it and the .heic would reduce to the same photo ID.",
+      "is_video": true,
+      "checksum": "mock-sum-9728-mov",
+      "updated_at": "2026-09-18T23:13:00Z"
+    },
+    {
+      "id": "1b2c3d4e-0006-4000-8000-000000000006",
+      "file_name": "DSC_0001.arw",
+      "caption": "A RAW file. Not on disk: it is skipped with a warning, because photogen cannot load RAW.",
+      "checksum": "mock-sum-raw-0001",
+      "updated_at": "2026-09-18T23:14:00Z"
+    },
+    {
+      "id": "1b2c3d4e-0007-4000-8000-000000000007",
+      "file_name": "ocean.mov",
+      "caption": "A real video, transcoded by photogen like any other.",
+      "is_video": true,
+      "checksum": "mock-sum-ocean",
+      "updated_at": "2026-09-18T23:15:00Z"
+    }
+  ]
+}

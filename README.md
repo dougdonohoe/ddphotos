@@ -85,6 +85,10 @@ It doesn't matter, but once you get a selection of photos that comprise an album
 you export the photos into a folder.  All the photos (and videos) in a folder make up an album.
 It's that simple.
 
+If you keep your photos in [Immich↗](https://immich.app), you can skip the export: an album
+can sync straight from it. See
+[Syncing an Album](docs/CONFIGURATION.md#syncing-an-album-from-a-photo-manager).
+
 You can create an optional `photogen.txt` file in each album folder to
 define captions for each photo/video.  This file can also be used to define the
 album's sort order, if order-by-date isn't sufficient.
@@ -158,6 +162,9 @@ Backend features:
   with automatic filename prefixing to avoid collisions.
 - WebP and MP4 filenames for encrypted albums are HMAC-derived, preventing filename
   guessing even if the original source filename is known.
+- Optional album syncing from [Immich↗](https://immich.app): albums are downloaded before the
+  build instead of exported by hand, with captions merged in both directions and nothing
+  re-downloaded that has not changed.
 
 ## Tech Details
 
@@ -190,7 +197,7 @@ These documents are primarily meant for users of DD Photos:
 | [Rebuilding a Site](docs/SCRAPE.md)                    | Turn a deployed site back into a config directory you can build                      |
 | [Deployment](docs/DEPLOY.md)                           | Deployment via rsync and S3+CloudFront                                               |
 | [Web Server Configuration](docs/DEPLOYMENT-SERVERS.md) | Apache, nginx, CloudFront, and Cloudflare Pages routing rules                        |
-| [Environment Variables](docs/ENV.md)                   | Deployment variables                                                                 |
+| [Environment Variables](docs/ENV.md)                   | Deployment, album location, and Immich variables                                     |
 
 These documents are primarily meant for developers of DD Photos:
 

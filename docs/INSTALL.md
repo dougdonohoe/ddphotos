@@ -212,6 +212,20 @@ override applied, then launches the dev server. The password for the sample site
 
 Demo #2 is the same, but the site has no password, just the Uganda album.
 
+To try [syncing](PHOTOGEN.md#syncing) an album from an upstream photo manager, one step
+again and with no network or account needed:
+
+```bash
+make sample-sync
+```
+
+That uses `sample/config-sync/`, whose two albums pull from the offline
+[`mock` provider](TESTING.md#the-mock-sync-provider). `photogen` downloads into
+`sync/sample-sync/mock/<slug>/`, writes `metadata.yaml` and `photogen.txt` there, builds
+the albums from that folder, then launches the dev server. It prints two warnings on
+purpose — a skipped RAW file and the video half of a Live Photo pair — because those are
+the rules most likely to surprise you with a real photo manager.
+
 You can also build the static site and test it in Apache/nginx (requires Docker and
 assumes `photogen` has been run).
 
@@ -254,6 +268,12 @@ bin/photogen -resize -index -clean -doit
 
 **NOTE**: output goes to `albums/<site-id>` at the repo root by default. For example,
 the sample site is in `albums/sample`.
+
+If any album in `albums.yaml` has a `sync:` block, `photogen` also creates `sync/` at the
+repo root and downloads that album's photos into `sync/<site-id>/<provider>/<slug>/`. It
+is a source folder, not output: nothing under it is deployed, and both `albums/` and
+`sync/` are gitignored. Syncing runs even without `-doit` — see
+[Syncing](PHOTOGEN.md#syncing).
 
 ### Run Site
 
