@@ -6,6 +6,7 @@
 #
 # Usage:
 #   bin/immich-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uuid>
+#   bin/immich-record [-out <dir>] -rescrub    # re-apply scrub rules to existing fixtures
 set -eo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

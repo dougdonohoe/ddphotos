@@ -489,9 +489,12 @@ The UUID is the last path segment of the album's URL in Immich, the same value
 [`sync.album_id`](CONFIGURATION.md#syncing-an-album-from-a-photo-manager) takes.
 
 It reads credentials the way `photogen` does, and writes one pretty-printed file per call.
-Two things are scrubbed before anything is written: `owner.email`, which Immich includes in
-album and asset payloads, and any token-shaped field. It also refuses outright to write a file
-containing the API key.
+Three things are scrubbed before anything is written: `owner.email`, which Immich includes in
+album and asset payloads, each photo's location (`exifInfo` latitude, longitude, city, state
+and country, set to `null`), and any token-shaped field. It also refuses outright to write a
+file containing the API key. After adding a scrub rule, `bin/immich-record -rescrub` applies it
+to the fixtures already recorded, and a test fails if any committed fixture still holds a
+location.
 
 Re-recording doubles as a check that Immich has not renamed a field: a run that succeeds and a
 test suite that still passes means the request and response structs still match a real server.
