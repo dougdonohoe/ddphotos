@@ -51,8 +51,7 @@ const (
 	// passes.
 	dockerHostAlias = "host.docker.internal"
 
-	// immichPageSize is "size" in the search request. Kept equal to maxAlbumPhotos so a
-	// non-null nextPage on page one is itself the over-limit signal, at no extra request.
+	// immichPageSize is "size" in the search request.
 	immichPageSize = 500
 
 	// immichJSONTimeout bounds a metadata call. It is a whole-request deadline, which is
@@ -363,7 +362,9 @@ const (
 // Assets lists the album, paging until Immich says there is no more.
 //
 // Only the three rules that need Immich's own fields are applied here. Everything else about
-// which assets are publishable belongs to filterSyncAssets.
+// which assets are publishable belongs to filterSyncAssets, and so does the asset cap, which
+// is checked in syncOneAlbum after filtering. Counting here would reject an album of RAW+JPEG
+// pairs at twice its publishable size.
 func (p *immichProvider) Assets(ctx context.Context, albumID string) ([]SyncAsset, error) {
 	var out []SyncAsset
 	page := 1
@@ -388,19 +389,12 @@ func (p *immichProvider) Assets(ctx context.Context, albumID string) ([]SyncAsse
 		if resp.Assets.NextPage == nil || *resp.Assets.NextPage == "" {
 			return out, nil
 		}
-		// The over-limit check sits at the page boundary rather than after a full listing,
-		// which is what makes it free: while immichPageSize equals maxAlbumPhotos, a
-		// non-null nextPage on page one already proves the album is over the cap. The
-		// check in syncOneAlbum stays as the provider-agnostic backstop, and the callers
-		// wrap this error with the album slug.
-		if len(out) >= maxAlbumPhotos {
-			return nil, fmt.Errorf("album %s has more than the %d asset limit — "+
-				"photogen will not publish half an album, so split it in Immich",
-				albumID, maxAlbumPhotos)
-		}
+		// A nextPage that does not move forward would loop forever, since nothing else
+		// bounds the listing.
 		next, err := strconv.Atoi(*resp.Assets.NextPage)
-		if err != nil {
-			return nil, fmt.Errorf("unexpected nextPage %q in the search response", *resp.Assets.NextPage)
+		if err != nil || next <= page {
+			return nil, fmt.Errorf("unexpected nextPage %q in the search response for page %d",
+				*resp.Assets.NextPage, page)
 		}
 		page = next
 	}
