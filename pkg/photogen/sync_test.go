@@ -160,8 +160,8 @@ func TestFilterSyncAssets(t *testing.T) {
 		warnf, got := collect()
 		kept := filterSyncAssets([]SyncAsset{
 			{ID: "1", FileName: "IMG_1234.heic"},
-			{ID: "2", FileName: "IMG_1234.mov", IsVideo: true},
-			{ID: "3", FileName: "clip.mov", IsVideo: true},
+			{ID: "2", FileName: "IMG_1234.mov"},
+			{ID: "3", FileName: "clip.mov"},
 		}, warnf)
 		require.Len(t, kept, 2)
 		assert.Equal(t, "IMG_1234.heic", kept[0].FileName)
@@ -173,7 +173,7 @@ func TestFilterSyncAssets(t *testing.T) {
 	t.Run("a video with no matching photo is kept", func(t *testing.T) {
 		t.Parallel()
 		warnf, got := collect()
-		kept := filterSyncAssets([]SyncAsset{{ID: "1", FileName: "clip.mov", IsVideo: true}}, warnf)
+		kept := filterSyncAssets([]SyncAsset{{ID: "1", FileName: "clip.mov"}}, warnf)
 		assert.Len(t, kept, 1)
 		assert.Empty(t, *got)
 	})

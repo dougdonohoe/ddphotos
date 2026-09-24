@@ -286,8 +286,6 @@ func newImmichProvider(cfg *ImmichSyncConfig, warnf func(string, ...any)) (SyncP
 	return &immichProvider{creds: creds, warnf: warnf}, nil
 }
 
-func (p *immichProvider) Name() string { return immichProviderName }
-
 // immichAlbumResponse is GET /api/albums/{id}. It does not list the album's assets, which is
 // why Assets is a separate search call.
 type immichAlbumResponse struct {
@@ -341,7 +339,6 @@ type immichAsset struct {
 	// incremental skip in haveSyncAsset exact rather than a size guess.
 	Checksum   string `json:"checksum"`
 	UpdatedAt  string `json:"updatedAt"`
-	Type       string `json:"type"`       // IMAGE | VIDEO | AUDIO | OTHER
 	Visibility string `json:"visibility"` // timeline | archive | hidden | locked
 	IsTrashed  bool   `json:"isTrashed"`
 	IsEdited   bool   `json:"isEdited"`
@@ -360,9 +357,8 @@ type immichExifInfo struct {
 	FileSizeInByte *int64  `json:"fileSizeInByte"`
 }
 
-// Immich asset types and visibilities that sync cares about by name.
+// Immich visibilities that sync cares about by name.
 const (
-	immichTypeVideo          = "VIDEO"
 	immichVisibilityTimeline = "timeline"
 	immichVisibilityArchive  = "archive"
 )
@@ -438,7 +434,6 @@ func (p *immichProvider) convertAsset(a immichAsset) (SyncAsset, bool) {
 		ID:       a.ID,
 		FileName: name,
 		Checksum: a.Checksum,
-		IsVideo:  a.Type == immichTypeVideo,
 	}
 	if a.ExifInfo != nil {
 		if a.ExifInfo.Description != nil {

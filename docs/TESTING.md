@@ -413,7 +413,7 @@ albums:
 ```
 
 The listing fixture is the provider interface written out as JSON — an album and its
-assets. `size`, `checksum`, `updated_at`, `is_video` and `warnings` are all optional:
+assets. `size`, `checksum`, `updated_at` and `warnings` are all optional:
 
 ```json
 {

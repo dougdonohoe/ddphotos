@@ -43,9 +43,6 @@ const (
 // it was constructed with, rather than returning it: filterSyncAssets prints the Warnings of
 // assets it is given, so a warning on an asset the provider withheld would never be seen.
 type SyncProvider interface {
-	// Name returns the provider key used in albums.yaml ("immich", "mock").
-	Name() string
-
 	// Album returns the upstream album's name and description.
 	Album(ctx context.Context, albumID string) (SyncAlbum, error)
 
@@ -71,8 +68,7 @@ type SyncAsset struct {
 	Size      int64     // bytes, 0 when the provider does not know
 	Checksum  string    // provider checksum, "" when unavailable
 	UpdatedAt time.Time // upstream last-modified, zero when unavailable
-	IsVideo   bool
-	Warnings  []string // provider-specific notes to surface (e.g. "edited upstream")
+	Warnings  []string  // provider-specific notes to surface (e.g. "edited upstream")
 }
 
 // syncProviderNames returns the registered provider names, sorted, for error messages.
@@ -289,9 +285,8 @@ func filterSyncAssets(assets []SyncAsset, warnf func(string, ...any)) []SyncAsse
 	// Photos win a base-name clash: the still is the thing the album is for, and the
 	// video in such a pair is almost always the Live Photo half of it.
 	//
-	// Both sides are decided by extension rather than SyncAsset.IsVideo, because the
-	// extension is what collectPhotosRecursive and checkDuplicateIDs will go on later.
-	// IsVideo is the provider's own belief and exists for the provider's own filtering.
+	// Both sides are decided by extension, because the extension is what
+	// collectPhotosRecursive and checkDuplicateIDs will go on later.
 	photoBases := make(map[string]string, len(kept))
 	for _, a := range kept {
 		if IsPhotoFile(a.FileName) {

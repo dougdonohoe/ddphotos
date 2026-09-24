@@ -481,26 +481,6 @@ func LoadAlbumDescriptions(path string) (map[string]string, error) {
 	return descriptions, nil
 }
 
-// LoadAlbumConfigs is the top-level helper: reads configDir/albumsFilename, resolves
-// all paths, loads descriptions, and returns album configs ready for processing.
-// The YAML settings are also returned so callers can use site_url, output_dir, etc.
-//
-// It passes no SyncPaths, so a file containing a sync: block is rejected. cmd/photogen
-// does the two halves itself, because it has to resolve the site ID and create the sync
-// folders in between (see the ordering comment in main).
-func LoadAlbumConfigs(configDir, albumsFilename string) ([]*AlbumConfig, *AlbumsSettings, error) {
-	path := filepath.Join(configDir, albumsFilename)
-	af, err := LoadAlbumsFile(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	configs, err := af.ToAlbumConfigs(configDir, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return configs, &af.Settings, nil
-}
-
 // LoadEncryptConfig loads the EncryptConfig from settings.passwords (resolved relative
 // to configDir). Returns nil, nil if Passwords is not set.
 func (s *AlbumsSettings) LoadEncryptConfig(configDir string) (*EncryptConfig, error) {

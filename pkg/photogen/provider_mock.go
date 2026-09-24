@@ -39,7 +39,6 @@ type mockAsset struct {
 	Size      int64    `json:"size"`
 	Checksum  string   `json:"checksum"`
 	UpdatedAt string   `json:"updated_at"` // RFC3339, or "" for unknown
-	IsVideo   bool     `json:"is_video"`
 	Warnings  []string `json:"warnings"`
 }
 
@@ -63,8 +62,6 @@ func newMockProvider(cfg *MockSyncConfig) (SyncProvider, error) {
 	}
 	return &mockProvider{cfg: cfg, fixture: fixture}, nil
 }
-
-func (p *mockProvider) Name() string { return mockProviderName }
 
 func (p *mockProvider) Album(_ context.Context, _ string) (SyncAlbum, error) {
 	return SyncAlbum{Name: p.fixture.Album.Name, Description: p.fixture.Album.Description}, nil
@@ -91,7 +88,6 @@ func (p *mockProvider) Assets(_ context.Context, _ string) ([]SyncAsset, error) 
 			Size:      a.Size,
 			Checksum:  a.Checksum,
 			UpdatedAt: updated,
-			IsVideo:   a.IsVideo,
 			Warnings:  a.Warnings,
 		})
 	}

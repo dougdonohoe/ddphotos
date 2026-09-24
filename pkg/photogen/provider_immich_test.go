@@ -411,7 +411,6 @@ func TestImmichProviderAssets(t *testing.T) {
 	assert.Equal(t, "c07AWIQBN+1rk1KZH3htOrXs2kk=", first.Checksum)
 	assert.Equal(t, int64(4656780), first.Size)
 	assert.Equal(t, "", first.Caption)
-	assert.False(t, first.IsVideo)
 	assert.Equal(t, "2026-09-18T22:37:57.735Z", first.UpdatedAt.Format(time.RFC3339Nano))
 
 	// Upstream order, which is all the interface promises; photogen sorts by EXIF later.
@@ -524,7 +523,7 @@ func TestImmichConvertAsset(t *testing.T) {
 	base := func() immichAsset {
 		return immichAsset{
 			ID: "id-1", OriginalFileName: "IMG_1.jpg", Checksum: "sum",
-			Type: "IMAGE", Visibility: immichVisibilityTimeline,
+			Visibility: immichVisibilityTimeline,
 		}
 	}
 
@@ -584,16 +583,6 @@ func TestImmichConvertAsset(t *testing.T) {
 		assert.Empty(t, warnings, "an edited asset warns through the asset, not the channel")
 		require.Len(t, asset.Warnings, 1)
 		assert.Contains(t, asset.Warnings[0], "unedited")
-	})
-
-	t.Run("a video is marked as one", func(t *testing.T) {
-		t.Parallel()
-		a := base()
-		a.Type = immichTypeVideo
-		a.OriginalFileName = "clip.mov"
-		asset, ok, _ := convert(a)
-		require.True(t, ok)
-		assert.True(t, asset.IsVideo)
 	})
 
 	// Immich omits exifInfo entirely rather than sending null, and every field inside it is
@@ -747,7 +736,7 @@ func TestNewImmichProvider(t *testing.T) {
 
 	p, err := newImmichProvider(&ImmichSyncConfig{EnvFile: filepath.Join(t.TempDir(), "absent.env")}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, immichProviderName, p.Name())
+	assert.IsType(t, &immichProvider{}, p)
 
 	// nil cfg means the AlbumSyncConfig was built by hand rather than by resolveSync. The
 	// environment still has everything, so it works rather than panicking.
