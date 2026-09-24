@@ -85,3 +85,24 @@ func findLocations(v any) []string {
 	}
 	return found
 }
+
+// credentials must resolve exactly as photogen does, so a recording talks to the server a
+// sync would. The old private copy stripped every leading and trailing quote character,
+// where photogen strips one matching pair.
+func TestCredentialsMatchPhotogen(t *testing.T) {
+	t.Setenv("IMMICH_API_KEY", "")
+	t.Setenv("IMMICH_INSTANCE_URL", "")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "immich.env"), []byte(
+		"IMMICH_API_KEY=abc'\nIMMICH_INSTANCE_URL=\"http://localhost:2283/api/\"\n"), 0o600))
+
+	apiKey, baseURL, err := credentials(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "abc'", apiKey, "only a matching pair of quotes is stripped")
+	assert.Equal(t, "http://localhost:2283", baseURL)
+
+	t.Setenv("IMMICH_API_KEY", "from-env")
+	apiKey, _, err = credentials(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "from-env", apiKey, "a real environment variable wins over the file")
+}

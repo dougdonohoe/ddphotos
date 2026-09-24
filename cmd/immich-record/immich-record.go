@@ -38,6 +38,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dougdonohoe/ddphotos/pkg/photogen"
 )
 
 // pageSize matches immichPageSize in pkg/photogen, so recorded fixtures page the way a real
@@ -153,40 +155,10 @@ func run(albumID string) error {
 	}
 }
 
-// credentials mirrors loadImmichCredentials: the environment wins over the file, and the URL
-// is accepted with or without its /api suffix. It is a copy rather than a call because the
-// real one is unexported, and a recorder that drifts from it is a recorder that fails loudly.
+// credentials resolves the API key and instance URL through photogen itself, so the
+// environment wins over immich.env and the URL is normalized exactly as a sync run does it.
 func credentials(configDir string) (apiKey, baseURL string, err error) {
-	fileVals := map[string]string{}
-	data, readErr := os.ReadFile(filepath.Join(configDir, "immich.env"))
-	if readErr == nil {
-		for line := range strings.SplitSeq(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			k, v, ok := strings.Cut(line, "=")
-			if !ok {
-				continue
-			}
-			fileVals[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"'`)
-		}
-	}
-	lookup := func(key string) string {
-		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-			return v
-		}
-		return fileVals[key]
-	}
-
-	apiKey = lookup("IMMICH_API_KEY")
-	baseURL = strings.TrimSuffix(strings.TrimSuffix(lookup("IMMICH_INSTANCE_URL"), "/"), "/api")
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	if apiKey == "" || baseURL == "" {
-		return "", "", fmt.Errorf("set IMMICH_API_KEY and IMMICH_INSTANCE_URL, or put them in %s",
-			filepath.Join(configDir, "immich.env"))
-	}
-	return apiKey, baseURL, nil
+	return photogen.LoadImmichCredentials(filepath.Join(configDir, photogen.ImmichEnvFileName))
 }
 
 func call(client *http.Client, apiKey, method, url string, body []byte) ([]byte, error) {

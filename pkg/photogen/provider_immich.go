@@ -165,6 +165,14 @@ func loadImmichCredentials(envFile string) (immichCredentials, error) {
 	return creds, nil
 }
 
+// LoadImmichCredentials resolves the API key and normalized base URL exactly as the immich
+// provider does, for cmd/immich-record: a recording has to reach the server a sync would,
+// and a private copy of these rules is one that drifts.
+func LoadImmichCredentials(envFile string) (apiKey, baseURL string, err error) {
+	creds, err := loadImmichCredentials(envFile)
+	return creds.APIKey, creds.BaseURL, err
+}
+
 // localHostNames are the hosts that mean "this machine", and therefore mean the container when
 // photogen runs inside one.
 var localHostNames = map[string]struct{}{
