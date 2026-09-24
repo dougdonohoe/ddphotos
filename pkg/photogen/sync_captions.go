@@ -7,24 +7,30 @@ import (
 	"strings"
 )
 
-// captionLine is one parsed photogen.txt entry.
+// captionLine is one physical photogen.txt line.
 type captionLine struct {
-	id   string // the lookup key: lowercase name with any media extension stripped
-	desc string
+	raw   string // the line as written, for lines the merge writes back untouched
+	entry bool   // false for a blank line or a # comment
+	id    string // entries only: lowercase name with any media extension stripped
+	desc  string // entries only
 }
 
-// readCaptionLines parses photogen.txt in file order.
+// readCaptionLines parses photogen.txt in file order, every line included.
 //
-// It exists alongside loadPhotoDescriptions rather than reusing it because the merge needs
-// the entries in file order, where loadPhotoDescriptions hands back a map plus an order of
-// IDs. The parts that have to agree are shared outright: both read through scanLines, so
-// both skip blank and # lines the same way, and both key on photogenID — which is what
-// lets a line written here be found again when the album is built.
+// It exists alongside loadPhotoDescriptions rather than reusing it because the merge has to
+// write the file back: it needs the blank and comment lines loadPhotoDescriptions skips, in
+// place. The parts that have to agree are shared outright: both decide what is an entry
+// with isBlankOrComment and parse it with parsePhotogenLine, and both key on photogenID,
+// which is what lets a line written here be found again when the album is built.
 func readCaptionLines(path string) ([]captionLine, error) {
 	var lines []captionLine
-	err := scanLines(path, func(line string) {
-		name, desc := parsePhotogenLine(line)
-		lines = append(lines, captionLine{id: photogenID(name), desc: desc})
+	err := scanRawLines(path, func(raw string) {
+		if isBlankOrComment(raw) {
+			lines = append(lines, captionLine{raw: raw})
+			return
+		}
+		name, desc := parsePhotogenLine(strings.TrimSpace(raw))
+		lines = append(lines, captionLine{raw: raw, entry: true, id: photogenID(name), desc: desc})
 	})
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -59,10 +65,15 @@ func mergeCaption(local, base, upstream string) (result string, conflict bool) {
 // mergeSyncCaptions rewrites photogen.txt from the current assets, preserving what the user
 // has done to it.
 //
-// Line order is preserved: photos already in the file keep their position, new photos are
-// appended in upstream order, and lines matching no current asset are dropped. That matters
-// because manual_sort_order: true reads its order from this file, so an ordering set by
-// hand or through the DD Photos App survives a re-sync.
+// Line order is preserved: photos already in the file keep their position and new photos
+// are appended in upstream order. That matters because manual_sort_order: true reads its
+// order from this file, so an ordering set by hand or through the DD Photos App survives a
+// re-sync. Of the other lines:
+//
+//   - blank lines and comments are written back as found, in place;
+//   - an entry naming a subfolder is too, since prune leaves subfolders alone and the entry
+//     is how manual_sort_order places one;
+//   - any other entry is dropped: its photo was removed upstream, or it names nothing.
 //
 // The baseline is each item's own record from the *previous* run (syncItem.prev, found by
 // asset ID), which syncOneAlbum replaces afterward. It is looked up by asset rather than by
@@ -75,7 +86,13 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 	}
 	local := make(map[string]string, len(existing))
 	for _, l := range existing {
-		local[l.id] = l.desc
+		if l.entry {
+			local[l.id] = l.desc
+		}
+	}
+	subdirs, err := subdirIDs(dir)
+	if err != nil {
+		return err
 	}
 	byID := make(map[string]syncItem, len(items))
 	for _, it := range items {
@@ -106,10 +123,19 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 
 	var b strings.Builder
 	seen := make(map[string]struct{}, len(items))
+	kept := 0 // subfolder entries, for the count printed below
 	for _, l := range existing {
+		if !l.entry {
+			b.WriteString(l.raw + "\n")
+			continue
+		}
 		it, ok := byID[l.id]
 		if !ok {
-			continue // the photo this line named is no longer in the album
+			if _, sub := subdirs[l.id]; sub {
+				b.WriteString(l.raw + "\n")
+				kept++
+			}
+			continue
 		}
 		if _, dup := seen[l.id]; dup {
 			continue
@@ -129,8 +155,24 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 	if err := writeFileAtomic(path, []byte(b.String())); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
-	fmt.Printf("  wrote: %s (%d entries)\n", path, len(seen))
+	fmt.Printf("  wrote: %s (%d entries)\n", path, len(seen)+kept)
 	return nil
+}
+
+// subdirIDs returns the album folder's subfolders by lowercased name, which is how the build
+// matches a photogen.txt entry to a subfolder (subdirActual in collectPhotosRecursive).
+func subdirIDs(dir string) (map[string]struct{}, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", dir, err)
+	}
+	ids := make(map[string]struct{})
+	for _, e := range entries {
+		if e.IsDir() {
+			ids[strings.ToLower(e.Name())] = struct{}{}
+		}
+	}
+	return ids, nil
 }
 
 // writeCaptionLine emits one photogen.txt line.

@@ -522,8 +522,13 @@ case "$cmd" in
         # the /ddphotos mount. These are for the other half of that rule: a real environment
         # variable wins over the file, so a key exported in the shell or set by CI has to
         # reach the container too. Unset vars are not passed, so the file still applies.
+        #
+        # Credentials here and below are passed as -e NAME, never -e NAME=value: docker then
+        # reads the value from its own environment, which this script's exported variables
+        # are, and the value stays out of docker's argv, where ps would show it to any local
+        # user for as long as the container runs. bin/test-docker-env.sh checks every one.
         for var in IMMICH_API_KEY IMMICH_INSTANCE_URL; do
-            [ -n "${!var}" ] && PHOTOGEN_ENV+=(-e "$var=${!var}")
+            [ -n "${!var}" ] && PHOTOGEN_ENV+=(-e "$var")
         done
         # --add-host makes host.docker.internal resolve on Docker Engine (Linux); Docker
         # Desktop provides the name natively and ignores the flag. photogen rewrites a
@@ -600,7 +605,7 @@ case "$cmd" in
         DEPLOY_ENV=()
         for var in AWS_PROFILE AWS_DEFAULT_PROFILE AWS_DEFAULT_REGION AWS_REGION \
                    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
-            [ -n "${!var}" ] && DEPLOY_ENV+=(-e "$var=${!var}")
+            [ -n "${!var}" ] && DEPLOY_ENV+=(-e "$var")  # by name: see photogen
         done
         [ -n "$DDPHOTOS_CONFIG_DIR" ] && DEPLOY_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
         [ -n "$DDPHOTOS_SITE_ENV" ]   && DEPLOY_ENV+=(-e "DDPHOTOS_SITE_ENV=$DDPHOTOS_SITE_ENV")
@@ -613,12 +618,13 @@ case "$cmd" in
         ;;
 
     wrangler)
-        # Pass Cloudflare credentials from the host environment into the container.
+        # Pass Cloudflare credentials from the host environment into the container, by name
+        # (see photogen).
         # CLOUDFLARE_API_TOKEN is the preferred auth method for non-interactive use;
         # the others cover legacy global API key auth and explicit account targeting.
         WRANGLER_ENV=()
         for var in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_EMAIL CLOUDFLARE_API_KEY; do
-            [ -n "${!var}" ] && WRANGLER_ENV+=(-e "$var=${!var}")
+            [ -n "${!var}" ] && WRANGLER_ENV+=(-e "$var")
         done
         # Wrangler colors its output even with no TTY, so non-interactive consumers (e.g. the
         # Java GUI console) receive raw ANSI escapes. NO_COLOR must be set inside the container:
@@ -679,7 +685,7 @@ case "$cmd" in
     surge)
         SURGE_ENV=()
         for var in SURGE_LOGIN SURGE_TOKEN; do
-            [ -n "${!var}" ] && SURGE_ENV+=(-e "$var=${!var}")
+            [ -n "${!var}" ] && SURGE_ENV+=(-e "$var")  # by name: see photogen
         done
         # See the wrangler branch: suppress ANSI color for non-interactive consumers.
         $NON_INTERACTIVE && SURGE_ENV+=(-e NO_COLOR=1)

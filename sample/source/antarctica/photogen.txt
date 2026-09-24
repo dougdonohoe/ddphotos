@@ -5,7 +5,7 @@ icebergs_40 Last one in is a rotten egg!
 icebergs_44 Penguin colony on an iceberg.
 sunset_02 Sunset comes late in <b>this</b> part of the world, thanks to the <a href="https://en.wikipedia.org/wiki/Midnight_sun">midnight sun</a>.
 devil_is_adelies_04 Adelie penguins coming back from a swim.
-devil_is_adelies_10 Those salt and pepper spots are all penguins. About 20,000 pairs of Adelie's.
+devil_is_adelies_10 Those salt &amp; pepper spots are all penguins. About 20,000 pairs of Adelie's.
 devil_is_adelies_27 Closer shot of Adelie's and their chicks.
 vortex_is_04 Phil? Andy? Where did you guys go?
 neko_harbour_01 A Gentoo penguin stands above Neko Harbour.

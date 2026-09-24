@@ -29,9 +29,20 @@ func loadJSON[T any](path string) (T, error) {
 }
 
 // scanLines opens path, reads it line by line, and calls fn for each non-blank,
-// non-comment line (lines beginning with '#' are treated as comments).
+// non-comment line (lines beginning with '#' are treated as comments), trimmed.
 // Returns any open or scanner error unwrapped; callers should wrap as needed.
 func scanLines(path string, fn func(line string)) error {
+	return scanRawLines(path, func(raw string) {
+		if !isBlankOrComment(raw) {
+			fn(strings.TrimSpace(raw))
+		}
+	})
+}
+
+// scanRawLines calls fn for every line of path exactly as written, blanks and comments
+// included. It is scanLines without the filtering, for a caller that has to write the
+// file back: the sync caption merge keeps the lines it does not own verbatim.
+func scanRawLines(path string, fn func(raw string)) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -39,13 +50,17 @@ func scanLines(path string, fn func(line string)) error {
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		fn(line)
+		fn(scanner.Text())
 	}
 	return scanner.Err()
+}
+
+// isBlankOrComment reports whether a line holds no entry: blank, or starting with # once
+// surrounding whitespace is trimmed. It is the one definition scanLines skips on and the
+// sync caption merge preserves on, so the two cannot disagree about what an entry is.
+func isBlankOrComment(line string) bool {
+	line = strings.TrimSpace(line)
+	return line == "" || strings.HasPrefix(line, "#")
 }
 
 // ParseEnvFile reads a KEY=VALUE file and returns its entries. scanLines has already dropped

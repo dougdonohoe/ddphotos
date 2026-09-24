@@ -146,19 +146,30 @@ type MockSyncConfig struct {
 	Fail string
 }
 
+// ValidateSiteID checks a resolved site ID (settings.id, or -site-id). It is separate from
+// Validate because the ID names directories before the rest of the config is checked:
+// CreateSyncDirs runs first, and an empty ID or one containing .. would put folders in the
+// wrong place.
+func ValidateSiteID(id string) error {
+	if id == "" {
+		return fmt.Errorf("settings.id is required")
+	}
+	if !validSiteID.MatchString(id) {
+		return fmt.Errorf("settings.id %q must contain only lowercase letters, digits, and hyphens", id)
+	}
+	if len(id) > slugMaxLen {
+		return fmt.Errorf("settings.id %q must be at most %d characters", id, slugMaxLen)
+	}
+	return nil
+}
+
 // Validate ensures the config is valid before running processors.
 func (c *Config) Validate() error {
 	if c.OutputRoot == "" {
 		return fmt.Errorf("output directory must be set")
 	}
-	if c.SiteID == "" {
-		return fmt.Errorf("settings.id is required")
-	}
-	if !validSiteID.MatchString(c.SiteID) {
-		return fmt.Errorf("settings.id %q must contain only lowercase letters, digits, and hyphens", c.SiteID)
-	}
-	if len(c.SiteID) > slugMaxLen {
-		return fmt.Errorf("settings.id %q must be at most %d characters", c.SiteID, slugMaxLen)
+	if err := ValidateSiteID(c.SiteID); err != nil {
+		return err
 	}
 	if c.SiteName == "" {
 		return fmt.Errorf("settings.site_name is required")

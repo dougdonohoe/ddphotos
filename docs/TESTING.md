@@ -365,26 +365,28 @@ bin/docker-test.sh --no-build # skip image build (reuse existing ddphotos image)
 
 The script runs the following steps in a fresh temp workspace:
 
-1. Builds the `ddphotos` Docker image via `make docker-build`
-2. Runs `init` and verifies the `ddphotos` script, the config files, and the host-writable
+1. Runs `bin/test-docker-env.sh` (no image needed), which checks that credentials are
+   passed to docker by name
+2. Builds the `ddphotos` Docker image via `make docker-build`
+3. Runs `init` and verifies the `ddphotos` script, the config files, and the host-writable
    `sample-photos/` starter photos are created
-3. Runs `photogen` on the installed sample photos and verifies album output, including
+4. Runs `photogen` on the installed sample photos and verifies album output, including
    that the relative base `sample-base` resolves to `sample-photos/`
-4. Back-compat: runs `photogen` against a config that still uses the pre-`sample-photos`
+5. Back-compat: runs `photogen` against a config that still uses the pre-`sample-photos`
    container-internal paths (`/ddphotos-init` and friends) and verifies it still works
-5. Runs `photogen` against an album with a `sync:` block using the [`mock` provider](#the-mock-sync-provider),
+6. Runs `photogen` against an album with a `sync:` block using the [`mock` provider](#the-mock-sync-provider),
    and verifies the sync folder, downloaded media, `metadata.yaml`, escaped captions in
    `photogen.txt`, the upstream album name reaching `albums.json`, and the built album —
    then re-runs it to verify the second sync downloads nothing and leaves mtimes untouched
-6. Runs `decode` on an encrypted album index and verifies the output, including files outside `DDPHOTOS_DIR` (via `--passwords` flag and embedded `pwFile` path)
-7. Runs `search-cover` against the decoded album and verifies the cover file is found
-8. Regression test: runs `decode` and `search-cover` with an external `--config-dir` (outside `DDPHOTOS_DIR`) to verify the config mount path is handled correctly
-9. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
-10. Runs `build` and verifies the static site output
-11. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
-12. Tests `export` (symlink mode), `export --copy` (all files resolved, no symlinks), and `export --cloudflare` (adds `_worker.js`)
-13. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
-14. Runs `init --script-only` and verifies only the script is installed (no `config/`,
+7. Runs `decode` on an encrypted album index and verifies the output, including files outside `DDPHOTOS_DIR` (via `--passwords` flag and embedded `pwFile` path)
+8. Runs `search-cover` against the decoded album and verifies the cover file is found
+9. Regression test: runs `decode` and `search-cover` with an external `--config-dir` (outside `DDPHOTOS_DIR`) to verify the config mount path is handled correctly
+10. Starts the Vite dev server (`run`) and runs Playwright e2e tests against it
+11. Runs `build` and verifies the static site output
+12. Starts Apache (`serve`) and runs Playwright e2e tests + `bin/test-photos-server.sh` routing tests
+13. Tests `export` (symlink mode), `export --copy` (all files resolved, no symlinks), and `export --cloudflare` (adds `_worker.js`)
+14. Verifies `version` and `version --image` output — checks script path and image `Git:`/`Version:` fields
+15. Runs `init --script-only` and verifies only the script is installed (no `config/`,
     `albums/` or `sample-photos/`)
 
 Playwright tests skip assertions that depend on sample-site-specific albums (e.g. `antarctica`) when

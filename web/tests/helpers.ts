@@ -335,6 +335,27 @@ export interface FoundHtmlCaption {
 export async function findHtmlCaption(
 	request: APIRequestContext
 ): Promise<FoundHtmlCaption | null> {
+	// `<` followed by a letter: a tag, not a stray less-than in prose.
+	return findCaption(request, /<[a-z]/i);
+}
+
+/** An HTML character reference: named, decimal or hex. */
+export const HTML_ENTITY = /&(?:[a-z][a-z0-9]*|#\d+|#x[0-9a-f]+);/i;
+
+/**
+ * Find a photo whose caption contains an HTML entity such as `&amp;`. The sample site
+ * has one (antarctica/devil_is_adelies_10); otherwise as findHtmlCaption.
+ */
+export async function findEntityCaption(
+	request: APIRequestContext
+): Promise<FoundHtmlCaption | null> {
+	return findCaption(request, HTML_ENTITY);
+}
+
+async function findCaption(
+	request: APIRequestContext,
+	pattern: RegExp
+): Promise<FoundHtmlCaption | null> {
 	try {
 		const albumsResp = await request.get('/albums/albums.json');
 		if (!albumsResp.ok()) return null;
@@ -348,8 +369,7 @@ export async function findHtmlCaption(
 
 			for (let i = 0; i < index.photos.length; i++) {
 				const description = index.photos[i].description;
-				// `<` followed by a letter: a tag, not a stray less-than in prose.
-				if (description && /<[a-z]/i.test(description)) {
+				if (description && pattern.test(description)) {
 					return { slug: album.slug, index: i, description };
 				}
 			}

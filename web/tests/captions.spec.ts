@@ -5,6 +5,8 @@ import {
 	unlockAlbumIfNeeded,
 	albumExists,
 	findHtmlCaption,
+	findEntityCaption,
+	HTML_ENTITY,
 	type FoundHtmlCaption
 } from './helpers';
 
@@ -12,9 +14,11 @@ const pw = loadPasswords();
 
 let hasAntarctica = true;
 let htmlCaption: FoundHtmlCaption | null = null;
+let entityCaption: FoundHtmlCaption | null = null;
 test.beforeAll(async ({ request }) => {
 	hasAntarctica = await albumExists(request, 'antarctica');
 	htmlCaption = await findHtmlCaption(request);
+	entityCaption = await findEntityCaption(request);
 });
 
 // Caption tests verify the rendering mechanism works (rAF fix, animate=false fix),
@@ -189,6 +193,29 @@ test('grid caption renders HTML, while alt text stays plain', async ({ page }) =
 	// The same caption feeds alt and aria-label, which cannot render markup.
 	expect(await tile.locator('img').getAttribute('alt')).not.toContain('<');
 	expect(await tile.getAttribute('aria-label')).not.toContain('<');
+});
+
+// Entities are how a caption spells & < > (sync escapes every one in an upstream
+// description). Rendered HTML shows the character; the plain-text slots have to decode
+// it too, or alt reads "salt &amp; pepper" and a screen reader says "amp".
+test('alt and aria-label decode HTML entities in a caption', async ({ page }) => {
+	test.skip(!entityCaption, 'no caption with an HTML entity on this site');
+	const found = entityCaption!;
+
+	await page.goto(`/albums/${found.slug}`);
+	await unlockAlbumIfNeeded(page, found.slug, pw);
+	await waitForHydration(page);
+
+	const tile = page.locator('.photo').nth(found.index);
+	const alt = (await tile.locator('img').getAttribute('alt')) ?? '';
+	const label = (await tile.getAttribute('aria-label')) ?? '';
+	expect(alt).not.toMatch(HTML_ENTITY);
+	expect(label).not.toMatch(HTML_ENTITY);
+	// Decoded, not stripped: the character itself is still there.
+	if (/&amp;/.test(found.description)) {
+		expect(alt).toContain('&');
+		expect(label).toContain('&');
+	}
 });
 
 test('grid caption is inert, so its links add no tab stops', async ({ page }) => {

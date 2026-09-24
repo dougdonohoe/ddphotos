@@ -277,6 +277,25 @@ func TestCreateSyncDirs(t *testing.T) {
 		assert.NoDirExists(t, filepath.Join(root, "s", mockProviderName, "local"))
 	})
 
+	// The folders are created before Config.Validate runs, so the site ID has to be checked
+	// here: an empty one drops the site level, and one with .. escapes the sync root.
+	t.Run("an invalid site ID is an error and creates nothing", func(t *testing.T) {
+		t.Parallel()
+		for _, siteID := range []string{"", "../other", "Bad_ID"} {
+			parent := t.TempDir()
+			root := filepath.Join(parent, "sync")
+			require.NoError(t, os.Mkdir(root, 0o755))
+
+			err := af.CreateSyncDirs(&SyncPaths{Root: root, SiteID: siteID})
+			require.Error(t, err, "site ID %q", siteID)
+			assert.Contains(t, err.Error(), "settings.id")
+			entries, err := os.ReadDir(root)
+			require.NoError(t, err)
+			assert.Empty(t, entries, "nothing may be created under the root for site ID %q", siteID)
+			assert.NoDirExists(t, filepath.Join(parent, "other"), "nothing may escape the root")
+		}
+	})
+
 	t.Run("a synced album with no sync directory is an error naming the flag", func(t *testing.T) {
 		t.Parallel()
 		err := af.CreateSyncDirs(nil)

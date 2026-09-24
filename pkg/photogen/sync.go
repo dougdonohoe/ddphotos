@@ -119,7 +119,15 @@ func SyncAlbumPath(root, siteID, provider, slug string) string {
 // It runs whether the sync stage will, because ToAlbumConfigs stats every album
 // source and fails on a missing one. Creating the folder unconditionally means -no-sync on
 // an album that has never synced produces an empty album rather than a config error.
+//
+// It also runs before Config.Validate, so it checks the site ID itself before creating
+// anything under it.
 func (af *AlbumsFile) CreateSyncDirs(sync *SyncPaths) error {
+	if sync != nil && af.HasSyncedAlbums() {
+		if err := ValidateSiteID(sync.SiteID); err != nil {
+			return err
+		}
+	}
 	for _, a := range af.Albums {
 		if a.Sync == nil {
 			continue
