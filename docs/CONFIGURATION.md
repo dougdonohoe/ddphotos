@@ -266,8 +266,10 @@ descriptions. Because a caption can change upstream *or* locally between runs,
 
 Empty is a value, so clearing a description upstream clears an untouched local caption.
 Line order is preserved — existing photos keep their position and new ones are appended —
-so a manual ordering used by `manual_sort_order: true` survives a re-sync. To make local
-captions permanently authoritative, set `captions: false`.
+so a manual ordering used by `manual_sort_order: true` survives a re-sync. Comments, blank
+lines and subfolder entries stay where you put them. A line for a photo removed upstream is
+dropped, as is an entry naming neither a photo nor a subfolder. To make local captions
+permanently authoritative, set `captions: false`.
 
 Upstream descriptions are plain text and DD Photos captions render as HTML, so `&`, `<`
 and `>` are escaped on the way in. A caption you write by hand in `photogen.txt` is still

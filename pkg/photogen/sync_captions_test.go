@@ -84,9 +84,13 @@ func TestMergeSyncCaptions(t *testing.T) {
 
 	// run merges into a temp dir seeded with the given photogen.txt and returns the file
 	// as written plus any warnings raised.
-	run := func(t *testing.T, existing string, items []syncItem, prev *SyncMetadata) (string, []string) {
+	// subdirs are created in the album folder first, as a user would add them.
+	run := func(t *testing.T, existing string, items []syncItem, prev *SyncMetadata, subdirs ...string) (string, []string) {
 		t.Helper()
 		dir := t.TempDir()
+		for _, sd := range subdirs {
+			require.NoError(t, os.Mkdir(filepath.Join(dir, sd), 0o755))
+		}
 		if existing != "" {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, photogenFileName), []byte(existing), 0o644))
 		}
@@ -125,6 +129,45 @@ func TestMergeSyncCaptions(t *testing.T) {
 		got, _ := run(t, "a.jpg First\ngone.jpg Old\n",
 			syncItemsFor([2]string{"a.jpg", "First"}),
 			metaFor([2]string{"a.jpg", "First"}, [2]string{"gone.jpg", "Old"}))
+		assert.Equal(t, "a.jpg First\n", got)
+	})
+
+	// The file is the user's to edit, so what sync does not own is written back as found.
+	t.Run("comments and blank lines keep their place", func(t *testing.T) {
+		t.Parallel()
+		existing := "# Trip notes\n\nb.jpg Second\n  # indented, kept as typed\na.jpg First\n"
+		got, warnings := run(t, existing,
+			syncItemsFor([2]string{"a.jpg", "First"}, [2]string{"b.jpg", "Second"}),
+			metaFor([2]string{"a.jpg", "First"}, [2]string{"b.jpg", "Second"}))
+		assert.Equal(t, existing, got)
+		assert.Empty(t, warnings)
+	})
+
+	t.Run("a removed photo's line goes but the comments around it stay", func(t *testing.T) {
+		t.Parallel()
+		got, _ := run(t, "# header\na.jpg First\ngone.jpg Old\n# footer\n",
+			syncItemsFor([2]string{"a.jpg", "First"}, [2]string{"c.jpg", "Third"}),
+			metaFor([2]string{"a.jpg", "First"}, [2]string{"gone.jpg", "Old"}))
+		assert.Equal(t, "# header\na.jpg First\n# footer\nc.jpg Third\n", got)
+	})
+
+	// Prune leaves subdirectories alone, so a subfolder entry, which is how
+	// manual_sort_order places a subfolder, has to survive too.
+	t.Run("a subfolder entry keeps its place, written as found", func(t *testing.T) {
+		t.Parallel()
+		existing := "a.jpg First\n\"Extra Shots\"   Bonus\nb.jpg Second\n"
+		got, _ := run(t, existing,
+			syncItemsFor([2]string{"a.jpg", "First"}, [2]string{"b.jpg", "Second"}),
+			metaFor([2]string{"a.jpg", "First"}, [2]string{"b.jpg", "Second"}),
+			"Extra Shots")
+		assert.Equal(t, existing, got)
+	})
+
+	t.Run("an entry naming neither a photo nor a subfolder is dropped", func(t *testing.T) {
+		t.Parallel()
+		got, _ := run(t, "a.jpg First\nextras Bonus\n",
+			syncItemsFor([2]string{"a.jpg", "First"}),
+			metaFor([2]string{"a.jpg", "First"}))
 		assert.Equal(t, "a.jpg First\n", got)
 	})
 
