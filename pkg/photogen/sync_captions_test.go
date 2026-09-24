@@ -120,6 +120,23 @@ func TestMergeSyncCaptions(t *testing.T) {
 		assert.Empty(t, warnings)
 	})
 
+	// metadata.yaml records upstream captions even with captions: false, so turning captions
+	// on (or deleting photogen.txt) finds a baseline but no line. A missing line is not a
+	// local edit to an empty caption; a line with no text is.
+	t.Run("a photo with no line takes the upstream text", func(t *testing.T) {
+		t.Parallel()
+		items := syncItemsFor([2]string{"a.jpg", "Sunset"}, [2]string{"b.jpg", "Sunrise"})
+		prev := metaFor([2]string{"a.jpg", "Sunset"}, [2]string{"b.jpg", "Sunrise"})
+
+		got, warnings := run(t, "", items, prev)
+		assert.Equal(t, "a.jpg Sunset\nb.jpg Sunrise\n", got)
+		assert.Empty(t, warnings)
+
+		got, warnings = run(t, "b.jpg\n", items, prev)
+		assert.Equal(t, "b.jpg\na.jpg Sunset\n", got)
+		assert.Empty(t, warnings)
+	})
+
 	t.Run("both changed: upstream wins and the photo is named in the warning", func(t *testing.T) {
 		t.Parallel()
 		got, warnings := run(t, "a.jpg My own words\n",

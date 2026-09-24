@@ -85,11 +85,14 @@ func mergeSyncCaptions(dir string, items []syncItem, prev *SyncMetadata, warnf f
 
 	merged := func(it syncItem) string {
 		id := photogenID(it.file)
+		base := baseByFile[it.file]
+		// No line is not a local edit: the file may never have been written (captions was
+		// off, which still records the baseline) or was deleted. Treat it as untouched so
+		// upstream wins. A deliberately cleared caption is a line with no text.
 		localDesc, present := local[id]
 		if !present {
-			localDesc = ""
+			localDesc = base
 		}
-		base := baseByFile[it.file]
 		desc, conflict := mergeCaption(localDesc, base, it.caption)
 		if conflict {
 			warnf("WARN: caption for %s changed both locally and upstream; "+
