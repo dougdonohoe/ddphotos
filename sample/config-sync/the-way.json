@@ -36,7 +36,6 @@
       "id": "1b2c3d4e-0005-4000-8000-000000000005",
       "file_name": "IMG_9728.mov",
       "caption": "The video half of the Live Photo above. Not on disk: it is skipped with a warning before anything is fetched, because it and the .heic would reduce to the same photo ID.",
-      "is_video": true,
       "checksum": "mock-sum-9728-mov",
       "updated_at": "2026-09-18T23:13:00Z"
     },
@@ -51,7 +50,6 @@
       "id": "1b2c3d4e-0007-4000-8000-000000000007",
       "file_name": "ocean.mov",
       "caption": "A real video, transcoded by photogen like any other.",
-      "is_video": true,
       "checksum": "mock-sum-ocean",
       "updated_at": "2026-09-18T23:15:00Z"
     }

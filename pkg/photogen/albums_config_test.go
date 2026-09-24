@@ -500,7 +500,9 @@ albums:
 	})
 }
 
-func TestLoadAlbumConfigs(t *testing.T) {
+// The two halves cmd/photogen calls, with no sync in between: load the file, then resolve
+// it into album configs.
+func TestLoadAlbumsFileToAlbumConfigs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("end to end", func(t *testing.T) {
@@ -527,17 +529,19 @@ albums:
 			0o644,
 		))
 
-		configs, settings, err := LoadAlbumConfigs(configDir, "albums.yaml")
+		af, err := LoadAlbumsFile(filepath.Join(configDir, "albums.yaml"))
+		require.NoError(t, err)
+		configs, err := af.ToAlbumConfigs(configDir, nil)
 		require.NoError(t, err)
 		require.Len(t, configs, 1)
 		assert.Equal(t, "myalbum", configs[0].Slug)
 		assert.Equal(t, "A great album.", configs[0].Description)
 		assert.Equal(t, photoDir, configs[0].Path)
-		assert.Equal(t, "https://my.example.com", settings.SiteURL)
+		assert.Equal(t, "https://my.example.com", af.Settings.SiteURL)
 	})
 
 	t.Run("missing albums file", func(t *testing.T) {
-		_, _, err := LoadAlbumConfigs(t.TempDir(), "albums.yaml")
+		_, err := LoadAlbumsFile(filepath.Join(t.TempDir(), "albums.yaml"))
 		require.Error(t, err)
 	})
 }

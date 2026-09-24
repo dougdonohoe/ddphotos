@@ -15,9 +15,12 @@
 // Credentials come from IMMICH_API_KEY and IMMICH_INSTANCE_URL, or from immich.env in the
 // directory given by -config-dir, exactly as photogen resolves them.
 //
-// Two things are scrubbed before anything is written: owner.email, which appears in asset and
-// album payloads and is a real person's address, and the API key, which must never reach a
-// file that gets committed. The recorder exists as a command rather than a one-off script
+// Three things are scrubbed before anything is written: owner.email, which appears in asset
+// and album payloads and is a real person's address; each photo's location (exifInfo
+// latitude, longitude, city, state and country), since an album shot at home would otherwise
+// publish the home address; and the API key, which must never reach a file that gets
+// committed. -rescrub re-applies the rules to fixtures already recorded, without calling
+// Immich, for when a rule is added. The recorder exists as a command rather than a one-off script
 // because it doubles as a check that the request and response structs still match a real
 // server — a field Immich renames shows up here first.
 package main
@@ -28,12 +31,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dougdonohoe/ddphotos/pkg/photogen"
 )
 
 // pageSize matches immichPageSize in pkg/photogen, so recorded fixtures page the way a real
@@ -42,14 +48,23 @@ var (
 	out       = flag.String("out", filepath.Join("pkg", "photogen", "testdata", "immich"), "directory to write fixtures into")
 	configDir = flag.String("config-dir", "config", "directory holding immich.env")
 	pageSize  = flag.Int("size", 500, "page size for the search request")
+	rescrub   = flag.Bool("rescrub", false, "re-apply the scrub rules to every .json fixture under -out, without calling Immich")
 )
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: immich-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uuid>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: immich-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uuid>\n"+
+			"       immich-record [-out <dir>] -rescrub\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if *rescrub {
+		if err := rescrubDir(*out); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if flag.NArg() != 1 {
 		flag.Usage()
 		os.Exit(1)
@@ -140,40 +155,10 @@ func run(albumID string) error {
 	}
 }
 
-// credentials mirrors loadImmichCredentials: the environment wins over the file, and the URL
-// is accepted with or without its /api suffix. It is a copy rather than a call because the
-// real one is unexported, and a recorder that drifts from it is a recorder that fails loudly.
+// credentials resolves the API key and instance URL through photogen itself, so the
+// environment wins over immich.env and the URL is normalized exactly as a sync run does it.
 func credentials(configDir string) (apiKey, baseURL string, err error) {
-	fileVals := map[string]string{}
-	data, readErr := os.ReadFile(filepath.Join(configDir, "immich.env"))
-	if readErr == nil {
-		for line := range strings.SplitSeq(string(data), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			k, v, ok := strings.Cut(line, "=")
-			if !ok {
-				continue
-			}
-			fileVals[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"'`)
-		}
-	}
-	lookup := func(key string) string {
-		if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-			return v
-		}
-		return fileVals[key]
-	}
-
-	apiKey = lookup("IMMICH_API_KEY")
-	baseURL = strings.TrimSuffix(strings.TrimSuffix(lookup("IMMICH_INSTANCE_URL"), "/"), "/api")
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	if apiKey == "" || baseURL == "" {
-		return "", "", fmt.Errorf("set IMMICH_API_KEY and IMMICH_INSTANCE_URL, or put them in %s",
-			filepath.Join(configDir, "immich.env"))
-	}
-	return apiKey, baseURL, nil
+	return photogen.LoadImmichCredentials(filepath.Join(configDir, photogen.ImmichEnvFileName))
 }
 
 func call(client *http.Client, apiKey, method, url string, body []byte) ([]byte, error) {
@@ -233,13 +218,35 @@ func write(path string, data []byte, apiKey string) error {
 }
 
 // scrubbedKeys are replaced wherever they appear, at any depth. email is a real person's
-// address; the others are tokens.
-var scrubbedKeys = map[string]string{
+// address; the location fields place a photo, and are nulled rather than removed because
+// null is what Immich sends for a photo with no GPS; the others are tokens.
+var scrubbedKeys = map[string]any{
 	"email":          "owner@example.com",
+	"latitude":       nil,
+	"longitude":      nil,
+	"city":           nil,
+	"state":          nil,
+	"country":        nil,
 	"apiKey":         "scrubbed",
 	"accessToken":    "scrubbed",
 	"password":       "scrubbed",
 	"profileImageId": "",
+}
+
+// rescrubDir rewrites every .json file under dir through write, so fixtures recorded before a
+// scrub rule existed get it too. The output is byte-identical to a fresh recording's, since
+// it goes through the same unmarshal, scrub and indent.
+func rescrubDir(dir string) error {
+	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".json") {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return write(path, data, "")
+	})
 }
 
 func scrub(v any) any {

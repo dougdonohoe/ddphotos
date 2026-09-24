@@ -43,7 +43,6 @@
       "id": "0a1b2c3d-0006-4000-8000-000000000006",
       "file_name": "penguins_movie.mov",
       "caption": "Gentoos, going about their day.",
-      "is_video": true,
       "checksum": "mock-sum-penguins-movie",
       "updated_at": "2026-09-18T22:45:00Z"
     }
