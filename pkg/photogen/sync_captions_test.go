@@ -54,13 +54,29 @@ func syncItemsFor(pairs ...[2]string) []syncItem {
 	return items
 }
 
-// metaFor builds the previous run's record, which is the merge's baseline.
+// metaFor builds the previous run's record, which is the merge's baseline. Records carry
+// no asset ID unless a test sets one; see attachPrev.
 func metaFor(pairs ...[2]string) *SyncMetadata {
 	m := &SyncMetadata{}
 	for _, p := range pairs {
 		m.Photos = append(m.Photos, SyncPhotoMeta{File: p[0], Caption: p[1]})
 	}
 	return m
+}
+
+// attachPrev does what assignSyncFileNames does for the merge: it gives each item the
+// previous run's record for the same asset. A record with no asset ID is taken to be the
+// item's own when the file name matches, which keeps most tests down to file/caption pairs;
+// a test about a different asset holding the name sets the record's AssetID.
+func attachPrev(items []syncItem, prev *SyncMetadata) {
+	for i := range items {
+		for j := range prev.Photos {
+			rec := &prev.Photos[j]
+			if rec.File == items[i].file && (rec.AssetID == "" || rec.AssetID == items[i].asset.ID) {
+				items[i].prev = rec
+			}
+		}
+	}
 }
 
 func TestMergeSyncCaptions(t *testing.T) {
@@ -78,7 +94,8 @@ func TestMergeSyncCaptions(t *testing.T) {
 		warnf := func(format string, args ...any) {
 			warnings = append(warnings, strings.TrimSpace(fmt.Sprintf(format, args...)))
 		}
-		require.NoError(t, mergeSyncCaptions(dir, items, prev, warnf))
+		attachPrev(items, prev)
+		require.NoError(t, mergeSyncCaptions(dir, items, warnf))
 		data, err := os.ReadFile(filepath.Join(dir, photogenFileName))
 		require.NoError(t, err)
 		return string(data), warnings
@@ -120,6 +137,42 @@ func TestMergeSyncCaptions(t *testing.T) {
 		assert.Empty(t, warnings)
 	})
 
+	// metadata.yaml records upstream captions even with captions: false, so turning captions
+	// on (or deleting photogen.txt) finds a baseline but no line. A missing line is not a
+	// local edit to an empty caption; a line with no text is.
+	t.Run("a photo with no line takes the upstream text", func(t *testing.T) {
+		t.Parallel()
+		items := syncItemsFor([2]string{"a.jpg", "Sunset"}, [2]string{"b.jpg", "Sunrise"})
+		prev := metaFor([2]string{"a.jpg", "Sunset"}, [2]string{"b.jpg", "Sunrise"})
+
+		got, warnings := run(t, "", items, prev)
+		assert.Equal(t, "a.jpg Sunset\nb.jpg Sunrise\n", got)
+		assert.Empty(t, warnings)
+
+		got, warnings = run(t, "b.jpg\n", items, prev)
+		assert.Equal(t, "b.jpg\na.jpg Sunset\n", got)
+		assert.Empty(t, warnings)
+	})
+
+	// A new asset can be given a removed asset's name. The line under that name belongs to
+	// the removed asset, so the new one must not inherit its caption or its baseline.
+	t.Run("a new asset reusing a removed asset's name takes only its own caption", func(t *testing.T) {
+		t.Parallel()
+		// The old asset had no upstream caption, and the user wrote one locally.
+		prev := metaFor([2]string{"IMG_0001.jpg", ""})
+		prev.Photos[0].AssetID = "old-asset"
+
+		got, warnings := run(t, "IMG_0001.jpg Written for the old photo\n",
+			syncItemsFor([2]string{"IMG_0001.jpg", ""}), prev)
+		assert.Equal(t, "IMG_0001.jpg\n", got)
+		assert.Empty(t, warnings)
+
+		got, warnings = run(t, "IMG_0001.jpg Written for the old photo\n",
+			syncItemsFor([2]string{"IMG_0001.jpg", "New upstream"}), prev)
+		assert.Equal(t, "IMG_0001.jpg New upstream\n", got)
+		assert.Empty(t, warnings, "a different asset's edit is not a conflict")
+	})
+
 	t.Run("both changed: upstream wins and the photo is named in the warning", func(t *testing.T) {
 		t.Parallel()
 		got, warnings := run(t, "a.jpg My own words\n",
@@ -158,7 +211,7 @@ func TestMergeSyncCaptions(t *testing.T) {
 			[2]string{"Sue and Bob.jpg", "A &amp; B"},
 			[2]string{"plain.jpg", ""},
 		)
-		require.NoError(t, mergeSyncCaptions(dir, items, &SyncMetadata{}, func(string, ...any) {}))
+		require.NoError(t, mergeSyncCaptions(dir, items, func(string, ...any) {}))
 
 		pd, err := loadPhotoDescriptions(dir)
 		require.NoError(t, err)
@@ -166,6 +219,34 @@ func TestMergeSyncCaptions(t *testing.T) {
 		assert.Equal(t, "So wide open!", pd.descriptions["img_1583"])
 		assert.Equal(t, "A &amp; B", pd.descriptions["sue and bob"])
 		assert.Equal(t, "", pd.descriptions["plain"])
+	})
+
+	// parsePhotogenLine does no unescaping, so a quoted name has to be written verbatim.
+	// The emoji here is joined by U+200D, which is not printable and which %q escaped to a
+	// literal ‍ that no photo's key ever matched.
+	t.Run("a quoted name with a non-printable rune is written verbatim", func(t *testing.T) {
+		t.Parallel()
+		name := "Family \U0001F468‍\U0001F469‍\U0001F467.jpg"
+		dir := t.TempDir()
+		items := syncItemsFor([2]string{name, "Reunion"}, [2]string{"b.jpg", "Other"})
+		require.NoError(t, mergeSyncCaptions(dir, items, func(string, ...any) {}))
+
+		data, err := os.ReadFile(filepath.Join(dir, photogenFileName))
+		require.NoError(t, err)
+		assert.Equal(t, `"`+name+`" Reunion`+"\nb.jpg Other\n", string(data))
+
+		pd, err := loadPhotoDescriptions(dir)
+		require.NoError(t, err)
+		assert.Equal(t, "Reunion", pd.descriptions[photogenID(name)])
+
+		// A re-sync must find the line again, so it keeps its place rather than being
+		// dropped and re-appended after b.jpg.
+		items = syncItemsFor([2]string{"b.jpg", "Other"}, [2]string{name, "Reunion"})
+		attachPrev(items, metaFor([2]string{name, "Reunion"}, [2]string{"b.jpg", "Other"}))
+		require.NoError(t, mergeSyncCaptions(dir, items, func(string, ...any) {}))
+		data, err = os.ReadFile(filepath.Join(dir, photogenFileName))
+		require.NoError(t, err)
+		assert.Equal(t, `"`+name+`" Reunion`+"\nb.jpg Other\n", string(data))
 	})
 
 	t.Run("a hand-written entry with no extension is matched and canonicalized", func(t *testing.T) {

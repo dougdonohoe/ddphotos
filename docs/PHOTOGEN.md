@@ -102,10 +102,13 @@ It records two things, both keyed by the source file's modification time and siz
 
 - **Photo metadata** (dimensions, orientation, EXIF date). Without the cache every photo
   is decoded on every run just to recover four values, even when nothing needs resizing.
-- **Stamps for fixed-name outputs** (`cover.jpg`, `hero.jpg`). These cannot use the normal
-  "output already exists, skip it" rule, because the same filename is produced from a
-  source that may have been swapped, so they used to be re-encoded on every run. The stamp
-  records which source and settings produced the file, making the skip safe.
+- **Stamps for generated files.** "The output already exists" is not enough to skip one.
+  Fixed-name outputs (`cover.jpg`, `hero.jpg`) can be pointed at a different source, and
+  the grid/full WebPs and video MP4s keep their names when a source is replaced in place
+  (as sync does when a photo changes upstream). The stamp records which source and
+  settings produced the file, making the skip safe. A WebP or MP4 that exists but has no
+  stamp yet, such as one written before the cache tracked them, is trusted and stamped
+  rather than regenerated, so the first run after an upgrade does not redo the whole site.
 
 Anything that changes is picked up automatically: editing or replacing a source photo,
 pointing an album at a different `cover`, changing the hero `image` or `crop`, or deleting

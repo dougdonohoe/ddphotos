@@ -20,7 +20,7 @@ const MetaCacheFileName = "metadata-cache.json"
 // saving is far larger than for photos, since the alternative is an ffprobe subprocess.
 //
 // Reading metadata is the dominant cost of a run with nothing to resize: resizing
-// already short-circuits on an os.Stat of the output file, but every photo was
+// short-circuits on the output's stamp (see OutputUpToDate), but every photo was
 // previously decoded on every run just to recover width, height, orientation and date.
 //
 // Metadata depends only on the source file, so a single cache is shared by every
@@ -45,10 +45,11 @@ type metaCacheFile struct {
 }
 
 // derivedCacheEntry records which source file (and which settings) produced a derived
-// output whose filename is fixed, such as cover.jpg and hero.jpg. Those cannot use the
-// usual "output exists, skip it" rule, because the same output name is produced from a
-// source that may have been swapped for a different photo. Stamping the output with its
-// source lets a re-run tell "already up to date" apart from "needs regenerating".
+// output. Neither kind of output can use a bare "output exists, skip it" rule: a
+// fixed-name output (cover.jpg, hero.jpg) can be re-pointed at a different photo, and an
+// output named after its source (grid/full webps, video MP4s) keeps its name when the
+// source is replaced in place. Stamping the output with its source lets a re-run tell
+// "already up to date" apart from "needs regenerating".
 type derivedCacheEntry struct {
 	Source      string `json:"source"`
 	ModTimeNano int64  `json:"modTimeNano"`
@@ -153,8 +154,50 @@ func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant string) boo
 		entry.Variant == variant
 }
 
-// RecordDerived stamps a freshly written fixed-name output with the source and settings
-// that produced it. Safe on a nil receiver.
+// OutputUpToDate reports whether an output named after its source (a photo's grid and full
+// webps, a video's MP4 and posters) still reflects that source. The name alone cannot say:
+// a source replaced in place, which is what a sync does when an asset changes upstream or
+// a new asset reuses a removed one's name, keeps the old output's name.
+//
+// It differs from DerivedUpToDate in three ways, each so that turning this on costs nothing:
+//
+//   - An existing output with no stamp is trusted and stamped, not regenerated. Outputs
+//     written before the cache tracked them would otherwise all be redone on the first run,
+//     video transcodes included. From that run on, a replaced source is caught.
+//   - The source path is not compared, only its mtime and size. The output name already
+//     ties it to the source, and a path check would redo every photo when the source
+//     directory is reached through a different path (Docker mounts it elsewhere).
+//   - A nil cache, or a source that cannot be stat'd, falls back to "the output exists",
+//     the rule this replaces, rather than regenerating everything.
+func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath string) bool {
+	if _, err := os.Stat(outputPath); err != nil {
+		return false // output missing (or unreadable): regenerate
+	}
+	if mc == nil {
+		return true
+	}
+	stat, err := os.Stat(sourcePath)
+	if err != nil {
+		return true
+	}
+
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	entry, ok := mc.derived[outputPath]
+	if !ok {
+		mc.derived[outputPath] = derivedCacheEntry{
+			Source:      sourcePath,
+			ModTimeNano: stat.ModTime().UnixNano(),
+			Size:        stat.Size(),
+		}
+		mc.dirty = true
+		return true
+	}
+	return entry.ModTimeNano == stat.ModTime().UnixNano() && entry.Size == stat.Size()
+}
+
+// RecordDerived stamps a freshly written output with the source and settings that
+// produced it. Safe on a nil receiver.
 func (mc *MetaCache) RecordDerived(outputPath, sourcePath, variant string) {
 	if mc == nil {
 		return

@@ -453,3 +453,78 @@ func TestMetaCache_Derived(t *testing.T) {
 		assert.False(t, reloaded.DerivedUpToDate(out, src, "center"))
 	})
 }
+
+func TestMetaCache_OutputUpToDate(t *testing.T) {
+	// setup returns a cache plus an existing source and an output named after it.
+	setup := func(t *testing.T) (*MetaCache, string, string) {
+		t.Helper()
+		dir := t.TempDir()
+		src := copyFixture(t, dir, realFixture)
+		out := filepath.Join(dir, "landscape-1.webp")
+		require.NoError(t, os.WriteFile(out, []byte("generated"), 0644))
+		return NewMetaCache(filepath.Join(dir, MetaCacheFileName)), src, out
+	}
+
+	t.Run("a missing output is not up to date", func(t *testing.T) {
+		mc, src, out := setup(t)
+		require.NoError(t, os.Remove(out))
+		assert.False(t, mc.OutputUpToDate(out, src))
+	})
+
+	t.Run("an unstamped output is adopted", func(t *testing.T) {
+		mc, src, out := setup(t)
+		assert.True(t, mc.OutputUpToDate(out, src), "existing output must be trusted, not redone")
+		assert.Contains(t, mc.derived, out, "and stamped with the source it was trusted against")
+	})
+
+	t.Run("a stamped output is up to date", func(t *testing.T) {
+		mc, src, out := setup(t)
+		mc.RecordDerived(out, src, "")
+		assert.True(t, mc.OutputUpToDate(out, src))
+	})
+
+	t.Run("a source replaced with different bytes invalidates", func(t *testing.T) {
+		mc, src, out := setup(t)
+		mc.RecordDerived(out, src, "")
+		other, err := os.ReadFile(filepath.Join("testdata", "portrait-1.jpg"))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(src, other, 0644))
+		assert.False(t, mc.OutputUpToDate(out, src))
+	})
+
+	t.Run("an adopted output catches a later replacement", func(t *testing.T) {
+		mc, src, out := setup(t)
+		require.True(t, mc.OutputUpToDate(out, src))
+		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
+		assert.False(t, mc.OutputUpToDate(out, src))
+	})
+
+	// Docker mounts the source directory somewhere else, so the same file is reached
+	// through a different path. That must not redo the album.
+	t.Run("the same source reached by another path is up to date", func(t *testing.T) {
+		mc, src, out := setup(t)
+		mc.RecordDerived(out, src, "")
+		stat, err := os.Stat(src)
+		require.NoError(t, err)
+		moved := copyFixture(t, t.TempDir(), realFixture)
+		require.NoError(t, os.Chtimes(moved, stat.ModTime(), stat.ModTime()))
+		assert.True(t, mc.OutputUpToDate(out, moved))
+	})
+
+	t.Run("a nil cache only checks that the output exists", func(t *testing.T) {
+		_, src, out := setup(t)
+		var mc *MetaCache
+		assert.True(t, mc.OutputUpToDate(out, src))
+		assert.False(t, mc.OutputUpToDate(out+".missing", src))
+	})
+
+	t.Run("an adopted stamp survives a round trip", func(t *testing.T) {
+		mc, src, out := setup(t)
+		require.True(t, mc.OutputUpToDate(out, src))
+		require.NoError(t, mc.Save())
+
+		reloaded := LoadMetaCache(mc.path, nil)
+		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
+		assert.False(t, reloaded.OutputUpToDate(out, src), "a saved adoption must still catch a change")
+	})
+}

@@ -373,7 +373,7 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 	// recorded, and because a failure here must not leave a new record claiming captions
 	// that were never merged.
 	if ac.Sync.Captions {
-		if err := mergeSyncCaptions(ac.Path, items, prev, warnf); err != nil {
+		if err := mergeSyncCaptions(ac.Path, items, warnf); err != nil {
 			return err
 		}
 	}

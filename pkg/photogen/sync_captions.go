@@ -64,9 +64,10 @@ func mergeCaption(local, base, upstream string) (result string, conflict bool) {
 // because manual_sort_order: true reads its order from this file, so an ordering set by
 // hand or through the DD Photos App survives a re-sync.
 //
-// prev is the metadata record written by the *previous* run, which is what makes the
-// baseline comparison possible; syncOneAlbum passes it in and replaces the file afterward.
-func mergeSyncCaptions(dir string, items []syncItem, prev *SyncMetadata, warnf func(string, ...any)) error {
+// The baseline is each item's own record from the *previous* run (syncItem.prev, found by
+// asset ID), which syncOneAlbum replaces afterward. It is looked up by asset rather than by
+// file name because a new asset can be given a removed asset's name.
+func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any)) error {
 	path := filepath.Join(dir, photogenFileName)
 	existing, err := readCaptionLines(path)
 	if err != nil {
@@ -76,20 +77,25 @@ func mergeSyncCaptions(dir string, items []syncItem, prev *SyncMetadata, warnf f
 	for _, l := range existing {
 		local[l.id] = l.desc
 	}
-	baseByFile := prev.captionByFile()
-
 	byID := make(map[string]syncItem, len(items))
 	for _, it := range items {
 		byID[photogenID(it.file)] = it
 	}
 
 	merged := func(it syncItem) string {
-		id := photogenID(it.file)
-		localDesc, present := local[id]
-		if !present {
-			localDesc = ""
+		// A new asset has no baseline, and any line under its name was written for a
+		// removed asset that had the name before it.
+		if it.prev == nil {
+			return it.caption
 		}
-		base := baseByFile[it.file]
+		base := it.prev.Caption
+		// No line is not a local edit: the file may never have been written (captions was
+		// off, which still records the baseline) or was deleted. Treat it as untouched so
+		// upstream wins. A deliberately cleared caption is a line with no text.
+		localDesc, present := local[photogenID(it.file)]
+		if !present {
+			localDesc = base
+		}
 		desc, conflict := mergeCaption(localDesc, base, it.caption)
 		if conflict {
 			warnf("WARN: caption for %s changed both locally and upstream; "+
@@ -133,9 +139,13 @@ func mergeSyncCaptions(dir string, items []syncItem, prev *SyncMetadata, warnf f
 // everything after the first word look like the description — and also when the line would
 // start with a character scanLines treats specially, so a file name beginning with # is not
 // silently read back as a comment.
+//
+// The quotes go around the name verbatim, not via %q: parsePhotogenLine does no unescaping,
+// so %q's ‍ for a zero-width joiner would be read back as literal text. Verbatim is
+// safe because sanitizeSyncFileName strips any " from the name.
 func writeCaptionLine(b *strings.Builder, name, desc string) {
 	if strings.ContainsAny(name, " \t") || strings.HasPrefix(name, "#") || strings.HasPrefix(name, `"`) {
-		fmt.Fprintf(b, "%q", name)
+		b.WriteString(`"` + name + `"`)
 	} else {
 		b.WriteString(name)
 	}

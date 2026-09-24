@@ -47,6 +47,7 @@ type immichServer struct {
 	apiKeys  []string
 }
 
+//goland:noinspection GoUnhandledErrorResult
 func (s *immichServer) start() *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
@@ -443,34 +444,68 @@ func TestImmichProviderPaging(t *testing.T) {
 	}
 }
 
-// A non-null nextPage on the first page already proves the album is over the cap while
-// immichPageSize and maxAlbumPhotos are equal, which is why this costs no extra request.
-func TestImmichProviderOverLimit(t *testing.T) {
-	t.Parallel()
-
-	items := make([]map[string]any, maxAlbumPhotos)
-	for i := range items {
+// immichPage builds one search response page, with nextPage "" meaning the last page.
+func immichPage(t *testing.T, names []string, idOffset int, nextPage string) []byte {
+	t.Helper()
+	items := make([]map[string]any, len(names))
+	for i, name := range names {
 		items[i] = map[string]any{
-			"id":               fmt.Sprintf("asset-%d", i),
-			"originalFileName": fmt.Sprintf("IMG_%04d.jpg", i),
+			"id":               fmt.Sprintf("asset-%d", idOffset+i),
+			"originalFileName": name,
 			"checksum":         "sum",
 			"type":             "IMAGE",
 			"visibility":       immichVisibilityTimeline,
 		}
 	}
+	var next any
+	if nextPage != "" {
+		next = nextPage
+	}
 	page, err := json.Marshal(map[string]any{
-		"assets": map[string]any{"items": items, "nextPage": "2"},
+		"assets": map[string]any{"items": items, "nextPage": next},
 	})
 	require.NoError(t, err)
+	return page
+}
 
-	s := &immichServer{t: t, pages: [][]byte{page}}
+// The asset cap applies to what photogen can publish, which is only known after
+// filterSyncAssets has dropped RAW, unsupported files and base-name clashes. So the provider
+// lists the whole album and leaves the cap to syncOneAlbum, rather than counting assets that
+// are about to be filtered out.
+func TestImmichProviderRawPairsUnderTheCap(t *testing.T) {
+	t.Parallel()
+
+	// 300 RAW+JPEG pairs: 600 assets, of which 300 are publishable.
+	names := make([]string, 0, 600)
+	for i := range 300 {
+		names = append(names, fmt.Sprintf("IMG_%04d.CR2", i), fmt.Sprintf("IMG_%04d.jpg", i))
+	}
+	s := &immichServer{t: t, pages: [][]byte{
+		immichPage(t, names[:immichPageSize], 0, "2"),
+		immichPage(t, names[immichPageSize:], immichPageSize, ""),
+	}}
 	p, _ := s.provider(s.start())
 
-	_, err = p.Assets(context.Background(), "big-album")
+	assets, err := p.Assets(context.Background(), "raw-album")
+	require.NoError(t, err)
+	assert.Len(t, assets, 600)
+	assert.Len(t, filterSyncAssets(assets, func(string, ...any) {}), 300)
+}
+
+// A nextPage that does not move forward would page forever.
+func TestImmichProviderPageDoesNotAdvance(t *testing.T) {
+	t.Parallel()
+
+	s := &immichServer{t: t, pages: [][]byte{
+		immichPage(t, []string{"a.jpg"}, 0, "2"),
+		immichPage(t, []string{"b.jpg"}, 1, "2"),
+	}}
+	p, _ := s.provider(s.start())
+
+	_, err := p.Assets(context.Background(), "album")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "big-album")
-	assert.Contains(t, err.Error(), "500")
-	assert.Len(t, s.searches, 1, "the limit is detected without fetching a second page")
+	assert.Contains(t, err.Error(), `nextPage "2"`)
+	assert.Len(t, s.searches, 2)
 }
 
 // Only the three rules that need Immich's own fields belong here. Unsupported extensions and
@@ -605,6 +640,7 @@ func TestImmichProviderFetch(t *testing.T) {
 		t.Parallel()
 		rc, err := p.Fetch(context.Background(), SyncAsset{ID: "id-1", FileName: "IMG_1.jpg"})
 		require.NoError(t, err)
+		//goland:noinspection GoUnhandledErrorResult
 		defer rc.Close() //nolint:errcheck
 		body, err := io.ReadAll(rc)
 		require.NoError(t, err)

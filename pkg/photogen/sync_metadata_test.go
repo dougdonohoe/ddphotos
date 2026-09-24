@@ -65,7 +65,7 @@ func TestSyncMetadataRoundTrip(t *testing.T) {
 		assert.Contains(t, string(data), "Do not edit")
 	})
 
-	t.Run("indexes are keyed the two ways the sync run needs", func(t *testing.T) {
+	t.Run("records are indexed by asset ID", func(t *testing.T) {
 		t.Parallel()
 		m := &SyncMetadata{Photos: []SyncPhotoMeta{
 			{AssetID: "a1", File: "one.jpg", Caption: "One"},
@@ -74,7 +74,6 @@ func TestSyncMetadataRoundTrip(t *testing.T) {
 		byID := m.byAssetID()
 		require.Contains(t, byID, "a2")
 		assert.Equal(t, "two.jpg", byID["a2"].File)
-		assert.Equal(t, map[string]string{"one.jpg": "One", "two.jpg": "Two"}, m.captionByFile())
 	})
 }
 
