@@ -71,9 +71,6 @@ func TestRunSiteWrites(t *testing.T) {
 	})
 }
 
-// -clean deletes anything under a processed album that the run did not track. All three
-// rules here exist because a flag combination leaves files untracked that are nonetheless
-// real output, so the delete would take work the user still wants.
 func TestValidateSyncFlags(t *testing.T) {
 	t.Parallel()
 
@@ -94,6 +91,9 @@ func TestValidateSyncFlags(t *testing.T) {
 	})
 }
 
+// -clean deletes anything under a processed album that the run did not track. All three
+// rules here exist because a flag combination leaves files untracked that are nonetheless
+// real output, so the delete would take work the user still wants.
 func TestValidateCleanFlags(t *testing.T) {
 	t.Parallel()
 
