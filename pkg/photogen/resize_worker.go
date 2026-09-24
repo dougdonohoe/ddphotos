@@ -23,6 +23,8 @@ type videoWork struct {
 	photo       *Photo
 	videoPath   string
 	posterPaths map[ImageSize]string
+	needVideo   bool // the MP4 is missing or stale
+	needPoster  bool // at least one poster is missing or stale
 	photoIndex  int
 	totalCount  int
 }
@@ -32,9 +34,15 @@ type videoWork struct {
 // Output: outputRoot/albums/[album-slug]/[size]/[filename].webp
 // Videos additionally produce outputRoot/albums/[album-slug]/video/[filename].mp4
 func (ap *AlbumProcessor) ResizePhotos() error {
-	// Build list of work, skipping variants that already exist. ResizeImage would skip
-	// them anyway, but filtering here avoids dispatching a goroutine and printing a line
-	// for every up-to-date file, which is the bulk of the work on a re-run.
+	// Build list of work, skipping variants that are up to date. Filtering here avoids
+	// dispatching a goroutine and printing a line for every up-to-date file, which is the
+	// bulk of the work on a re-run. Up to date means the output exists and was made from
+	// the source's current bytes (OutputUpToDate), so a source replaced under the same
+	// name is redone.
+	cache := ap.Config.MetaCache
+	upToDateFor := func(outPath, sourcePath string) bool {
+		return !ap.Config.Force && cache.OutputUpToDate(outPath, sourcePath)
+	}
 	sizes := AllSizes()
 	items := make([]resizeWork, 0, len(ap.Photos)*len(sizes))
 	videos := make([]videoWork, 0)
@@ -53,19 +61,18 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			}
 			// Tracked whether they need writing, so -clean keeps existing files.
 			ap.Config.TrackFile(vw.videoPath)
-			need := ap.Config.Force
-			if _, err := os.Stat(vw.videoPath); err != nil {
-				need = true
-			}
+			vw.needVideo = !upToDateFor(vw.videoPath, photo.AbsolutePath)
 			for _, size := range sizes {
 				p := ap.OutputPath(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, photo.FileName))
 				ap.Config.TrackFile(p)
 				vw.posterPaths[size] = p
-				if _, err := os.Stat(p); err != nil {
-					need = true
+				// Every poster is checked, not just until one is stale, so each one without
+				// a stamp gets adopted on this run.
+				if !upToDateFor(p, photo.AbsolutePath) {
+					vw.needPoster = true
 				}
 			}
-			if need {
+			if vw.needVideo || vw.needPoster {
 				videos = append(videos, vw)
 			} else {
 				upToDate += len(sizes) + 1
@@ -77,11 +84,9 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			outPath := ap.OutputPath(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, photo.FileName))
 			// Tracked whether it needs writing, so -clean keeps existing files.
 			ap.Config.TrackFile(outPath)
-			if !ap.Config.Force {
-				if _, err := os.Stat(outPath); err == nil {
-					upToDate++
-					continue
-				}
+			if upToDateFor(outPath, photo.AbsolutePath) {
+				upToDate++
+				continue
 			}
 			items = append(items, resizeWork{
 				photo:      photo,
@@ -110,15 +115,20 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 
 func (ap *AlbumProcessor) runResizeWorkers(items []resizeWork, numWorkers int) error {
 	return runPool(items, numWorkers, func(workerID int, item resizeWork) error {
+		// Forced because ResizePhotos only queues what needs writing, which includes an
+		// existing output whose source has been replaced.
 		result, err := ResizeImage(
 			item.photo.AbsolutePath,
 			item.outputPath,
 			item.size,
-			ap.Config.Force,
+			true,
 			ap.Config.DryRun,
 		)
 		if err != nil {
 			return fmt.Errorf("resize %s to %s: %w", item.photo.AbsolutePath, item.size, err)
+		}
+		if result.Written {
+			ap.Config.MetaCache.RecordDerived(item.outputPath, item.photo.AbsolutePath, "")
 		}
 		fmt.Printf("    [w%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, result.Message)
 		return nil
@@ -137,31 +147,27 @@ func (ap *AlbumProcessor) runVideoWorkers(videos []videoWork, numWorkers int) er
 
 // processVideo produces the MP4 and the poster stills for one source video.
 func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
-	result, err := TranscodeVideo(item.photo.AbsolutePath, item.videoPath, ap.Config.Force, ap.Config.DryRun)
-	if err != nil {
-		return fmt.Errorf("transcode %s: %w", item.photo.AbsolutePath, err)
-	}
-	fmt.Printf("    [v%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, result.Message)
+	source := item.photo.AbsolutePath
+	if item.needVideo {
+		// Forced for the same reason as the photo resize: a stale MP4 still exists.
+		result, err := TranscodeVideo(source, item.videoPath, true, ap.Config.DryRun)
+		if err != nil {
+			return fmt.Errorf("transcode %s: %w", source, err)
+		}
+		if result.Written {
+			ap.Config.MetaCache.RecordDerived(item.videoPath, source, "")
+		}
+		fmt.Printf("    [v%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, result.Message)
 
-	if warn := VideoOversizeWarning(item.videoPath); warn != "" {
-		ap.warnf("  WARN: %s\n", warn)
+		if warn := VideoOversizeWarning(item.videoPath); warn != "" {
+			ap.warnf("  WARN: %s\n", warn)
+		}
 	}
 
 	// The poster is extracted once to a temporary JPEG and then run through the ordinary
 	// image pipeline, so it picks up the same WebP quality ladder and metadata stripping
 	// as every other image in the album rather than needing a parallel implementation.
-	needPoster := false
-	for _, p := range item.posterPaths {
-		if ap.Config.Force {
-			needPoster = true
-			break
-		}
-		if _, err := os.Stat(p); err != nil {
-			needPoster = true
-			break
-		}
-	}
-	if !needPoster {
+	if !item.needPoster {
 		return nil
 	}
 
@@ -184,7 +190,7 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		duration = item.photo.Duration
 	}
 	posterJPEG := filepath.Join(tmpDir, "poster.jpg")
-	if err := ExtractPoster(item.photo.AbsolutePath, posterJPEG, duration); err != nil {
+	if err := ExtractPoster(source, posterJPEG, duration); err != nil {
 		return err
 	}
 
@@ -192,7 +198,12 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		outPath := item.posterPaths[size]
 		res, err := ResizeImage(posterJPEG, outPath, size, true, false)
 		if err != nil {
-			return fmt.Errorf("poster %s to %s: %w", item.photo.AbsolutePath, size, err)
+			return fmt.Errorf("poster %s to %s: %w", source, size, err)
+		}
+		// Stamped with the video, not the temporary JPEG: the video is what a later run
+		// compares against.
+		if res.Written {
+			ap.Config.MetaCache.RecordDerived(outPath, source, "")
 		}
 		fmt.Printf("    [v%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, res.Message)
 	}

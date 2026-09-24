@@ -1,6 +1,7 @@
 package photogen
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,6 +71,106 @@ func TestResizePhotos_SkipExistingWithoutReadingSource(t *testing.T) {
 
 	require.NoError(t, os.Remove(src))
 	assert.NoError(t, ap.ResizePhotos(), "existing outputs must be skipped without opening the source")
+}
+
+// writeFixtureAs copies a testdata file to dst, replacing whatever is there. This is what a
+// sync does when an asset changes upstream, or a new asset reuses a removed one's name.
+func writeFixtureAs(t *testing.T, dst, fixture string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", fixture))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(dst, data, 0644))
+}
+
+// readOutputs returns the contents of each path, so a test can tell a re-render from a skip.
+func readOutputs(t *testing.T, paths ...string) [][]byte {
+	t.Helper()
+	out := make([][]byte, 0, len(paths))
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		require.NoError(t, err)
+		out = append(out, data)
+	}
+	return out
+}
+
+// photoOutputs returns every webp a still named filename produces, built literally for the
+// same reason as videoOutputs.
+func photoOutputs(ap *AlbumProcessor, filename string) []string {
+	stem := strings.TrimSuffix(filename, filepath.Ext(filename))
+	paths := make([]string, 0, len(AllSizes()))
+	for _, size := range AllSizes() {
+		paths = append(paths, ap.OutputPath(string(size), stem+".webp"))
+	}
+	return paths
+}
+
+// rerun resizes the same photos again against the same output and config, as the next
+// photogen run would.
+func rerun(t *testing.T, ap *AlbumProcessor) {
+	t.Helper()
+	next := NewAlbumProcessor(ap.Config, ap.AlbumConfig)
+	next.Photos = ap.Photos
+	require.NoError(t, next.ResizePhotos())
+}
+
+// Output names come from the source name, so new bytes under an existing name (an asset
+// edited upstream, or a new asset reusing a removed one's name) used to find the old
+// webps in place and keep them.
+func TestResizePhotos_ReplacedSourceIsRegenerated(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "photo.jpg")
+	writeFixtureAs(t, src, "landscape-1.jpg")
+
+	ap := newTestProcessor(t, []*Photo{{FileName: "photo.jpg", AbsolutePath: src}})
+	ap.Config.MetaCache = NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+	require.NoError(t, ap.ResizePhotos())
+	outputs := photoOutputs(ap, "photo.jpg")
+	first := readOutputs(t, outputs...)
+
+	writeFixtureAs(t, src, "portrait-1.jpg")
+	rerun(t, ap)
+	second := readOutputs(t, outputs...)
+	for i, p := range outputs {
+		assert.False(t, bytes.Equal(first[i], second[i]), "a replaced source must be re-rendered: %s", p)
+	}
+
+	// And once re-rendered, it is up to date again.
+	before, err := os.Stat(outputs[0])
+	require.NoError(t, err)
+	rerun(t, ap)
+	after, err := os.Stat(outputs[0])
+	require.NoError(t, err)
+	assert.Equal(t, before.ModTime(), after.ModTime(), "an unchanged source must not be re-rendered")
+}
+
+// Outputs written before the cache tracked them (or after it was deleted) have no stamp.
+// They are trusted and stamped rather than re-rendered, so upgrading does not redo every
+// photo and video on the site; from then on a replaced source is caught.
+func TestResizePhotos_UnstampedOutputsAreAdopted(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "photo.jpg")
+	writeFixtureAs(t, src, "landscape-1.jpg")
+
+	ap := newTestProcessor(t, []*Photo{{FileName: "photo.jpg", AbsolutePath: src}})
+	require.NoError(t, ap.ResizePhotos()) // no cache: nothing stamped
+	outputs := photoOutputs(ap, "photo.jpg")
+	first := readOutputs(t, outputs...)
+	stat, err := os.Stat(outputs[0])
+	require.NoError(t, err)
+
+	ap.Config.MetaCache = NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+	rerun(t, ap)
+	after, err := os.Stat(outputs[0])
+	require.NoError(t, err)
+	assert.Equal(t, stat.ModTime(), after.ModTime(), "an existing output must be adopted, not re-rendered")
+
+	writeFixtureAs(t, src, "portrait-1.jpg")
+	rerun(t, ap)
+	second := readOutputs(t, outputs...)
+	for i, p := range outputs {
+		assert.False(t, bytes.Equal(first[i], second[i]), "an adopted output must still catch a replaced source: %s", p)
+	}
 }
 
 func TestResizePhotos_DryRun(t *testing.T) {
@@ -229,6 +330,36 @@ func TestResizePhotos_VideoRedoneWhenPosterMissing(t *testing.T) {
 	ap2.Photos = []*Photo{photo}
 	require.NoError(t, ap2.ResizePhotos())
 	assert.FileExists(t, posters[0], "a missing poster must be regenerated")
+}
+
+// The video counterpart of TestResizePhotos_ReplacedSourceIsRegenerated: both the MP4 and
+// the posters are named after the source, so both have to notice new bytes.
+func TestResizePhotos_VideoReplacedSourceIsRegenerated(t *testing.T) {
+	requireVideoTools(t)
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "clip.mov")
+	writeFixtureAs(t, src, "landscape.mov")
+	video := func() *Photo {
+		meta, err := ReadMediaMetadata(src)
+		require.NoError(t, err)
+		return &Photo{FileName: "clip.mov", AbsolutePath: src, IsVideo: true, PhotoMetadata: meta}
+	}
+
+	ap := newTestProcessor(t, []*Photo{video()})
+	ap.Config.MetaCache = NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+	require.NoError(t, ap.ResizePhotos())
+	mp4, posters := videoOutputs(ap, "clip.mov")
+	outputs := append([]string{mp4}, posters...)
+	first := readOutputs(t, outputs...)
+
+	writeFixtureAs(t, src, "portrait-rotated.mov")
+	ap.Photos = []*Photo{video()}
+	rerun(t, ap)
+	second := readOutputs(t, outputs...)
+	for i, p := range outputs {
+		assert.False(t, bytes.Equal(first[i], second[i]), "a replaced video must be redone: %s", p)
+	}
 }
 
 func TestResizePhotos_VideoDryRun(t *testing.T) {

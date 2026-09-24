@@ -64,9 +64,10 @@ func mergeCaption(local, base, upstream string) (result string, conflict bool) {
 // because manual_sort_order: true reads its order from this file, so an ordering set by
 // hand or through the DD Photos App survives a re-sync.
 //
-// prev is the metadata record written by the *previous* run, which is what makes the
-// baseline comparison possible; syncOneAlbum passes it in and replaces the file afterward.
-func mergeSyncCaptions(dir string, items []syncItem, prev *SyncMetadata, warnf func(string, ...any)) error {
+// The baseline is each item's own record from the *previous* run (syncItem.prev, found by
+// asset ID), which syncOneAlbum replaces afterward. It is looked up by asset rather than by
+// file name because a new asset can be given a removed asset's name.
+func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any)) error {
 	path := filepath.Join(dir, photogenFileName)
 	existing, err := readCaptionLines(path)
 	if err != nil {
@@ -76,20 +77,22 @@ func mergeSyncCaptions(dir string, items []syncItem, prev *SyncMetadata, warnf f
 	for _, l := range existing {
 		local[l.id] = l.desc
 	}
-	baseByFile := prev.captionByFile()
-
 	byID := make(map[string]syncItem, len(items))
 	for _, it := range items {
 		byID[photogenID(it.file)] = it
 	}
 
 	merged := func(it syncItem) string {
-		id := photogenID(it.file)
-		base := baseByFile[it.file]
+		// A new asset has no baseline, and any line under its name was written for a
+		// removed asset that had the name before it.
+		if it.prev == nil {
+			return it.caption
+		}
+		base := it.prev.Caption
 		// No line is not a local edit: the file may never have been written (captions was
 		// off, which still records the baseline) or was deleted. Treat it as untouched so
 		// upstream wins. A deliberately cleared caption is a line with no text.
-		localDesc, present := local[id]
+		localDesc, present := local[photogenID(it.file)]
 		if !present {
 			localDesc = base
 		}

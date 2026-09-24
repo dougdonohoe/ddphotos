@@ -57,15 +57,6 @@ func (m *SyncMetadata) byAssetID() map[string]*SyncPhotoMeta {
 	return out
 }
 
-// captionByFile indexes the recorded upstream captions by local file name.
-func (m *SyncMetadata) captionByFile() map[string]string {
-	out := make(map[string]string, len(m.Photos))
-	for _, p := range m.Photos {
-		out[p.File] = p.Caption
-	}
-	return out
-}
-
 // loadSyncMetadata reads an album's sync record. A folder that has never synced has no
 // file, which is an empty record rather than an error.
 func loadSyncMetadata(dir string) (*SyncMetadata, error) {
