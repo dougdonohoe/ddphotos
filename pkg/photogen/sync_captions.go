@@ -139,9 +139,13 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 // everything after the first word look like the description — and also when the line would
 // start with a character scanLines treats specially, so a file name beginning with # is not
 // silently read back as a comment.
+//
+// The quotes go around the name verbatim, not via %q: parsePhotogenLine does no unescaping,
+// so %q's ‍ for a zero-width joiner would be read back as literal text. Verbatim is
+// safe because sanitizeSyncFileName strips any " from the name.
 func writeCaptionLine(b *strings.Builder, name, desc string) {
 	if strings.ContainsAny(name, " \t") || strings.HasPrefix(name, "#") || strings.HasPrefix(name, `"`) {
-		fmt.Fprintf(b, "%q", name)
+		b.WriteString(`"` + name + `"`)
 	} else {
 		b.WriteString(name)
 	}

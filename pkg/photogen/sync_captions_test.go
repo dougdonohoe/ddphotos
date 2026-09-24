@@ -221,6 +221,34 @@ func TestMergeSyncCaptions(t *testing.T) {
 		assert.Equal(t, "", pd.descriptions["plain"])
 	})
 
+	// parsePhotogenLine does no unescaping, so a quoted name has to be written verbatim.
+	// The emoji here is joined by U+200D, which is not printable and which %q escaped to a
+	// literal ‍ that no photo's key ever matched.
+	t.Run("a quoted name with a non-printable rune is written verbatim", func(t *testing.T) {
+		t.Parallel()
+		name := "Family \U0001F468‍\U0001F469‍\U0001F467.jpg"
+		dir := t.TempDir()
+		items := syncItemsFor([2]string{name, "Reunion"}, [2]string{"b.jpg", "Other"})
+		require.NoError(t, mergeSyncCaptions(dir, items, func(string, ...any) {}))
+
+		data, err := os.ReadFile(filepath.Join(dir, photogenFileName))
+		require.NoError(t, err)
+		assert.Equal(t, `"`+name+`" Reunion`+"\nb.jpg Other\n", string(data))
+
+		pd, err := loadPhotoDescriptions(dir)
+		require.NoError(t, err)
+		assert.Equal(t, "Reunion", pd.descriptions[photogenID(name)])
+
+		// A re-sync must find the line again, so it keeps its place rather than being
+		// dropped and re-appended after b.jpg.
+		items = syncItemsFor([2]string{"b.jpg", "Other"}, [2]string{name, "Reunion"})
+		attachPrev(items, metaFor([2]string{name, "Reunion"}, [2]string{"b.jpg", "Other"}))
+		require.NoError(t, mergeSyncCaptions(dir, items, func(string, ...any) {}))
+		data, err = os.ReadFile(filepath.Join(dir, photogenFileName))
+		require.NoError(t, err)
+		assert.Equal(t, `"`+name+`" Reunion`+"\nb.jpg Other\n", string(data))
+	})
+
 	t.Run("a hand-written entry with no extension is matched and canonicalized", func(t *testing.T) {
 		t.Parallel()
 		got, _ := run(t, "img_1583 Written by hand\n",
