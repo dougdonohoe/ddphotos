@@ -171,6 +171,11 @@ wait_for_http() {
 
 cd "$REPO_ROOT"
 
+# ── 0. Credentials by name ─────────────────────────────────────────────────────
+# Needs no image (docker is stubbed), so it runs first and fails fast.
+step "Credentials are passed to docker by name"
+bin/test-docker-env.sh
+
 # ── 1. Build image ─────────────────────────────────────────────────────────────
 if $DO_BUILD; then
     step "Building Docker image"

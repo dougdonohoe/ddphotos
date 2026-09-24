@@ -419,6 +419,11 @@ docker-push:
 docker-test:
 	bin/docker-test.sh
 
+.PHONY: docker-env-test
+## docker-env-test: check the ddphotos script passes credentials to docker by name, never by value (no image needed)
+docker-env-test:
+	bin/test-docker-env.sh
+
 .PHONY: ddphotos-install-dev
 ## ddphotos-install-dev: install ddphotos script from local dev image into ~/.local/bin
 ddphotos-install-dev:
