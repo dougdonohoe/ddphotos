@@ -25,20 +25,23 @@
 		document.documentElement.setAttribute('data-theme', $theme);
 	});
 
-	function formatBuildTime(iso: string): string {
+	function formatBuildTime(iso: string, timeZone: string | undefined): string {
 		const d = new Date(iso);
-		const month = d.getMonth() + 1;
-		const day = d.getDate();
-		const year = d.getFullYear();
+		const date = d.toLocaleDateString('en-US', { timeZone });
 		const time = d.toLocaleTimeString('en-US', {
+			timeZone,
 			hour: 'numeric',
 			minute: '2-digit',
-			hour12: true
+			hour12: true,
+			timeZoneName: 'short'
 		});
-		return `${month}/${day}/${year} at ${time}`;
+		return `${date} at ${time}`;
 	}
 
-	const builtOn = formatBuildTime(import.meta.env.VITE_BUILD_TIME);
+	const builtOn = formatBuildTime(
+		import.meta.env.VITE_BUILD_TIME,
+		import.meta.env.VITE_BUILD_TZ || undefined
+	);
 	const gitDescribe = import.meta.env.VITE_GIT_DESCRIBE as string;
 	const gitBranch = import.meta.env.VITE_GIT_BRANCH as string;
 	const dockerImage = import.meta.env.VITE_DOCKER_IMAGE;

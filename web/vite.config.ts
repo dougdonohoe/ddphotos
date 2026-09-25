@@ -96,6 +96,8 @@ const albumsDir = resolveAlbumsDir();
 const buildMetaPath = join(dirname(albumsDir), '.build', `${siteId}.json`);
 
 process.env.VITE_BUILD_TIME = new Date().toISOString();
+// IANA zone of the build machine, so the About dialog shows build-local time, not the viewer's.
+process.env.VITE_BUILD_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function gitInfo(cmd: string): string {
 	try {
