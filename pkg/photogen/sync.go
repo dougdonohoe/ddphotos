@@ -355,17 +355,33 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 	}
 	items := assignSyncFileNames(assets, prev)
 
-	// Atomics because runPool hands these to several goroutines at once.
-	var downloaded, skipped atomic.Int64
-	err = runPool(items, syncDownloadWorkers, func(_ int, it syncItem) error {
+	// Decided up front rather than inside the pool, so the summary line can say how much
+	// work there is and each download can print its place in it.
+	var fetch []syncItem
+	var videos int
+	for _, it := range items {
 		if haveSyncAsset(ac.Path, it) {
-			skipped.Add(1)
-			return nil
+			continue
 		}
-		if err := downloadSyncAsset(ctx, provider, ac.Path, it); err != nil {
+		fetch = append(fetch, it)
+		if IsVideoFile(it.file) {
+			videos++
+		}
+	}
+	upToDate := len(items) - len(fetch)
+	fmt.Printf("  Downloading %d of %d assets (%d videos, %d workers, %d up to date)...\n",
+		len(fetch), len(items), videos, syncDownloadWorkers, upToDate)
+
+	// Atomic because runPool hands it to several goroutines at once. It counts completions,
+	// not list positions, so N/total reads as progress however the workers interleave.
+	var downloaded atomic.Int64
+	err = runPool(fetch, syncDownloadWorkers, func(workerID int, it syncItem) error {
+		size, err := downloadSyncAsset(ctx, provider, ac.Path, it)
+		if err != nil {
 			return fmt.Errorf("download %s: %w", it.asset.FileName, err)
 		}
-		downloaded.Add(1)
+		fmt.Printf("    [w%d] %d/%d downloaded: %s (%.1f MB)\n", workerID,
+			downloaded.Add(1), len(fetch), it.file, float64(size)/(1024*1024))
 		return nil
 	})
 	if err != nil {
@@ -410,7 +426,7 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 	}
 
 	fmt.Printf("  %d downloaded, %d up to date, %d pruned (%d photos)\n",
-		downloaded.Load(), skipped.Load(), pruned, len(items))
+		downloaded.Load(), upToDate, pruned, len(items))
 	return nil
 }
 
@@ -444,40 +460,40 @@ func haveSyncAsset(dir string, it syncItem) bool {
 	}
 }
 
-// downloadSyncAsset writes one asset to its local file.
+// downloadSyncAsset writes one asset to its local file and returns how many bytes it wrote.
 //
 // Through a temp file in the same folder and a rename, for the same reason TranscodeVideo
 // does it: an interrupted or failed run must not leave a truncated photo that a later run's
 // size check accepts as finished.
-func downloadSyncAsset(ctx context.Context, p SyncProvider, dir string, it syncItem) error {
+func downloadSyncAsset(ctx context.Context, p SyncProvider, dir string, it syncItem) (int64, error) {
 	rc, err := p.Fetch(ctx, it.asset)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	//goland:noinspection GoUnhandledErrorResult
 	defer rc.Close() //nolint:errcheck
 
 	tmp, err := os.CreateTemp(dir, it.file+".tmp*")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName) //nolint:errcheck
 
-	if _, err := io.Copy(tmp, rc); err != nil {
+	n, err := io.Copy(tmp, rc)
+	if err != nil {
 		tmp.Close() //nolint:errcheck
-		return err
+		return 0, err
 	}
 	if err := tmp.Close(); err != nil {
-		return err
+		return 0, err
 	}
 	// CreateTemp makes 0600; the project writes 0666 so files created inside a Docker
 	// container as root stay usable by the host user that mounted the volume.
 	if err := os.Chmod(tmpName, filePerms); err != nil {
-		return err
+		return 0, err
 	}
-	fmt.Printf("  downloaded: %s\n", it.file)
-	return os.Rename(tmpName, filepath.Join(dir, it.file))
+	return n, os.Rename(tmpName, filepath.Join(dir, it.file))
 }
 
 // pruneSyncFolder deletes everything in the folder that is not a current asset, except the
