@@ -2,7 +2,9 @@ package photogen
 
 import (
 	"errors"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/dougdonohoe/ddphotos/pkg/exit"
 )
@@ -13,6 +15,12 @@ import (
 // index.json listing photos whose WebPs were never generated, while photogen still exits
 // 0. A wrapper script of the "photogen && deploy" shape then ships the broken album.
 var ErrInterrupted = errors.New("interrupted before all photos were processed")
+
+// took formats the time since start for a worker's "done" line, to the hundredth of a
+// second, so a slow item can be told apart from a hung one.
+func took(start time.Time) string {
+	return fmt.Sprintf("%.2fs", time.Since(start).Seconds())
+}
 
 // runPool runs fn over every item with at most workers goroutines and returns the first
 // error, or nil once the queue is empty.

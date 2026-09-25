@@ -372,16 +372,21 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 	fmt.Printf("  Downloading %d of %d assets (%d videos, %d workers, %d up to date)...\n",
 		len(fetch), len(items), videos, syncDownloadWorkers, upToDate)
 
-	// Atomic because runPool hands it to several goroutines at once. It counts completions,
-	// not list positions, so N/total reads as progress however the workers interleave.
-	var downloaded atomic.Int64
+	// Atomics because runPool hands them to several goroutines at once. N/total is the
+	// order downloads started in, not list position, so it reads as progress however the
+	// workers interleave, and a download's start and finish lines share the same N.
+	var started, downloaded atomic.Int64
 	err = runPool(fetch, syncDownloadWorkers, func(workerID int, it syncItem) error {
+		n := started.Add(1)
+		fmt.Printf("    [w%d] %d/%d downloading: %s...\n", workerID, n, len(fetch), it.file)
+		start := time.Now()
 		size, err := downloadSyncAsset(ctx, provider, ac.Path, it)
 		if err != nil {
 			return fmt.Errorf("download %s: %w", it.asset.FileName, err)
 		}
-		fmt.Printf("    [w%d] %d/%d downloaded: %s (%.1f MB)\n", workerID,
-			downloaded.Add(1), len(fetch), it.file, float64(size)/(1024*1024))
+		downloaded.Add(1)
+		fmt.Printf("    [w%d] %d/%d downloaded: %s (%.1f MB) in %s\n", workerID,
+			n, len(fetch), it.file, float64(size)/(1024*1024), took(start))
 		return nil
 	})
 	if err != nil {

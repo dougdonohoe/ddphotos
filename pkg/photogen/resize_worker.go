@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // resizeWork represents a single resize operation: one photo at one size.
@@ -115,6 +116,11 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 
 func (ap *AlbumProcessor) runResizeWorkers(items []resizeWork, numWorkers int) error {
 	return runPool(items, numWorkers, func(workerID int, item resizeWork) error {
+		if !ap.Config.DryRun {
+			fmt.Printf("    [w%d] %d/%d resizing: %s (%s)...\n",
+				workerID, item.photoIndex, item.totalCount, item.outputPath, item.size)
+		}
+		start := time.Now()
 		// Forced because ResizePhotos only queues what needs writing, which includes an
 		// existing output whose source has been replaced.
 		result, err := ResizeImage(
@@ -130,7 +136,7 @@ func (ap *AlbumProcessor) runResizeWorkers(items []resizeWork, numWorkers int) e
 		if result.Written {
 			ap.Config.MetaCache.RecordDerived(item.outputPath, item.photo.AbsolutePath, "")
 		}
-		fmt.Printf("    [w%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, result.Message)
+		ap.printDone("w", workerID, item.photoIndex, item.totalCount, result, start)
 		return nil
 	})
 }
@@ -149,6 +155,11 @@ func (ap *AlbumProcessor) runVideoWorkers(videos []videoWork, numWorkers int) er
 func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 	source := item.photo.AbsolutePath
 	if item.needVideo {
+		if !ap.Config.DryRun {
+			fmt.Printf("    [v%d] %d/%d transcoding: %s (video)...\n",
+				workerID, item.photoIndex, item.totalCount, item.videoPath)
+		}
+		start := time.Now()
 		// Forced for the same reason as the photo resize: a stale MP4 still exists.
 		result, err := TranscodeVideo(source, item.videoPath, true, ap.Config.DryRun)
 		if err != nil {
@@ -157,7 +168,7 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		if result.Written {
 			ap.Config.MetaCache.RecordDerived(item.videoPath, source, "")
 		}
-		fmt.Printf("    [v%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, result.Message)
+		ap.printDone("v", workerID, item.photoIndex, item.totalCount, result, start)
 
 		if warn := VideoOversizeWarning(item.videoPath); warn != "" {
 			ap.warnf("  WARN: %s\n", warn)
@@ -190,12 +201,19 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		duration = item.photo.Duration
 	}
 	posterJPEG := filepath.Join(tmpDir, "poster.jpg")
+	fmt.Printf("    [v%d] %d/%d extracting poster: %s...\n", workerID, item.photoIndex, item.totalCount, source)
+	start := time.Now()
 	if err := ExtractPoster(source, posterJPEG, duration); err != nil {
 		return err
 	}
+	fmt.Printf("    [v%d] %d/%d extracted poster: %s in %s\n",
+		workerID, item.photoIndex, item.totalCount, source, took(start))
 
 	for _, size := range AllSizes() {
 		outPath := item.posterPaths[size]
+		fmt.Printf("    [v%d] %d/%d resizing: %s (%s poster)...\n",
+			workerID, item.photoIndex, item.totalCount, outPath, size)
+		start := time.Now()
 		res, err := ResizeImage(posterJPEG, outPath, size, true, false)
 		if err != nil {
 			return fmt.Errorf("poster %s to %s: %w", source, size, err)
@@ -205,7 +223,18 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		if res.Written {
 			ap.Config.MetaCache.RecordDerived(outPath, source, "")
 		}
-		fmt.Printf("    [v%d] %d/%d %s\n", workerID, item.photoIndex, item.totalCount, res.Message)
+		ap.printDone("v", workerID, item.photoIndex, item.totalCount, res, start)
 	}
 	return nil
+}
+
+// printDone prints a worker's result line. Work that was actually done gets its duration,
+// which pairs it with the start line printed before it; a dry run's instant "would write"
+// has no start line and no duration.
+func (ap *AlbumProcessor) printDone(kind string, workerID, index, total int, r *ResizeResult, start time.Time) {
+	if r.Written {
+		fmt.Printf("    [%s%d] %d/%d %s in %s\n", kind, workerID, index, total, r.Message, took(start))
+		return
+	}
+	fmt.Printf("    [%s%d] %d/%d %s\n", kind, workerID, index, total, r.Message)
 }
