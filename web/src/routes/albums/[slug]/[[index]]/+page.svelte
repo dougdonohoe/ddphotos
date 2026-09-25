@@ -6,7 +6,7 @@
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto, replaceState, pushState } from '$app/navigation';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
@@ -171,7 +171,7 @@
 	// errored`, so this also disables zoom on video slides — the zoom button, double-tap,
 	// pinch and the `z` key all become inert. That is what we want. Zooming scales the
 	// element, which would enlarge the browser's native control bar along with the
-	// picture and push play/scrub off screen. Photos are unaffected.
+	// picture and push play/scrub off-screen. Photos are unaffected.
 	let photoswipeItems = $derived(
 		(album?.photos ?? []).map((photo) => ({
 			type: photo.kind === 'video' ? 'video' : undefined,
@@ -797,19 +797,18 @@
 />
 
 <!-- Header navigation: the configured album_nav links, or the built-in back link.
-     album_nav hrefs come from albums.yaml, so they are plain strings and cannot go
-     through resolve(), which only accepts SvelteKit's typed Pathname. Site-root-relative
-     ones are prefixed with `base` instead, which is what resolve() would do for them;
-     hence the eslint-disable on the anchor below. -->
+     album_nav hrefs come from albums.yaml, so they are plain strings and are used as-is.
+     resolve() is for SvelteKit's own route IDs: it only accepts a typed Pathname and
+     parses [param] and (group) segments, which would mangle an arbitrary href. The site
+     sets no paths.base, so there is no prefix to add either; hence the eslint-disable on
+     the anchor below. -->
 {#snippet headerNav()}
 	{#if albumNav.length > 0}
 		<nav class="album-nav">
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- see note above -->
 			{#each albumNav as link (link.id || link.href)}
 				<a
-					href={link.href.includes('://') || link.href.startsWith('mailto:')
-						? link.href
-						: base + link.href}
+					href={link.href}
 					id={link.id || undefined}
 					target={link.newTab ? '_blank' : undefined}
 					rel={link.newTab ? 'noopener' : undefined}>{link.label}</a
