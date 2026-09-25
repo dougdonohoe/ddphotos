@@ -15,10 +15,11 @@
 <SecondaryPage icon={Shield} iconColor="blue" title="Privacy" {siteName}>
 	<p>This site stores the following items in your browser's local storage:</p>
 	<ul>
-		<li><strong>Theme</strong> — remembers whether you last used light or dark mode.</li>
+		<li><strong>Theme</strong>: remembers whether you last used light or dark mode.</li>
+		<li><strong>Video sound</strong>: remembers whether you muted videos, and at what volume.</li>
 		<li>
-			<strong>Site ID</strong> — tracks the current site build so stale cached data is automatically cleared
-			when the site is updated.
+			<strong>Site ID</strong>: tracks the current site build so stale cached data is automatically
+			cleared when the site is updated.
 		</li>
 	</ul>
 	{#if encrypted}
@@ -27,8 +28,8 @@
 			prompted on every visit:
 		</p>
 		<ul>
-			<li><strong>Passwords</strong> — remembered site-wide and per-album passwords.</li>
-			<li><strong>Album covers</strong> — cached cover image URLs for unlocked albums.</li>
+			<li><strong>Passwords</strong>: remembered site-wide and per-album passwords.</li>
+			<li><strong>Album covers</strong>: cached cover image URLs for unlocked albums.</li>
 		</ul>
 	{/if}
 	<p>

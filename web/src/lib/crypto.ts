@@ -2,6 +2,8 @@
 // Uses PBKDF2-SHA256 (100k iterations) for key derivation and AES-256-GCM for
 // encryption — the same parameters as the Go implementation.
 
+import { VIDEO_AUDIO_KEY } from './videoAudio';
+
 const PBKDF2_ITERATIONS = 100_000;
 const KEY_LENGTH = 256; // AES-256
 
@@ -86,9 +88,9 @@ export function storePassword(key: string, password: string): void {
 }
 
 // Remove all ddp_* keys from localStorage, except those in the exclude list.
-// Default excludes ddp_theme so logout and build-change events preserve the user's theme.
-// Pass [] to clear everything (e.g. ?clear).
-export function clearStoredKeys(exclude: string[] = ['ddp_theme']): void {
+// Default excludes the viewer's preferences (theme, video sound) so logout and
+// build-change events preserve them. Pass [] to clear everything (e.g. ?clear).
+export function clearStoredKeys(exclude: string[] = ['ddp_theme', VIDEO_AUDIO_KEY]): void {
 	try {
 		const keys: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {

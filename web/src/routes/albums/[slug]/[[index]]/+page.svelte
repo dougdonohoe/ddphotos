@@ -6,7 +6,7 @@
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto, replaceState, pushState } from '$app/navigation';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
@@ -29,6 +29,7 @@
 	import { stripTags } from '$lib/html';
 	import { albumMetaText } from '$lib/counts';
 	import { navigateCursor, type Direction } from '$lib/navigation';
+	import { applyVideoAudio, rememberVideoAudio } from '$lib/videoAudio';
 
 	let { data } = $props();
 
@@ -170,7 +171,7 @@
 	// errored`, so this also disables zoom on video slides — the zoom button, double-tap,
 	// pinch and the `z` key all become inert. That is what we want. Zooming scales the
 	// element, which would enlarge the browser's native control bar along with the
-	// picture and push play/scrub off screen. Photos are unaffected.
+	// picture and push play/scrub off-screen. Photos are unaffected.
 	let photoswipeItems = $derived(
 		(album?.photos ?? []).map((photo) => ({
 			type: photo.kind === 'video' ? 'video' : undefined,
@@ -281,11 +282,15 @@
 			video.src = data.videoSrc;
 			video.poster = data.posterSrc;
 			video.controls = true;
-			// Muted by default so a swipe through an album never blares audio unexpectedly;
-			// the native controls let the viewer unmute. playsinline keeps iOS Safari from
-			// hijacking the whole screen with its own fullscreen player, which would leave
-			// PhotoSwipe's state out of sync on exit.
-			video.muted = true;
+			// Sound on unless the viewer muted an earlier clip: nothing here autoplays, so
+			// playback (and its audio) only ever starts from the viewer's own click or space
+			// press, which autoplay policy permits with sound. A swipe through an album stays
+			// silent because swiping never plays. Whatever mute or volume the viewer sets
+			// carries to the next clip.
+			applyVideoAudio(video);
+			video.addEventListener('volumechange', () => rememberVideoAudio(video));
+			// playsinline keeps iOS Safari from hijacking the whole screen with its own
+			// fullscreen player, which would leave PhotoSwipe's state out of sync on exit.
 			video.playsInline = true;
 			video.preload = 'metadata';
 
@@ -333,11 +338,18 @@
 		});
 
 		// Pause when a slide scrolls out of view. Without this, swiping to the next photo
-		// leaves the previous clip playing (and audible, once unmuted) off-screen.
+		// leaves the previous clip playing, and audible, off-screen.
 		const pauseVideoIn = (element: HTMLElement | null | undefined) => {
 			element?.querySelector('video')?.pause();
 		};
 		pswp.on('contentDeactivate', (e) => pauseVideoIn(e.content.element));
+		// PhotoSwipe builds neighbouring slides ahead of time, so the next clip may already
+		// exist from before the viewer changed mute or volume on this one. Re-apply the
+		// remembered choice as each slide becomes current.
+		pswp.on('contentActivate', (e) => {
+			const video = e.content.element?.querySelector('video');
+			if (video) applyVideoAudio(video);
+		});
 		pswp.on('contentDestroy', (e) => pauseVideoIn(e.content.element));
 
 		// Space toggles play/pause on a video slide, the convention every video player uses.
@@ -785,19 +797,18 @@
 />
 
 <!-- Header navigation: the configured album_nav links, or the built-in back link.
-     album_nav hrefs come from albums.yaml, so they are plain strings and cannot go
-     through resolve(), which only accepts SvelteKit's typed Pathname. Site-root-relative
-     ones are prefixed with `base` instead, which is what resolve() would do for them;
-     hence the eslint-disable on the anchor below. -->
+     album_nav hrefs come from albums.yaml, so they are plain strings and are used as-is.
+     resolve() is for SvelteKit's own route IDs: it only accepts a typed Pathname and
+     parses [param] and (group) segments, which would mangle an arbitrary href. The site
+     sets no paths.base, so there is no prefix to add either; hence the eslint-disable on
+     the anchor below. -->
 {#snippet headerNav()}
 	{#if albumNav.length > 0}
 		<nav class="album-nav">
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- see note above -->
 			{#each albumNav as link (link.id || link.href)}
 				<a
-					href={link.href.includes('://') || link.href.startsWith('mailto:')
-						? link.href
-						: base + link.href}
+					href={link.href}
 					id={link.id || undefined}
 					target={link.newTab ? '_blank' : undefined}
 					rel={link.newTab ? 'noopener' : undefined}>{link.label}</a

@@ -136,8 +136,8 @@ test('clicking a video tile opens a playable video in the lightbox', async ({ pa
 	await expect(player).toHaveAttribute('src', v.videoUrl);
 	await expect(player).toHaveAttribute('poster', v.posterUrl);
 	await expect(player).toHaveAttribute('controls', '');
-	// Muted by default so swiping an album never blares audio; the viewer can unmute.
-	expect(await player.evaluate((el: HTMLVideoElement) => el.muted)).toBe(true);
+	// Sound on: playback only starts from a viewer's click or key press, never on its own.
+	expect(await player.evaluate((el: HTMLVideoElement) => el.muted)).toBe(false);
 	// Without playsinline, iOS Safari takes over the screen with its own player and
 	// leaves PhotoSwipe's state out of sync when the viewer exits it.
 	expect(await player.evaluate((el: HTMLVideoElement) => el.playsInline)).toBe(true);
@@ -339,12 +339,69 @@ test('playing video pauses when swiped away', async ({ page, request }) => {
 		.poll(() => player.evaluate((el: HTMLVideoElement) => el.paused), { timeout: 5000 })
 		.toBe(false);
 
-	// Without the contentDeactivate hook the clip keeps playing off-screen, and once the
-	// viewer has unmuted it keeps making noise from a slide they can no longer see.
+	// Without the contentDeactivate hook the clip keeps playing off-screen, making noise
+	// from a slide the viewer can no longer see.
 	await page.locator('.pswp__button--arrow--next').click();
 	await expect
 		.poll(() => player.evaluate((el: HTMLVideoElement) => el.paused), { timeout: 5000 })
 		.toBe(true);
+});
+
+test('mute and volume carry over to the next clip', async ({ page }) => {
+	test.skip(!video, 'no video published on this site');
+	const tile = await openAlbum(page, video!);
+	await tile.click();
+
+	const first = currentVideo(page);
+	await expect(first).toBeVisible();
+	await first.evaluate((el: HTMLVideoElement) => {
+		el.muted = true;
+		el.volume = 0.3;
+	});
+
+	// Closing destroys the slide, so reopening builds a new <video> element: only the
+	// remembered choice can make it start muted at the same volume.
+	await page.keyboard.press('Escape');
+	await expect(page.locator('.pswp')).toHaveCount(0);
+	await tile.click();
+
+	const second = currentVideo(page);
+	await expect(second).toBeVisible();
+	expect(await second.evaluate((el: HTMLVideoElement) => el.muted)).toBe(true);
+	expect(await second.evaluate((el: HTMLVideoElement) => el.volume)).toBeCloseTo(0.3);
+
+	// Held in localStorage, so a reload keeps it too.
+	await page.keyboard.press('Escape');
+	await expect(page.locator('.pswp')).toHaveCount(0);
+	await page.reload();
+	await waitForHydration(page);
+	await tile.click();
+
+	const third = currentVideo(page);
+	await expect(third).toBeVisible();
+	expect(await third.evaluate((el: HTMLVideoElement) => el.muted)).toBe(true);
+	expect(await third.evaluate((el: HTMLVideoElement) => el.volume)).toBeCloseTo(0.3);
+});
+
+test('?clear forgets the video sound preference', async ({ page }) => {
+	test.skip(!video, 'no video published on this site');
+	const tile = await openAlbum(page, video!);
+	await tile.click();
+	await expect(currentVideo(page)).toBeVisible();
+	await currentVideo(page).evaluate((el: HTMLVideoElement) => {
+		el.muted = true;
+		el.volume = 0.3;
+	});
+
+	await page.goto('/?clear');
+	await page.waitForURL((url) => !url.search.includes('clear'));
+
+	const again = await openAlbum(page, video!);
+	await again.click();
+	const player = currentVideo(page);
+	await expect(player).toBeVisible();
+	expect(await player.evaluate((el: HTMLVideoElement) => el.muted)).toBe(false);
+	expect(await player.evaluate((el: HTMLVideoElement) => el.volume)).toBe(1);
 });
 
 test('closing the lightbox pauses the video', async ({ page }) => {
