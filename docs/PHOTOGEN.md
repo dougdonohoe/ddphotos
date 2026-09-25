@@ -210,9 +210,9 @@ with normal HTML5 controls.
 
 Supported source extensions: **`.mov`, `.mp4`, `.m4v`**.
 
-In the lightbox the video starts muted with the browser's native controls, and **space
-toggles play/pause**. Arrow keys and Escape keep their usual meaning, so a video slide
-navigates like any other. Zoom is deliberately disabled on video slides (button, double-tap,
+In the lightbox the video plays with sound using the browser's native controls (mute and volume
+carry over from clip to clip), and **space toggles play/pause**. Arrow keys and Escape keep their
+usual meaning, so a video slide navigates like any other. Zoom is deliberately disabled on video slides (button, double-tap,
 pinch and the `z` key): zooming scales the element, which would enlarge the browser's control
 bar along with the picture and push play and scrub off-screen.
 

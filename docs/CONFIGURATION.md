@@ -470,6 +470,7 @@ hydrates.
 | Key                         | Contains                                                                                   |
 |-----------------------------|--------------------------------------------------------------------------------------------|
 | `ddp_theme`                 | Light/dark mode preference (`light` or `dark`)                                             |
+| `ddp_video_audio`           | Lightbox video mute and volume (`{"muted":false,"volume":1}`)                              |
 | `ddp_site_id`               | Current build token (`siteId` or `siteId:keyId`); triggers stale cache clearance on change |
 | `ddp_site_{siteId}`         | Site-wide password (encryption only)                                                       |
 | `ddp_album_{siteId}_{slug}` | Per-album password for `slug` (encryption only)                                            |
@@ -477,7 +478,8 @@ hydrates.
 
 The `ddp_*` keys are scoped to `siteId` so that switching between builds (which use different
 HMAC keys and produce different filenames) automatically invalidates stale cached data.
-`?clear` removes all `ddp_*` keys (including `ddp_theme`), returning the site to its default state.
+Logout and build changes keep the two preferences, `ddp_theme` and `ddp_video_audio`; `?clear` removes
+all `ddp_*` keys, including those, returning the site to its default state.
 
 ---
 
