@@ -3,7 +3,7 @@ module github.com/dougdonohoe/ddphotos
 go 1.27.1
 
 require (
-	github.com/davidbyttow/govips/v2 v2.18.0
+	github.com/davidbyttow/govips/v2 v2.19.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/crypto v0.57.0
 	gopkg.in/yaml.v3 v3.0.1
