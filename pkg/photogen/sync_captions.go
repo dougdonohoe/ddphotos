@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -11,7 +12,7 @@ import (
 type captionLine struct {
 	raw   string // the line as written, for lines the merge writes back untouched
 	entry bool   // false for a blank line or a # comment
-	id    string // entries only: lowercase name with any media extension stripped
+	name  string // entries only: the entry name, lowercased but otherwise as written
 	desc  string // entries only
 }
 
@@ -20,7 +21,8 @@ type captionLine struct {
 // It exists alongside loadPhotoDescriptions rather than reusing it because the merge has to
 // write the file back: it needs the blank and comment lines loadPhotoDescriptions skips, in
 // place. The parts that have to agree are shared outright: both decide what is an entry
-// with isBlankOrComment and parse it with parsePhotogenLine, and both key on photogenID,
+// with isBlankOrComment and parse it with parsePhotogenLine, and both resolve an entry by
+// full file name first and by photogenID stem second (syncItemMatcher mirrors photoMatcher),
 // which is what lets a line written here be found again when the album is built.
 func readCaptionLines(path string) ([]captionLine, error) {
 	var lines []captionLine
@@ -30,7 +32,7 @@ func readCaptionLines(path string) ([]captionLine, error) {
 			return
 		}
 		name, desc := parsePhotogenLine(strings.TrimSpace(raw))
-		lines = append(lines, captionLine{raw: raw, entry: true, id: photogenID(name), desc: desc})
+		lines = append(lines, captionLine{raw: raw, entry: true, name: strings.ToLower(name), desc: desc})
 	})
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -73,6 +75,8 @@ func mergeCaption(local, base, upstream string) (result string, conflict bool) {
 //   - blank lines and comments are written back as found, in place;
 //   - an entry naming a subfolder is too, since prune leaves subfolders alone and the entry
 //     is how manual_sort_order places one;
+//   - a photo entry is rewritten under the item's full file name, and a bare stem naming
+//     several files becomes one line for each, in its place;
 //   - any other entry is dropped: its photo was removed upstream, or it names nothing.
 //
 // The baseline is each item's own record from the *previous* run (syncItem.prev, found by
@@ -84,19 +88,24 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 	if err != nil {
 		return err
 	}
-	local := make(map[string]string, len(existing))
-	for _, l := range existing {
-		if l.entry {
-			local[l.id] = l.desc
-		}
-	}
 	subdirs, err := subdirIDs(dir)
 	if err != nil {
 		return err
 	}
-	byID := make(map[string]syncItem, len(items))
-	for _, it := range items {
-		byID[photogenID(it.file)] = it
+	match := newSyncItemMatcher(items)
+
+	// What the file says about each item, by its lowercased file name. A line naming the
+	// file wins over a bare stem naming it with its variants, as it does in the build.
+	local := make(map[string]string, len(existing))
+	for _, exact := range []bool{false, true} {
+		for _, l := range existing {
+			if !l.entry || match.isName(l.name) != exact {
+				continue
+			}
+			for _, it := range match.items(l.name) {
+				local[strings.ToLower(it.file)] = l.desc
+			}
+		}
 	}
 
 	merged := func(it syncItem) string {
@@ -109,7 +118,7 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 		// No line is not a local edit: the file may never have been written (captions was
 		// off, which still records the baseline) or was deleted. Treat it as untouched so
 		// upstream wins. A deliberately cleared caption is a line with no text.
-		localDesc, present := local[photogenID(it.file)]
+		localDesc, present := local[strings.ToLower(it.file)]
 		if !present {
 			localDesc = base
 		}
@@ -122,33 +131,39 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 	}
 
 	var b strings.Builder
-	seen := make(map[string]struct{}, len(items))
-	kept := 0 // subfolder entries, for the count printed below
+	seen := make(map[string]struct{}, len(items)) // lowercased file names written
+	kept := 0                                     // subfolder entries, for the count printed below
 	for _, l := range existing {
 		if !l.entry {
 			b.WriteString(l.raw + "\n")
 			continue
 		}
-		it, ok := byID[l.id]
-		if !ok {
-			if _, sub := subdirs[l.id]; sub {
+		// A bare stem naming several files is rewritten in place as one line per file,
+		// which keeps its position for manual_sort_order and its meaning, since in the
+		// build a stem captions every variant.
+		its := match.items(l.name)
+		if len(its) == 0 {
+			if _, sub := subdirs[l.name]; sub {
 				b.WriteString(l.raw + "\n")
 				kept++
 			}
 			continue
 		}
-		if _, dup := seen[l.id]; dup {
-			continue
+		for _, it := range its {
+			key := strings.ToLower(it.file)
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+			writeCaptionLine(&b, it.file, merged(it))
 		}
-		seen[l.id] = struct{}{}
-		writeCaptionLine(&b, it.file, merged(it))
 	}
 	for _, it := range items {
-		id := photogenID(it.file)
-		if _, ok := seen[id]; ok {
+		key := strings.ToLower(it.file)
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[id] = struct{}{}
+		seen[key] = struct{}{}
 		writeCaptionLine(&b, it.file, merged(it))
 	}
 
@@ -157,6 +172,44 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 	}
 	fmt.Printf("  wrote: %s (%d entries)\n", path, len(seen)+kept)
 	return nil
+}
+
+// syncItemMatcher resolves photogen.txt entries to sync items with the same two tiers as
+// photoMatcher: a full file name names that file, and anything else names every file with
+// its stem. Keeping the rules identical is what makes a line the merge writes mean the same
+// thing to the build.
+type syncItemMatcher struct {
+	byName map[string]syncItem   // lowercased local file name
+	byStem map[string][]syncItem // photogenID of the local file name, in file-name order
+}
+
+func newSyncItemMatcher(items []syncItem) *syncItemMatcher {
+	m := &syncItemMatcher{
+		byName: make(map[string]syncItem, len(items)),
+		byStem: make(map[string][]syncItem, len(items)),
+	}
+	sorted := append([]syncItem(nil), items...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].file < sorted[j].file })
+	for _, it := range sorted {
+		m.byName[strings.ToLower(it.file)] = it
+		stem := photogenID(it.file)
+		m.byStem[stem] = append(m.byStem[stem], it)
+	}
+	return m
+}
+
+// isName reports whether an entry names one file in full.
+func (m *syncItemMatcher) isName(entry string) bool {
+	_, ok := m.byName[strings.ToLower(entry)]
+	return ok
+}
+
+// items returns what an entry names, or nil when it names no item (it may be a subfolder).
+func (m *syncItemMatcher) items(entry string) []syncItem {
+	if it, ok := m.byName[strings.ToLower(entry)]; ok {
+		return []syncItem{it}
+	}
+	return m.byStem[photogenID(entry)]
 }
 
 // subdirIDs returns the album folder's subfolders by lowercased name, which is how the build

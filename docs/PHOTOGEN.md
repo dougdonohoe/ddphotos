@@ -133,9 +133,13 @@ To add per-photo descriptions, create a `photogen.txt` file in the album's
 source photo directory. One line per photo:
 
 ```
-filename_without_extension Description text here.
+filename Description text here.
 # blank lines and lines starting with # are ignored
 ```
+
+A name may include its extension or leave it off. With the extension it names that one
+file; without it, it names every file with that base name, so `IMG_1` captions both
+`IMG_1.jpg` and `IMG_1.png`. When both forms name a file, the one with the extension wins.
 
 Example:
 
@@ -282,22 +286,14 @@ be the site hero image, which must be a still.
 
 ### Live Photos and other same-name pairs
 
-A photo's ID is its filename with the extension removed, so two files in one folder whose
-names differ only by extension collide. `photogen` **fails the run** and names the pair:
+Files whose names differ only by extension are all published. The first alphabetically
+keeps the plain output name (`IMG_1.webp`) and each of the others adds its extension
+(`IMG_1.png.webp`), so an album without such a pair is named exactly as before.
 
-```
-/photos/iceland: 1 duplicate photo ID(s) — these source files differ only by extension,
-so they would produce the same output file. Rename one of each pair:
-    "img_1234": IMG_1234.HEIC, IMG_1234.MOV
-```
-
-This matters most for **Apple Live Photos**, which export as a `.HEIC` and a `.MOV`
-sharing one stem. Rename one side (`IMG_1234-clip.MOV`) to publish both, or delete the
-one you do not want.
-
-The check is not specific to video: two stills such as `photo.jpg` and `photo.png` collide
-the same way. Video simply makes the situation common, because a folder exported from
-Photos now has clips in it that `photogen` will pick up.
+The exception is a photo and a video with the same base name in one folder, which is how
+**Apple Live Photos** export (`IMG_1234.HEIC` + `IMG_1234.MOV`). The still is published
+and the video is skipped with a warning. Rename the clip (`IMG_1234-clip.MOV`) to publish
+both.
 
 ### ffmpeg
 

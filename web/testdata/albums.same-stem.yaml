@@ -1,0 +1,15 @@
+# Test file used by docker-test.sh to build pkg/photogen/testdata as an album. It holds one
+# image in six formats under the stem landscape-1, which failed the whole run until
+# disambiguateStems gave each its own output name (landscape-1.png.webp and so on).
+settings:
+  id: test-same-stem
+  site_name: "Test Same Stem"
+  site_url: https://same-stem.example.com
+  site_description: "Test files whose names differ only by extension"
+  copyright_owner: "Sir Stem"
+  copyright_year: 1970
+
+albums:
+  - slug: photogen-test
+    name: Photogen Test
+    source: _REPO_ROOT_/pkg/photogen/testdata

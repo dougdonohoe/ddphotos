@@ -55,7 +55,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 				photo: photo,
 				// Derived from the source filename rather than from an already-.mp4 name,
 				// so an encrypted album hashes the same stem as the poster stills.
-				videoPath:   ap.OutputPath(VideoDirName, ap.Config.PhotoOutputName(ap.AlbumConfig.Slug, photo.FileName, ".mp4")),
+				videoPath:   ap.OutputPath(VideoDirName, ap.photoOutputName(photo, ".mp4")),
 				posterPaths: make(map[ImageSize]string, len(sizes)),
 				photoIndex:  i + 1,
 				totalCount:  len(ap.Photos),
@@ -64,7 +64,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			ap.Config.TrackFile(vw.videoPath)
 			vw.needVideo = !upToDateFor(vw.videoPath, photo.AbsolutePath)
 			for _, size := range sizes {
-				p := ap.OutputPath(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, photo.FileName))
+				p := ap.OutputPath(string(size), ap.photoOutputName(photo, ".webp"))
 				ap.Config.TrackFile(p)
 				vw.posterPaths[size] = p
 				// Every poster is checked, not just until one is stale, so each one without
@@ -82,7 +82,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 		}
 
 		for _, size := range sizes {
-			outPath := ap.OutputPath(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, photo.FileName))
+			outPath := ap.OutputPath(string(size), ap.photoOutputName(photo, ".webp"))
 			// Tracked whether it needs writing, so -clean keeps existing files.
 			ap.Config.TrackFile(outPath)
 			if upToDateFor(outPath, photo.AbsolutePath) {

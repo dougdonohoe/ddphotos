@@ -57,7 +57,10 @@ img_0003
 func TestLoadPhotoDescriptionsExtensions(t *testing.T) {
 	t.Parallel()
 
-	t.Run("entries with image extensions are stripped", func(t *testing.T) {
+	// Kept as written (lowercased), because a full name and a bare stem now mean different
+	// things: photoMatcher resolves "img_0001.jpg" to one file and "img_0003" to every file
+	// with that stem.
+	t.Run("entries keep their extension, lowercased", func(t *testing.T) {
 		dir := t.TempDir()
 		content := "img_0001.jpg First photo.\nimg_0002.JPG Second photo.\nimg_0003\n"
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "photogen.txt"), []byte(content), 0o644))
@@ -65,9 +68,9 @@ func TestLoadPhotoDescriptionsExtensions(t *testing.T) {
 		pd, err := loadPhotoDescriptions(dir)
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{"img_0001", "img_0002", "img_0003"}, pd.order)
-		assert.Equal(t, "First photo.", pd.descriptions["img_0001"])
-		assert.Equal(t, "Second photo.", pd.descriptions["img_0002"])
+		assert.Equal(t, []string{"img_0001.jpg", "img_0002.jpg", "img_0003"}, pd.order)
+		assert.Equal(t, "First photo.", pd.descriptions["img_0001.jpg"])
+		assert.Equal(t, "Second photo.", pd.descriptions["img_0002.jpg"])
 	})
 
 	t.Run("subfolder entries have no extension and are not modified", func(t *testing.T) {
@@ -78,8 +81,8 @@ func TestLoadPhotoDescriptionsExtensions(t *testing.T) {
 		pd, err := loadPhotoDescriptions(dir)
 		require.NoError(t, err)
 
-		// photo entry: extension stripped, lowercased
-		assert.Contains(t, pd.order, "img_0001")
+		// photo entry: lowercased
+		assert.Contains(t, pd.order, "img_0001.jpg")
 		// subfolder entries: just lowercased
 		assert.Contains(t, pd.order, "craig's")
 		assert.Contains(t, pd.order, "halstead")
@@ -105,16 +108,16 @@ doug-and-cindy-chicago.jpg A cool trip to Chicago
 
 		// Photos sharing a first word stay separate entries.
 		assert.Equal(t, []string{
-			"doug and cindy chicago",
-			"doug-and-cindy-chicago",
-			"doug at the bean",
-			"doug alone",
+			"doug and cindy chicago.jpg",
+			"doug-and-cindy-chicago.jpg",
+			"doug at the bean.jpg",
+			"doug alone.jpg",
 			"ski 2007",
 		}, pd.order)
-		assert.Equal(t, "A cool trip to Chicago", pd.descriptions["doug and cindy chicago"])
-		assert.Equal(t, "A cool trip to Chicago", pd.descriptions["doug-and-cindy-chicago"])
-		assert.Equal(t, "Under the Bean", pd.descriptions["doug at the bean"])
-		assert.Equal(t, "", pd.descriptions["doug alone"], "quoted name with no description")
+		assert.Equal(t, "A cool trip to Chicago", pd.descriptions["doug and cindy chicago.jpg"])
+		assert.Equal(t, "A cool trip to Chicago", pd.descriptions["doug-and-cindy-chicago.jpg"])
+		assert.Equal(t, "Under the Bean", pd.descriptions["doug at the bean.jpg"])
+		assert.Equal(t, "", pd.descriptions["doug alone.jpg"], "quoted name with no description")
 		assert.Equal(t, "", pd.descriptions["ski 2007"], "quoted subfolder name")
 	})
 
@@ -126,8 +129,8 @@ doug-and-cindy-chicago.jpg A cool trip to Chicago
 		pd, err := loadPhotoDescriptions(dir)
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{`"img_0001`}, pd.order)
-		assert.Equal(t, "A caption.", pd.descriptions[`"img_0001`])
+		assert.Equal(t, []string{`"img_0001.jpg`}, pd.order)
+		assert.Equal(t, "A caption.", pd.descriptions[`"img_0001.jpg`])
 	})
 }
 
@@ -607,11 +610,12 @@ func TestSortByDate(t *testing.T) {
 	})
 }
 
-// TestDuplicatePhotoIDs covers the collision that Apple Photos makes routine: a Live Photo
-// exports as IMG_1234.HEIC plus IMG_1234.MOV, and stripping the extension leaves both with
-// the same ID. Before this check the pair silently produced one output file, and with a
-// photogen.txt one entry replaced the other so the album published the same item twice.
-func TestDuplicatePhotoIDs(t *testing.T) {
+// TestSameStemFiles covers source files whose names differ only by extension. A photo's ID
+// and output names come from its stem, so IMG_1.jpg and IMG_1.png would both write
+// IMG_1.webp. disambiguateStems gives all but the first their full name as the stem; a
+// photo and a video sharing a stem in one folder are a Live Photo pair, and the video is
+// skipped instead.
+func TestSameStemFiles(t *testing.T) {
 	t.Parallel()
 
 	copyFile := func(t *testing.T, dir, src, dst string) {
@@ -620,74 +624,139 @@ func TestDuplicatePhotoIDs(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(filepath.Join(dir, dst), b, 0o644))
 	}
+	newAP := func(t *testing.T, dir string, enc *EncryptConfig) *AlbumProcessor {
+		t.Helper()
+		return NewAlbumProcessor(
+			&Config{OutputRoot: t.TempDir(), SiteID: "s", Warn: &WarnCollector{}, Encrypt: enc},
+			&AlbumConfig{Slug: "a", Name: "A", Path: dir, Recurse: true},
+		)
+	}
+	byID := func(photos []*Photo) map[string]*Photo {
+		m := map[string]*Photo{}
+		for _, p := range photos {
+			m[p.ID] = p
+		}
+		return m
+	}
 
-	t.Run("still and video sharing a stem is rejected", func(t *testing.T) {
+	t.Run("every format of one stem publishes, the first keeping the bare name", func(t *testing.T) {
+		t.Parallel()
+		// testdata holds one image in six formats under a single stem, which is exactly
+		// the album that used to fail.
+		dir := t.TempDir()
+		exts := []string{"avif", "heic", "jpg", "png", "tiff", "webp"}
+		for _, ext := range exts {
+			copyFile(t, dir, "landscape-1."+ext, "landscape-1."+ext)
+		}
+		ap := newAP(t, dir, nil)
+		require.NoError(t, ap.LoadPhotos())
+		require.Len(t, ap.Photos, len(exts))
+
+		photos := byID(ap.Photos)
+		require.Len(t, photos, len(exts), "IDs are distinct")
+		first := photos["landscape-1"]
+		require.NotNil(t, first)
+		assert.Equal(t, "landscape-1.avif", first.FileName, "alphabetically first keeps the bare stem")
+		assert.Equal(t, "landscape-1.webp", ap.photoOutputName(first, ".webp"))
+
+		outputs := map[string]bool{"landscape-1.webp": true}
+		for _, ext := range exts[1:] {
+			p := photos["landscape-1."+ext]
+			require.NotNil(t, p, ext)
+			name := ap.photoOutputName(p, ".webp")
+			assert.Equal(t, "landscape-1."+ext+".webp", name)
+			outputs[name] = true
+		}
+		assert.Len(t, outputs, len(exts), "output names are distinct")
+	})
+
+	t.Run("two clips sharing a stem get distinct videos and posters", func(t *testing.T) {
+		t.Parallel()
+		// Built by hand: loading real clips needs ffprobe, and nothing here depends on it.
+		photos := []*Photo{
+			{ID: "clip", FileName: "clip.mp4", SourcePath: "a/clip.mp4", IsVideo: true},
+			{ID: "clip", FileName: "clip.mov", SourcePath: "a/clip.mov", IsVideo: true},
+		}
+		disambiguateStems(photos)
+		ap := newAP(t, t.TempDir(), nil)
+		p := byID(photos)
+		assert.Equal(t, "clip.mp4", ap.photoOutputName(p["clip"], ".mp4"))
+		assert.Equal(t, "clip.webp", ap.photoOutputName(p["clip"], ".webp"))
+		assert.Equal(t, "clip.mp4.mp4", ap.photoOutputName(p["clip.mp4"], ".mp4"))
+		assert.Equal(t, "clip.mp4.webp", ap.photoOutputName(p["clip.mp4"], ".webp"))
+	})
+
+	t.Run("a photo and video sharing a stem skips the video, with a warning", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 		copyFile(t, dir, "landscape-1.jpg", "IMG_1234.jpg")
 		copyFile(t, dir, "landscape.mov", "IMG_1234.mov")
 
-		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
-		_, err := ap.collectPhotosRecursive(dir, "", true)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate photo ID")
-		// Both offending files must be named, or the user cannot act on the message.
-		assert.Contains(t, err.Error(), "IMG_1234.jpg")
-		assert.Contains(t, err.Error(), "IMG_1234.mov")
-		assert.Contains(t, err.Error(), "img_1234")
+		// Only the directory listing matters here, so no metadata (and no ffprobe) is read
+		// for the skipped clip.
+		ap := newAP(t, dir, nil)
+		kept := ap.dropLivePhotoVideos(dir, []*Photo{
+			{AbsolutePath: filepath.Join(dir, "IMG_1234.jpg")},
+			{AbsolutePath: filepath.Join(dir, "IMG_1234.mov"), IsVideo: true},
+		})
+		require.Len(t, kept, 1)
+		assert.Equal(t, "IMG_1234.jpg", filepath.Base(kept[0].AbsolutePath))
+		require.Len(t, ap.Config.Warn.warnings, 1)
+		assert.Contains(t, ap.Config.Warn.warnings[0], "skipping video IMG_1234.mov")
+		assert.Contains(t, ap.Config.Warn.warnings[0], "IMG_1234.jpg")
 	})
 
-	t.Run("two stills sharing a stem is rejected too", func(t *testing.T) {
+	t.Run("a subfolder prefix colliding with a root file is disambiguated", func(t *testing.T) {
 		t.Parallel()
-		// Pre-dates video: the same collision was already possible between two image
-		// formats, and was equally broken. The rule is about IDs, not about media kind.
-		dir := t.TempDir()
-		copyFile(t, dir, "landscape-1.jpg", "IMG_1234.jpg")
-		copyFile(t, dir, "landscape-1.heic", "IMG_1234.heic")
-
-		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
-		_, err := ap.collectPhotosRecursive(dir, "", true)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate photo ID")
-	})
-
-	t.Run("case differences collide, matching how IDs are lowercased", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		copyFile(t, dir, "landscape-1.jpg", "photo.jpg")
-		copyFile(t, dir, "portrait-1.jpg", "PHOTO.JPG")
-
-		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
-		_, err := ap.collectPhotosRecursive(dir, "", true)
-		// A case-insensitive filesystem (macOS) cannot hold both names, so the second
-		// write lands on the first file and there is nothing to collide. Assert the
-		// outcome that matches what the filesystem actually did rather than assuming.
-		if entries, readErr := os.ReadDir(dir); readErr == nil && len(entries) == 1 {
-			assert.NoError(t, err, "only one file exists on a case-insensitive filesystem")
-			return
-		}
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate photo ID")
-	})
-
-	t.Run("a subfolder prefix colliding with a root file is rejected", func(t *testing.T) {
-		t.Parallel()
-		// Not visible to the per-directory check: "sub/photo.jpg" becomes "sub_photo" only
-		// after prefixing, which is why LoadPhotos re-checks the assembled list.
+		// sub/photo.jpg becomes sub_photo only after prefixing, so this is only visible
+		// once LoadPhotos has the whole album.
 		dir := t.TempDir()
 		copyFile(t, dir, "landscape-1.jpg", "sub_photo.jpg")
 		sub := filepath.Join(dir, "sub")
 		require.NoError(t, os.MkdirAll(sub, 0o755))
 		copyFile(t, sub, "portrait-1.jpg", "photo.jpg")
 
-		ap := NewAlbumProcessor(
-			&Config{OutputRoot: t.TempDir(), SiteID: "s", Warn: &WarnCollector{}},
-			&AlbumConfig{Slug: "a", Name: "A", Path: dir, Recurse: true},
-		)
-		err := ap.LoadPhotos()
+		ap := newAP(t, dir, nil)
+		require.NoError(t, ap.LoadPhotos())
+		photos := byID(ap.Photos)
+		require.Len(t, photos, 2)
+		assert.Equal(t, "sub_photo.webp", ap.photoOutputName(photos["sub_photo"], ".webp"))
+		assert.Equal(t, "sub_photo.jpg.webp", ap.photoOutputName(photos["sub_photo.jpg"], ".webp"))
+	})
+
+	t.Run("encrypted names stay as they were, and a disambiguated one is distinct", func(t *testing.T) {
+		t.Parallel()
+		// Both files have the FileName sub_photo.jpg, so hashing FileName alone would give
+		// them one output. The bare-stem photo must keep the name it always had.
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "sub_photo.jpg")
+		sub := filepath.Join(dir, "sub")
+		require.NoError(t, os.MkdirAll(sub, 0o755))
+		copyFile(t, sub, "portrait-1.jpg", "photo.jpg")
+
+		enc := &EncryptConfig{HMACKey: "k", AlbumPasswords: map[string]string{"a": "pw"}}
+		ap := newAP(t, dir, enc)
+		require.NoError(t, ap.LoadPhotos())
+		photos := byID(ap.Photos)
+		winner := ap.photoOutputName(photos["sub_photo"], ".webp")
+		loser := ap.photoOutputName(photos["sub_photo.jpg"], ".webp")
+		assert.Equal(t, enc.PhotoOutputName("sub_photo.jpg", ".webp"), winner)
+		assert.NotEqual(t, winner, loser)
+	})
+
+	t.Run("output names that still collide are rejected", func(t *testing.T) {
+		t.Parallel()
+		// IMG_1.png is disambiguated to IMG_1.png.webp, which is the natural name of
+		// IMG_1.png.jpg. Contrived, but it must fail loudly rather than overwrite.
+		dir := t.TempDir()
+		copyFile(t, dir, "landscape-1.jpg", "IMG_1.jpg")
+		copyFile(t, dir, "landscape-1.png", "IMG_1.png")
+		copyFile(t, dir, "portrait-1.jpg", "IMG_1.png.jpg")
+
+		err := newAP(t, dir, nil).LoadPhotos()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate photo ID")
-		assert.Contains(t, err.Error(), "sub_photo")
+		assert.Contains(t, err.Error(), "IMG_1.png.jpg")
 	})
 
 	t.Run("distinct stems are unaffected", func(t *testing.T) {
@@ -696,10 +765,100 @@ func TestDuplicatePhotoIDs(t *testing.T) {
 		copyFile(t, dir, "landscape-1.jpg", "one.jpg")
 		copyFile(t, dir, "portrait-1.jpg", "two.jpg")
 
-		ap := &AlbumProcessor{AlbumConfig: &AlbumConfig{}}
-		photos, err := ap.collectPhotosRecursive(dir, "", true)
-		require.NoError(t, err)
-		assert.Len(t, photos, 2)
+		ap := newAP(t, dir, nil)
+		require.NoError(t, ap.LoadPhotos())
+		for _, p := range ap.Photos {
+			assert.Empty(t, p.OutputStem, p.FileName)
+		}
+		assert.ElementsMatch(t, []string{"one", "two"}, []string{ap.Photos[0].ID, ap.Photos[1].ID})
+	})
+}
+
+// TestPhotogenEntriesForSameStemFiles covers photogen.txt against same-stem files: a bare
+// stem names every variant, a full name names one, and the full name wins.
+func TestPhotogenEntriesForSameStemFiles(t *testing.T) {
+	t.Parallel()
+
+	setup := func(t *testing.T, photogen string, manual bool) *AlbumProcessor {
+		t.Helper()
+		dir := t.TempDir()
+		for _, n := range []string{"IMG_1.jpg", "IMG_1.png", "other.jpg"} {
+			src := map[string]string{"IMG_1.jpg": "landscape-1.jpg", "IMG_1.png": "landscape-1.png", "other.jpg": "portrait-1.jpg"}[n]
+			b, err := os.ReadFile(filepath.Join("testdata", src))
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(dir, n), b, 0o644))
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(dir, photogenFileName), []byte(photogen), 0o644))
+		ap := NewAlbumProcessor(
+			&Config{OutputRoot: t.TempDir(), SiteID: "s", Warn: &WarnCollector{}},
+			&AlbumConfig{Slug: "a", Name: "A", Path: dir, ManualSortOrder: manual},
+		)
+		require.NoError(t, ap.LoadPhotos())
+		return ap
+	}
+	captions := func(ap *AlbumProcessor) map[string]string {
+		m := map[string]string{}
+		for _, p := range ap.Photos {
+			m[p.FileName] = p.Description
+		}
+		return m
+	}
+	order := func(ap *AlbumProcessor) []string {
+		var names []string
+		for _, p := range ap.Photos {
+			names = append(names, p.FileName)
+		}
+		return names
+	}
+
+	t.Run("a bare stem captions every variant", func(t *testing.T) {
+		t.Parallel()
+		ap := setup(t, "IMG_1 Both\n", false)
+		assert.Equal(t, "Both", captions(ap)["IMG_1.jpg"])
+		assert.Equal(t, "Both", captions(ap)["IMG_1.png"])
+	})
+
+	t.Run("a full name wins over the stem, wherever it sits", func(t *testing.T) {
+		t.Parallel()
+		ap := setup(t, "IMG_1.png Just the png\nIMG_1 Both\n", false)
+		assert.Equal(t, "Both", captions(ap)["IMG_1.jpg"])
+		assert.Equal(t, "Just the png", captions(ap)["IMG_1.png"])
+	})
+
+	t.Run("a stale extension falls back to the stem", func(t *testing.T) {
+		t.Parallel()
+		ap := setup(t, "other.jpeg Re-exported\n", false)
+		assert.Equal(t, "Re-exported", captions(ap)["other.jpg"])
+	})
+
+	t.Run("a stem places every variant in manual order", func(t *testing.T) {
+		t.Parallel()
+		ap := setup(t, "other.jpg\nIMG_1\n", true)
+		assert.Equal(t, []string{"other.jpg", "IMG_1.jpg", "IMG_1.png"}, order(ap))
+		assert.Empty(t, ap.Config.Warn.warnings)
+	})
+
+	t.Run("full names order variants individually", func(t *testing.T) {
+		t.Parallel()
+		ap := setup(t, "IMG_1.png\nother.jpg\nIMG_1.jpg\n", true)
+		assert.Equal(t, []string{"IMG_1.png", "other.jpg", "IMG_1.jpg"}, order(ap))
+		assert.Empty(t, ap.Config.Warn.warnings)
+	})
+
+	t.Run("a full name after its stem keeps the stem's place, without a warning", func(t *testing.T) {
+		t.Parallel()
+		// The documented way to give one variant its own caption.
+		ap := setup(t, "IMG_1 Both\nother.jpg\nIMG_1.png Just the png\n", true)
+		assert.Equal(t, []string{"IMG_1.jpg", "IMG_1.png", "other.jpg"}, order(ap))
+		assert.Equal(t, "Just the png", captions(ap)["IMG_1.png"])
+		assert.Empty(t, ap.Config.Warn.warnings)
+	})
+
+	t.Run("a full name listed twice is a repeat", func(t *testing.T) {
+		t.Parallel()
+		ap := setup(t, "IMG_1\nIMG_1.png\nIMG_1.PNG\n", true)
+		require.Len(t, ap.Config.Warn.warnings, 2, "the repeat, and other.jpg being unlisted")
+		assert.Contains(t, ap.Config.Warn.warnings[0], "more than once")
 	})
 }
 

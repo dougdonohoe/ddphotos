@@ -258,10 +258,10 @@ func TestMergeSyncCaptions(t *testing.T) {
 
 		pd, err := loadPhotoDescriptions(dir)
 		require.NoError(t, err)
-		assert.Equal(t, []string{"img_1583", "sue and bob", "plain"}, pd.order)
-		assert.Equal(t, "So wide open!", pd.descriptions["img_1583"])
-		assert.Equal(t, "A &amp; B", pd.descriptions["sue and bob"])
-		assert.Equal(t, "", pd.descriptions["plain"])
+		assert.Equal(t, []string{"img_1583.jpeg", "sue and bob.jpg", "plain.jpg"}, pd.order)
+		assert.Equal(t, "So wide open!", pd.descriptions["img_1583.jpeg"])
+		assert.Equal(t, "A &amp; B", pd.descriptions["sue and bob.jpg"])
+		assert.Equal(t, "", pd.descriptions["plain.jpg"])
 	})
 
 	// parsePhotogenLine does no unescaping, so a quoted name has to be written verbatim.
@@ -280,7 +280,7 @@ func TestMergeSyncCaptions(t *testing.T) {
 
 		pd, err := loadPhotoDescriptions(dir)
 		require.NoError(t, err)
-		assert.Equal(t, "Reunion", pd.descriptions[photogenID(name)])
+		assert.Equal(t, "Reunion", pd.descriptions[strings.ToLower(name)])
 
 		// A re-sync must find the line again, so it keeps its place rather than being
 		// dropped and re-appended after b.jpg.
@@ -298,5 +298,33 @@ func TestMergeSyncCaptions(t *testing.T) {
 			syncItemsFor([2]string{"IMG_1583.jpeg", "Upstream"}),
 			metaFor([2]string{"IMG_1583.jpeg", "Upstream"}))
 		assert.Equal(t, "IMG_1583.jpeg Written by hand\n", got)
+	})
+
+	// Keyed on the stem, the second file's line replaced the first's and one was dropped.
+	t.Run("files sharing a stem keep a line each", func(t *testing.T) {
+		t.Parallel()
+		items := syncItemsFor([2]string{"IMG_1.jpg", "The jpg"}, [2]string{"IMG_1.png", "The png"})
+		meta := metaFor([2]string{"IMG_1.jpg", "The jpg"}, [2]string{"IMG_1.png", "The png"})
+		got, _ := run(t, "IMG_1.png Edited png\nIMG_1.jpg The jpg\n", items, meta)
+		assert.Equal(t, "IMG_1.png Edited png\nIMG_1.jpg The jpg\n", got,
+			"a local edit to one is kept, and both keep their places")
+	})
+
+	t.Run("a bare stem naming several files becomes a line for each, in place", func(t *testing.T) {
+		t.Parallel()
+		items := syncItemsFor(
+			[2]string{"a.jpg", "A"}, [2]string{"IMG_1.png", "Shared"}, [2]string{"IMG_1.jpg", "Shared"})
+		meta := metaFor(
+			[2]string{"a.jpg", "A"}, [2]string{"IMG_1.png", "Shared"}, [2]string{"IMG_1.jpg", "Shared"})
+		got, _ := run(t, "IMG_1 Edited by hand\na.jpg A\n", items, meta)
+		assert.Equal(t, "IMG_1.jpg Edited by hand\nIMG_1.png Edited by hand\na.jpg A\n", got)
+	})
+
+	t.Run("a full-name line beats the stem line for its file", func(t *testing.T) {
+		t.Parallel()
+		items := syncItemsFor([2]string{"IMG_1.jpg", "Up"}, [2]string{"IMG_1.png", "Up"})
+		meta := metaFor([2]string{"IMG_1.jpg", "Up"}, [2]string{"IMG_1.png", "Up"})
+		got, _ := run(t, "IMG_1 Stem\nIMG_1.png Png\n", items, meta)
+		assert.Equal(t, "IMG_1.jpg Stem\nIMG_1.png Png\n", got)
 	})
 }

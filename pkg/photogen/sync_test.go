@@ -153,8 +153,8 @@ func TestFilterSyncAssets(t *testing.T) {
 		assert.Contains(t, (*got)[0], "edited upstream")
 	})
 
-	// checkDuplicateIDs is a hard error: both files reduce to the ID "img_1234", so
-	// without this guard the whole run fails on an ordinary Apple Live Photo pair.
+	// An ordinary Apple Live Photo pair. The build would skip the clip too, but skipping it
+	// here means it is never downloaded.
 	t.Run("a video sharing a base name with a photo is skipped", func(t *testing.T) {
 		t.Parallel()
 		warnf, got := collect()
