@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -69,6 +70,16 @@ type SyncAsset struct {
 	Checksum  string    // provider checksum, "" when unavailable
 	UpdatedAt time.Time // upstream last-modified, zero when unavailable
 	Warnings  []string  // provider-specific notes to surface (e.g. "edited upstream")
+
+	// Edited means Fetch serves an edited rendition rather than the original. Checksum and
+	// Size still describe the original, which is why haveSyncAsset keys an edited asset on
+	// UpdatedAt instead. A rendition is assumed to carry no metadata of its own, so sync
+	// writes DateTaken into a sidecar for it.
+	Edited bool
+	// DateTaken is the capture date upstream knows, in photogen's convention: the camera's
+	// local clock, labeled UTC. Zero when upstream has no real one. Used only for an
+	// edited asset; an original carries its own.
+	DateTaken time.Time
 }
 
 // syncProviderNames returns the registered provider names, sorted, for error messages.
@@ -219,6 +230,25 @@ type syncItem struct {
 	file    string         // local file name, assigned once and then fixed
 	caption string         // the upstream caption, escaped
 	prev    *SyncPhotoMeta // last sync's record for this asset ID, nil when new
+	// editPending is set when the edit was asked for but upstream sent the original, which
+	// Immich does until it has finished rendering an edit. See editedLocally.
+	editPending bool
+}
+
+// editedLocally reports whether the local file is the edited rendition. It is what
+// metadata.yaml records as edited, so a pending edit is recorded as not edited, and the
+// next sync sees the mismatch and asks again.
+func (it syncItem) editedLocally() bool {
+	return it.asset.Edited && !it.editPending
+}
+
+// servedOriginal reports whether a download asked for an edit but got the original.
+//
+// The provider's Size is the original's, and an edited rendition is a re-encode, which
+// coming out byte-for-byte the same size as the original is not a real possibility. A
+// provider that does not report a size gets the benefit of the doubt.
+func servedOriginal(it syncItem, size int64) bool {
+	return it.asset.Edited && it.asset.Size > 0 && size == it.asset.Size
 }
 
 // assignSyncFileNames gives every asset its local file name.
@@ -378,21 +408,57 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 	// order downloads started in, not list position, so it reads as progress however the
 	// workers interleave, and a download's start and finish lines share the same N.
 	var started, downloaded atomic.Int64
+	var pendingMu sync.Mutex
+	pending := map[string]struct{}{} // asset IDs whose edit was asked for but not served
 	err = runPool(fetch, syncDownloadWorkers, func(workerID int, it syncItem) error {
 		n := started.Add(1)
-		fmt.Printf("    [w%d] %d/%d downloading: %s...\n", workerID, n, len(fetch), it.file)
+		label := ""
+		if it.asset.Edited {
+			label = " (edited)"
+		}
+		fmt.Printf("    [w%d] %d/%d downloading: %s%s...\n", workerID, n, len(fetch), it.file, label)
 		start := time.Now()
 		size, err := downloadSyncAsset(ctx, provider, ac.Path, it)
 		if err != nil {
 			return fmt.Errorf("download %s: %w", it.asset.FileName, err)
 		}
 		downloaded.Add(1)
-		fmt.Printf("    [w%d] %d/%d downloaded: %s (%.1f MB) in %s\n", workerID,
-			n, len(fetch), it.file, float64(size)/(1024*1024), took(start))
+		if servedOriginal(it, size) {
+			label = " (original: edit not ready)"
+			pendingMu.Lock()
+			pending[it.asset.ID] = struct{}{}
+			pendingMu.Unlock()
+		}
+		fmt.Printf("    [w%d] %d/%d downloaded: %s%s (%.1f MB) in %s\n", workerID,
+			n, len(fetch), it.file, label, float64(size)/(1024*1024), took(start))
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	for i := range items {
+		if _, ok := pending[items[i].asset.ID]; ok {
+			items[i].editPending = true
+			warnf("WARN: %s: edited upstream, but the edit is not ready yet, so the original "+
+				"was downloaded; the next sync tries again\n", items[i].file)
+		}
+	}
+
+	// For every item rather than only the ones just downloaded: a sidecar that was deleted,
+	// or a date changed upstream without a new download, is put right here too. The
+	// sidecars of items that no longer need one are left to the prune.
+	for _, it := range items {
+		if !syncItemNeedsSidecar(it) {
+			continue
+		}
+		date := it.asset.DateTaken.UTC()
+		wrote, err := writeSidecar(filepath.Join(ac.Path, it.file), Sidecar{DateTaken: &date})
+		if err != nil {
+			return err
+		}
+		if wrote {
+			fmt.Printf("  wrote: %s\n", filepath.Base(sidecarPath(it.file)))
+		}
 	}
 
 	// Before the metadata write, because the merge's baseline is what the *previous* run
@@ -420,6 +486,7 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 			Size:             it.asset.Size,
 			Checksum:         it.asset.Checksum,
 			UpdatedAt:        it.asset.UpdatedAt,
+			Edited:           it.editedLocally(),
 			Caption:          it.caption,
 		})
 	}
@@ -445,6 +512,12 @@ func syncOneAlbum(ctx context.Context, cfg *Config, ac *AlbumConfig, index, tota
 //
 // Skipping must leave the file's mtime untouched: MetaCache keys on path + mtime + size,
 // so a needless re-download would make photogen re-decode every photo on the next run.
+//
+// An edited asset is keyed on its timestamp alone, because its checksum and size describe
+// the original, which editing does not change. The cost is that any other change upstream,
+// such as a new caption, downloads the edited file again. A download that asked for an edit
+// and got the original was recorded as not edited (servedOriginal), so the edited-flag
+// check below retries it every run until the edit arrives.
 func haveSyncAsset(dir string, it syncItem) bool {
 	if it.prev == nil {
 		return false
@@ -452,6 +525,13 @@ func haveSyncAsset(dir string, it syncItem) bool {
 	st, err := os.Stat(filepath.Join(dir, it.file))
 	if err != nil || st.IsDir() {
 		return false
+	}
+	// An edit made or reverted since the last sync changes which rendition is wanted.
+	if it.asset.Edited != it.prev.Edited {
+		return false
+	}
+	if it.asset.Edited && !it.asset.UpdatedAt.IsZero() {
+		return it.prev.UpdatedAt.Equal(it.asset.UpdatedAt)
 	}
 	switch {
 	case it.asset.Checksum != "" && it.prev.Checksum != "":
@@ -465,6 +545,13 @@ func haveSyncAsset(dir string, it syncItem) bool {
 	default:
 		return true
 	}
+}
+
+// syncItemNeedsSidecar reports whether sync maintains a sidecar for an item. Only a local
+// file that is an edited rendition gets one, since an original carries its own date, and
+// only when there is a date to put in it.
+func syncItemNeedsSidecar(it syncItem) bool {
+	return it.editedLocally() && !it.asset.DateTaken.IsZero()
 }
 
 // downloadSyncAsset writes one asset to its local file and returns how many bytes it wrote.
@@ -507,6 +594,9 @@ func downloadSyncAsset(ctx context.Context, p SyncProvider, dir string, it syncI
 // two files sync maintains. photogen.txt is the only file a user may edit; everything else
 // here is managed, which is what keeps this rule simple.
 //
+// A sidecar is kept only while its asset still needs one, so the sidecar of an asset whose
+// edit was reverted goes the same way as that of an asset removed upstream.
+//
 // Subdirectories are left alone: nothing sync writes creates one, so anything found is the
 // user's.
 func pruneSyncFolder(dir string, items []syncItem) (int, error) {
@@ -515,6 +605,9 @@ func pruneSyncFolder(dir string, items []syncItem) (int, error) {
 	keep[photogenFileName] = struct{}{}
 	for _, it := range items {
 		keep[it.file] = struct{}{}
+		if syncItemNeedsSidecar(it) {
+			keep[sidecarPath(it.file)] = struct{}{}
+		}
 	}
 
 	entries, err := os.ReadDir(dir)

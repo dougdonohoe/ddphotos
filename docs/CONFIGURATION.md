@@ -210,7 +210,11 @@ A few assets in an Immich album do not reach the site, and each one says so as a
 | In the trash         | Skipped                                                                                                                                                         |
 | RAW                  | Skipped: photogen cannot resize it                                                                                                                              |
 | A Live Photo's video | Skipped when a photo and a video in the album share a base name; the still is published                                                                         |
-| Edited in Immich     | **Published, unedited.** Immich serves the pre-edit original, and strips the EXIF date from its edited copy, which would sort the photo to the end of the album |
+
+A photo **edited in Immich** (cropped, rotated and so on) is published as edited. Immich's
+edited copy has no EXIF date, so sync writes the date beside it in a
+[date sidecar](PHOTOGEN.md#date-sidecars). An edit made in Immich just before a sync may not
+be ready yet; the next sync picks it up.
 
 #### Where synced media lives
 
@@ -219,7 +223,8 @@ A few assets in an Immich album do not reach the site, and each one says so as a
 ├── metadata.yaml     # written by sync; do not edit
 ├── photogen.txt      # written by sync when captions are on; yours to edit
 ├── IMG_1583.jpeg
-└── IMG_1584.jpeg
+├── IMG_1584.jpeg
+└── IMG_1584.jpeg.photogen.json   # only for a photo edited in Immich
 ```
 
 `DDPHOTOS_SYNC_DIR` defaults to `sync/` beside `config/` and is resolved exactly like

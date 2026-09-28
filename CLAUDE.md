@@ -16,9 +16,10 @@ If the `albums/` or `build/` directory structure changes, keep these in sync
 
 There is a third root-level directory, `sync/` (`DDPHOTOS_SYNC_DIR`), holding albums
 photogen downloads from an upstream photo manager:
-`sync/{site-id}/{provider}/{slug}/`, each with `metadata.yaml`, `photogen.txt` and the
-media. **It is a source, not output.** Nothing under it is deployed, so the four files
-above need no change when it moves — but `pkg/photogen/sync.go` (`SyncAlbumPath`),
+`sync/{site-id}/{provider}/{slug}/`, each with `metadata.yaml`, `photogen.txt`, the
+media, and a `.photogen.json` date sidecar per photo edited upstream. **It is a source,
+not output.** Nothing under it is deployed, so the four files above need no change when
+it moves — but `pkg/photogen/sync.go` (`SyncAlbumPath`),
 `config/defaults.env`, `docker/Dockerfile`'s `ENV` block and the layout in
 `docs/CONFIGURATION.md` all name the shape and do.
 

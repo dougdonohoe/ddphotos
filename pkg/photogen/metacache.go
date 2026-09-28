@@ -9,8 +9,9 @@ import (
 )
 
 // metaCacheVersion is the on-disk schema version. Bump it whenever the shape of
-// metaCacheEntry or PhotoMetadata changes; a mismatch discards the whole file.
-const metaCacheVersion = 2
+// metaCacheEntry or PhotoMetadata changes, or what a read puts in it (3: DateTime is no
+// longer a date fallback); a mismatch discards the whole file.
+const metaCacheVersion = 3
 
 // MetaCacheFileName is the cache file written under {OutputRoot}/.build/.
 const MetaCacheFileName = "metadata-cache.json"

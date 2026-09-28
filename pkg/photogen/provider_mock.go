@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -40,6 +41,12 @@ type mockAsset struct {
 	Checksum  string   `json:"checksum"`
 	UpdatedAt string   `json:"updated_at"` // RFC3339, or "" for unknown
 	Warnings  []string `json:"warnings"`
+	// EditedFile, when set, marks the asset edited and is the file in media_dir that Fetch
+	// serves in place of file_name, the way Immich serves an edited rendition. While that
+	// file does not exist, Fetch serves file_name instead, as Immich does before it has
+	// rendered an edit.
+	EditedFile string `json:"edited_file"`
+	DateTaken  string `json:"date_taken"` // RFC3339, or "" for unknown
 }
 
 // errMockFail is what the fail: switch produces. The switch exists mainly for the prune
@@ -73,13 +80,13 @@ func (p *mockProvider) Assets(_ context.Context, _ string) ([]SyncAsset, error) 
 	}
 	assets := make([]SyncAsset, 0, len(p.fixture.Assets))
 	for _, a := range p.fixture.Assets {
-		var updated time.Time
-		if a.UpdatedAt != "" {
-			t, err := time.Parse(time.RFC3339, a.UpdatedAt)
-			if err != nil {
-				return nil, fmt.Errorf("sync.mock.assets: asset %s: bad updated_at %q: %w", a.ID, a.UpdatedAt, err)
-			}
-			updated = t
+		updated, err := parseMockTime(a.ID, "updated_at", a.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		taken, err := parseMockTime(a.ID, "date_taken", a.DateTaken)
+		if err != nil {
+			return nil, err
 		}
 		assets = append(assets, SyncAsset{
 			ID:        a.ID,
@@ -89,14 +96,45 @@ func (p *mockProvider) Assets(_ context.Context, _ string) ([]SyncAsset, error) 
 			Checksum:  a.Checksum,
 			UpdatedAt: updated,
 			Warnings:  a.Warnings,
+			Edited:    a.EditedFile != "",
+			DateTaken: taken,
 		})
 	}
 	return assets, nil
+}
+
+// parseMockTime reads an optional RFC3339 fixture field; "" is the zero time.
+func parseMockTime(id, field, value string) (time.Time, error) {
+	if value == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("sync.mock.assets: asset %s: bad %s %q: %w", id, field, value, err)
+	}
+	return t, nil
 }
 
 func (p *mockProvider) Fetch(_ context.Context, a SyncAsset) (io.ReadCloser, error) {
 	if p.cfg.Fail == "fetch" {
 		return nil, errMockFail
 	}
+	if a.Edited {
+		f, err := os.Open(filepath.Join(p.cfg.MediaDir, filepath.Base(p.editedFile(a.ID))))
+		if !errors.Is(err, fs.ErrNotExist) {
+			return f, err
+		}
+	}
 	return os.Open(filepath.Join(p.cfg.MediaDir, filepath.Base(a.FileName)))
+}
+
+// editedFile returns the file an edited asset is served from. SyncAsset carries only the
+// fact of the edit, so the fixture is looked up again by ID.
+func (p *mockProvider) editedFile(id string) string {
+	for _, a := range p.fixture.Assets {
+		if a.ID == id {
+			return a.EditedFile
+		}
+	}
+	return ""
 }

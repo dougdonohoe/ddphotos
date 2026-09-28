@@ -242,6 +242,33 @@ func TestHaveSyncAsset(t *testing.T) {
 		assert.False(t, haveSyncAsset(dir, it))
 	})
 
+	// Making or reverting an edit changes which rendition is wanted, while the checksum,
+	// which describes the original, stays the same.
+	t.Run("an edit made or reverted upstream is re-fetched", func(t *testing.T) {
+		t.Parallel()
+		dir := withFile(t, "a.jpg", 10)
+		it := syncItem{file: "a.jpg", asset: SyncAsset{Checksum: "x", Edited: true}, prev: &SyncPhotoMeta{Checksum: "x"}}
+		assert.False(t, haveSyncAsset(dir, it))
+
+		it = syncItem{file: "a.jpg", asset: SyncAsset{Checksum: "x"}, prev: &SyncPhotoMeta{Checksum: "x", Edited: true}}
+		assert.False(t, haveSyncAsset(dir, it))
+	})
+
+	// The checksum cannot see a re-edit, or the render job finishing after a sync that got
+	// the original, so an edited asset goes by updated_at.
+	t.Run("an edited asset is keyed on updated_at, not the checksum", func(t *testing.T) {
+		t.Parallel()
+		dir := withFile(t, "a.jpg", 10)
+		when := time.Date(2026, 9, 28, 14, 21, 56, 0, time.UTC)
+		it := syncItem{file: "a.jpg",
+			asset: SyncAsset{Checksum: "x", Size: 99, UpdatedAt: when, Edited: true},
+			prev:  &SyncPhotoMeta{Checksum: "x", Size: 99, UpdatedAt: when, Edited: true}}
+		assert.True(t, haveSyncAsset(dir, it), "the on-disk size is the edit's, not the recorded original's")
+
+		it.asset.UpdatedAt = when.Add(time.Second)
+		assert.False(t, haveSyncAsset(dir, it))
+	})
+
 	// A provider that knows nothing about its own assets leaves presence as the only
 	// signal. Re-fetching every run instead would rewrite every mtime and make photogen
 	// re-decode the whole album each time.

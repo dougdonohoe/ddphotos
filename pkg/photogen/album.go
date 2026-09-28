@@ -68,6 +68,9 @@ func (p *Photo) String() string {
 	dateStr := "no EXIF date"
 	if !p.DateTaken.IsZero() {
 		dateStr = p.DateTaken.Format("2006-01-02 15:04")
+		if p.DateFromSidecar {
+			dateStr += " via sidecar"
+		}
 	}
 
 	nameInfo := p.FileName
@@ -330,11 +333,24 @@ func checkDuplicateIDs(where string, photos []*Photo) error {
 //
 // Both branches must dispatch on media kind: libvips cannot open a video container, so
 // sending a .mov straight to ReadPhotoMetadata fails with "unsupported image format".
+//
+// A sidecar (sidecar.go) is applied on top of either, outside the cache. Both branches
+// return a copy, so overriding it cannot reach the cache's own entry.
 func (ap *AlbumProcessor) readMetadata(path string) (*PhotoMetadata, error) {
+	var meta *PhotoMetadata
+	var err error
 	if ap.Config == nil {
-		return ReadMediaMetadata(path)
+		meta, err = ReadMediaMetadata(path)
+	} else {
+		meta, err = ap.Config.MetaCache.Metadata(path)
 	}
-	return ap.Config.MetaCache.Metadata(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := applySidecar(path, meta); err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
 
 // fillMetadata populates PhotoMetadata for each photo concurrently. Decoding images is

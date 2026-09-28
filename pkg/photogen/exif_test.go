@@ -179,12 +179,14 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantDate:   "2024-05-31", // from DateTimeDigitized (no DateTimeOriginal)
 		},
 		{
-			name:       "datetime-fallback",
+			// Its only date is DateTime (ModifyDate, 2005-01-13), which is the day the batch
+			// was edited, not taken. Immich ignores it, and so does photogen.
+			name:       "datetime-only is undated",
 			filename:   "no-create-date.jpg",
 			wantWidth:  1440,
 			wantHeight: 2160,
 			wantOrient: "portrait",
-			wantDate:   "2005-01-13", // from DateTime (no DateTimeOriginal or DateTimeDigitized)
+			wantDate:   "",
 		},
 		{
 			// PNG carries EXIF in an eXIf chunk rather than a JPEG APP1 marker, so this
@@ -239,8 +241,12 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			assert.Equal(t, tc.wantHeight, meta.Height)
 			assert.Equal(t, tc.wantOrient, meta.Orientation)
 
-			assert.False(t, meta.DateTaken.IsZero(), "expected date to be set")
-			assert.Equal(t, tc.wantDate, meta.DateTaken.Format("2006-01-02"))
+			if tc.wantDate == "" {
+				assert.True(t, meta.DateTaken.IsZero(), "expected no date, got %s", meta.DateTaken)
+			} else {
+				assert.False(t, meta.DateTaken.IsZero(), "expected date to be set")
+				assert.Equal(t, tc.wantDate, meta.DateTaken.Format("2006-01-02"))
+			}
 			t.Logf("%s: date taken = %s", tc.filename, meta.DateTaken.Format("2006-01-02 15:04:05"))
 
 			// Dimensions here are post-AutoRotate canonical values, so a cache that lost

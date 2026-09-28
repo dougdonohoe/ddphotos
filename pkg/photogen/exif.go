@@ -47,6 +47,10 @@ type PhotoMetadata struct {
 	Orientation string    `json:"orientation"` // "portrait", "landscape", "square"
 	DateTaken   time.Time `json:"dateTaken"`
 	Duration    float64   `json:"duration,omitempty"` // seconds; video only
+	// DateFromSidecar records that DateTaken came from a sidecar rather than the file, for
+	// the build log. Never serialized: sidecars are applied after the metadata cache, so the
+	// cache must not carry it, and the frontend has no use for it.
+	DateFromSidecar bool `json:"-"`
 }
 
 // ReadMediaMetadata reads metadata for any supported source file, dispatching on extension.
@@ -110,10 +114,15 @@ func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 
 // readDateTaken extracts the photo capture date from EXIF data via libvips, which reads
 // EXIF from any container format (JPEG, TIFF, HEIC, etc.).
-// Tries DateTimeOriginal first, then DateTimeDigitized, then DateTime (TIFF tag
-// often set by image editors like Photoshop). Returns zero time if no date found.
+// Tries DateTimeOriginal, then DateTimeDigitized (exiftool's CreateDate). Returns zero time
+// if neither is set.
+//
+// DateTime (IFD0, exiftool's ModifyDate) is deliberately not a fallback. It is when the file
+// was last written, which an editor or scanner sets to the day of the edit, and Immich does
+// not read it either, so falling back to it made the two disagree about the same photo. A
+// photo whose only date is DateTime is undated; a date sidecar (sidecar.go) supplies one.
 func readDateTaken(img *vips.ImageRef) time.Time {
-	for _, field := range []string{"exif-ifd2-DateTimeOriginal", "exif-ifd2-DateTimeDigitized", "exif-ifd0-DateTime"} {
+	for _, field := range []string{"exif-ifd2-DateTimeOriginal", "exif-ifd2-DateTimeDigitized"} {
 		if val := img.GetString(field); val != "" {
 			if dt, err := parseExifDateTime(val); err == nil {
 				return dt
