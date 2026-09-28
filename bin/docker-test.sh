@@ -315,6 +315,55 @@ LEGACY_CONFIG_DIR=$(mktempd)
 [ -f "$TEST_DIR/albums/$LEGACY_SITE_ID/hero.jpg" ]  || fail "albums/$LEGACY_SITE_ID/hero.jpg not created"
 pass "photogen with legacy /ddphotos-* paths OK (album dir and hero.jpg created)"
 
+# pkg/photogen/testdata holds one image in six formats under the stem landscape-1, plus
+# stills and clips with other stems. Every file must publish under its own output name: the
+# first alphabetically (the .avif) keeps landscape-1.webp and the rest add their extension.
+# Built through the wrapper so the clips get the ffmpeg volume.
+#
+# The expected listing is the whole album, so adding media to testdata means adding it here.
+step "Photogen: files differing only by extension (pkg/photogen/testdata)"
+STEM_SITE_ID="test-same-stem"
+STEM_CONFIG_DIR="$TEST_DIR/config-same-stem"
+mkdir -p "$STEM_CONFIG_DIR"
+sed "s|_REPO_ROOT_|$REPO_ROOT|g" "$REPO_ROOT/web/testdata/albums.same-stem.yaml" > "$STEM_CONFIG_DIR/albums.yaml"
+stem_out=$("${DDPHOTOS[@]}" --config-dir "$STEM_CONFIG_DIR" photogen 2>&1) || (echo "$stem_out" && fail "same-stem photogen failed")
+STEM_ALBUM="$TEST_DIR/albums/$STEM_SITE_ID/photogen-test"
+[ -d "$STEM_ALBUM" ] || (echo "$stem_out" && fail "albums/$STEM_SITE_ID/photogen-test not created")
+
+STEM_EXPECTED=$(
+    echo cover.jpg
+    echo index.json
+    for size in full grid; do
+        for stem in landscape-1.heic landscape-1.jpg landscape-1.png landscape-1.tiff landscape-1 \
+                    landscape-1.webp landscape no-create-date no-date no-exif portrait-1 \
+                    portrait-rotated silent; do
+            echo "$size/$stem.webp"
+        done
+    done
+    for clip in landscape no-date portrait-rotated silent; do echo "video/$clip.mp4"; done
+)
+stem_actual=$(cd "$STEM_ALBUM" && find . -type f | sed 's|^\./||' | LC_ALL=C sort)
+if [ "$stem_actual" != "$(echo "$STEM_EXPECTED" | LC_ALL=C sort)" ]; then
+    diff <(echo "$STEM_EXPECTED" | LC_ALL=C sort) <(echo "$stem_actual") || true
+    fail "same-stem album output differs from expected (< expected, > actual)"
+fi
+pass "same-stem album has every expected output file"
+
+# The listing proves the files exist; index.json has to point each item at its own one.
+python3 - "$STEM_ALBUM/index.json" <<'EOF' || fail "same-stem index.json is wrong"
+import json, sys
+photos = json.load(open(sys.argv[1]))["photos"]
+grid = {p["fileName"]: p["src"]["grid"] for p in photos}
+ids = [p["id"] for p in photos]
+assert len(photos) == 13, f"expected 13 items, got {len(photos)}"
+assert len(set(ids)) == len(ids), f"duplicate ids: {sorted(ids)}"
+assert grid["landscape-1.avif"] == "grid/landscape-1.webp", grid["landscape-1.avif"]
+for ext in ["heic", "jpg", "png", "tiff", "webp"]:
+    want = f"grid/landscape-1.{ext}.webp"
+    assert grid[f"landscape-1.{ext}"] == want, f"landscape-1.{ext}: {grid[f'landscape-1.{ext}']} != {want}"
+EOF
+pass "same-stem index.json: 13 items, distinct ids, each landscape-1 variant on its own file"
+
 # ── 5c. Photogen: sync framework via the mock provider ────────────────────────
 # Drives the whole sync vertical slice through the image with no network: the sync folder
 # is created under DDPHOTOS_SYNC_DIR (/ddphotos/sync, so it lands on the host), media is

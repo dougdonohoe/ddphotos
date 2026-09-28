@@ -42,10 +42,11 @@ Docker mode too.
 
 A `SyncProvider` (`pkg/photogen/sync.go`) decides only what needs its own upstream's fields.
 **Unsupported extensions (including RAW) and photo-wins base-name clashes are decided once,
-for every provider, in `filterSyncAssets`** — the second is what protects `checkDuplicateIDs`,
-which is a hard error. A provider that re-implements either one will double its warnings. A
-provider skipping an asset warns through the `warnf` it was constructed with, because
-`filterSyncAssets` only prints the `Warnings` of assets it is handed.
+for every provider, in `filterSyncAssets`**. The second mirrors the build's
+`dropLivePhotoVideos` and only saves downloading a clip the build would skip anyway. A
+provider that re-implements either one will double its warnings. A provider skipping an
+asset warns through the `warnf` it was constructed with, because `filterSyncAssets` only
+prints the `Warnings` of assets it is handed.
 
 Provider names live in exactly one place, `syncProviderNames`; `isSyncProvider` gates
 validation and `newSyncProvider`'s switch gates construction, so adding a name to one without
@@ -69,9 +70,23 @@ in three semantically different places, and they are **not** interchangeable:
   also needs HTTP Range for video) and `web/src/hooks.server.ts` (prerender), plus a cache
   rule in `web/static/.htaccess` and `web/nginx.conf`
 
-`~/work/ddphotos-app` has its own `IMAGE_EXTENSION` regex in `PathValidation.java` that
-gates its photo chooser and caption editor. It does not yet know about video, so a `.mov`
-is invisible there even though photogen publishes it.
+`~/work/ddphotos-app` has its own `IMAGE_EXTENSION` and `VIDEO_EXTENSION` regexes in
+`PathValidation.java`, which gate its photo chooser and caption editor. Keep them in step
+with the two Go sets.
+
+## Same-stem file sync requirement
+
+Files whose names differ only by extension (`IMG_1.jpg`, `IMG_1.png`) are separate photos.
+A `photogen.txt` entry with an extension names one file; a bare stem names every file with
+that stem; the full name wins. Four places implement that and must agree:
+
+- `disambiguateStems` (`pkg/photogen/album.go`) gives all but the first of a group its
+  full name as the output stem (`IMG_1.png.webp`), after `dropLivePhotoVideos` has removed
+  the video of a photo/video pair
+- `photoMatcher` (`album.go`) resolves `photogen.txt` entries for the build
+- `syncItemMatcher` (`pkg/photogen/sync_captions.go`) does the same for the sync caption merge
+- `PhotogenFile` and `PhotogenEditorPhase` in `~/work/ddphotos-app`, whose caption editor
+  shows a row per file and writes full names
 
 ## URL routing sync requirement
 

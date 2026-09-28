@@ -1,0 +1,13 @@
+landscape-1.avif landscape-1.avif
+landscape-1.heic landscape-1.heic
+landscape-1.jpg landscape-1.jpg
+landscape-1.png landscape-1.png
+landscape-1.tiff landscape-1.tiff
+landscape-1.webp landscape-1.webp
+landscape.mov landscaped.mov
+no-create-date.jpg no-create-date.jpg
+no-date.mp4 no-date.mp4
+no-exif.jpg no-exif.jpg
+portrait-1.jpg portrait-1.jpg
+portrait-rotated.mov portrait-rotated.mov
+silent.mp4 silent.mp4

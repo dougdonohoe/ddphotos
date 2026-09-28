@@ -94,7 +94,7 @@ type AlbumSummary struct {
 func (ap *AlbumProcessor) WriteAlbumIndex() error {
 	cover := ""
 	if cp := ap.coverPhoto(); cp != nil {
-		cover = ap.relativeSrcPath(SizeGrid, cp.FileName)
+		cover = ap.relativeSrcPath(SizeGrid, cp)
 	}
 	index := AlbumIndex{
 		Slug:        ap.AlbumConfig.Slug,
@@ -120,14 +120,14 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 			DateTime:    dateStr,
 			Description: photo.Description,
 			Src: PhotoSrcIndex{
-				Grid: ap.relativeSrcPath(SizeGrid, photo.FileName),
-				Full: ap.relativeSrcPath(SizeFull, photo.FileName),
+				Grid: ap.relativeSrcPath(SizeGrid, photo),
+				Full: ap.relativeSrcPath(SizeFull, photo),
 			},
 		}
 		if photo.IsVideo {
 			pi.Kind = KindVideo
 			pi.Duration = photo.Duration
-			pi.Src.Video = ap.relativeVideoPath(photo.FileName)
+			pi.Src.Video = ap.relativeVideoPath(photo)
 		}
 		index.Photos = append(index.Photos, pi)
 	}
@@ -170,13 +170,13 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 }
 
 // relativeSrcPath returns the relative path for a photo variant (relative to album dir).
-func (ap *AlbumProcessor) relativeSrcPath(size ImageSize, fileName string) string {
-	return filepath.Join(string(size), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, fileName))
+func (ap *AlbumProcessor) relativeSrcPath(size ImageSize, photo *Photo) string {
+	return filepath.Join(string(size), ap.photoOutputName(photo, ".webp"))
 }
 
 // relativeVideoPath returns the relative path for a transcoded video (relative to album dir).
-func (ap *AlbumProcessor) relativeVideoPath(fileName string) string {
-	return filepath.Join(VideoDirName, ap.Config.PhotoOutputName(ap.AlbumConfig.Slug, fileName, ".mp4"))
+func (ap *AlbumProcessor) relativeVideoPath(photo *Photo) string {
+	return filepath.Join(VideoDirName, ap.photoOutputName(photo, ".mp4"))
 }
 
 // GetAlbumSummary returns summary info for albums.json
@@ -204,7 +204,7 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		// If the album has its own per-album password, omit the cover even when the site is
 		// encrypted — the per-album password provides stronger protection than the site password.
 		if !albumEncrypted || (ap.Config.IsSiteEncrypted() && !ap.Config.HasPerAlbumPassword(ap.AlbumConfig.Slug)) {
-			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, string(SizeGrid), ap.Config.PhotoWebPName(ap.AlbumConfig.Slug, cover.FileName))
+			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, ap.relativeSrcPath(SizeGrid, cover))
 		}
 		// CoverJpeg is used for OG/crawler meta tags — only set for unencrypted albums so
 		// search engines cannot index content that requires a password.

@@ -261,13 +261,15 @@ func assignSyncFileNames(assets []SyncAsset, prev *SyncMetadata) []syncItem {
 	return items
 }
 
-// filterSyncAssets drops assets photogen cannot publish and surfaces provider warnings.
+// filterSyncAssets drops assets photogen cannot publish or should not, and surfaces
+// provider warnings.
 //
-// The base-name rule is the subtle one. checkDuplicateIDs is a hard error: a photo ID is
-// the file name with its extension stripped, so IMG_1234.heic and IMG_1234.mov both reduce
-// to "img_1234" and the whole run fails. That check is provider-agnostic, so the guard is
-// here rather than inside a provider — every provider needs it, and putting it here is
-// what makes it testable without a network.
+// The base-name rule is the subtle one. A photo and a video sharing a stem (IMG_1234.heic
+// and IMG_1234.mov) are a Live Photo pair, and the build would skip the video anyway
+// (dropLivePhotoVideos); deciding it here saves downloading the clip at all. It is
+// provider-agnostic, so it lives here rather than inside a provider, which is also what
+// makes it testable without a network. Two photos or two videos sharing a stem are kept:
+// the build gives each its own output name (disambiguateStems).
 func filterSyncAssets(assets []SyncAsset, warnf func(string, ...any)) []SyncAsset {
 	kept := make([]SyncAsset, 0, len(assets))
 	for _, a := range assets {
@@ -286,7 +288,7 @@ func filterSyncAssets(assets []SyncAsset, warnf func(string, ...any)) []SyncAsse
 	// video in such a pair is almost always the Live Photo half of it.
 	//
 	// Both sides are decided by extension, because the extension is what
-	// collectPhotosRecursive and checkDuplicateIDs will go on later.
+	// dropLivePhotoVideos will go on later.
 	photoBases := make(map[string]string, len(kept))
 	for _, a := range kept {
 		if IsPhotoFile(a.FileName) {
@@ -307,8 +309,8 @@ func filterSyncAssets(assets []SyncAsset, warnf func(string, ...any)) []SyncAsse
 	return result
 }
 
-// syncBaseName reduces a file name to the ID photogen would give it: lowercase, extension
-// stripped. It mirrors collectPhotosRecursive and loadPhotoDescriptions.
+// syncBaseName reduces a file name to its stem: lowercase, extension stripped. It mirrors
+// dropLivePhotoVideos, which pairs files the same way.
 func syncBaseName(name string) string {
 	return strings.ToLower(strings.TrimSuffix(name, filepath.Ext(name)))
 }
