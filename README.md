@@ -6,6 +6,14 @@
 [![CI](https://github.com/dougdonohoe/ddphotos/actions/workflows/ci.yml/badge.svg)](https://github.com/dougdonohoe/ddphotos/actions)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+## News
+
+**Immich support is here!** Starting with version 1.32.0, DD Photos can sync albums straight from
+[Immich↗](https://immich.app), with no export needed. See [DD Photos and Immich↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/docs/IMMICH.md)
+for a walkthrough with screenshots of related support in the DD Photos App or see
+[Syncing an Album](docs/CONFIGURATION.md#syncing-an-album-from-a-photo-manager) for the `ddphotos`
+details.
+
 ## Overview
 
 DD Photos is an easy way for you to share your photo/video albums. A DD Photos [site↗](https://ddphotos.donohoe.info) has a home 
