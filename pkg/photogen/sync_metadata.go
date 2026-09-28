@@ -36,6 +36,9 @@ type SyncPhotoMeta struct {
 	Size             int64     `yaml:"size"`
 	Checksum         string    `yaml:"checksum"`
 	UpdatedAt        time.Time `yaml:"updated_at"`
+	// Edited records that the local file is the edited rendition, so that making or
+	// reverting an edit upstream is noticed even though the checksum does not change.
+	Edited bool `yaml:"edited,omitempty"`
 	// Caption is the *upstream* description at last sync, escaped — not whatever ended up
 	// in photogen.txt. When a local edit wins the merge this still records what upstream
 	// said, because that is the baseline the next run needs to tell "the user edited this"

@@ -47,6 +47,10 @@ type PhotoMetadata struct {
 	Orientation string    `json:"orientation"` // "portrait", "landscape", "square"
 	DateTaken   time.Time `json:"dateTaken"`
 	Duration    float64   `json:"duration,omitempty"` // seconds; video only
+	// DateFromSidecar records that DateTaken came from a sidecar rather than the file, for
+	// the build log. Never serialized: sidecars are applied after the metadata cache, so the
+	// cache must not carry it, and the frontend has no use for it.
+	DateFromSidecar bool `json:"-"`
 }
 
 // ReadMediaMetadata reads metadata for any supported source file, dispatching on extension.

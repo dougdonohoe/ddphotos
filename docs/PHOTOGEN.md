@@ -175,8 +175,24 @@ listed in `photogen.txt` are sorted by date and appended at the end.
 > **TIFF sources are always undated.** libvips does not expose EXIF from a `.tif`/`.tiff`
 > file even when the tags are present, so every TIFF sorts as undated (scan order, at the
 > end of the album) and the run warns `N/M photos have no EXIF date`. An album of scans
-> needs `photogen.txt` with `manual_sort_order: true` to control its sequence. Every other
-> supported still format - JPEG, PNG, WebP, HEIC/HEIF, AVIF - reads its date normally.
+> needs `photogen.txt` with `manual_sort_order: true` to control its sequence, or a date
+> sidecar per scan (below). Every other supported still format - JPEG, PNG, WebP, HEIC/HEIF,
+> AVIF - reads its date normally.
+
+### Date sidecars
+
+A file named after a photo or video with `.photogen.json` added supplies a date the file
+cannot carry itself, and **overrides** the file's own:
+
+```
+IMG_1.png                  # the photo
+IMG_1.png.photogen.json    # {"dateTaken": "2007-10-17T10:24:19Z"}
+```
+
+Write the time as the camera's local clock, with a `Z`, the same way photogen reads an EXIF
+date. A sidecar that is not valid JSON, has an unreadable date or has an unknown field stops
+the build. [Sync](CONFIGURATION.md#what-immich-publishes-and-what-it-does-not) writes one
+for each photo edited in Immich.
 
 ### HTML in captions
 

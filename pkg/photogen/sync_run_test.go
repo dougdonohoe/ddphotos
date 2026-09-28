@@ -48,6 +48,25 @@ func (f *syncFixture) add(id, name, caption string, body string) *syncFixture {
 	return f
 }
 
+// edit marks an asset edited upstream: Fetch now serves body, and the asset carries the
+// date and timestamp a real upstream would report with it. An empty body reverts the edit.
+func (f *syncFixture) edit(name, body, dateTaken, updatedAt string) {
+	f.t.Helper()
+	for i := range f.listing.Assets {
+		a := &f.listing.Assets[i]
+		if a.FileName != name {
+			continue
+		}
+		a.EditedFile, a.DateTaken, a.UpdatedAt = "", dateTaken, updatedAt
+		if body != "" {
+			a.EditedFile = "edited-" + name
+			require.NoError(f.t, os.WriteFile(filepath.Join(f.mediaDir, a.EditedFile), []byte(body), 0o644))
+		}
+		return
+	}
+	f.t.Fatalf("no asset named %q in the fixture", name)
+}
+
 // setCaption changes what upstream says about an asset.
 func (f *syncFixture) setCaption(name, caption string) {
 	f.t.Helper()
@@ -253,6 +272,83 @@ func TestSyncOneAlbum(t *testing.T) {
 		assert.Equal(t, "one.jpg Changed upstream\n", f.read(photogenFileName))
 		require.Len(t, warnings, 1)
 		assert.Contains(t, warnings[0], "one.jpg")
+	})
+
+	// The whole life of an edit: made, re-edited, reverted. The sidecar exists exactly while
+	// the local file is an edited rendition with a date.
+	t.Run("an edited asset downloads the edit and gets a date sidecar", func(t *testing.T) {
+		t.Parallel()
+		f := newSyncFixture(t)
+		f.add("a1", "one.jpg", "", "original").add("a2", "two.jpg", "", "two")
+		sidecar := "one.jpg" + sidecarSuffix
+
+		f.edit("one.jpg", "edit-1", "2007-10-17T10:24:19Z", "2026-09-28T14:00:00Z")
+		err, _ := f.sync()
+		require.NoError(t, err)
+		assert.Equal(t, "edit-1", f.read("one.jpg"))
+		assert.JSONEq(t, `{"dateTaken": "2007-10-17T10:24:19Z"}`, f.read(sidecar))
+		assert.NotContains(t, f.names(), "two.jpg"+sidecarSuffix, "an original needs no sidecar")
+		assert.Contains(t, f.read(SyncMetadataFileName), "edited: true")
+
+		before := f.mtimes()
+		err, _ = f.sync()
+		require.NoError(t, err)
+		after := f.mtimes()
+		for _, n := range []string{"one.jpg", sidecar} {
+			assert.Equal(t, before[n], after[n], "an unchanged edit is neither re-fetched nor rewritten: %s", n)
+		}
+
+		f.edit("one.jpg", "edit-2", "2007-10-17T10:24:19Z", "2026-09-28T15:00:00Z")
+		err, _ = f.sync()
+		require.NoError(t, err)
+		assert.Equal(t, "edit-2", f.read("one.jpg"), "a re-edit moves updated_at, not the checksum")
+
+		f.edit("one.jpg", "", "2007-10-17T10:24:19Z", "2026-09-28T16:00:00Z")
+		err, _ = f.sync()
+		require.NoError(t, err)
+		assert.Equal(t, "original", f.read("one.jpg"))
+		assert.NotContains(t, f.names(), sidecar, "a reverted edit's sidecar is pruned")
+	})
+
+	// Immich marks an asset edited before it has rendered the edit, and serves the original
+	// until it has. That must neither be recorded as the edit nor wait on updated_at moving.
+	t.Run("an edit that is not ready yet is retried until it arrives", func(t *testing.T) {
+		t.Parallel()
+		f := newSyncFixture(t)
+		f.add("a1", "one.jpg", "", "original")
+		f.listing.Assets[0].Size = int64(len("original"))
+		f.listing.Assets[0].EditedFile = "not-rendered-yet.jpg"
+		f.listing.Assets[0].DateTaken = "2007-10-17T10:24:19Z"
+		f.listing.Assets[0].UpdatedAt = "2026-09-28T14:00:00Z"
+		sidecar := "one.jpg" + sidecarSuffix
+
+		err, warnings := f.sync()
+		require.NoError(t, err)
+		assert.Equal(t, "original", f.read("one.jpg"))
+		require.Len(t, warnings, 1)
+		assert.Contains(t, warnings[0], "not ready")
+		assert.NotContains(t, f.names(), sidecar, "the original has its own date")
+		assert.NotContains(t, f.read(SyncMetadataFileName), "edited: true")
+
+		// Same updated_at: only the recorded edited flag can make this retry.
+		require.NoError(t, os.WriteFile(filepath.Join(f.mediaDir, "not-rendered-yet.jpg"), []byte("the edited bytes"), 0o644))
+		err, warnings = f.sync()
+		require.NoError(t, err)
+		assert.Empty(t, warnings)
+		assert.Equal(t, "the edited bytes", f.read("one.jpg"))
+		assert.Contains(t, f.names(), sidecar)
+		assert.Contains(t, f.read(SyncMetadataFileName), "edited: true")
+	})
+
+	t.Run("an edited asset with no upstream date gets no sidecar", func(t *testing.T) {
+		t.Parallel()
+		f := newSyncFixture(t)
+		f.add("a1", "one.jpg", "", "original")
+		f.edit("one.jpg", "edit-1", "", "2026-09-28T14:00:00Z")
+		err, _ := f.sync()
+		require.NoError(t, err)
+		assert.Equal(t, "edit-1", f.read("one.jpg"))
+		assert.NotContains(t, f.names(), "one.jpg"+sidecarSuffix)
 	})
 
 	t.Run("over the photo limit is an error naming the album and the cap", func(t *testing.T) {

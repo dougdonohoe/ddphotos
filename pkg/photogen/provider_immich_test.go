@@ -34,6 +34,9 @@ type immichServer struct {
 	album []byte            // GET /api/albums/{id}
 	pages [][]byte          // POST /api/search/metadata, one entry per page
 	media map[string]string // asset id -> its bytes, for /original
+	// edited is what /original?edited=true serves. An asset missing here falls back to its
+	// original, which is what Immich does while the edit is still being rendered.
+	edited map[string]string
 
 	// status and body, when set, make every API call fail this way instead.
 	status int
@@ -86,6 +89,9 @@ func (s *immichServer) start() *httptest.Server {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/original"):
 			id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/assets/"), "/original")
 			bytes, ok := s.media[id]
+			if e, has := s.edited[id]; has && r.URL.Query().Get("edited") == "true" {
+				bytes, ok = e, true
+			}
 			if !ok {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprint(w, `{"message":"Not found or no asset.download access"}`)
@@ -572,17 +578,40 @@ func TestImmichConvertAsset(t *testing.T) {
 		assert.Contains(t, warnings[0], "trash")
 	})
 
-	// The edited pixels only exist in the metadata-free full-size variant, so the original
-	// is published and the warning says what the visitor will see.
-	t.Run("an edited asset is published with a warning on the asset", func(t *testing.T) {
+	t.Run("an edited asset is published as edited, without a warning", func(t *testing.T) {
 		t.Parallel()
 		a := base()
 		a.IsEdited = true
 		asset, ok, warnings := convert(a)
 		require.True(t, ok)
-		assert.Empty(t, warnings, "an edited asset warns through the asset, not the channel")
-		require.Len(t, asset.Warnings, 1)
-		assert.Contains(t, asset.Warnings[0], "unedited")
+		assert.True(t, asset.Edited)
+		assert.Empty(t, warnings)
+		assert.Empty(t, asset.Warnings)
+	})
+
+	// localDateTime is the camera's clock labelled UTC, which is photogen's EXIF convention;
+	// dateTimeOriginal is true UTC and would be off by the zone.
+	t.Run("the date taken is localDateTime, to the second", func(t *testing.T) {
+		t.Parallel()
+		a := base()
+		dto := "2026-03-23T04:37:51.853+00:00"
+		a.ExifInfo = &immichExifInfo{DateTimeOriginal: &dto}
+		a.LocalDateTime = "2026-03-22T22:37:51.853Z"
+		asset, ok, _ := convert(a)
+		require.True(t, ok)
+		assert.Equal(t, time.Date(2026, 3, 22, 22, 37, 51, 0, time.UTC), asset.DateTaken)
+	})
+
+	// With no EXIF date Immich fills localDateTime from the file's mtime, which is not a
+	// capture date, and the original would publish undated anyway.
+	t.Run("no dateTimeOriginal means no date taken", func(t *testing.T) {
+		t.Parallel()
+		a := base()
+		a.ExifInfo = &immichExifInfo{}
+		a.LocalDateTime = "2026-03-22T22:37:51.853Z"
+		asset, ok, _ := convert(a)
+		require.True(t, ok)
+		assert.True(t, asset.DateTaken.IsZero())
 	})
 
 	// Immich omits exifInfo entirely rather than sending null, and every field inside it is
@@ -634,6 +663,21 @@ func TestImmichProviderFetch(t *testing.T) {
 		body, err := io.ReadAll(rc)
 		require.NoError(t, err)
 		assert.Equal(t, "the original bytes", string(body))
+	})
+
+	t.Run("an edited asset streams the edited bytes", func(t *testing.T) {
+		t.Parallel()
+		s := &immichServer{t: t,
+			media:  map[string]string{"id-1": "the original bytes"},
+			edited: map[string]string{"id-1": "the edited bytes"}}
+		p, _ := s.provider(s.start())
+		rc, err := p.Fetch(context.Background(), SyncAsset{ID: "id-1", FileName: "IMG_1.jpg", Edited: true})
+		require.NoError(t, err)
+		//goland:noinspection GoUnhandledErrorResult
+		defer rc.Close() //nolint:errcheck
+		body, err := io.ReadAll(rc)
+		require.NoError(t, err)
+		assert.Equal(t, "the edited bytes", string(body))
 	})
 
 	t.Run("an asset immich cannot serve is an error", func(t *testing.T) {

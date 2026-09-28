@@ -25,7 +25,7 @@ import (
 //
 // It decides exactly three things about an asset, because those are the three that need
 // Immich's own fields: whether it is trashed, what its visibility is, and whether it was
-// edited upstream. Unsupported extensions, RAW included, and photo-vs-video base-name clashes
+// edited upstream, which decides what Fetch downloads. Unsupported extensions, RAW included, and photo-vs-video base-name clashes
 // are decided by filterSyncAssets in sync.go, which every provider shares, and are
 // deliberately not repeated here.
 //
@@ -342,6 +342,11 @@ type immichAsset struct {
 	Visibility string `json:"visibility"` // timeline | archive | hidden | locked
 	IsTrashed  bool   `json:"isTrashed"`
 	IsEdited   bool   `json:"isEdited"`
+	// LocalDateTime is the capture time on the camera's own clock, labelled UTC: exactly
+	// the convention photogen reads EXIF dates in. Immich fills it from the file's mtime
+	// when the photo has no date, so it is only trusted when ExifInfo.DateTimeOriginal is
+	// set.
+	LocalDateTime string `json:"localDateTime"`
 	// ExifInfo is omitted entirely when Immich has no EXIF for the asset, so this is a
 	// pointer and every field inside it is optional too.
 	ExifInfo *immichExifInfo `json:"exifInfo"`
@@ -353,8 +358,9 @@ type immichAsset struct {
 // fileSizeInByte living here rather than on the asset is why withExif: true is required on
 // the search request and not merely an optimization.
 type immichExifInfo struct {
-	Description    *string `json:"description"`
-	FileSizeInByte *int64  `json:"fileSizeInByte"`
+	Description      *string `json:"description"`
+	FileSizeInByte   *int64  `json:"fileSizeInByte"`
+	DateTimeOriginal *string `json:"dateTimeOriginal"`
 }
 
 // Immich visibilities that sync cares about by name.
@@ -452,28 +458,40 @@ func (p *immichProvider) convertAsset(a immichAsset) (SyncAsset, bool) {
 		}
 	}
 
-	// Edited assets publish, with a warning. /assets/{id}/original serves the pre-edit file,
-	// and the edited pixels exist only in the full-size variant, which Immich generates
-	// without any metadata at all — no EXIF date means the photo sorts to the end of the
-	// album, so the unedited original is the lesser of the two problems.
-	if a.IsEdited {
-		asset.Warnings = append(asset.Warnings,
-			"edited in Immich; the site will show the unedited original")
+	// An edited asset publishes its edit. The edited rendition carries no EXIF at all, so
+	// its date travels separately, in a sidecar sync writes from DateTaken.
+	asset.Edited = a.IsEdited
+	if a.ExifInfo != nil && a.ExifInfo.DateTimeOriginal != nil && a.LocalDateTime != "" {
+		// Unparseable is treated like absent: the photo publishes, just undated, which
+		// is what the original would do with no EXIF date either. Truncated to the
+		// second because EXIF has no finer resolution, and the two ought to agree.
+		if t, err := time.Parse(time.RFC3339, a.LocalDateTime); err == nil {
+			asset.DateTaken = t.UTC().Truncate(time.Second)
+		}
 	}
 	return asset, true
 }
 
-// Fetch opens one asset's original bytes. The caller closes the reader.
+// Fetch opens one asset's bytes: the original, or for an edited asset the edited rendition.
+// The caller closes the reader.
 //
-// Always the original, for photos and videos alike: Immich strips metadata from everything it
-// derives. Its full-size images are produced without keepMetadata(), and its encoded videos
-// are transcoded with -map_metadata -1, so neither has the EXIF date or creation_time photogen
-// sorts an album by. ?edited=true is not used for the same reason — it resolves to that same
-// metadata-free full-size file.
+// The original is preferred wherever there is a choice, because Immich strips metadata from
+// everything it derives: its full-size images are produced without keepMetadata(), and its
+// encoded videos are transcoded with -map_metadata -1. An edit is the exception, because the
+// edited pixels exist nowhere else. ?edited=true serves them under the same asset.download
+// permission, at full resolution, and the missing EXIF date is made up for by a sidecar.
+//
+// Immich marks an asset edited as soon as the edit is saved, but renders it in a background
+// job. Until that job finishes, ?edited=true quietly serves the original. The shared layer
+// notices by size (servedOriginal) and tries again on the next sync.
 func (p *immichProvider) Fetch(ctx context.Context, a SyncAsset) (io.ReadCloser, error) {
 	ctx, cancel := context.WithTimeout(ctx, immichFetchTimeout)
 
-	resp, err := p.do(ctx, http.MethodGet, "/api/assets/"+url.PathEscape(a.ID)+"/original", nil)
+	apiPath := "/api/assets/" + url.PathEscape(a.ID) + "/original"
+	if a.Edited {
+		apiPath += "?edited=true"
+	}
+	resp, err := p.do(ctx, http.MethodGet, apiPath, nil)
 	if err != nil {
 		cancel()
 		return nil, err
