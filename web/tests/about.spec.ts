@@ -28,9 +28,15 @@ for (const { timezoneId, label } of zones) {
 			// The privacy page is never encrypted, so the footer is always ready.
 			await page.goto('/privacy');
 			await waitForHydration(page);
-			await page.getByRole('button', { name: 'About this site' }).click();
-
+			// Retry the click: on a cold Vite dev server the layout's onclick handler can
+			// attach after waitForHydration returns, and a click that lands early is lost.
+			// Opening is idempotent, so a repeat click is harmless.
 			const built = page.locator('.modal-body dd').first();
+			await expect(async () => {
+				await page.getByRole('button', { name: 'About this site' }).click();
+				await expect(built).toBeVisible({ timeout: 1000 });
+			}).toPass();
+
 			await expect(built).toContainText(`at ${hour12}:${minute}`);
 			await expect(built).toHaveText(label);
 		});
