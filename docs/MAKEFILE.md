@@ -7,65 +7,65 @@ Common tasks are available via `make` from the repo root.
 **NOTE**: Most targets use `$DDPHOTOS_SITE_ID` to choose which site to operate on.  This defaults to `sample`,
 as defined in `config/defaults.env`.
 
-| Target                        | Description                                                                                   |
-|-------------------------------|-----------------------------------------------------------------------------------------------|
-| `help`                        | Show all available make targets (default when running `make`)                                 |
-| `build`                       | Compile all Go binaries                                                                       |
-| `test`                        | Run Go unit tests (with the race detector; `RACE=` to disable, as CI does on PRs)             |
-| `mod-tidy`                    | Run `go mod tidy` to clean up imports                                                         |
-| `clean-cache`                 | Run `go clean -cache` (useful after a vips library upgrade)                                   |
-| `vet`                         | Run `go vet` static analysis                                                                  |
-| `check-versions`              | Report whether the Node/npm versions pinned in `web/` are behind upstream                     |
-| `check-go`                    | Report whether the Go version in `go.mod` is behind, and any reachable vulnerabilities        |
-| `web-nvm-install`             | Install the Node version in `web/.nvmrc` and the npm version in `web/.npm-version`            |
-| `web-npm-install`             | Install npm dependencies in `web/`                                                            |
-| `web-npm-audit`               | Run `npm audit` in `web/`                                                                     |
-| `web-npm-audit-fix`           | Run `npm audit fix` in `web/`                                                                 |
-| `web-lint`                    | Check formatting (prettier) and lint (eslint) in `web/`                                       |
-| `web-format`                  | Reformat `web/` sources with prettier                                                         |
-| `web-unit-test`               | Run Vitest unit tests for the TypeScript helpers in `web/src/lib`                             |
-| `web-npm-run-dev`             | Start Vite dev server and open browser                                                        |
-| `web-npm-run-dev-https`       | Start Vite dev server over HTTPS (required for `crypto.subtle` on mobile/LAN)                 |
-| `web-npm-build`               | Build the static site into `build/$DDPHOTOS_SITE_ID/`                                         |
-| `web-docker-build-apache`     | Build the `photos-apache` Docker image                                                        |
-| `web-docker-build-nginx`      | Build the `photos-nginx` Docker image                                                         |
-| `web-docker-build-apache-ssh` | Build the `photos-apache-ssh` Docker image (Apache + SSH, used for rsync testing)             |
-| `web-docker-build-nginx-ssh`  | Build the `photos-nginx-ssh` Docker image (nginx + SSH, used for rsync testing)               |
-| `web-docker-run-apache`       | Run Apache on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                     |
-| `web-docker-run-nginx`        | Run nginx on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                      |
-| `web-docker-stop`             | Stop the container running on port 8080                                                       |
-| `web-docker-test`             | Run `bin/test-photos-server.sh` against `localhost:8080`                                      |
-| `web-playwright-install`      | One-time setup: install `@playwright/test` and Chromium binary                                |
-| `web-playwright-test-apache`  | Run Playwright e2e tests (starts Docker/Apache on port 8083, runs, stops)                     |
-| `web-playwright-test-nginx`   | Run Playwright e2e tests (starts Docker/nginx on port 8084, runs, stops)                      |
-| `web-playwright-test-dev`     | Run Playwright e2e tests (against Vite dev server)                                            |
-| `web-playwright-test-all`     | Run `bin/test-all.sh` across all password/CSS/customization variants                          |
-| `web-sanity-test`             | Quick sanity check: Apache, no-passwords + all-passwords (companion to `make build test vet`) |
-| `sample-photogen`             | Run photogen using `sample/config/albums.yaml`                                                |
-| `sample-photogen-pw-all`      | Run photogen using sample config, all albums password-protected                               |
-| `sample-photogen-pw-uganda`   | Run photogen using sample config, Uganda album password-protected                             |
-| `sample-photogen-pw-keyonly`  | Run photogen using sample config with a passwords file that has no effective password         |
-| `sample-photogen-css`         | Run photogen using sample config with custom CSS injected                                     |
-| `sample-photogen-demo-1`      | Run photogen using sample config with custom CSS and all albums password-protected            |
-| `sample-photogen-demo-2`      | Run photogen using sample config with custom CSS and the Uganda album password-protected      |
-| `sample-demo-1`               | One-step demo #1: photogen (CSS + site password + 2 album passwords) and run dev server       |
-| `sample-demo-2`               | One-step demo #2: photogen (CSS + one album password) and run dev server                      |
-| `sample-photogen-sync`        | Run photogen against `sample/config-sync/` — syncs two albums from the `mock` provider        |
-| `sample-sync`                 | One-step sync demo: syncs from the `mock` provider, photogen's and runs dev server            |
-| `sample-build`                | Build the static site using sample config                                                     |
-| `sample-export`               | Create `export/<site-id>/` with symlinks for local serving (runs `bin/export.sh`)             |
-| `sample-npm-run-dev`          | Run the Vite dev server using sample config                                                   |
-| `sample-npm-run-dev-css`      | Run the Vite dev server using sample config with custom CSS                                   |
-| `sample-test-apache`          | Run routing tests against Docker/Apache on port 8082                                          |
-| `sample-test-nginx`           | Run routing tests against Docker/nginx on port 8082                                           |
-| `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Apache container, verify      |
-| `sample-rsync-test-nginx`     | Same, but rsyncs into a fresh nginx container (`bin/rsync-test.sh --server nginx`)            |
-| `sample-s3-test`              | Test the S3 deploy path against Garage: file placement, Cache-Control headers, and serving    |
-| `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                  |
-| `gen-deploy-tree`             | Regenerate `docs/deploy-tree.svg` (run after changing the deploy directory structure)         |
-| `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                       |
-| `docker-push`                 | Build multi-arch image and push to Docker Hub (`bin/docker-push.sh`)                          |
-| `docker-test`                 | Build the `ddphotos` image and run end-to-end Docker workflow tests (`bin/docker-test.sh`)    |
-| `ddphotos-install-dev`        | Install `ddphotos` script from local dev image into `~/.local/bin`                            |
-| `ddphotos-install-prod`       | Install `ddphotos` script from `dougdonohoe/ddphotos:latest` into `~/.local/bin`              |
-| `ddphotos-patch`              | Copy `docker/ddphotos` to `~/.local/bin`, preserving the `IMAGE=` line from the installed one |
+| Target                        | Description                                                                                                                   |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| `help`                        | Show all available make targets (default when running `make`)                                                                 |
+| `build`                       | Compile all Go binaries                                                                                                       |
+| `test`                        | Run Go unit tests (with the race detector; `RACE=` to disable, as CI does on PRs)                                             |
+| `mod-tidy`                    | Run `go mod tidy` to clean up imports                                                                                         |
+| `clean-cache`                 | Run `go clean -cache` (useful after a vips library upgrade)                                                                   |
+| `vet`                         | Run `go vet` static analysis                                                                                                  |
+| `check-versions`              | Report whether the Node/npm versions pinned in `web/` are behind upstream                                                     |
+| `check-go`                    | Report whether the Go version in `go.mod` is behind, and any reachable vulnerabilities                                        |
+| `web-nvm-install`             | Install the Node version in `web/.nvmrc` and the npm version in `web/.npm-version`                                            |
+| `web-npm-install`             | Install npm dependencies in `web/`                                                                                            |
+| `web-npm-audit`               | Run `npm audit` in `web/`                                                                                                     |
+| `web-npm-audit-fix`           | Run `npm audit fix` in `web/`                                                                                                 |
+| `web-lint`                    | Check formatting (prettier) and lint (eslint) in `web/`                                                                       |
+| `web-format`                  | Reformat `web/` sources with prettier                                                                                         |
+| `web-unit-test`               | Run Vitest unit tests for the TypeScript helpers in `web/src/lib`                                                             |
+| `web-npm-run-dev`             | Start Vite dev server and open browser                                                                                        |
+| `web-npm-run-dev-https`       | Start Vite dev server over HTTPS (required for `crypto.subtle` on mobile/LAN)                                                 |
+| `web-npm-build`               | Build the static site into `build/$DDPHOTOS_SITE_ID/`                                                                         |
+| `web-docker-build-apache`     | Build the `photos-apache` Docker image                                                                                        |
+| `web-docker-build-nginx`      | Build the `photos-nginx` Docker image                                                                                         |
+| `web-docker-build-apache-ssh` | Build the `photos-apache-ssh` Docker image (Apache + SSH, used for rsync testing)                                             |
+| `web-docker-build-nginx-ssh`  | Build the `photos-nginx-ssh` Docker image (nginx + SSH, used for rsync testing)                                               |
+| `web-docker-run-apache`       | Run Apache on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                                                     |
+| `web-docker-run-nginx`        | Run nginx on port 8080 (mounts `build/` and `albums/$DDPHOTOS_SITE_ID/`)                                                      |
+| `web-docker-stop`             | Stop the container running on port 8080                                                                                       |
+| `web-docker-test`             | Run `bin/test-photos-server.sh` against `localhost:8080`                                                                      |
+| `web-playwright-install`      | One-time setup: install `@playwright/test` and Chromium binary                                                                |
+| `web-playwright-test-apache`  | Run Playwright e2e tests (starts Docker/Apache on port 8083, runs, stops)                                                     |
+| `web-playwright-test-nginx`   | Run Playwright e2e tests (starts Docker/nginx on port 8084, runs, stops)                                                      |
+| `web-playwright-test-dev`     | Run Playwright e2e tests (against Vite dev server)                                                                            |
+| `web-playwright-test-all`     | Run `bin/test-all.sh` across all password/CSS/customization variants                                                          |
+| `web-sanity-test`             | Quick sanity check: Apache, no-passwords + all-passwords (companion to `make build test vet`)                                 |
+| `sample-photogen`             | Run photogen using `sample/config/albums.yaml`                                                                                |
+| `sample-photogen-pw-all`      | Run photogen using sample config, all albums password-protected                                                               |
+| `sample-photogen-pw-uganda`   | Run photogen using sample config, Uganda album password-protected                                                             |
+| `sample-photogen-pw-keyonly`  | Run photogen using sample config with a passwords file that has no effective password                                         |
+| `sample-photogen-css`         | Run photogen using sample config with custom CSS injected                                                                     |
+| `sample-photogen-demo-1`      | Run photogen using sample config with custom CSS and all albums password-protected                                            |
+| `sample-photogen-demo-2`      | Run photogen using sample config with custom CSS and the Uganda album password-protected                                      |
+| `sample-demo-1`               | One-step demo #1: photogen (CSS + site password + 2 album passwords) and run dev server                                       |
+| `sample-demo-2`               | One-step demo #2: photogen (CSS + one album password) and run dev server                                                      |
+| `sample-photogen-sync`        | Run photogen against `sample/config-sync/` — syncs two albums from the `mock` provider                                        |
+| `sample-sync`                 | One-step sync demo: syncs from the `mock` provider, photogen's and runs dev server                                            |
+| `sample-build`                | Build the static site using sample config                                                                                     |
+| `sample-export`               | Create `export/<site-id>/` with symlinks for local serving (runs `bin/export.sh`)                                             |
+| `sample-npm-run-dev`          | Run the Vite dev server using sample config                                                                                   |
+| `sample-npm-run-dev-css`      | Run the Vite dev server using sample config with custom CSS                                                                   |
+| `sample-test-apache`          | Run routing tests against Docker/Apache on port 8082                                                                          |
+| `sample-test-nginx`           | Run routing tests against Docker/nginx on port 8082                                                                           |
+| `sample-rsync-test`           | Test the rsync deploy path: photogen, build, rsync into a fresh Apache container, verify                                      |
+| `sample-rsync-test-nginx`     | Same, but rsyncs into a fresh nginx container (`bin/rsync-test.sh --server nginx`)                                            |
+| `sample-s3-test`              | Test the S3 deploy path against Garage: file placement, Cache-Control headers, and serving                                    |
+| `web-screenshots`             | Capture screenshots (requires a running server on port 8080)                                                                  |
+| `gen-deploy-tree`             | Regenerate `docs/deploy-tree.svg` (run after changing the deploy directory structure)                                         |
+| `docker-build`                | Build the `ddphotos` Docker image locally (single-arch)                                                                       |
+| `docker-push`                 | Build multi-arch image and push to Docker Hub (`bin/docker-push.sh`)                                                          |
+| `docker-test`                 | Build the `ddphotos` image and run end-to-end Docker workflow tests (`bin/docker-test.sh`)                                    |
+| `ddphotos-install-dev`        | Install `ddphotos` script from local dev image into `~/.local/bin` and `~/.config/ddphotos/bin` (DD Photos app)               |
+| `ddphotos-install-prod`       | Install `ddphotos` script from `dougdonohoe/ddphotos:latest` into `~/.local/bin` and `~/.config/ddphotos/bin` (DD Photos app) |
+| `ddphotos-patch`              | Copy `docker/ddphotos` to `~/.local/bin`, preserving the `IMAGE=` line from the installed one                                 |

@@ -12,7 +12,6 @@ declare global {
 
 interface ImportMetaEnv {
 	readonly VITE_BUILD_TIME: string;
-	readonly VITE_BUILD_TZ: string;
 	readonly VITE_DOCKER_IMAGE: string;
 }
 

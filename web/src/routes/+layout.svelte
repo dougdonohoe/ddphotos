@@ -25,11 +25,12 @@
 		document.documentElement.setAttribute('data-theme', $theme);
 	});
 
-	function formatBuildTime(iso: string, timeZone: string | undefined): string {
+	// No timeZone option, so this formats in the viewer's zone. That is only right in the
+	// browser, which is fine: the About dialog never renders during pre-rendering.
+	function formatBuildTime(iso: string): string {
 		const d = new Date(iso);
-		const date = d.toLocaleDateString('en-US', { timeZone });
+		const date = d.toLocaleDateString('en-US');
 		const time = d.toLocaleTimeString('en-US', {
-			timeZone,
 			hour: 'numeric',
 			minute: '2-digit',
 			hour12: true,
@@ -38,10 +39,7 @@
 		return `${date} at ${time}`;
 	}
 
-	const builtOn = formatBuildTime(
-		import.meta.env.VITE_BUILD_TIME,
-		import.meta.env.VITE_BUILD_TZ || undefined
-	);
+	const builtOn = formatBuildTime(import.meta.env.VITE_BUILD_TIME);
 	const gitDescribe = import.meta.env.VITE_GIT_DESCRIBE as string;
 	const gitBranch = import.meta.env.VITE_GIT_BRANCH as string;
 	const dockerImage = import.meta.env.VITE_DOCKER_IMAGE;
