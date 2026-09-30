@@ -217,7 +217,9 @@ export default defineConfig({
 				// without Range support seeking does nothing and Safari refuses to play
 				// the file at all.
 				server.middlewares.use('/albums', (req, res, next) => {
-					const filePath = join(albumsDir, decodeURIComponent(req.url ?? '/'));
+					// Drop the query string: images carry a ?v= version (see albumFileUrl).
+					const pathname = (req.url ?? '/').split('?')[0];
+					const filePath = join(albumsDir, decodeURIComponent(pathname));
 					let stat;
 					try {
 						stat = statSync(filePath);

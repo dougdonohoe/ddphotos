@@ -28,6 +28,7 @@
 	import { footerReady } from '$lib/stores';
 	import { stripTags } from '$lib/html';
 	import { albumMetaText } from '$lib/counts';
+	import { albumFileUrl } from '$lib/albumUrl';
 	import { navigateCursor, type Direction } from '$lib/navigation';
 	import { applyVideoAudio, rememberVideoAudio } from '$lib/videoAudio';
 
@@ -175,20 +176,25 @@
 	let photoswipeItems = $derived(
 		(album?.photos ?? []).map((photo) => ({
 			type: photo.kind === 'video' ? 'video' : undefined,
-			src: `/albums/${slug}/${photo.src.full}`,
+			src: albumFileUrl(`${slug}/${photo.src.full}`, photo.version),
 			w: photo.width,
 			h: photo.height,
-			msrc: `/albums/${slug}/${photo.src.grid}`, // thumbnail for loading
+			msrc: albumFileUrl(`${slug}/${photo.src.grid}`, photo.version), // thumbnail for loading
 			alt: stripTags(photo.description) || photo.fileName,
 			caption: photo.description || '',
-			videoSrc: photo.src.video ? `/albums/${slug}/${photo.src.video}` : undefined,
-			posterSrc: `/albums/${slug}/${photo.src.full}`
+			videoSrc: photo.src.video
+				? albumFileUrl(`${slug}/${photo.src.video}`, photo.version)
+				: undefined,
+			posterSrc: albumFileUrl(`${slug}/${photo.src.full}`, photo.version)
 		}))
 	);
 
 	function cacheAlbumCover(album: AlbumIndex) {
-		const cover = album.cover ?? album.photos[0]?.src.grid;
-		if (cover) storeAlbumCover(siteId, slug, `/albums/${slug}/${cover}`);
+		const cover = album.cover
+			? albumFileUrl(`${slug}/${album.cover}`, album.coverVersion)
+			: album.photos[0] &&
+				albumFileUrl(`${slug}/${album.photos[0].src.grid}`, album.photos[0].version);
+		if (cover) storeAlbumCover(siteId, slug, cover);
 	}
 
 	async function tryDecryptAlbum() {
@@ -701,7 +707,7 @@
 			// to avoid unpredictable interaction with programmatic src assignment.
 			imageSrcs = photos.map(() => '');
 			const timeouts = photos.map((photo: Photo, i: number) => {
-				const src = `/albums/${slug}/${photo.src.grid}`;
+				const src = albumFileUrl(`${slug}/${photo.src.grid}`, photo.version);
 				const delay = 500 + Math.random() * 2000;
 				return setTimeout(() => {
 					imageSrcs[i] = src;
@@ -714,7 +720,9 @@
 			// Build the full array in one assignment — avoids reading imageSrcs
 			// inside the effect (which would create a dependency and cause an
 			// infinite update loop when the assignment then triggers a re-run).
-			imageSrcs = photos.map((photo: Photo) => `/albums/${slug}/${photo.src.grid}`);
+			imageSrcs = photos.map((photo: Photo) =>
+				albumFileUrl(`${slug}/${photo.src.grid}`, photo.version)
+			);
 		}
 	});
 

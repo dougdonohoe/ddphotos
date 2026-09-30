@@ -42,12 +42,13 @@ func SaveAlbumSummaries(path string, summaries []AlbumSummary) error {
 
 // AlbumIndex is the structure for each album's index.json
 type AlbumIndex struct {
-	Slug        string       `json:"slug"`
-	Title       string       `json:"title"`
-	Description string       `json:"description,omitempty"`
-	DateSpan    string       `json:"dateSpan,omitempty"`
-	Cover       string       `json:"cover,omitempty"` // grid path of cover photo (e.g. "grid/foo.webp")
-	Photos      []PhotoIndex `json:"photos"`
+	Slug         string       `json:"slug"`
+	Title        string       `json:"title"`
+	Description  string       `json:"description,omitempty"`
+	DateSpan     string       `json:"dateSpan,omitempty"`
+	Cover        string       `json:"cover,omitempty"`        // grid path of cover photo (e.g. "grid/foo.webp")
+	CoverVersion string       `json:"coverVersion,omitempty"` // the cover photo's PhotoIndex.Version
+	Photos       []PhotoIndex `json:"photos"`
 }
 
 // PhotoIndex represents a photo in the JSON output.
@@ -63,6 +64,10 @@ type PhotoIndex struct {
 	Kind        string        `json:"kind,omitempty"`        // "video"; omitted entirely for stills
 	Duration    float64       `json:"duration,omitempty"`    // seconds; video only
 	Src         PhotoSrcIndex `json:"src"`
+	// Version changes whenever any file in Src is rewritten. The frontend appends it to
+	// their URLs as ?v=, because the files are served as immutable yet keep their names
+	// when regenerated (a source edited in place, or -force). See mediaVersion.
+	Version string `json:"version,omitempty"`
 }
 
 // KindVideo is the PhotoIndex.Kind value marking an entry as a video. Stills omit Kind
@@ -79,30 +84,33 @@ type PhotoSrcIndex struct {
 
 // AlbumSummary is the structure for each album in albums.json
 type AlbumSummary struct {
-	Slug        string `json:"slug"`
-	Title       string `json:"title"`
-	Count       int    `json:"count"`                 // total media items (photos + videos)
-	VideoCount  int    `json:"videoCount,omitempty"`  // how many of Count are videos
-	Cover       string `json:"cover,omitempty"`       // path to cover image (first photo's thumb, WebP)
-	CoverJpeg   string `json:"coverJpeg,omitempty"`   // path to cover JPEG for OG images (broad crawler support)
-	DateSpan    string `json:"dateSpan"`              // e.g., "Apr 2024" or "Apr - May 2024"
-	Description string `json:"description,omitempty"` // optional blurb shown on album page
-	Encrypted   bool   `json:"encrypted,omitempty"`   // true if album index is encrypted
+	Slug         string `json:"slug"`
+	Title        string `json:"title"`
+	Count        int    `json:"count"`                  // total media items (photos + videos)
+	VideoCount   int    `json:"videoCount,omitempty"`   // how many of Count are videos
+	Cover        string `json:"cover,omitempty"`        // path to cover image (first photo's thumb, WebP)
+	CoverVersion string `json:"coverVersion,omitempty"` // the cover photo's PhotoIndex.Version
+	CoverJpeg    string `json:"coverJpeg,omitempty"`    // path to cover JPEG for OG images (broad crawler support)
+	DateSpan     string `json:"dateSpan"`               // e.g., "Apr 2024" or "Apr - May 2024"
+	Description  string `json:"description,omitempty"`  // optional blurb shown on album page
+	Encrypted    bool   `json:"encrypted,omitempty"`    // true if album index is encrypted
 }
 
 // WriteAlbumIndex writes the index.json (or index.enc.json if encrypted) for this album.
 func (ap *AlbumProcessor) WriteAlbumIndex() error {
-	cover := ""
+	cover, coverVersion := "", ""
 	if cp := ap.coverPhoto(); cp != nil {
 		cover = ap.relativeSrcPath(SizeGrid, cp)
+		coverVersion = ap.photoVersion(cp)
 	}
 	index := AlbumIndex{
-		Slug:        ap.AlbumConfig.Slug,
-		Title:       ap.AlbumConfig.Name,
-		Description: ap.AlbumConfig.Description,
-		DateSpan:    ap.computeDateSpan(),
-		Cover:       cover,
-		Photos:      make([]PhotoIndex, 0, len(ap.Photos)),
+		Slug:         ap.AlbumConfig.Slug,
+		Title:        ap.AlbumConfig.Name,
+		Description:  ap.AlbumConfig.Description,
+		DateSpan:     ap.computeDateSpan(),
+		Cover:        cover,
+		CoverVersion: coverVersion,
+		Photos:       make([]PhotoIndex, 0, len(ap.Photos)),
 	}
 
 	for _, photo := range ap.Photos {
@@ -129,6 +137,7 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 			pi.Duration = photo.Duration
 			pi.Src.Video = ap.relativeVideoPath(photo)
 		}
+		pi.Version = ap.photoVersion(photo)
 		index.Photos = append(index.Photos, pi)
 	}
 
@@ -179,6 +188,41 @@ func (ap *AlbumProcessor) relativeVideoPath(photo *Photo) string {
 	return filepath.Join(VideoDirName, ap.photoOutputName(photo, ".mp4"))
 }
 
+// photoVersion returns the Version of a photo's published files: both WebPs, plus the MP4
+// for a video (whose WebPs are its posters).
+func (ap *AlbumProcessor) photoVersion(photo *Photo) string {
+	paths := []string{
+		ap.OutputPath(ap.relativeSrcPath(SizeGrid, photo)),
+		ap.OutputPath(ap.relativeSrcPath(SizeFull, photo)),
+	}
+	if photo.IsVideo {
+		paths = append(paths, ap.OutputPath(ap.relativeVideoPath(photo)))
+	}
+	return mediaVersion(paths...)
+}
+
+// mediaVersion returns a short token that changes whenever any of the files is rewritten,
+// or "" if one is missing (a dry run, or -resize off before any resize has run).
+//
+// It hashes each file's modification time and size rather than its contents: a stat is
+// free, while hashing would read every WebP and MP4 on every run. The cost is that
+// anything else that rewrites a file's mtime, such as copying the albums directory without
+// preserving times, changes the token too. That only makes browsers download the file
+// once more; a stale token, the thing that matters, needs a rewrite that keeps both the
+// second it happened in and the size. Seconds, not nanoseconds, so a copy that keeps
+// times at a coarser resolution than the filesystem it came from does not count.
+func mediaVersion(paths ...string) string {
+	h := sha256.New()
+	for _, p := range paths {
+		stat, err := os.Stat(p)
+		if err != nil {
+			return ""
+		}
+		fmt.Fprintf(h, "%d:%d;", stat.ModTime().Unix(), stat.Size())
+	}
+	return hex.EncodeToString(h.Sum(nil))[:8]
+}
+
 // GetAlbumSummary returns summary info for albums.json
 func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 	videos := 0
@@ -205,6 +249,7 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 		// encrypted — the per-album password provides stronger protection than the site password.
 		if !albumEncrypted || (ap.Config.IsSiteEncrypted() && !ap.Config.HasPerAlbumPassword(ap.AlbumConfig.Slug)) {
 			summary.Cover = filepath.Join(ap.AlbumConfig.Slug, ap.relativeSrcPath(SizeGrid, cover))
+			summary.CoverVersion = ap.photoVersion(cover)
 		}
 		// CoverJpeg is used for OG/crawler meta tags — only set for unencrypted albums so
 		// search engines cannot index content that requires a password.

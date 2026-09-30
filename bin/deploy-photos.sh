@@ -311,14 +311,33 @@ elif [ "$S3_MODE" = true ]; then
     [ "$DRY_RUN" = true ] && echo "=== DRY RUN: aws s3 sync will not transfer any files ==="
 
     S3_SYNC_OPTS=(--delete)
+    S3_UPLOAD_OPTS=()
     [ "$DRY_RUN" = true ] && S3_SYNC_OPTS+=(--dryrun)
+    [ "$DRY_RUN" = true ] && S3_UPLOAD_OPTS+=(--dryrun)
 
-    # Deploy app files + pre-rendered album HTML/JSON.
-    # Pass 1: sync web build, protecting albums/ image/JSON data (managed by Pass 2 below).
-    # --exclude "albums/*" prevents uploading or deleting album images/JSON from S3.
+    # Deploy app files + pre-rendered album HTML in three passes, ordered so a page is never
+    # live before the scripts it names, and old scripts outlive the pages that named them.
+    #
+    # Pass 1a: SvelteKit's content-hashed JS/CSS, immutable. No --delete yet: pages still
+    #   being served from the previous deploy reference the old files.
+    "${AWS[@]}" s3 sync "$REPO_ROOT/build/$SITE_ID/" "s3://$S3_BUCKET/" \
+        "${S3_UPLOAD_OPTS[@]}" --exclude "*" --include "_app/immutable/*" \
+        --cache-control "max-age=31536000,immutable"
+
+    # Pass 1b: everything else in the build, above all the HTML, which must revalidate on every
+    #   request. Left to guess, a browser keeps an old page for days after a deploy, and
+    #   that page never hydrates once Pass 1c deletes the scripts it names.
+    # --exclude "albums/*" prevents uploading or deleting album images/JSON (Pass 2 below).
     # --include "albums/*.html" re-includes pre-rendered SvelteKit album pages (last rule wins).
     "${AWS[@]}" s3 sync "$REPO_ROOT/build/$SITE_ID/" "s3://$S3_BUCKET/" \
-        "${S3_SYNC_OPTS[@]}" --exclude "albums/*" --include "albums/*.html"
+        "${S3_SYNC_OPTS[@]}" --exclude "_app/immutable/*" --exclude "albums/*" \
+        --include "albums/*.html" --cache-control "no-cache"
+
+    # Pass 1c: Pass 1a again, now with --delete, to prune the previous deploy's scripts.
+    #   Pass 1a uploaded everything, so this only deletes.
+    "${AWS[@]}" s3 sync "$REPO_ROOT/build/$SITE_ID/" "s3://$S3_BUCKET/" \
+        "${S3_SYNC_OPTS[@]}" --exclude "*" --include "_app/immutable/*" \
+        --cache-control "max-age=31536000,immutable"
 
     # Deploy album data — two passes to set different Cache-Control headers.
     #
@@ -329,16 +348,18 @@ elif [ "$S3_MODE" = true ]; then
     #   silently skip re-encrypted JSON files since AES-GCM output size is key-independent.
     # --exclude=*.html: don't delete pre-rendered .html pages synced above.
     # --exclude=*.mp4 alongside *.webp: this pass is a catch-all, so without it videos
-    #   would land here and be served no-cache — wrong for content-addressed media and
+    #   would land here and be served no-cache, wrong for versioned media (Pass 2b) and
     #   needlessly expensive on CloudFront.
     "${AWS[@]}" s3 sync "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" "s3://$S3_BUCKET/albums/" \
         "${S3_SYNC_OPTS[@]}" --exclude "*.html" --exclude "*.webp" --exclude "*.mp4" \
         --cache-control "no-cache"
 
-    # Pass 2b: WebP photos and MP4 videos — immutable; photogen gives them a deterministic
-    #   UUID name derived from HMAC(key, filename), so key rotation renames all files.
-    #   photogen skips existing files (preserving timestamp), so unchanged ones are
-    #   never re-uploaded. Regenerated files (after manual delete) get a new timestamp.
+    # Pass 2b: WebP photos and MP4 videos — immutable. Their names come from the source
+    #   filename (HMAC'd for an encrypted album), so a regenerated file keeps its name; the
+    #   site requests each with a ?v= version from index.json, derived from the file's
+    #   mtime and size, which is what makes immutable safe. photogen skips up-to-date files
+    #   (preserving timestamp), so unchanged ones are never re-uploaded, and a regenerated
+    #   one (source edited in place, -force, manual delete) gets a new timestamp.
     "${AWS[@]}" s3 sync "$DDPHOTOS_ALBUMS_DIR/$SITE_ID/" "s3://$S3_BUCKET/albums/" \
         "${S3_SYNC_OPTS[@]}" \
         --exclude "*" --include "*.webp" --include "*.mp4" \
@@ -346,7 +367,7 @@ elif [ "$S3_MODE" = true ]; then
 
     _post_deploy s3
 else
-    RSYNC_OPTS=(-avz --checksum --delete)
+    RSYNC_OPTS=(-avz --checksum --delete --delete-after)
     RSYNC_OPTS_ALBUMS=(-avz --delete)
     [ "$DRY_RUN" = true ] && RSYNC_OPTS+=(--dry-run)
     [ "$DRY_RUN" = true ] && RSYNC_OPTS_ALBUMS+=(--dry-run)
@@ -356,6 +377,8 @@ else
     # Deploy app files + pre-rendered album HTML/JSON.
     # --checksum: Vite resets timestamps on build output files every build, so size+time
     #   is not a reliable change signal; content comparison is needed.
+    # --delete-after: rsync reaches _app/ before the HTML, so its default would delete the
+    #   previous deploy's scripts while the pages naming them are still being served.
     # --filter='protect albums/**': prevent --delete from touching albums/ content (hero.jpg,
     #   sitemap.xml, images, JSON) — those files are managed by the second rsync pass below.
     #   Note: 'protect' only suppresses deletion; it still transfers new files from the source.
