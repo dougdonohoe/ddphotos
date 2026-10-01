@@ -52,8 +52,10 @@ allow use of `.htaccess` files (`AllowOverride All`):
 
 The `.htaccess` file (`web/static/.htaccess`) configures URL routing:
 
-- **Cache headers** — JSON files get `Cache-Control: no-cache` (content can change in-place);
-  WebP files get `Cache-Control: max-age=31536000, immutable` (UUID filenames, never change)
+- **Cache headers** — everything gets `Cache-Control: no-cache` (HTML, JSON and covers can
+  change in-place), except WebP/MP4 files and `/_app/immutable/`, which get
+  `Cache-Control: max-age=31536000, immutable`. Script names are content-hashed; photos and
+  videos are requested with a `?v=` version that changes when photogen regenerates them
 - **`DirectorySlash Off`** - Prevents Apache from auto-appending trailing slashes to directories
 - **Trailing slash redirect** - 301 redirects URLs with trailing slashes to their clean version
   (e.g., `/albums/patagonia/` -> `/albums/patagonia`)
@@ -73,7 +75,8 @@ into the document root at container startup (same role as `web/apache-entrypoint
 
 ### nginx.conf
 
-- **Cache headers** — JSON files get `Cache-Control: no-cache`; WebP files get `Cache-Control: max-age=31536000, immutable`
+- **Cache headers** — the same as Apache's: `no-cache` by default, `max-age=31536000, immutable`
+  for WebP/MP4 files and `/_app/immutable/`
 - **Trailing slash redirect** — 301 redirects URLs with trailing slashes to their clean version
   (e.g., `/albums/patagonia/` → `/albums/patagonia`)
 - **Photo permalink rewrite** — Serves album HTML for photo permalink URLs

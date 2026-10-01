@@ -115,6 +115,10 @@ pointing an album at a different `cover`, changing the hero `image` or `crop`, o
 a generated file all trigger a regeneration. The cache only ever suppresses work that would
 have produced an identical file.
 
+Because a regenerated WebP or MP4 keeps its name, `index.json` also gives each photo a
+`version` that changes when its files are rewritten. The site adds it to the file's URL, so
+browsers fetch the new file instead of a copy they cached.
+
 Notes:
 
 - The cache is shared by every site ID under the same albums directory, since photo

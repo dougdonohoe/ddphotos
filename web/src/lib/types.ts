@@ -19,6 +19,7 @@ export interface Photo {
 	kind?: 'video'; // omitted for stills; for a video, src.grid/src.full are the poster frame
 	duration?: number; // seconds; videos only
 	src: PhotoSrc;
+	version?: string; // changes when any file in src is rewritten; append with albumFileUrl
 }
 
 export interface AlbumIndex {
@@ -27,6 +28,7 @@ export interface AlbumIndex {
 	description?: string;
 	dateSpan?: string;
 	cover?: string; // grid path of cover photo (e.g. "grid/foo.webp")
+	coverVersion?: string; // the cover photo's Photo.version
 	photos: Photo[];
 }
 
@@ -36,6 +38,7 @@ export interface AlbumSummary {
 	count: number; // total media items (photos + videos)
 	videoCount?: number; // how many of `count` are videos; omitted when none are
 	cover?: string;
+	coverVersion?: string; // the cover photo's Photo.version
 	coverJpeg?: string;
 	dateSpan: string;
 	description?: string;

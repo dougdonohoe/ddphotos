@@ -25,6 +25,11 @@ set -e
 
 echo "test-photos-server.sh $* starting ..."
 
+# python3 reads albums.json and config.json below. Those reads swallow errors on purpose,
+# since an encrypted site has no albums.json (or, on Surge, gets the HTML shell back), so
+# without python3 every album, cover and hero check would be skipped rather than failed.
+command -v python3 &>/dev/null || { echo "Error: python3 is required"; exit 1; }
+
 LOCAL=0
 PORT=8080
 REMOTE_URL=""
@@ -77,12 +82,11 @@ fi
 # If the fetch fails (server down) or returns non-JSON (encrypted site), ALBUM stays empty
 # and album-specific tests are skipped.
 ALBUM=""
+COVER=""
 _albums_json=$(curl -sf "$BASE/albums/albums.json" 2>/dev/null) && {
-    if command -v jq &>/dev/null; then
-        ALBUM=$(echo "$_albums_json" | jq -r '.[0].slug // empty' 2>/dev/null)
-    else
-        ALBUM=$(echo "$_albums_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['slug'])" 2>/dev/null)
-    fi
+    ALBUM=$(echo "$_albums_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['slug'])" 2>/dev/null)
+    # The first album's cover WebP, which the site requests with a ?v= version.
+    COVER=$(echo "$_albums_json" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['cover'])" 2>/dev/null)
 }
 
 PASS=0
@@ -164,6 +168,27 @@ check_final_status() {
     fi
 }
 
+# check_cache_control URL EXPECTED [DESCRIPTION]
+# Compares the Cache-Control header with spaces removed: Apache and nginx send
+# "max-age=31536000, immutable", S3 sends what aws s3 sync was given, without the space.
+check_cache_control() {
+    local url="$1"
+    local expected="$2"
+    local desc="${3:-$url}"
+    local actual
+
+    actual=$(curl -s -o /dev/null -D - "$url" 2>/dev/null \
+        | tr -d '\r' | grep -i '^cache-control:' | tail -1 | cut -d: -f2- | tr -d ' ')
+
+    if [ "$actual" = "${expected// /}" ]; then
+        echo "  PASS  $desc (Cache-Control: $actual)"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL  $desc (expected '$expected', got '$actual')"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 if [ -n "$ALBUM" ]; then
   echo "Testing $BASE with album '$ALBUM' ..."
 else
@@ -192,6 +217,41 @@ check_status "$BASE/sitemap.xml"                  200 "Sitemap (root)"
 check_status "$BASE/about.json"                   200 "About JSON"
 check_status "$BASE/albums/config.json"           200 "Config JSON"
 check_status "$BASE/albums/sitemap.xml"           200 "Sitemap (albums)"
+if [ -n "$COVER" ]; then
+    # Photos and videos are requested with a ?v= cache-busting version (see albumFileUrl).
+    check_status "$BASE/albums/$COVER?v=0123abcd" 200 "Album cover WebP with ?v= version"
+fi
+
+echo ""
+if [ "$CLOUDFLARE_MODE" -eq 1 ] || [ "$SURGE_MODE" -eq 1 ]; then
+    # Both platforms set their own header, "public, max-age=0, must-revalidate", on every file.
+    echo "Cache headers (skipped: Cloudflare Pages and Surge revalidate every file themselves)"
+else
+    # HTML must revalidate: a browser left to guess keeps an old page for days after a
+    # deploy, and that page never hydrates once the deploy deletes the scripts it names.
+    echo "Cache headers (pages revalidate, hashed assets are immutable):"
+    check_cache_control "$BASE"                       "no-cache" "Home page"
+    check_cache_control "$BASE/privacy"               "no-cache" "Privacy page (extensionless)"
+    check_cache_control "$BASE/albums/config.json"    "no-cache" "Config JSON"
+    # hero.jpg and cover.jpg keep their names when regenerated and carry no ?v= version,
+    # so they must revalidate. An unchanged one costs a 304.
+    _hero=$(curl -sf "$BASE/albums/config.json" 2>/dev/null \
+        | python3 -c "import json,sys; print(json.load(sys.stdin).get('heroImage', ''))" 2>/dev/null)
+    [ -n "$_hero" ] && check_cache_control "$BASE/albums/$_hero" "no-cache" "Hero image"
+    if [ -n "$ALBUM" ]; then
+        check_cache_control "$BASE/albums/$ALBUM"     "no-cache" "Album page ($ALBUM)"
+        check_cache_control "$BASE/albums/$ALBUM/1"   "no-cache" "Photo permalink"
+        [ -n "$COVER" ] && check_cache_control "$BASE/albums/$COVER" \
+            "max-age=31536000, immutable" "Album cover WebP"
+    fi
+    _asset=$(curl -s "$BASE" 2>/dev/null | grep -oE '/_app/immutable/[A-Za-z0-9/_.-]+\.js' | head -1)
+    if [ -n "$_asset" ]; then
+        check_cache_control "$BASE$_asset" "max-age=31536000, immutable" "Hashed asset $_asset"
+    else
+        echo "  FAIL  Hashed asset (no /_app/immutable/ script found in the home page)"
+        FAIL=$((FAIL + 1))
+    fi
+fi
 
 echo ""
 echo "About info:"
