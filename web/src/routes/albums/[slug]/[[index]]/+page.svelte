@@ -433,6 +433,31 @@
 		// empty (the photo is still loading, so the countdown has not begun), and a number
 		// sweeps it full over that many seconds. A no-op until uiRegister has built it.
 		let showSlideshowCountdown: (state: 'off' | 'waiting' | number) => void = () => {};
+		// Reasons the countdown is paused without the slideshow being stopped. While any is
+		// present no timer runs and the pie shows empty; when the last clears, the photo on
+		// screen gets a fresh, full interval.
+		//   pointer: a finger or mouse button is down. Changing slide mid-gesture leaves
+		//            PhotoSwipe's drag working from stale points, so a swipe snaps oddly or a
+		//            drag-to-close lands on the newly arrived photo.
+		//   menu:    the seconds menu is open; changing slide under it is disorienting (the
+		//            arrows are swallowed while it is open for the same reason).
+		//   hidden:  the tab is in the background, where advancing would only spend
+		//            bandwidth on photos nobody sees and leave the viewer somewhere unexpected.
+		type SlideshowHold = 'pointer' | 'menu' | 'hidden';
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain bookkeeping inside openLightbox; nothing renders from it
+		const slideshowHolds = new Set<SlideshowHold>();
+		const holdSlideshow = (reason: SlideshowHold, held: boolean) => {
+			if (held === slideshowHolds.has(reason)) return;
+			if (held) slideshowHolds.add(reason);
+			else slideshowHolds.delete(reason);
+			scheduleSlideshow();
+		};
+		// Whether the viewer has zoomed into the photo on screen. The same 1% tolerance the
+		// caption code uses, since the zoom level settles fractionally off its target.
+		const isZoomedIn = () => {
+			const slide = pswp.currSlide;
+			return !!slide && slide.currZoomLevel > slide.zoomLevels.initial * 1.01;
+		};
 
 		const clearSlideshowTimer = () => {
 			if (slideshowTimer) {
@@ -452,7 +477,7 @@
 				return;
 			}
 			const state = pswp.currSlide?.content.state;
-			if (state !== 'loaded' && state !== 'error') {
+			if ((state !== 'loaded' && state !== 'error') || slideshowHolds.size > 0) {
 				showSlideshowCountdown('waiting');
 				return;
 			}
@@ -474,6 +499,9 @@
 
 		function setSlideshowPlaying(playing: boolean) {
 			if (playing && !slideshowAvailable) return;
+			// Zooming in stops the slideshow (below), so starting one on a zoomed-in photo
+			// would only pull it away from a viewer who is studying it.
+			if (playing && isZoomedIn()) return;
 			slideshowPlaying = playing;
 			showSlideshowPlaying(playing);
 			scheduleSlideshow();
@@ -491,10 +519,30 @@
 		// it away from them. zoomPanUpdate covers the button, the z key, double-tap and
 		// pinch alike.
 		pswp.on('zoomPanUpdate', () => {
-			const slide = pswp.currSlide;
-			if (slideshowPlaying && slide && slide.currZoomLevel > slide.zoomLevels.initial * 1.01) {
-				setSlideshowPlaying(false);
-			}
+			if (slideshowPlaying && isZoomedIn()) setSlideshowPlaying(false);
+		});
+		// Pointer and visibility holds. Native listeners, not PhotoSwipe's pointerDown/Up
+		// events: those are skipped when a handler prevents them (the menu's outside-press
+		// one does), which could leave a hold set with nothing to release it. Pointers are
+		// counted by id so a pinch holds until its last finger lifts. Added in bindEvents
+		// because pswp.element only exists once init() has built it; pswp.events removes
+		// them all on destroy.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain bookkeeping inside openLightbox; nothing renders from it
+		const pointersDown = new Set<number>();
+		const onPointerRelease = (e: Event) => {
+			pointersDown.delete((e as PointerEvent).pointerId);
+			holdSlideshow('pointer', pointersDown.size > 0);
+		};
+		pswp.on('bindEvents', () => {
+			pswp.events.add(pswp.element!, 'pointerdown', (e) => {
+				pointersDown.add((e as PointerEvent).pointerId);
+				holdSlideshow('pointer', true);
+			});
+			pswp.events.add(window, 'pointerup', onPointerRelease);
+			pswp.events.add(window, 'pointercancel', onPointerRelease);
+			pswp.events.add(document, 'visibilitychange', () => {
+				holdSlideshow('hidden', document.visibilityState === 'hidden');
+			});
 		});
 		pswp.on('close', () => setSlideshowPlaying(false));
 		// onMount cleanup destroys the instance without closing it when the viewer leaves
@@ -591,7 +639,12 @@
 		const pauseSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`;
 		const caretSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>`;
 		// Set once the controls exist; the keydown and pointerDown handlers below consult them.
-		let slideshowMenu: HTMLElement | null = null;
+		let slideshowMenu: {
+			wrap: HTMLElement;
+			menu: HTMLElement;
+			caret: HTMLElement;
+			items: HTMLElement[];
+		} | null = null;
 		// Closes the menu, moving focus to `focusTo` when given.
 		let closeSlideshowMenu: (focusTo?: HTMLElement) => void = () => {};
 
@@ -687,6 +740,7 @@
 						if (menu.hidden) return;
 						menu.hidden = true;
 						caret.setAttribute('aria-expanded', 'false');
+						holdSlideshow('menu', false);
 						focusTo?.focus();
 					};
 					caret.addEventListener('click', () => {
@@ -700,11 +754,12 @@
 						}
 						menu.hidden = false;
 						caret.setAttribute('aria-expanded', 'true');
+						holdSlideshow('menu', true);
 						(items.find((i) => i.getAttribute('aria-checked') === 'true') ?? items[0]).focus();
 					});
 
 					wrap.append(play, caret, menu);
-					slideshowMenu = menu;
+					slideshowMenu = { wrap, menu, caret, items };
 				}
 			});
 		}
@@ -714,23 +769,27 @@
 		// Tab closes it and carries on as normal. Enter and Space need nothing here, since a
 		// focused menu item is a button and the browser clicks it.
 		pswp.on('keydown', (e) => {
-			if (!slideshowMenu || slideshowMenu.hidden) return;
+			if (!slideshowMenu || slideshowMenu.menu.hidden) return;
 			const original = e.originalEvent;
-			const items = [...slideshowMenu.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+			const { items, caret } = slideshowMenu;
 			const at = items.indexOf(document.activeElement as HTMLElement);
 			switch (original.key) {
 				case 'Escape':
 					// Escape backs out of the menu, so focus returns to the caret that opened it.
-					closeSlideshowMenu(
-						slideshowMenu.parentElement?.querySelector<HTMLElement>(
-							'.pswp__button--slideshow-menu'
-						) ?? undefined
-					);
+					closeSlideshowMenu(caret);
 					break;
 				case 'ArrowDown':
 				case 'ArrowUp': {
-					const step = original.key === 'ArrowDown' ? 1 : -1;
-					items[(at + step + items.length) % items.length]?.focus();
+					// With focus off the items (a press on the menu's padding moves it to the
+					// lightbox root), Down enters at the first choice and Up at the last.
+					const down = original.key === 'ArrowDown';
+					const next =
+						at === -1
+							? down
+								? 0
+								: items.length - 1
+							: (at + (down ? 1 : -1) + items.length) % items.length;
+					items[next].focus();
 					break;
 				}
 				case 'ArrowLeft':
@@ -749,9 +808,9 @@
 		// A press anywhere outside the open menu closes it, and goes no further: a tap on the
 		// photo meant to dismiss the menu should not also close the lightbox or change slide.
 		pswp.on('pointerDown', (e) => {
-			if (!slideshowMenu || slideshowMenu.hidden) return;
+			if (!slideshowMenu || slideshowMenu.menu.hidden) return;
 			const target = e.originalEvent.target as Node | null;
-			if (target && slideshowMenu.parentElement?.contains(target)) return;
+			if (target && slideshowMenu.wrap.contains(target)) return;
 			closeSlideshowMenu();
 			e.preventDefault();
 		});
@@ -1525,14 +1584,6 @@
 		display: flex;
 	}
 
-	:global(.pswp__button--slideshow),
-	:global(.pswp__button--slideshow-menu) {
-		color: white;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
 	/* Close sits deliberately further from copy-link (~35px between glyphs) than the other
 	   top-bar icons are from each other (~25px): it leaves the lightbox rather than acting
 	   on the photo, and the extra room makes a near-miss on copy-link less likely to close
@@ -1594,6 +1645,9 @@
 	   so padding here made both icons jump left as the pointer arrived. */
 	:global(.pswp__button--slideshow),
 	:global(.pswp__button--slideshow-menu) {
+		color: white;
+		display: flex;
+		align-items: center;
 		justify-content: flex-start;
 	}
 

@@ -244,6 +244,97 @@ test('a countdown pie beside the counter sweeps over each interval', async ({ pa
 	await expect(countdown(page)).toBeHidden();
 });
 
+test('the countdown holds while a pointer is down', async ({ page }) => {
+	// A slide changing mid-swipe leaves PhotoSwipe's drag working from stale points, so
+	// the timer waits for the finger or button to come back up. Pressed on the counter
+	// so the press itself does nothing else.
+	const start = isVideo.indexOf(false);
+	await openLightboxAt(page, start);
+	await playButton(page).click();
+	const counter = (await page.locator('.pswp__counter').boundingBox())!;
+	await page.mouse.move(counter.x + 5, counter.y + 5);
+	await page.mouse.down();
+	await page.clock.runFor(20_000);
+	expect(await slideIndex(page)).toBe(start);
+
+	await page.mouse.up();
+	expect(await nextSlideIndexAfter(page, start)).toBe(nextSlideshowIndex(isVideo, start));
+});
+
+test('the countdown holds while the seconds menu is open', async ({ page }) => {
+	const start = isVideo.indexOf(false);
+	await openLightboxAt(page, start);
+	await playButton(page).click();
+	await caret(page).click();
+	await page.clock.runFor(20_000);
+	expect(await slideIndex(page)).toBe(start);
+
+	await page.keyboard.press('Escape');
+	expect(await nextSlideIndexAfter(page, start)).toBe(nextSlideshowIndex(isVideo, start));
+});
+
+test('the countdown holds while the tab is hidden', async ({ page }) => {
+	const setHidden = (hidden: boolean) =>
+		page.evaluate((hidden) => {
+			Object.defineProperty(document, 'visibilityState', {
+				configurable: true,
+				get: () => (hidden ? 'hidden' : 'visible')
+			});
+			document.dispatchEvent(new Event('visibilitychange'));
+		}, hidden);
+	const start = isVideo.indexOf(false);
+	await openLightboxAt(page, start);
+	await playButton(page).click();
+	await setHidden(true);
+	await page.clock.runFor(20_000);
+	expect(await slideIndex(page)).toBe(start);
+
+	await setHidden(false);
+	expect(await nextSlideIndexAfter(page, start)).toBe(nextSlideshowIndex(isVideo, start));
+});
+
+test('Space starts the slideshow after clicking an arrow', async ({ page }) => {
+	// Guards against Space re-clicking the arrow. That does not happen today because
+	// PhotoSwipe prevents the mousedown that would focus a clicked top-bar button, and
+	// this test keeps it that way.
+	const start = isVideo.indexOf(false);
+	await openLightboxAt(page, start);
+	await page.locator('.pswp__button--arrow--next').click();
+	const landed = await slideIndex(page);
+	expect(landed).not.toBe(start);
+	test.skip(isVideo[landed], 'the arrow landed on a video slide');
+
+	await page.keyboard.press('Space');
+	await expect(controls(page)).toHaveClass(/playing/);
+	expect(await slideIndex(page)).toBe(landed);
+});
+
+test('the slideshow will not start on a zoomed-in photo', async ({ page }) => {
+	await openLightboxAt(page, isVideo.indexOf(false));
+	test.skip(
+		!(await page.locator('.pswp--zoom-allowed').count()),
+		'photo is not zoomable at this viewport'
+	);
+	await page.keyboard.press('z');
+	await page.clock.runFor(1000);
+	await playButton(page).click();
+	await expect(controls(page)).not.toHaveClass(/playing/);
+	await page.locator('.pswp').focus();
+	await page.keyboard.press('Space');
+	await expect(controls(page)).not.toHaveClass(/playing/);
+});
+
+test('ArrowUp from outside the menu items goes to the last choice', async ({ page }) => {
+	// Rare in practice (a mouse press inside the menu does not move focus, because
+	// PhotoSwipe prevents the mousedown), so focus is moved off the items directly.
+	await openLightboxAt(page, isVideo.indexOf(false));
+	await caret(page).click();
+	await page.locator('.pswp').focus();
+	await expect(menu(page)).toBeVisible();
+	await page.keyboard.press('ArrowUp');
+	await expect(menu(page).getByRole('menuitemradio', { name: '15 sec' })).toBeFocused();
+});
+
 test('Escape closes the open menu, not the lightbox', async ({ page }) => {
 	await openLightboxAt(page, isVideo.indexOf(false));
 	await caret(page).click();

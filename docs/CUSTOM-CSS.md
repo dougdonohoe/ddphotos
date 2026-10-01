@@ -289,16 +289,21 @@ point of specificity for free:
 
 **Lightbox** (all global — a plain selector is enough):
 
-| Selector                   | Element                                       |
-|----------------------------|-----------------------------------------------|
-| `.pswp`                    | The lightbox root                             |
-| `.pswp__bg`                | The backdrop                                  |
-| `.pswp__top-bar`           | Counter, zoom, copy-link and close controls   |
-| `.pswp__button--arrow`     | Previous/next arrows                          |
-| `.pswp__button--copy-link` | Copy-permalink button                         |
-| `.pswp-caption`            | Caption under the photo                       |
-| `.pswp-caption--video`     | Caption on a video slide (taller gradient)    |
-| `.pswp-video`              | The `<video>` element                         |
+| Selector                         | Element                                                   |
+|----------------------------------|-----------------------------------------------------------|
+| `.pswp`                          | The lightbox root                                         |
+| `.pswp__bg`                      | The backdrop                                              |
+| `.pswp__top-bar`                 | Counter, zoom, slideshow, copy-link and close controls    |
+| `.pswp__button--arrow`           | Previous/next arrows                                      |
+| `.pswp__button--copy-link`       | Copy-permalink button                                     |
+| `.pswp__slideshow`               | Slideshow controls; has `.playing` while running          |
+| `.pswp__button--slideshow`       | Slideshow play/pause button                               |
+| `.pswp__button--slideshow-menu`  | Caret opening the seconds-per-photo menu                  |
+| `.pswp__slideshow-menu`          | The seconds-per-photo menu                                |
+| `.pswp__slideshow-countdown`     | Countdown circle beside the counter, shown while playing  |
+| `.pswp-caption`                  | Caption under the photo                                   |
+| `.pswp-caption--video`           | Caption on a video slide (taller gradient)                |
+| `.pswp-video`                    | The `<video>` element                                     |
 
 **Password-protected sites:**
 
