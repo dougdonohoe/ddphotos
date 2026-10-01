@@ -3,6 +3,7 @@
 // encryption — the same parameters as the Go implementation.
 
 import { VIDEO_AUDIO_KEY } from './videoAudio';
+import { SLIDESHOW_DELAY_KEY } from './slideshow';
 
 const PBKDF2_ITERATIONS = 100_000;
 const KEY_LENGTH = 256; // AES-256
@@ -88,9 +89,11 @@ export function storePassword(key: string, password: string): void {
 }
 
 // Remove all ddp_* keys from localStorage, except those in the exclude list.
-// Default excludes the viewer's preferences (theme, video sound) so logout and
-// build-change events preserve them. Pass [] to clear everything (e.g. ?clear).
-export function clearStoredKeys(exclude: string[] = ['ddp_theme', VIDEO_AUDIO_KEY]): void {
+// Default excludes the viewer's preferences (theme, video sound, slideshow delay) so
+// logout and build-change events preserve them. Pass [] to clear everything (e.g. ?clear).
+export function clearStoredKeys(
+	exclude: string[] = ['ddp_theme', VIDEO_AUDIO_KEY, SLIDESHOW_DELAY_KEY]
+): void {
 	try {
 		const keys: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {

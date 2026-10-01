@@ -17,6 +17,7 @@
 	<ul>
 		<li><strong>Theme</strong>: remembers whether you last used light or dark mode.</li>
 		<li><strong>Video sound</strong>: remembers whether you muted videos, and at what volume.</li>
+		<li><strong>Slideshow speed</strong>: remembers how many seconds each photo is shown.</li>
 		<li>
 			<strong>Site ID</strong>: tracks the current site build so stale cached data is automatically
 			cleared when the site is updated.

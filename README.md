@@ -132,6 +132,8 @@ Website features:
 - Video support (`.mov`, `.mp4`, `.m4v`): clips appear in the grid with a play badge and
   their duration, and play in the lightbox with the browser's own controls. Space toggles
   play/pause, and captions work exactly as they do for photos.
+- Lightbox slideshow: a play button steps through an album's photos (videos are skipped),
+  with a choice of 1 to 15 seconds per photo. Space starts and stops it on a photo.
 - Each album has a human-readable URL (e.g., `/albums/antarctica`).
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Optional hero image: a full-width banner at the top of the home page, specified in
