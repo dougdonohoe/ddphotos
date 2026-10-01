@@ -756,6 +756,16 @@
 			e.preventDefault();
 		});
 
+		// Build and open the lightbox. Everything above only registered listeners, and it has
+		// to: init() fires several events synchronously, and a listener added afterward
+		// misses them. It builds the DOM and fires uiRegister (the copy-link and slideshow
+		// controls), loads the current slide and its two neighbours (contentLoad, where
+		// video slides are built), fires one change, then starts the opening animation.
+		//
+		// Not the end of setup. What follows needs the built instance (the history entry
+		// for the open lightbox, the URL and scroll tracking, and the captions, which hang
+		// off pswp.mainScroll.itemHolders, which init() creates). Their change listeners
+		// therefore miss init()'s own change, which is why the captions also run once via rAF.
 		pswp.init();
 		pswpInstance = pswp;
 
