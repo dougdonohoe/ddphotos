@@ -95,7 +95,10 @@ const albumsDir = resolveAlbumsDir();
 // Build metadata written by photogen: albums/.build/<site-id>.json
 const buildMetaPath = join(dirname(albumsDir), '.build', `${siteId}.json`);
 
-process.env.VITE_BUILD_TIME = new Date().toISOString();
+// Set once per process. SvelteKit loads this config again for its server build, and a
+// second new Date() gave the client bundle (the About dialog) a different time from the
+// pre-rendered about.json, a minute apart whenever the two loads straddled one.
+process.env.VITE_BUILD_TIME ??= new Date().toISOString();
 
 function gitInfo(cmd: string): string {
 	try {
