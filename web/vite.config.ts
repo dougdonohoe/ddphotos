@@ -158,6 +158,14 @@ export default defineConfig({
 	server: {
 		host: true // Listen on all interfaces (allows phone access via IP)
 	},
+	build: {
+		rolldownOptions: {
+			// Rolldown warns when plugin hooks are slow. On big sites SvelteKit's
+			// writeBundle (pre-rendering every page) always trips it, and there is
+			// nothing to act on, so the [PLUGIN_TIMINGS] report is just noise.
+			checks: { pluginTimings: false }
+		}
+	},
 	plugins: [
 		...httpsPlugin,
 		sveltekit(),
