@@ -25,6 +25,11 @@ set -e
 
 echo "test-photos-server.sh $* starting ..."
 
+# python3 reads albums.json and config.json below. Those reads swallow errors on purpose,
+# since an encrypted site has no albums.json (or, on Surge, gets the HTML shell back), so
+# without python3 every album, cover and hero check would be skipped rather than failed.
+command -v python3 &>/dev/null || { echo "Error: python3 is required"; exit 1; }
+
 LOCAL=0
 PORT=8080
 REMOTE_URL=""
@@ -79,11 +84,7 @@ fi
 ALBUM=""
 COVER=""
 _albums_json=$(curl -sf "$BASE/albums/albums.json" 2>/dev/null) && {
-    if command -v jq &>/dev/null; then
-        ALBUM=$(echo "$_albums_json" | jq -r '.[0].slug // empty' 2>/dev/null)
-    else
-        ALBUM=$(echo "$_albums_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['slug'])" 2>/dev/null)
-    fi
+    ALBUM=$(echo "$_albums_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['slug'])" 2>/dev/null)
     # The first album's cover WebP, which the site requests with a ?v= version.
     COVER=$(echo "$_albums_json" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['cover'])" 2>/dev/null)
 }

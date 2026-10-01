@@ -35,11 +35,18 @@ deleting the other's files:
 
 Both rsync and S3 implement this pattern, with minor differences:
 
-|                      | rsync                                                                                                                                   | S3                                                                                                                                                                                                                                 |
-|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Pass 1**           | `--filter='protect albums/**'` preserves album data on the server; `--delete-after` keeps old scripts until the new HTML is in place    | Three sub-passes: `_app/immutable/` first (`Cache-Control: immutable`), then everything else with `--exclude "albums/*" --include "albums/*.html"` (`no-cache`), then `_app/immutable/` again with `--delete` to prune old scripts |
-| **Pass 2**           | `--exclude=*.html` skips pre-rendered pages                                                                                             | Two sub-passes: one for JSON/XML/covers (`Cache-Control: no-cache`), one for WebP and MP4 (`Cache-Control: immutable`)                                                                                                             |
-| **Change detection** | Pass 1 uses `--checksum` (Vite resets timestamps every build); Pass 2 uses size+time (photogen preserves timestamps on unchanged files) | Size+time only (no checksum option in `aws s3 sync`)                                                                                                                                                                               |
+|                      | rsync                                                                                                                                   | S3                                                                                                                                                                              |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Pass 1**           | `--filter='protect albums/**'` preserves album data on the server                                                                       | `--exclude "albums/*" --include "albums/*.html"` uploads only `.html` from `albums/`; `_app/immutable/` gets its own sub-pass (`Cache-Control: immutable`), the rest `no-cache` |
+| **Pass 2**           | `--exclude=*.html` skips pre-rendered pages                                                                                             | Two sub-passes: one for JSON/XML/covers (`Cache-Control: no-cache`), one for WebP and MP4 (`Cache-Control: immutable`)                                                          |
+| **Order**            | Upload-only passes for WebP/MP4 and `_app/immutable/` run first; both main passes use `--delete-after`                                  | WebP/MP4 and `_app/immutable/` are uploaded first, then HTML and JSON; their deletes run last                                                                                   |
+| **Change detection** | Pass 1 uses `--checksum` (Vite resets timestamps every build); Pass 2 uses size+time (photogen preserves timestamps on unchanged files) | Size+time only (no checksum option in `aws s3 sync`)                                                                                                                            |
+
+Order matters because HTML and JSON name other files: a page names its scripts, and pages and
+`index.json` name each photo with a `?v=` version. A file has to be live before anything that
+names it, or a visitor mid-deploy gets a page that never hydrates, or caches a regenerated
+photo's old bytes under its new URL for a year. Old files are deleted last, so pages from
+the previous deploy keep working until they are replaced.
 
 The `export` command uses the same logic (in `web/setup-htdocs.sh`) to produce `export/<site-id>/` — a self-contained
 directory of symlinks suitable for local serving (`python3 -m http.server`) or uploading to
