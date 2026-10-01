@@ -26,6 +26,7 @@
 	import { footerReady } from '$lib/stores';
 	import { navigateCursor, type Direction } from '$lib/navigation';
 	import { albumMetaText } from '$lib/counts';
+	import { albumFileUrl } from '$lib/albumUrl';
 	import Lock from 'lucide-svelte/icons/lock';
 	import Image from 'lucide-svelte/icons/image';
 	import CameraOff from 'lucide-svelte/icons/camera-off';
@@ -332,7 +333,7 @@
 					onkeydown={handleCardKeydown}
 				>
 					{#if album.cover}
-						<img src="/albums/{album.cover}" alt={album.title} />
+						<img src={albumFileUrl(album.cover, album.coverVersion)} alt={album.title} />
 					{:else}
 						<!-- For per-album encrypted albums the cover URL lives in localStorage.
 						     The inline <head> script sets --ddp-cover-SLUG on <html> before first

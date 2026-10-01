@@ -991,3 +991,88 @@ func TestWriteAlbumIndex_StalePlaintextThatCannotBeRemoved(t *testing.T) {
 		assert.Contains(t, ap.Config.Warn.warnings[0], "[My Album]", "album warnings carry the album name")
 	})
 }
+
+// TestPhotoVersion pins the cache-busting token the frontend appends to image URLs as ?v=.
+// WebPs and MP4s are served as immutable but keep their names when regenerated, so a
+// token that failed to change would leave browsers showing the old file for a year.
+func TestPhotoVersion(t *testing.T) {
+	t.Parallel()
+
+	// writeOutput writes an output file with a fixed mtime, so each case controls exactly
+	// what changed between two tokens.
+	writeOutput := func(t *testing.T, path, content string, mtime time.Time) {
+		t.Helper()
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+		require.NoError(t, os.Chtimes(path, mtime, mtime))
+	}
+	base := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+
+	t.Run("stable when nothing changes, and matches the cover version", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ap := makeVideoAP(dir, nil)
+		writeOutput(t, ap.OutputPath("grid", "photo1.webp"), "grid", base)
+		writeOutput(t, ap.OutputPath("full", "photo1.webp"), "full", base)
+
+		v := ap.photoVersion(ap.Photos[0])
+		assert.Len(t, v, 8)
+		assert.Equal(t, v, ap.photoVersion(ap.Photos[0]))
+
+		require.NoError(t, ap.WriteAlbumIndex())
+		idx, err := LoadAlbumIndex(ap.OutputPath("index.json"))
+		require.NoError(t, err)
+		assert.Equal(t, v, idx.Photos[0].Version)
+		assert.Equal(t, v, idx.CoverVersion)
+		assert.Equal(t, v, ap.GetAlbumSummary().CoverVersion)
+	})
+
+	t.Run("changes when either WebP is rewritten", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ap := makeVideoAP(dir, nil)
+		grid, full := ap.OutputPath("grid", "photo1.webp"), ap.OutputPath("full", "photo1.webp")
+		writeOutput(t, grid, "grid", base)
+		writeOutput(t, full, "full", base)
+		before := ap.photoVersion(ap.Photos[0])
+
+		// Same size, later mtime: a source edited in place and re-rendered.
+		writeOutput(t, full, "FULL", base.Add(time.Minute))
+		afterFull := ap.photoVersion(ap.Photos[0])
+		assert.NotEqual(t, before, afterFull)
+
+		// Same mtime, different size.
+		writeOutput(t, grid, "grid, re-rendered", base)
+		assert.NotEqual(t, afterFull, ap.photoVersion(ap.Photos[0]))
+	})
+
+	t.Run("a video's MP4 counts, not just its posters", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ap := makeVideoAP(dir, nil)
+		clip := ap.Photos[1]
+		writeOutput(t, ap.OutputPath("grid", "clip.webp"), "grid", base)
+		writeOutput(t, ap.OutputPath("full", "clip.webp"), "full", base)
+		writeOutput(t, ap.OutputPath("video", "clip.mp4"), "mp4", base)
+		before := ap.photoVersion(clip)
+		assert.NotEmpty(t, before)
+
+		writeOutput(t, ap.OutputPath("video", "clip.mp4"), "mp4, re-transcoded", base.Add(time.Minute))
+		assert.NotEqual(t, before, ap.photoVersion(clip))
+	})
+
+	t.Run("a missing output gives no version, and no key in the JSON", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ap := makeVideoAP(dir, nil)
+		writeOutput(t, ap.OutputPath("grid", "photo1.webp"), "grid", base) // full never written
+
+		assert.Empty(t, ap.photoVersion(ap.Photos[0]))
+
+		require.NoError(t, ap.WriteAlbumIndex())
+		data, err := os.ReadFile(ap.OutputPath("index.json"))
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), `"version"`)
+		assert.NotContains(t, string(data), `"coverVersion"`)
+	})
+}

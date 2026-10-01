@@ -5,14 +5,21 @@
 
 ErrorDocument 404 /404.html
 
-# JSON data files must revalidate on every request (content can change in-place).
-# WebP photos and MP4 videos are content-addressed (UUID filenames), so they are immutable.
-<FilesMatch "\.json$">
-    Header set Cache-Control "no-cache"
-</FilesMatch>
+# Everything revalidates on every request by default: HTML, JSON and covers can change
+# in-place. HTML matters most. A browser left to guess would keep an old page for days
+# after a deploy, and that page's scripts are deleted by the deploy, so it never hydrates.
+# SvelteKit content-hashes everything under /_app/immutable/, so those are immutable.
+# WebP photos and MP4 videos keep their names when photogen regenerates them, but the
+# site requests them with a ?v= version from index.json that changes when it does, so
+# they are immutable too. The two overrides win because Apache merges <FilesMatch> and
+# <If> after the directory default.
+Header set Cache-Control "no-cache"
 <FilesMatch "\.(webp|mp4)$">
     Header set Cache-Control "max-age=31536000, immutable"
 </FilesMatch>
+<If "%{REQUEST_URI} =~ m#^/_app/immutable/#">
+    Header set Cache-Control "max-age=31536000, immutable"
+</If>
 
 DirectorySlash Off
 RewriteEngine On

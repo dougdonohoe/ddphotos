@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { type APIRequestContext, type Page, type Locator } from '@playwright/test';
 import type { NavLink } from '../src/lib/types';
+import { albumFileUrl } from '../src/lib/albumUrl';
 
 export interface Passwords {
 	all: string | null;
@@ -289,6 +290,7 @@ export async function findVideo(request: APIRequestContext): Promise<FoundVideo 
 					duration?: number;
 					description?: string;
 					src: { video?: string; full: string };
+					version?: string;
 				}[];
 			} = await resp.json();
 
@@ -299,8 +301,8 @@ export async function findVideo(request: APIRequestContext): Promise<FoundVideo 
 					slug: album.slug,
 					index: i,
 					duration: photo.duration ?? 0,
-					videoUrl: `/albums/${album.slug}/${photo.src.video}`,
-					posterUrl: `/albums/${album.slug}/${photo.src.full}`
+					videoUrl: albumFileUrl(`${album.slug}/${photo.src.video}`, photo.version),
+					posterUrl: albumFileUrl(`${album.slug}/${photo.src.full}`, photo.version)
 				};
 				if (photo.description) return found;
 				fallback ??= found;

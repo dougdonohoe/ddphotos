@@ -331,9 +331,10 @@ layout, access key and bucket before the sync, since a fresh Garage node serves 
 those exist.
 
 It then checks the deploy from both sides. The S3 API side asserts on keys and headers no HTTP
-request can see: which keys each of the three `aws s3 sync` passes writes, the `Cache-Control`
-on each, and that Pass 1's `--exclude "albums/*"` leaves album data alone while Pass 2b's
-`--delete` removes it. The HTTP side is `deploy-photos.sh`'s normal post-deploy step —
+request can see: which keys each `aws s3 sync` pass writes, the `Cache-Control` on each, that
+Pass 1b's `--exclude "albums/*"` leaves album data alone while Pass 2b's `--delete` removes it,
+and that a previous deploy's hashed script survives Pass 1b and is pruned by Pass 1c. The HTTP
+side is `deploy-photos.sh`'s normal post-deploy step —
 `bin/test-photos-server.sh --s3` plus the `@deploy` Playwright tests — run against the deployed
 bytes, which is what catches a site that uploaded cleanly but does not actually serve.
 

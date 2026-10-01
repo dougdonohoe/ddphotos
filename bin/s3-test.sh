@@ -2,9 +2,9 @@
 #
 # Test the S3 deploy path of deploy-photos.sh against Garage.
 #
-# Verifies that the three-pass aws s3 sync logic places files at the correct
-# S3 keys with the correct Cache-Control headers, and that the Pass 1
-# --exclude "albums/*" filter protects album data from accidental deletion.
+# Verifies that the aws s3 sync passes place files at the correct S3 keys with the
+# correct Cache-Control headers, and that the Pass 1b --exclude "albums/*" filter
+# protects album data from accidental deletion.
 #
 # The deployed site is then served over HTTP and checked by deploy-photos.sh's normal
 # post-deploy steps: bin/test-photos-server.sh --s3 and the @deploy Playwright tests.
@@ -224,6 +224,33 @@ check_present "albums/the-way.html"               "albums/the-way.html"
 check_present "albums/uganda.html"                "albums/uganda.html"
 
 echo ""
+echo "Pass 1a — SvelteKit hashed assets (Cache-Control: max-age=31536000,immutable):"
+IMMUTABLE_KEY=$(cd "$BUILD_DIR/$SITE_ID" && find _app/immutable -type f -name '*.js' | head -1)
+check_present       "$IMMUTABLE_KEY"
+check_cache_control "$IMMUTABLE_KEY"                            "max-age=31536000,immutable"
+
+echo ""
+echo "Pass 1b — everything else in the build (Cache-Control: no-cache):"
+check_cache_control "index.html"                                "no-cache"
+check_cache_control "albums/antarctica.html"                    "no-cache"
+check_cache_control "_app/version.json"                         "no-cache"
+check_cache_control "favicon.ico"                               "no-cache"
+
+echo ""
+echo "Pass 1b/1c — a previous deploy's hashed asset outlives the HTML sync, then is pruned:"
+STALE_KEY="_app/immutable/chunks/stale-previous-deploy.js"
+aws s3 cp - "s3://$BUCKET/$STALE_KEY" --content-type "text/javascript" </dev/null >/dev/null
+aws s3 sync "$BUILD_DIR/$SITE_ID/" "s3://$BUCKET/" \
+    --delete --exclude "_app/immutable/*" --exclude "albums/*" \
+    --include "albums/*.html" --cache-control "no-cache"
+check_present "$STALE_KEY"                        "stale chunk survives Pass 1b --delete"
+aws s3 sync "$BUILD_DIR/$SITE_ID/" "s3://$BUCKET/" \
+    --delete --exclude "*" --include "_app/immutable/*" \
+    --cache-control "max-age=31536000,immutable"
+check_absent  "$STALE_KEY"                        "stale chunk removed by Pass 1c --delete"
+check_present "$IMMUTABLE_KEY"                    "current chunk kept by Pass 1c"
+
+echo ""
 echo "Pass 2a — album metadata (Cache-Control: no-cache):"
 check_present       "albums/albums.json"
 check_cache_control "albums/albums.json"                        "no-cache"
@@ -233,6 +260,8 @@ check_present       "albums/antarctica/index.json"
 check_cache_control "albums/antarctica/index.json"              "no-cache"
 check_present       "albums/antarctica/cover.jpg"
 check_cache_control "albums/antarctica/cover.jpg"               "no-cache"
+check_present       "albums/hero.jpg"
+check_cache_control "albums/hero.jpg"                           "no-cache"
 
 echo ""
 echo "Pass 2b — WebP images (Cache-Control: max-age=31536000,immutable):"
@@ -246,15 +275,16 @@ echo "Pass 2a — .html excluded from album data sync (not deleted by Pass 2a --
 check_present "albums/antarctica.html"            "albums/antarctica.html survives Pass 2a"
 
 echo ""
-echo "Boundary — Pass 1 --exclude \"albums/*\" protects album data from --delete:"
+echo "Boundary — Pass 1b --exclude \"albums/*\" protects album data from --delete:"
 # Upload a sentinel file to albums/ that is NOT in the build source
 SENTINEL=$(mktemp /tmp/sentinel.XXXXXX)
 aws s3 cp "$SENTINEL" "s3://$BUCKET/albums/sentinel.webp" --content-type "image/webp" >/dev/null
 /bin/rm -f "$SENTINEL"
-# Run only Pass 1 (same options as deploy-photos.sh)
+# Run only Pass 1b, the build pass that deletes outside _app (same options as deploy-photos.sh)
 aws s3 sync "$BUILD_DIR/$SITE_ID/" "s3://$BUCKET/" \
-    --delete --exclude "albums/*" --include "albums/*.html"
-check_present "albums/sentinel.webp"              "albums/sentinel.webp survives Pass 1 --delete"
+    --delete --exclude "_app/immutable/*" --exclude "albums/*" \
+    --include "albums/*.html" --cache-control "no-cache"
+check_present "albums/sentinel.webp"              "albums/sentinel.webp survives Pass 1b --delete"
 # Run Pass 2b — its --delete should remove files not in the album source
 aws s3 sync "$ALBUMS_DIR/$SITE_ID/" "s3://$BUCKET/albums/" \
     --delete --exclude "*" --include "*.webp" \
