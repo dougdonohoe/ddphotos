@@ -31,6 +31,12 @@
 	import { albumFileUrl } from '$lib/albumUrl';
 	import { navigateCursor, type Direction } from '$lib/navigation';
 	import { applyVideoAudio, rememberVideoAudio } from '$lib/videoAudio';
+	import {
+		SLIDESHOW_PRESETS,
+		getSlideshowDelay,
+		setSlideshowDelay,
+		nextSlideshowIndex
+	} from '$lib/slideshow';
 
 	let { data } = $props();
 
@@ -295,6 +301,10 @@
 			// carries to the next clip.
 			applyVideoAudio(video);
 			video.addEventListener('volumechange', () => rememberVideoAudio(video));
+			// The slideshow never lands on a video, but the viewer can navigate to one while
+			// it runs. Playing it means they want to watch, so the slideshow stops rather
+			// than moving on mid-clip.
+			video.addEventListener('play', () => setSlideshowPlaying(false));
 			// playsinline keeps iOS Safari from hijacking the whole screen with its own
 			// fullscreen player, which would leave PhotoSwipe's state out of sync on exit.
 			video.playsInline = true;
@@ -359,6 +369,7 @@
 		pswp.on('contentDestroy', (e) => pauseVideoIn(e.content.element));
 
 		// Space toggles play/pause on a video slide, the convention every video player uses.
+		// On a photo slide it starts and stops the slideshow instead.
 		//
 		// Hooked to PhotoSwipe's own keydown event rather than a document listener: it is
 		// scoped to this instance's lifetime, so it needs no teardown, and preventing it
@@ -372,7 +383,15 @@
 			if (original.key !== ' ' && original.key !== 'Spacebar') return;
 
 			const video = pswp.currSlide?.content?.element?.querySelector('video');
-			if (!video) return; // photo slide: leave the key alone
+			if (!video) {
+				// Photo slide. A focused button (play, zoom, copy-link, a menu item) acts on
+				// Space by itself, on keyup; toggling here too would double up, so defer to it.
+				if (!slideshowAvailable || document.activeElement?.closest('button')) return;
+				e.preventDefault();
+				original.preventDefault();
+				setSlideshowPlaying(!slideshowPlaying);
+				return;
+			}
 
 			// When the video already has focus the browser toggles it itself, and it does so
 			// on keyup. Handling it here as well would play on keydown and pause on keyup,
@@ -396,6 +415,139 @@
 				pauseVideoIn(holder.slide?.content?.element);
 			}
 		});
+
+		// --- Slideshow ------------------------------------------------------------------
+		// PhotoSwipe has none, so this steps through the album on a timer. It shows photos
+		// only: video slides are skipped, not played, and it loops from the last photo back
+		// to the first. Started and stopped by the top-bar button registered in uiRegister
+		// below, or by Space on a photo slide.
+		const isVideoSlide = photoswipeItems.map((item) => !!item.videoSrc);
+		// Two photos is the minimum for there to be anywhere to advance to. Below that the
+		// button is not registered and Space is left alone.
+		const slideshowAvailable = isVideoSlide.filter((v) => !v).length >= 2;
+		let slideshowPlaying = false;
+		let slideshowTimer: ReturnType<typeof setTimeout> | null = null;
+		// Reflects playing state in the button. A no-op until uiRegister has built it.
+		let showSlideshowPlaying: (playing: boolean) => void = () => {};
+		// Drives the countdown pie beside the counter: 'off' hides it, 'waiting' shows it
+		// empty (the photo is still loading, so the countdown has not begun), and a number
+		// sweeps it full over that many seconds. A no-op until uiRegister has built it.
+		let showSlideshowCountdown: (state: 'off' | 'waiting' | number) => void = () => {};
+		// Reasons the countdown is paused without the slideshow being stopped. While any is
+		// present no timer runs and the pie shows empty; when the last clears, the photo on
+		// screen gets a fresh, full interval.
+		//   pointer: a finger or mouse button is down. Changing slide mid-gesture leaves
+		//            PhotoSwipe's drag working from stale points, so a swipe snaps oddly or a
+		//            drag-to-close lands on the newly arrived photo.
+		//   menu:    the seconds menu is open; changing slide under it is disorienting (the
+		//            arrows are swallowed while it is open for the same reason).
+		//   hidden:  the tab is in the background, where advancing would only spend
+		//            bandwidth on photos nobody sees and leave the viewer somewhere unexpected.
+		type SlideshowHold = 'pointer' | 'menu' | 'hidden';
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain bookkeeping inside openLightbox; nothing renders from it
+		const slideshowHolds = new Set<SlideshowHold>();
+		const holdSlideshow = (reason: SlideshowHold, held: boolean) => {
+			if (held === slideshowHolds.has(reason)) return;
+			if (held) slideshowHolds.add(reason);
+			else slideshowHolds.delete(reason);
+			scheduleSlideshow();
+		};
+		// Whether the viewer has zoomed into the photo on screen. The same 1% tolerance the
+		// caption code uses, since the zoom level settles fractionally off its target.
+		const isZoomedIn = () => {
+			const slide = pswp.currSlide;
+			return !!slide && slide.currZoomLevel > slide.zoomLevels.initial * 1.01;
+		};
+
+		const clearSlideshowTimer = () => {
+			if (slideshowTimer) {
+				clearTimeout(slideshowTimer);
+				slideshowTimer = null;
+			}
+		};
+
+		// (Re)starts the countdown for the current slide, but only once its full-size
+		// content has loaded: on a slow connection the timer would otherwise run out while
+		// the viewer is still looking at the blurry placeholder. The loadComplete listener
+		// below calls this again when that load lands.
+		const scheduleSlideshow = () => {
+			clearSlideshowTimer();
+			if (!slideshowPlaying) {
+				showSlideshowCountdown('off');
+				return;
+			}
+			const state = pswp.currSlide?.content.state;
+			if ((state !== 'loaded' && state !== 'error') || slideshowHolds.size > 0) {
+				showSlideshowCountdown('waiting');
+				return;
+			}
+			const delay = getSlideshowDelay();
+			showSlideshowCountdown(delay);
+			slideshowTimer = setTimeout(() => {
+				slideshowTimer = null;
+				const next = nextSlideshowIndex(isVideoSlide, pswp.currIndex);
+				if (next === null) {
+					setSlideshowPlaying(false);
+					return;
+				}
+				// goTo, not next(): skipping a video can mean jumping more than one slide.
+				// It wraps past the end itself (loop is on), and the change event it fires
+				// starts the next countdown.
+				pswp.goTo(next);
+			}, delay * 1000);
+		};
+
+		function setSlideshowPlaying(playing: boolean) {
+			if (playing && !slideshowAvailable) return;
+			// Zooming in stops the slideshow (below), so starting one on a zoomed-in photo
+			// would only pull it away from a viewer who is studying it.
+			if (playing && isZoomedIn()) return;
+			slideshowPlaying = playing;
+			showSlideshowPlaying(playing);
+			scheduleSlideshow();
+		}
+
+		// Any change of slide restarts the countdown, so a manual arrow or swipe mid-show
+		// gives the photo landed on its full time instead of cutting it short.
+		pswp.on('change', scheduleSlideshow);
+		pswp.on('loadComplete', (e) => {
+			if (slideshowPlaying && !slideshowTimer && e.slide === pswp.currSlide) {
+				scheduleSlideshow();
+			}
+		});
+		// Zooming in means the viewer wants to study this photo, so stop rather than pull
+		// it away from them. zoomPanUpdate covers the button, the z key, double-tap and
+		// pinch alike.
+		pswp.on('zoomPanUpdate', () => {
+			if (slideshowPlaying && isZoomedIn()) setSlideshowPlaying(false);
+		});
+		// Pointer and visibility holds. Native listeners, not PhotoSwipe's pointerDown/Up
+		// events: those are skipped when a handler prevents them (the menu's outside-press
+		// one does), which could leave a hold set with nothing to release it. Pointers are
+		// counted by id so a pinch holds until its last finger lifts. Added in bindEvents
+		// because pswp.element only exists once init() has built it; pswp.events removes
+		// them all on destroy.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain bookkeeping inside openLightbox; nothing renders from it
+		const pointersDown = new Set<number>();
+		const onPointerRelease = (e: Event) => {
+			pointersDown.delete((e as PointerEvent).pointerId);
+			holdSlideshow('pointer', pointersDown.size > 0);
+		};
+		pswp.on('bindEvents', () => {
+			pswp.events.add(pswp.element!, 'pointerdown', (e) => {
+				pointersDown.add((e as PointerEvent).pointerId);
+				holdSlideshow('pointer', true);
+			});
+			pswp.events.add(window, 'pointerup', onPointerRelease);
+			pswp.events.add(window, 'pointercancel', onPointerRelease);
+			pswp.events.add(document, 'visibilitychange', () => {
+				holdSlideshow('hidden', document.visibilityState === 'hidden');
+			});
+		});
+		pswp.on('close', () => setSlideshowPlaying(false));
+		// onMount cleanup destroys the instance without closing it when the viewer leaves
+		// the page via a link, so the timer has to be cleared here too.
+		pswp.on('destroy', clearSlideshowTimer);
 
 		pswp.on('openingAnimationStart', () => {
 			lightboxOpen = true;
@@ -474,8 +626,205 @@
 						});
 				}
 			});
+
+			if (slideshowAvailable) registerSlideshowControls();
 		});
 
+		// Slideshow controls, just right of zoom: a play/pause button, plus a caret opening a
+		// menu of seconds per photo. One wrapper element rather than two registered buttons
+		// so the menu can be positioned against the pair. Not a button itself, so PhotoSwipe
+		// adds no pswp__button styling or aria-label to it; the two buttons inside carry
+		// pswp__button themselves to match zoom and close.
+		const playSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg>`;
+		const pauseSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`;
+		const caretSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>`;
+		// Set once the controls exist; the keydown and pointerDown handlers below consult them.
+		let slideshowMenu: {
+			wrap: HTMLElement;
+			menu: HTMLElement;
+			caret: HTMLElement;
+			items: HTMLElement[];
+		} | null = null;
+		// Closes the menu, moving focus to `focusTo` when given.
+		let closeSlideshowMenu: (focusTo?: HTMLElement) => void = () => {};
+
+		function registerSlideshowControls() {
+			// Countdown pie, just right of the "3 / 24" counter (order 5) and left of
+			// PhotoSwipe's loading spinner (order 7), whose margin-right: auto is what pushes
+			// the remaining controls to the right edge. A white ring that fills clockwise
+			// from noon, like a clock hand sweeping round, over each photo's interval.
+			//
+			// The fill is the stroke of a circle whose stroke-width equals its diameter, so
+			// the stroke covers the whole disc and revealing the dash reveals a wedge.
+			// pathLength=100 makes the dash arithmetic independent of the radius; a circle's
+			// stroke starts at three o'clock and runs clockwise, so rotating it -90deg starts
+			// it at noon. Decorative: the play button already says whether it is running.
+			pswp.ui?.registerElement({
+				name: 'slideshow-countdown',
+				order: 6,
+				html: `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle class="pswp__slideshow-countdown-ring" cx="10" cy="10" r="9"/><circle class="pswp__slideshow-countdown-fill" cx="10" cy="10" r="4.5" pathLength="100" transform="rotate(-90 10 10)"/></svg>`,
+				onInit: (el) => {
+					el.hidden = true;
+					const fill = el.querySelector<SVGCircleElement>('.pswp__slideshow-countdown-fill')!;
+					showSlideshowCountdown = (state) => {
+						el.hidden = state === 'off';
+						// Snap back to empty with no transition, and flush that to the page
+						// before starting the sweep; otherwise the browser coalesces the two
+						// writes and animates from wherever the last sweep had got to.
+						fill.style.transition = 'none';
+						fill.style.strokeDashoffset = '100';
+						if (typeof state !== 'number') return;
+						void getComputedStyle(fill).strokeDashoffset;
+						fill.style.transition = `stroke-dashoffset ${state}s linear`;
+						fill.style.strokeDashoffset = '0';
+					};
+				}
+			});
+
+			pswp.ui?.registerElement({
+				name: 'slideshow',
+				order: 11,
+				onInit: (wrap) => {
+					const play = document.createElement('button');
+					play.type = 'button';
+					play.className = 'pswp__button pswp__button--slideshow';
+
+					const caret = document.createElement('button');
+					caret.type = 'button';
+					caret.className = 'pswp__button pswp__button--slideshow-menu';
+					caret.title = 'Seconds per photo';
+					caret.setAttribute('aria-label', 'Seconds per photo');
+					caret.setAttribute('aria-haspopup', 'menu');
+					caret.setAttribute('aria-expanded', 'false');
+					caret.innerHTML = caretSVG;
+
+					const menu = document.createElement('div');
+					menu.className = 'pswp__slideshow-menu';
+					menu.setAttribute('role', 'menu');
+					menu.setAttribute('aria-label', 'Seconds per photo');
+					menu.hidden = true;
+					const items = SLIDESHOW_PRESETS.map((seconds) => {
+						const item = document.createElement('button');
+						item.type = 'button';
+						item.setAttribute('role', 'menuitemradio');
+						item.dataset.seconds = String(seconds);
+						item.textContent = `${seconds} sec`;
+						item.addEventListener('click', (ev) => {
+							setSlideshowDelay(seconds);
+							// Focus goes where Space acts on the slideshow, never back to the
+							// caret, where Space would only reopen the menu just closed. A
+							// keyboard pick (a click with detail 0, synthesized from Enter or
+							// Space) lands on the play button, keeping keyboard users in the
+							// controls. A mouse pick returns focus to the lightbox itself, as
+							// if the menu had never been opened, so no focus ring is left
+							// behind on a control the viewer did not move to.
+							closeSlideshowMenu(ev.detail === 0 ? play : pswp.element);
+							// Apply the new pace to the photo on screen now, not one photo later.
+							scheduleSlideshow();
+						});
+						menu.appendChild(item);
+						return item;
+					});
+
+					showSlideshowPlaying = (playing) => {
+						const label = playing ? 'Pause slideshow' : 'Start slideshow';
+						play.innerHTML = playing ? pauseSVG : playSVG;
+						play.title = label;
+						play.setAttribute('aria-label', label);
+						wrap.classList.toggle('playing', playing);
+					};
+					showSlideshowPlaying(slideshowPlaying);
+					play.addEventListener('click', () => setSlideshowPlaying(!slideshowPlaying));
+
+					closeSlideshowMenu = (focusTo) => {
+						if (menu.hidden) return;
+						menu.hidden = true;
+						caret.setAttribute('aria-expanded', 'false');
+						holdSlideshow('menu', false);
+						focusTo?.focus();
+					};
+					caret.addEventListener('click', () => {
+						if (!menu.hidden) {
+							closeSlideshowMenu();
+							return;
+						}
+						const current = getSlideshowDelay();
+						for (const item of items) {
+							item.setAttribute('aria-checked', String(item.dataset.seconds === String(current)));
+						}
+						menu.hidden = false;
+						caret.setAttribute('aria-expanded', 'true');
+						holdSlideshow('menu', true);
+						(items.find((i) => i.getAttribute('aria-checked') === 'true') ?? items[0]).focus();
+					});
+
+					wrap.append(play, caret, menu);
+					slideshowMenu = { wrap, menu, caret, items };
+				}
+			});
+		}
+
+		// While the menu is open the keyboard drives it: arrows move between the choices
+		// (rather than changing slide), and Escape closes the menu rather than the lightbox.
+		// Tab closes it and carries on as normal. Enter and Space need nothing here, since a
+		// focused menu item is a button and the browser clicks it.
+		pswp.on('keydown', (e) => {
+			if (!slideshowMenu || slideshowMenu.menu.hidden) return;
+			const original = e.originalEvent;
+			const { items, caret } = slideshowMenu;
+			const at = items.indexOf(document.activeElement as HTMLElement);
+			switch (original.key) {
+				case 'Escape':
+					// Escape backs out of the menu, so focus returns to the caret that opened it.
+					closeSlideshowMenu(caret);
+					break;
+				case 'ArrowDown':
+				case 'ArrowUp': {
+					// With focus off the items (a press on the menu's padding moves it to the
+					// lightbox root), Down enters at the first choice and Up at the last.
+					const down = original.key === 'ArrowDown';
+					const next =
+						at === -1
+							? down
+								? 0
+								: items.length - 1
+							: (at + (down ? 1 : -1) + items.length) % items.length;
+					items[next].focus();
+					break;
+				}
+				case 'ArrowLeft':
+				case 'ArrowRight':
+					break; // swallowed: changing slide under an open menu would be disorienting
+				case 'Tab':
+					closeSlideshowMenu();
+					return;
+				default:
+					return;
+			}
+			e.preventDefault();
+			original.preventDefault();
+		});
+
+		// A press anywhere outside the open menu closes it, and goes no further: a tap on the
+		// photo meant to dismiss the menu should not also close the lightbox or change slide.
+		pswp.on('pointerDown', (e) => {
+			if (!slideshowMenu || slideshowMenu.menu.hidden) return;
+			const target = e.originalEvent.target as Node | null;
+			if (target && slideshowMenu.wrap.contains(target)) return;
+			closeSlideshowMenu();
+			e.preventDefault();
+		});
+
+		// Build and open the lightbox. Everything above only registered listeners, and it has
+		// to: init() fires several events synchronously, and a listener added afterward
+		// misses them. It builds the DOM and fires uiRegister (the copy-link and slideshow
+		// controls), loads the current slide and its two neighbours (contentLoad, where
+		// video slides are built), fires one change, then starts the opening animation.
+		//
+		// Not the end of setup. What follows needs the built instance (the history entry
+		// for the open lightbox, the URL and scroll tracking, and the captions, which hang
+		// off pswp.mainScroll.itemHolders, which init() creates). Their change listeners
+		// therefore miss init()'s own change, which is why the captions also run once via rAF.
 		pswp.init();
 		pswpInstance = pswp;
 
@@ -1166,7 +1515,7 @@
 	}
 
 	/* Shade behind the top-bar controls.
-	   The counter, zoom, copy-link and close controls are white with no background of
+	   The counter, zoom, slideshow, copy-link and close controls are white with no background of
 	   their own, so they vanish against a bright photo (a pale sky is the usual culprit).
 	   This mirrors the caption's gradient, inverted, for the same reason.
 	   Safe on both counts that matter: the bar carries .pswp__hide-on-close, so the shade
@@ -1224,6 +1573,139 @@
 		padding: 3px 8px;
 		border-radius: 4px;
 		pointer-events: none;
+	}
+
+	/* Slideshow controls in the PhotoSwipe top bar: play/pause plus a narrow caret, with the
+	   seconds-per-photo menu dropping down beneath the pair. The wrapper is the menu's
+	   positioning context. It needs no pointer-events rule: the bar's own `> *` rule turns
+	   them back on for direct children. */
+	:global(.pswp__slideshow) {
+		position: relative;
+		display: flex;
+	}
+
+	/* Close sits deliberately further from copy-link (~35px between glyphs) than the other
+	   top-bar icons are from each other (~25px): it leaves the lightbox rather than acting
+	   on the photo, and the extra room makes a near-miss on copy-link less likely to close
+	   it. Widening the box and moving the icon by the same 3px keeps the X's distance from
+	   the screen edge unchanged. PhotoSwipe places this icon with left: 9px. */
+	:global(.pswp__button--close) {
+		width: 53px;
+	}
+
+	:global(.pswp__button--close .pswp__icn) {
+		left: 12px;
+	}
+
+	/* Countdown pie beside the counter. Vertically centred on the counter's text, which
+	   PhotoSwipe places 15px down in a 30px line. The drop shadow matches the counter's
+	   text-shadow, keeping the white legible over a bright sky. */
+	:global(.pswp__slideshow-countdown) {
+		display: flex;
+		align-items: center;
+		height: 60px;
+		margin-inline-start: 10px;
+		pointer-events: none !important;
+	}
+
+	:global(.pswp__slideshow-countdown[hidden]) {
+		display: none;
+	}
+
+	:global(.pswp__slideshow-countdown svg) {
+		display: block;
+		overflow: visible;
+		filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.6));
+	}
+
+	:global(.pswp__slideshow-countdown-ring) {
+		fill: none;
+		stroke: white;
+		stroke-width: 1.5;
+	}
+
+	:global(.pswp__slideshow-countdown-fill) {
+		fill: none;
+		stroke: white;
+		stroke-width: 9;
+		stroke-dasharray: 100;
+		stroke-dashoffset: 100;
+	}
+
+	/* Sized so the drawn glyphs of zoom, play, caret and copy-link sit an even ~25px apart.
+	   The bar has no gap: spacing is each button's empty space either side of its icon. The
+	   neighbours are fixed by PhotoSwipe (zoom's glyph ends 17px short of its 50px box;
+	   copy-link's starts 16px into its own, centered), so these two boxes absorb the
+	   difference. Icons are pinned by a left margin on the SVG rather than centered, because
+	   the play path sits off-center in its viewBox; each box still spans roughly half the gap
+	   either side of its icon, so a click lands on the nearer control. Changing either
+	   icon's SVG means re-measuring.
+	   A margin on the SVG, not padding on the button: PhotoSwipe's own
+	   .pswp__button:hover/:active/:focus rule sets padding: 0 and outranks a single class,
+	   so padding here made both icons jump left as the pointer arrived. */
+	:global(.pswp__button--slideshow),
+	:global(.pswp__button--slideshow-menu) {
+		color: white;
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+	}
+
+	:global(.pswp__button--slideshow) {
+		width: 32px;
+	}
+
+	:global(.pswp__button--slideshow svg) {
+		margin-left: 2px;
+	}
+
+	:global(.pswp__button--slideshow-menu) {
+		width: 31px;
+	}
+
+	:global(.pswp__button--slideshow-menu svg) {
+		margin-left: 10px;
+	}
+
+	:global(.pswp__slideshow-menu) {
+		position: absolute;
+		top: 52px;
+		right: 0;
+		display: flex;
+		flex-direction: column;
+		padding: 4px 0;
+		background: rgba(0, 0, 0, 0.85);
+		border-radius: 6px;
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+	}
+
+	:global(.pswp__slideshow-menu[hidden]) {
+		display: none;
+	}
+
+	:global(.pswp__slideshow-menu button) {
+		padding: 6px 16px 6px 28px;
+		border: 0;
+		background: none;
+		color: white;
+		font: inherit;
+		font-size: 14px;
+		text-align: left;
+		white-space: nowrap;
+		cursor: pointer;
+		position: relative;
+	}
+
+	:global(.pswp__slideshow-menu button:hover),
+	:global(.pswp__slideshow-menu button:focus-visible) {
+		background: rgba(255, 255, 255, 0.15);
+		outline: none;
+	}
+
+	:global(.pswp__slideshow-menu button[aria-checked='true']::before) {
+		content: '✓';
+		position: absolute;
+		left: 10px;
 	}
 
 	/* Lightbox caption — bottom/left/right set dynamically in JS to match the photo's
