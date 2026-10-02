@@ -145,6 +145,49 @@ test('the seconds menu sets the pace and is remembered', async ({ page }) => {
 	expect(await nextSlideIndexAfter(page, start)).toBe(nextSlideshowIndex(isVideo, start));
 });
 
+test('digit keys set the pace for presets 1, 2, 3, 5 and 8', async ({ page }) => {
+	const start = isVideo.indexOf(false);
+	await openLightboxAt(page, start);
+	const stored = () => page.evaluate(() => localStorage.getItem('ddp_slideshow_delay'));
+
+	await page.keyboard.press('8');
+	expect(await stored()).toBe('8');
+	// Not presets with a key: 4 and 0 (no "10"), and a modifier hands the key to the browser.
+	await page.keyboard.press('4');
+	await page.keyboard.press('0');
+	await page.keyboard.press('ControlOrMeta+2');
+	expect(await stored()).toBe('8');
+
+	// The menu marks the choice, and follows a key pressed while it is open.
+	await caret(page).click();
+	const item = (name: string) => menu(page).getByRole('menuitemradio', { name, exact: true });
+	await expect(item('8 sec')).toHaveAttribute('aria-checked', 'true');
+	await page.keyboard.press('1');
+	await expect(item('1 sec')).toHaveAttribute('aria-checked', 'true');
+	await expect(item('8 sec')).toHaveAttribute('aria-checked', 'false');
+	await page.keyboard.press('Escape');
+
+	// The pace is live: at 8 seconds, 5 in the slide has not moved.
+	await page.keyboard.press('8');
+	await playButton(page).click();
+	await page.clock.runFor(5_000);
+	expect(await slideIndex(page)).toBe(start);
+	expect(await nextSlideIndexAfter(page, start)).toBe(nextSlideshowIndex(isVideo, start));
+});
+
+test('the menu shows each choice key, keeping it out of the accessible name', async ({ page }) => {
+	await openLightboxAt(page, isVideo.indexOf(false));
+	await caret(page).click();
+	for (const seconds of [1, 2, 3, 5, 8]) {
+		const item = menu(page).getByRole('menuitemradio', { name: `${seconds} sec`, exact: true });
+		await expect(item).toHaveText(new RegExp(`^✓?${seconds} sec\\(${seconds}\\)$`));
+	}
+	for (const seconds of [10, 15]) {
+		const item = menu(page).getByRole('menuitemradio', { name: `${seconds} sec`, exact: true });
+		await expect(item).toHaveText(new RegExp(`^✓?${seconds} sec$`));
+	}
+});
+
 test('a manual step restarts the countdown', async ({ page }) => {
 	const start = isVideo.indexOf(false);
 	await openLightboxAt(page, start);
@@ -333,6 +376,31 @@ test('ArrowUp from outside the menu items goes to the last choice', async ({ pag
 	await expect(menu(page)).toBeVisible();
 	await page.keyboard.press('ArrowUp');
 	await expect(menu(page).getByRole('menuitemradio', { name: '15 sec' })).toBeFocused();
+});
+
+test('the seconds per photo show beside the pie and follow every change', async ({ page }) => {
+	const delayLabel = page.locator('.pswp__slideshow-countdown-delay');
+	await openLightboxAt(page, isVideo.indexOf(false));
+	await page.keyboard.press('5');
+	await playButton(page).click();
+	await expect(delayLabel).toHaveText('5s');
+
+	// Right of the pie.
+	const pie = (await page.locator('.pswp__slideshow-countdown svg').boundingBox())!;
+	expect((await delayLabel.boundingBox())!.x).toBeGreaterThanOrEqual(pie.x + pie.width);
+
+	await page.keyboard.press('2');
+	await expect(delayLabel).toHaveText('2s');
+
+	await caret(page).click();
+	await menu(page).getByRole('menuitemradio', { name: '10 sec', exact: true }).click();
+	await expect(delayLabel).toHaveText('10s');
+
+	// Changed while paused: shown when the slideshow starts again.
+	await playButton(page).click();
+	await page.keyboard.press('8');
+	await playButton(page).click();
+	await expect(delayLabel).toHaveText('8s');
 });
 
 test('Escape closes the open menu, not the lightbox', async ({ page }) => {

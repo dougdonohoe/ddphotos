@@ -37,6 +37,7 @@
 		setSlideshowDelay,
 		nextSlideshowIndex
 	} from '$lib/slideshow';
+	import { getCaptionsHidden, setCaptionsHidden } from '$lib/captionToggle';
 
 	let { data } = $props();
 
@@ -497,6 +498,19 @@
 			}, delay * 1000);
 		};
 
+		// Digit keys pick a pace directly: each single-digit preset is its own key (1, 2, 3,
+		// 5 and 8 today), while the two-digit ones are left to the menu.
+		const slideshowKeyPresets: readonly number[] = SLIDESHOW_PRESETS.filter((s) => s < 10);
+		// Marks the current pace in the menu. A no-op until uiRegister has built it.
+		let markSlideshowDelay: () => void = () => {};
+		// Shared by the menu and the digit keys.
+		const changeSlideshowDelay = (seconds: number) => {
+			setSlideshowDelay(seconds);
+			markSlideshowDelay();
+			// Apply the new pace to the photo on screen now, not one photo later.
+			scheduleSlideshow();
+		};
+
 		function setSlideshowPlaying(playing: boolean) {
 			if (playing && !slideshowAvailable) return;
 			// Zooming in stops the slideshow (below), so starting one on a zoomed-in photo
@@ -596,6 +610,58 @@
 			// closedByBackNav: back button already navigated to the correct URL; nothing to do.
 		});
 
+		// --- Caption toggle -------------------------------------------------------------
+		// A top-bar button, just right of zoom, that hides and shows lightbox captions. Only
+		// registered when the album has at least one caption, since otherwise it would toggle
+		// nothing. The choice lasts for the browser session (see captionToggle.ts) and is
+		// applied by applyCaptionOpacity below, alongside the zoom and video-playback rules.
+		const albumHasCaptions = photoswipeItems.some((item) => !!item.caption);
+		let captionsUserHidden = getCaptionsHidden();
+		// Lucide's captions and captions-off icons, at the size of the other top-bar icons.
+		const captionsSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect width="18" height="14" x="3" y="5" rx="2" ry="2"/><path d="M7 15h4M15 15h2M7 11h2M13 11h4"/></svg>`;
+		const captionsOffSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10.5 5H19a2 2 0 0 1 2 2v8.5"/><path d="M17 11h-.5"/><path d="M19 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="m2 2 20 20"/><path d="M7 11h4"/><path d="M7 15h2.5"/></svg>`;
+
+		// Reflects the choice in the button. A no-op until uiRegister has built it.
+		let showCaptionsToggle: () => void = () => {};
+		// Shared by the button and the c key.
+		const toggleCaptions = () => {
+			captionsUserHidden = !captionsUserHidden;
+			setCaptionsHidden(captionsUserHidden);
+			showCaptionsToggle();
+			refreshCaptions();
+		};
+
+		function registerCaptionToggle() {
+			pswp.ui?.registerElement({
+				name: 'captions',
+				order: 11,
+				isButton: true,
+				onInit: (el) => {
+					// The icon shows the current state (captions on, or struck through when
+					// off), as a player's CC button does; the label names what a press does,
+					// and the tooltip adds its key.
+					showCaptionsToggle = () => {
+						const label = captionsUserHidden ? 'Show captions' : 'Hide captions';
+						el.innerHTML = captionsUserHidden ? captionsOffSVG : captionsSVG;
+						el.title = `${label} (c)`;
+						el.setAttribute('aria-label', label);
+					};
+					showCaptionsToggle();
+					el.addEventListener('click', toggleCaptions);
+				}
+			});
+		}
+
+		// c toggles captions, alongside PhotoSwipe's own z for zoom. Only a bare c: with Ctrl,
+		// Cmd or Alt held it belongs to the browser (Cmd+C copies a selected caption).
+		pswp.on('keydown', (e) => {
+			const original = e.originalEvent;
+			if (!albumHasCaptions || original.key.toLowerCase() !== 'c') return;
+			if (original.ctrlKey || original.metaKey || original.altKey) return;
+			e.preventDefault();
+			toggleCaptions();
+		});
+
 		// Add copy-link button to the PhotoSwipe top bar, just left of the close button (order 20).
 		// Copies window.location.href, kept current by the replaceState calls in the change handler.
 		// Must use the uiRegister event: pswp.ui doesn't exist until inside pswp.init().
@@ -627,6 +693,7 @@
 				}
 			});
 
+			if (albumHasCaptions) registerCaptionToggle();
 			if (slideshowAvailable) registerSlideshowControls();
 		});
 
@@ -658,16 +725,24 @@
 			// the stroke covers the whole disc and revealing the dash reveals a wedge.
 			// pathLength=100 makes the dash arithmetic independent of the radius; a circle's
 			// stroke starts at three o'clock and runs clockwise, so rotating it -90deg starts
-			// it at noon. Decorative: the play button already says whether it is running.
+			// it at noon.
+			//
+			// Beside it, the seconds per photo ("5s"). It is redrawn whenever the countdown
+			// is, and every pace change (menu or digit key) reschedules, so it cannot go
+			// stale. Both are decorative, hidden from assistive tech: the play button says
+			// whether the slideshow is running, and the menu which pace is chosen.
 			pswp.ui?.registerElement({
 				name: 'slideshow-countdown',
 				order: 6,
-				html: `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle class="pswp__slideshow-countdown-ring" cx="10" cy="10" r="9"/><circle class="pswp__slideshow-countdown-fill" cx="10" cy="10" r="4.5" pathLength="100" transform="rotate(-90 10 10)"/></svg>`,
+				html: `<svg viewBox="0 0 20 20" width="16" height="16"><circle class="pswp__slideshow-countdown-ring" cx="10" cy="10" r="9"/><circle class="pswp__slideshow-countdown-fill" cx="10" cy="10" r="4.5" pathLength="100" transform="rotate(-90 10 10)"/></svg><span class="pswp__slideshow-countdown-delay"></span>`,
 				onInit: (el) => {
 					el.hidden = true;
+					el.setAttribute('aria-hidden', 'true');
 					const fill = el.querySelector<SVGCircleElement>('.pswp__slideshow-countdown-fill')!;
+					const delayLabel = el.querySelector<HTMLElement>('.pswp__slideshow-countdown-delay')!;
 					showSlideshowCountdown = (state) => {
 						el.hidden = state === 'off';
+						delayLabel.textContent = `${getSlideshowDelay()}s`;
 						// Snap back to empty with no transition, and flush that to the page
 						// before starting the sweep; otherwise the browser coalesces the two
 						// writes and animates from wherever the last sweep had got to.
@@ -683,7 +758,7 @@
 
 			pswp.ui?.registerElement({
 				name: 'slideshow',
-				order: 11,
+				order: 12,
 				onInit: (wrap) => {
 					const play = document.createElement('button');
 					play.type = 'button';
@@ -708,9 +783,23 @@
 						item.type = 'button';
 						item.setAttribute('role', 'menuitemradio');
 						item.dataset.seconds = String(seconds);
-						item.textContent = `${seconds} sec`;
+						// The tick and key hint are aria-hidden so the item's name stays "5 sec":
+						// aria-checked already says which is chosen, and a CSS ::before tick
+						// would have been read out as part of the name.
+						const tick = document.createElement('span');
+						tick.className = 'pswp__slideshow-menu-tick';
+						tick.setAttribute('aria-hidden', 'true');
+						tick.textContent = '✓';
+						item.append(tick, `${seconds} sec`);
+						if (slideshowKeyPresets.includes(seconds)) {
+							const key = document.createElement('span');
+							key.className = 'pswp__slideshow-menu-key';
+							key.setAttribute('aria-hidden', 'true');
+							key.textContent = `(${seconds})`;
+							item.appendChild(key);
+						}
 						item.addEventListener('click', (ev) => {
-							setSlideshowDelay(seconds);
+							changeSlideshowDelay(seconds);
 							// Focus goes where Space acts on the slideshow, never back to the
 							// caret, where Space would only reopen the menu just closed. A
 							// keyboard pick (a click with detail 0, synthesized from Enter or
@@ -719,8 +808,6 @@
 							// if the menu had never been opened, so no focus ring is left
 							// behind on a control the viewer did not move to.
 							closeSlideshowMenu(ev.detail === 0 ? play : pswp.element);
-							// Apply the new pace to the photo on screen now, not one photo later.
-							scheduleSlideshow();
 						});
 						menu.appendChild(item);
 						return item;
@@ -729,7 +816,8 @@
 					showSlideshowPlaying = (playing) => {
 						const label = playing ? 'Pause slideshow' : 'Start slideshow';
 						play.innerHTML = playing ? pauseSVG : playSVG;
-						play.title = label;
+						// The tooltip adds its key, like the captions toggle; the label does not.
+						play.title = `${label} (space)`;
 						play.setAttribute('aria-label', label);
 						wrap.classList.toggle('playing', playing);
 					};
@@ -748,15 +836,19 @@
 							closeSlideshowMenu();
 							return;
 						}
-						const current = getSlideshowDelay();
-						for (const item of items) {
-							item.setAttribute('aria-checked', String(item.dataset.seconds === String(current)));
-						}
+						markSlideshowDelay();
 						menu.hidden = false;
 						caret.setAttribute('aria-expanded', 'true');
 						holdSlideshow('menu', true);
 						(items.find((i) => i.getAttribute('aria-checked') === 'true') ?? items[0]).focus();
 					});
+
+					markSlideshowDelay = () => {
+						const current = String(getSlideshowDelay());
+						for (const item of items) {
+							item.setAttribute('aria-checked', String(item.dataset.seconds === current));
+						}
+					};
 
 					wrap.append(play, caret, menu);
 					slideshowMenu = { wrap, menu, caret, items };
@@ -813,6 +905,18 @@
 			if (target && slideshowMenu.wrap.contains(target)) return;
 			closeSlideshowMenu();
 			e.preventDefault();
+		});
+
+		// Digit keys set the pace, playing or not, and update the menu if it is open. Only a
+		// bare digit: with Ctrl, Cmd or Alt held it belongs to the browser (Cmd+1 switches
+		// tabs).
+		pswp.on('keydown', (e) => {
+			const original = e.originalEvent;
+			if (!slideshowAvailable || original.ctrlKey || original.metaKey || original.altKey) return;
+			const seconds = Number(original.key);
+			if (!/^\d$/.test(original.key) || !slideshowKeyPresets.includes(seconds)) return;
+			e.preventDefault();
+			changeSlideshowDelay(seconds);
 		});
 
 		// Build and open the lightbox. Everything above only registered listeners, and it has
@@ -884,12 +988,17 @@
 				holder.el.appendChild(el);
 			});
 
-			// Two independent things hide a caption: zooming (below) and video playback (the
-			// listeners in contentLoad). Rather than let both write style.opacity directly and
-			// race — a vertical drag fires zoomPanUpdate, which would flash a hidden caption
-			// back on mid-playback — one function computes the value from both inputs and is
-			// the only writer. Playback state is read off the element instead of being mirrored
-			// into a variable, so there is no second copy to keep in sync.
+			// Three independent things hide a caption: zooming (below), video playback (the
+			// listeners in contentLoad) and the viewer's caption toggle. Rather than let each
+			// write style.opacity directly and race — a vertical drag fires zoomPanUpdate,
+			// which would flash a hidden caption back on mid-playback — one function computes
+			// the value from all three and is the only writer. Playback state is read off the
+			// element instead of being mirrored into a variable, so there is no second copy to
+			// keep in sync.
+			//
+			// A hidden caption also gets pswp-caption--hidden, which turns its links' pointer
+			// events back off: at opacity 0 they would otherwise still catch a tap meant for
+			// the photo and open a page the viewer cannot see.
 			let captionsZoomHidden = false;
 			const applyCaptionOpacity = () => {
 				holders.forEach((holder: ItemHolder) => {
@@ -897,7 +1006,9 @@
 					if (!el || el.style.display === 'none') return;
 					const video = holder.el.querySelector('video');
 					const playing = !!video && !video.paused && !video.ended;
-					el.style.opacity = captionsZoomHidden || playing ? '0' : '1';
+					const hide = captionsZoomHidden || playing || captionsUserHidden;
+					el.style.opacity = hide ? '0' : '1';
+					el.classList.toggle('pswp-caption--hidden', hide);
 				});
 			};
 			refreshCaptions = applyCaptionOpacity;
@@ -1515,7 +1626,7 @@
 	}
 
 	/* Shade behind the top-bar controls.
-	   The counter, zoom, slideshow, copy-link and close controls are white with no background of
+	   The counter, zoom, captions, slideshow, copy-link and close controls are white with no background of
 	   their own, so they vanish against a bright photo (a pale sky is the usual culprit).
 	   This mirrors the caption's gradient, inverted, for the same reason.
 	   Safe on both counts that matter: the bar carries .pswp__hide-on-close, so the shade
@@ -1608,6 +1719,40 @@
 		pointer-events: none !important;
 	}
 
+	/* On a narrow phone the top bar is full: counter, countdown and every control need more
+	   than 375px. Flex items shrink by default, which squeezed the counter until "2 / 21"
+	   wrapped onto two lines. Nothing but PhotoSwipe's loading-spinner slot (50px, and only
+	   visible on a slow load) may shrink, so the room comes from there. */
+	:global(.pswp__top-bar > *) {
+		flex-shrink: 0;
+	}
+
+	:global(.pswp__top-bar > .pswp__preloader) {
+		flex-shrink: 1;
+	}
+
+	:global(.pswp__counter) {
+		white-space: nowrap;
+	}
+
+	/* Below 360px (the original iPhone SE's 320) even that is not enough, and the bar
+	   overflows off the left edge, cutting off the counter. The countdown is the one item
+	   that can go: the pause icon still shows the slideshow is running. */
+	@media (max-width: 359px) {
+		:global(.pswp__slideshow-countdown) {
+			display: none;
+		}
+	}
+
+	/* Seconds per photo beside the pie, styled to match the counter it follows. */
+	:global(.pswp__slideshow-countdown-delay) {
+		margin-inline-start: 6px;
+		font-size: 14px;
+		color: var(--pswp-icon-color);
+		text-shadow: 1px 1px 3px var(--pswp-icon-color-secondary);
+		opacity: 0.85;
+	}
+
 	:global(.pswp__slideshow-countdown[hidden]) {
 		display: none;
 	}
@@ -1632,23 +1777,33 @@
 		stroke-dashoffset: 100;
 	}
 
-	/* Sized so the drawn glyphs of zoom, play, caret and copy-link sit an even ~25px apart.
-	   The bar has no gap: spacing is each button's empty space either side of its icon. The
-	   neighbours are fixed by PhotoSwipe (zoom's glyph ends 17px short of its 50px box;
-	   copy-link's starts 16px into its own, centered), so these two boxes absorb the
-	   difference. Icons are pinned by a left margin on the SVG rather than centered, because
+	/* Sized so the drawn glyphs of zoom, captions, play, caret and copy-link sit an even
+	   ~25px apart. The bar has no gap: spacing is each button's empty space either side of
+	   its icon. The neighbours are fixed by PhotoSwipe (zoom's glyph ends 17px short of its
+	   50px box; copy-link's starts 16px into its own, centered), so the boxes between them
+	   absorb the difference. The captions toggle only exists in albums with captions; it
+	   ends with the same empty space zoom does, so play's offset suits either neighbour. Icons are pinned by a left margin on the SVG rather than centered, because
 	   the play path sits off-center in its viewBox; each box still spans roughly half the gap
 	   either side of its icon, so a click lands on the nearer control. Changing either
 	   icon's SVG means re-measuring.
 	   A margin on the SVG, not padding on the button: PhotoSwipe's own
 	   .pswp__button:hover/:active/:focus rule sets padding: 0 and outranks a single class,
 	   so padding here made both icons jump left as the pointer arrived. */
+	:global(.pswp__button--captions),
 	:global(.pswp__button--slideshow),
 	:global(.pswp__button--slideshow-menu) {
 		color: white;
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
+	}
+
+	:global(.pswp__button--captions) {
+		width: 42px;
+	}
+
+	:global(.pswp__button--captions svg) {
+		margin-left: 6px;
 	}
 
 	:global(.pswp__button--slideshow) {
@@ -1684,6 +1839,8 @@
 	}
 
 	:global(.pswp__slideshow-menu button) {
+		display: flex;
+		gap: 12px;
 		padding: 6px 16px 6px 28px;
 		border: 0;
 		background: none;
@@ -1696,16 +1853,26 @@
 		position: relative;
 	}
 
+	/* Key hint, right-aligned in its own column so the labels stay lined up. */
+	:global(.pswp__slideshow-menu-key) {
+		margin-left: auto;
+		opacity: 0.6;
+	}
+
 	:global(.pswp__slideshow-menu button:hover),
 	:global(.pswp__slideshow-menu button:focus-visible) {
 		background: rgba(255, 255, 255, 0.15);
 		outline: none;
 	}
 
-	:global(.pswp__slideshow-menu button[aria-checked='true']::before) {
-		content: '✓';
+	:global(.pswp__slideshow-menu-tick) {
 		position: absolute;
 		left: 10px;
+		visibility: hidden;
+	}
+
+	:global(.pswp__slideshow-menu button[aria-checked='true'] .pswp__slideshow-menu-tick) {
+		visibility: visible;
 	}
 
 	/* Lightbox caption — bottom/left/right set dynamically in JS to match the photo's
@@ -1737,6 +1904,13 @@
 		/* Matches the grid. See .photo-caption a for why this is pinned. */
 		text-decoration-thickness: 1px;
 		text-underline-offset: 2px;
+	}
+
+	/* A caption hidden by zoom, video playback or the caption toggle is only at opacity 0,
+	   so its links would still catch a tap meant for the photo. pswp-caption--hidden is set
+	   alongside that opacity in applyCaptionOpacity. */
+	:global(.pswp-caption--hidden a) {
+		pointer-events: none;
 	}
 
 	/* Doubling the hairline is the hover affordance. Kept because a lightbox caption link

@@ -488,6 +488,9 @@ Logout and build changes keep the three preferences, `ddp_theme`, `ddp_video_aud
 `ddp_slideshow_delay`; `?clear` removes all `ddp_*` keys, including those, returning the site to its
 default state.
 
+One key lives in sessionStorage instead: `ddp_captions_hidden` (`1`) records that the viewer turned
+lightbox captions off. It lasts until the tab closes, and is absent while captions are on.
+
 ---
 
 ## customization.yaml

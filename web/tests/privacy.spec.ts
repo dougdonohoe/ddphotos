@@ -11,7 +11,7 @@ test('privacy page loads and shows correct title', async ({ page }) => {
 	await expect(page.locator('.card-title')).toContainText('Privacy');
 });
 
-test('privacy page always shows theme, site ID, video sound and slideshow bullets', async ({
+test('privacy page always shows theme, site ID, video sound, slideshow and captions bullets', async ({
 	page
 }) => {
 	await page.goto('/privacy');
@@ -19,6 +19,7 @@ test('privacy page always shows theme, site ID, video sound and slideshow bullet
 	await expect(page.locator('li', { hasText: 'Site ID' })).toBeVisible();
 	await expect(page.locator('li', { hasText: 'Video sound' })).toBeVisible();
 	await expect(page.locator('li', { hasText: 'Slideshow speed' })).toBeVisible();
+	await expect(page.locator('li', { hasText: 'Captions' })).toBeVisible();
 });
 
 test('privacy page shows password bullets only when site is encrypted', async ({ page }) => {
