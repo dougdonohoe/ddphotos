@@ -239,8 +239,13 @@ export async function waitForHydration(page: Page): Promise<void> {
 	// onMount to signal readiness via the layout-ready class. .gallery is only
 	// in the DOM when the album is decrypted (it lives inside {#if album}), so
 	// count() correctly skips this wait on locked album pages.
+	//
+	// Waits for the class to be attached, not for the gallery to be visible: an album
+	// with no photos (docker-test.sh builds one) has a zero-height gallery, which
+	// Playwright counts as hidden, so a visibility wait would time out on a page that
+	// is already ready.
 	if ((await page.locator('.gallery').count()) > 0) {
-		await page.locator('.gallery.layout-ready').waitFor();
+		await page.locator('.gallery.layout-ready').waitFor({ state: 'attached' });
 	}
 }
 
