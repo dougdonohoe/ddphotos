@@ -378,6 +378,31 @@ test('ArrowUp from outside the menu items goes to the last choice', async ({ pag
 	await expect(menu(page).getByRole('menuitemradio', { name: '15 sec' })).toBeFocused();
 });
 
+test('the seconds per photo show beside the pie and follow every change', async ({ page }) => {
+	const delayLabel = page.locator('.pswp__slideshow-countdown-delay');
+	await openLightboxAt(page, isVideo.indexOf(false));
+	await page.keyboard.press('5');
+	await playButton(page).click();
+	await expect(delayLabel).toHaveText('5s');
+
+	// Right of the pie.
+	const pie = (await page.locator('.pswp__slideshow-countdown svg').boundingBox())!;
+	expect((await delayLabel.boundingBox())!.x).toBeGreaterThanOrEqual(pie.x + pie.width);
+
+	await page.keyboard.press('2');
+	await expect(delayLabel).toHaveText('2s');
+
+	await caret(page).click();
+	await menu(page).getByRole('menuitemradio', { name: '10 sec', exact: true }).click();
+	await expect(delayLabel).toHaveText('10s');
+
+	// Changed while paused: shown when the slideshow starts again.
+	await playButton(page).click();
+	await page.keyboard.press('8');
+	await playButton(page).click();
+	await expect(delayLabel).toHaveText('8s');
+});
+
 test('Escape closes the open menu, not the lightbox', async ({ page }) => {
 	await openLightboxAt(page, isVideo.indexOf(false));
 	await caret(page).click();

@@ -725,16 +725,24 @@
 			// the stroke covers the whole disc and revealing the dash reveals a wedge.
 			// pathLength=100 makes the dash arithmetic independent of the radius; a circle's
 			// stroke starts at three o'clock and runs clockwise, so rotating it -90deg starts
-			// it at noon. Decorative: the play button already says whether it is running.
+			// it at noon.
+			//
+			// Beside it, the seconds per photo ("5s"). It is redrawn whenever the countdown
+			// is, and every pace change (menu or digit key) reschedules, so it cannot go
+			// stale. Both are decorative, hidden from assistive tech: the play button says
+			// whether the slideshow is running, and the menu which pace is chosen.
 			pswp.ui?.registerElement({
 				name: 'slideshow-countdown',
 				order: 6,
-				html: `<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle class="pswp__slideshow-countdown-ring" cx="10" cy="10" r="9"/><circle class="pswp__slideshow-countdown-fill" cx="10" cy="10" r="4.5" pathLength="100" transform="rotate(-90 10 10)"/></svg>`,
+				html: `<svg viewBox="0 0 20 20" width="16" height="16"><circle class="pswp__slideshow-countdown-ring" cx="10" cy="10" r="9"/><circle class="pswp__slideshow-countdown-fill" cx="10" cy="10" r="4.5" pathLength="100" transform="rotate(-90 10 10)"/></svg><span class="pswp__slideshow-countdown-delay"></span>`,
 				onInit: (el) => {
 					el.hidden = true;
+					el.setAttribute('aria-hidden', 'true');
 					const fill = el.querySelector<SVGCircleElement>('.pswp__slideshow-countdown-fill')!;
+					const delayLabel = el.querySelector<HTMLElement>('.pswp__slideshow-countdown-delay')!;
 					showSlideshowCountdown = (state) => {
 						el.hidden = state === 'off';
+						delayLabel.textContent = `${getSlideshowDelay()}s`;
 						// Snap back to empty with no transition, and flush that to the page
 						// before starting the sweep; otherwise the browser coalesces the two
 						// writes and animates from wherever the last sweep had got to.
@@ -1709,6 +1717,40 @@
 		height: 60px;
 		margin-inline-start: 10px;
 		pointer-events: none !important;
+	}
+
+	/* On a narrow phone the top bar is full: counter, countdown and every control need more
+	   than 375px. Flex items shrink by default, which squeezed the counter until "2 / 21"
+	   wrapped onto two lines. Nothing but PhotoSwipe's loading-spinner slot (50px, and only
+	   visible on a slow load) may shrink, so the room comes from there. */
+	:global(.pswp__top-bar > *) {
+		flex-shrink: 0;
+	}
+
+	:global(.pswp__top-bar > .pswp__preloader) {
+		flex-shrink: 1;
+	}
+
+	:global(.pswp__counter) {
+		white-space: nowrap;
+	}
+
+	/* Below 360px (the original iPhone SE's 320) even that is not enough, and the bar
+	   overflows off the left edge, cutting off the counter. The countdown is the one item
+	   that can go: the pause icon still shows the slideshow is running. */
+	@media (max-width: 359px) {
+		:global(.pswp__slideshow-countdown) {
+			display: none;
+		}
+	}
+
+	/* Seconds per photo beside the pie, styled to match the counter it follows. */
+	:global(.pswp__slideshow-countdown-delay) {
+		margin-inline-start: 6px;
+		font-size: 14px;
+		color: var(--pswp-icon-color);
+		text-shadow: 1px 1px 3px var(--pswp-icon-color-secondary);
+		opacity: 0.85;
 	}
 
 	:global(.pswp__slideshow-countdown[hidden]) {
