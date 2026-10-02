@@ -125,15 +125,18 @@ Website features:
   your choice of cover photo.
 - An album's page has a nicely justified photo grid layout with PhotoSwipe lightbox that
   adjusts well to any screen size.
-- Keyboard support: arrow keys navigate in lightbox, ESC key exits
-  lightbox and returns to home page from album page.
+- Keyboard support: arrow keys navigate in lightbox, `c` toggles captions, space starts/stops
+  slideshow or videos, ESC key exits lightbox and returns to home page from album page.
 - Optional per-photo/video descriptions via `photogen.txt`: used as image `alt` text, grid
   mouse-hover caption (desktop), always-visible caption (mobile), and lightbox caption.
 - Video support (`.mov`, `.mp4`, `.m4v`): clips appear in the grid with a play badge and
   their duration, and play in the lightbox with the browser's own controls. Space toggles
   play/pause, and captions work exactly as they do for photos.
 - Lightbox slideshow: a play button steps through an album's photos (videos are skipped),
-  with a choice of 1 to 15 seconds per photo. Space starts and stops it on a photo.
+  with a choice of 1 to 15 seconds per photo. Space starts and stops it on a photo, and
+  the keys 1, 2, 3, 5 and 8 set the seconds.
+- Lightbox caption toggle: a button (or the `c` key) hides and shows captions for the rest
+  of the browser session. It appears only in albums that have captions.
 - Each album has a human-readable URL (e.g., `/albums/antarctica`).
 - Each photo has a shareable permalink (e.g., `/albums/patagonia/5`) accessible via a copy-to-clipboard button.
 - Optional hero image: a full-width banner at the top of the home page, specified in

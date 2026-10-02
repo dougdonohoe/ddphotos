@@ -13,11 +13,15 @@
 </svelte:head>
 
 <SecondaryPage icon={Shield} iconColor="blue" title="Privacy" {siteName}>
-	<p>This site stores the following items in your browser's local storage:</p>
+	<p>This site stores the following items in your browser's storage:</p>
 	<ul>
 		<li><strong>Theme</strong>: remembers whether you last used light or dark mode.</li>
 		<li><strong>Video sound</strong>: remembers whether you muted videos, and at what volume.</li>
 		<li><strong>Slideshow speed</strong>: remembers how many seconds each photo is shown.</li>
+		<li>
+			<strong>Captions</strong>: remembers whether you turned lightbox captions off, until you close
+			the browser tab.
+		</li>
 		<li>
 			<strong>Site ID</strong>: tracks the current site build so stale cached data is automatically
 			cleared when the site is updated.
