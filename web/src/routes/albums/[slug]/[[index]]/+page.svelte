@@ -250,6 +250,9 @@
 			dataSource: photoswipeItems,
 			index,
 			bgClickAction: 'close',
+			// A photo that already fits at full size cannot zoom, and PhotoSwipe's default
+			// imageClickAction ('zoom-or-close') would close the lightbox on click instead.
+			clickToCloseNonZoomable: false,
 			closeOnVerticalDrag: true,
 			padding: { top: 0, bottom: 0, left: 0, right: 0 },
 			showAnimationDuration: animate ? undefined : 0
@@ -1618,6 +1621,13 @@
 	/* PhotoSwipe customizations for dark theme */
 	:global(.pswp) {
 		--pswp-bg: #000;
+	}
+
+	/* PhotoSwipe's base rule gives every image a zoom-out cursor, and zoom-in only once
+	   .pswp--zoom-allowed is set. A photo that fits at full size never gets that class, so it
+	   would show zoom-out with nothing to zoom. */
+	:global(.pswp:not(.pswp--zoom-allowed) .pswp__img) {
+		cursor: default;
 	}
 
 	/* Fully opaque background - hide content underneath */
