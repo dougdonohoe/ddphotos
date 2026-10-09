@@ -43,6 +43,44 @@ func TestMetaCache_Metadata(t *testing.T) {
 		assert.Equal(t, 1, mc.Len())
 	})
 
+	// Entries written before ColorProfile existed have none. A still is read again for it,
+	// rather than bumping metaCacheVersion; a video has none to read.
+	t.Run("a still cached without a ColorProfile is read again", func(t *testing.T) {
+		dir := t.TempDir()
+		src := copyFixture(t, dir, realFixture)
+		mc := NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+
+		_, err := mc.Metadata(src)
+		require.NoError(t, err)
+		entry := mc.entries[src]
+		entry.Meta.ColorProfile = ""
+		entry.Meta.Width = -1 // marks the stale entry, so serving it would show
+		mc.entries[src] = entry
+
+		meta, err := mc.Metadata(src)
+		require.NoError(t, err)
+		assert.Equal(t, colorProfileSRGB, meta.ColorProfile)
+		assert.NotEqual(t, -1, meta.Width)
+		assert.Equal(t, colorProfileSRGB, mc.entries[src].Meta.ColorProfile, "and the entry is refreshed")
+	})
+
+	t.Run("a video without a ColorProfile is still a hit", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "clip.mov")
+		require.NoError(t, os.WriteFile(src, []byte("not really a video"), 0644))
+		stat, err := os.Stat(src)
+		require.NoError(t, err)
+		mc := NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+		mc.entries[src] = metaCacheEntry{
+			ModTimeNano: stat.ModTime().UnixNano(), Size: stat.Size(),
+			Meta: &PhotoMetadata{Width: 7, Duration: 1.5},
+		}
+
+		meta, err := mc.Metadata(src) // a miss would fail: ffprobe cannot read this file
+		require.NoError(t, err)
+		assert.Equal(t, 7, meta.Width)
+	})
+
 	t.Run("the returned pointer does not alias cache state", func(t *testing.T) {
 		dir := t.TempDir()
 		src := copyFixture(t, dir, realFixture)
@@ -322,7 +360,7 @@ func TestFixedNameOutputs_Regeneration(t *testing.T) {
 			require.NoError(t, ap.WriteCoverJPEG())
 			assert.NoFileExists(t, ap.OutputPath("cover.jpg"))
 			assert.False(t, ap.Config.MetaCache.DerivedUpToDate(
-				ap.OutputPath("cover.jpg"), ap.Photos[0].AbsolutePath, ""),
+				ap.OutputPath("cover.jpg"), ap.Photos[0].AbsolutePath, "", ""),
 				"a dry run must not stamp an output it never wrote")
 		})
 	})
@@ -392,27 +430,27 @@ func TestMetaCache_Derived(t *testing.T) {
 
 	t.Run("an unrecorded output is not up to date", func(t *testing.T) {
 		mc, src, out := setup(t)
-		assert.False(t, mc.DerivedUpToDate(out, src, ""))
+		assert.False(t, mc.DerivedUpToDate(out, src, "", ""))
 	})
 
 	t.Run("a recorded output is up to date", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
-		assert.True(t, mc.DerivedUpToDate(out, src, ""))
+		assert.True(t, mc.DerivedUpToDate(out, src, "", ""))
 	})
 
 	t.Run("a different source invalidates", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
 		other := copyFixture(t, filepath.Dir(src), "portrait-1.jpg")
-		assert.False(t, mc.DerivedUpToDate(out, other, ""),
+		assert.False(t, mc.DerivedUpToDate(out, other, "", ""),
 			"pointing the cover at a different photo must regenerate")
 	})
 
 	t.Run("a different variant invalidates", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "center")
-		assert.False(t, mc.DerivedUpToDate(out, src, "top"),
+		assert.False(t, mc.DerivedUpToDate(out, src, "top", ""),
 			"changing the hero crop must regenerate")
 	})
 
@@ -420,27 +458,44 @@ func TestMetaCache_Derived(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
-		assert.False(t, mc.DerivedUpToDate(out, src, ""))
+		assert.False(t, mc.DerivedUpToDate(out, src, "", ""))
 	})
 
 	t.Run("a deleted output invalidates", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
 		require.NoError(t, os.Remove(out))
-		assert.False(t, mc.DerivedUpToDate(out, src, ""))
+		assert.False(t, mc.DerivedUpToDate(out, src, "", ""))
 	})
 
 	t.Run("refresh mode invalidates", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
 		mc.SetRefresh(true)
-		assert.False(t, mc.DerivedUpToDate(out, src, ""))
+		assert.False(t, mc.DerivedUpToDate(out, src, "", ""))
+	})
+
+	t.Run("a stamp from before the color pipeline invalidates only a source needing it", func(t *testing.T) {
+		mc, src, out := setup(t)
+		mc.RecordDerived(out, src, "")
+		entry := mc.derived[out]
+		entry.ColorVersion = 0
+		mc.derived[out] = entry
+		assert.False(t, mc.DerivedUpToDate(out, src, "", "ICC: Adobe RGB (1998)"))
+		assert.True(t, mc.DerivedUpToDate(out, src, "", colorProfileSRGB))
+		assert.True(t, mc.DerivedUpToDate(out, src, "", ""))
+	})
+
+	t.Run("a fresh stamp is current for a source needing conversion", func(t *testing.T) {
+		mc, src, out := setup(t)
+		mc.RecordDerived(out, src, "")
+		assert.True(t, mc.DerivedUpToDate(out, src, "", colorNCLXP3))
 	})
 
 	t.Run("a nil cache always regenerates", func(t *testing.T) {
 		var mc *MetaCache
 		mc.RecordDerived("out.jpg", "src.jpg", "")
-		assert.False(t, mc.DerivedUpToDate("out.jpg", "src.jpg", ""))
+		assert.False(t, mc.DerivedUpToDate("out.jpg", "src.jpg", "", ""))
 	})
 
 	t.Run("derived stamps survive a round trip", func(t *testing.T) {
@@ -449,8 +504,8 @@ func TestMetaCache_Derived(t *testing.T) {
 		require.NoError(t, mc.Save())
 
 		reloaded := LoadMetaCache(mc.path, nil)
-		assert.True(t, reloaded.DerivedUpToDate(out, src, "top"))
-		assert.False(t, reloaded.DerivedUpToDate(out, src, "center"))
+		assert.True(t, reloaded.DerivedUpToDate(out, src, "top", ""))
+		assert.False(t, reloaded.DerivedUpToDate(out, src, "center", ""))
 	})
 }
 
@@ -468,19 +523,19 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 	t.Run("a missing output is not up to date", func(t *testing.T) {
 		mc, src, out := setup(t)
 		require.NoError(t, os.Remove(out))
-		assert.False(t, mc.OutputUpToDate(out, src))
+		assert.False(t, mc.OutputUpToDate(out, src, ""))
 	})
 
 	t.Run("an unstamped output is adopted", func(t *testing.T) {
 		mc, src, out := setup(t)
-		assert.True(t, mc.OutputUpToDate(out, src), "existing output must be trusted, not redone")
+		assert.True(t, mc.OutputUpToDate(out, src, ""), "existing output must be trusted, not redone")
 		assert.Contains(t, mc.derived, out, "and stamped with the source it was trusted against")
 	})
 
 	t.Run("a stamped output is up to date", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
-		assert.True(t, mc.OutputUpToDate(out, src))
+		assert.True(t, mc.OutputUpToDate(out, src, ""))
 	})
 
 	t.Run("a source replaced with different bytes invalidates", func(t *testing.T) {
@@ -489,14 +544,14 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		other, err := os.ReadFile(filepath.Join("testdata", "portrait-1.jpg"))
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(src, other, 0644))
-		assert.False(t, mc.OutputUpToDate(out, src))
+		assert.False(t, mc.OutputUpToDate(out, src, ""))
 	})
 
 	t.Run("an adopted output catches a later replacement", func(t *testing.T) {
 		mc, src, out := setup(t)
-		require.True(t, mc.OutputUpToDate(out, src))
+		require.True(t, mc.OutputUpToDate(out, src, ""))
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
-		assert.False(t, mc.OutputUpToDate(out, src))
+		assert.False(t, mc.OutputUpToDate(out, src, ""))
 	})
 
 	// Docker mounts the source directory somewhere else, so the same file is reached
@@ -508,23 +563,66 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		require.NoError(t, err)
 		moved := copyFixture(t, t.TempDir(), realFixture)
 		require.NoError(t, os.Chtimes(moved, stat.ModTime(), stat.ModTime()))
-		assert.True(t, mc.OutputUpToDate(out, moved))
+		assert.True(t, mc.OutputUpToDate(out, moved, ""))
+	})
+
+	t.Run("an unstamped output of a source needing conversion is not adopted", func(t *testing.T) {
+		mc, src, out := setup(t)
+		assert.False(t, mc.OutputUpToDate(out, src, "ICC: Adobe RGB (1998)"))
+		assert.NotContains(t, mc.derived, out)
+	})
+
+	t.Run("a stamp from before the color pipeline is stale only for a source needing it", func(t *testing.T) {
+		mc, src, out := setup(t)
+		require.True(t, mc.OutputUpToDate(out, src, colorProfileSRGB)) // adopted at ColorVersion 0
+		assert.True(t, mc.OutputUpToDate(out, src, colorProfileSRGB))
+		assert.True(t, mc.OutputUpToDate(out, src, colorProfileNone))
+		assert.False(t, mc.OutputUpToDate(out, src, colorNCLXP3))
+
+		mc.RecordDerived(out, src, "")
+		assert.True(t, mc.OutputUpToDate(out, src, colorNCLXP3), "a rewrite brings it up to date")
+	})
+
+	t.Run("NeedsColorUpdate is true only when color is the sole reason", func(t *testing.T) {
+		mc, src, out := setup(t)
+		adobe := "ICC: Adobe RGB (1998)"
+		assert.True(t, mc.NeedsColorUpdate(out, src, adobe), "unstamped")
+		assert.False(t, mc.NeedsColorUpdate(out, src, colorProfileSRGB))
+		assert.NotContains(t, mc.derived, out, "and it adopts nothing")
+
+		require.True(t, mc.OutputUpToDate(out, src, ""))
+		assert.True(t, mc.NeedsColorUpdate(out, src, adobe), "stamped at ColorVersion 0")
+
+		mc.RecordDerived(out, src, "")
+		assert.False(t, mc.NeedsColorUpdate(out, src, adobe), "current stamp")
+
+		entry := mc.derived[out]
+		entry.ColorVersion = 0
+		mc.derived[out] = entry
+		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
+		assert.False(t, mc.NeedsColorUpdate(out, src, adobe), "a replaced source is the reason, not color")
+
+		require.NoError(t, os.Remove(out))
+		assert.False(t, mc.NeedsColorUpdate(out, src, adobe), "a missing output is the reason")
+
+		var nilCache *MetaCache
+		assert.False(t, nilCache.NeedsColorUpdate(out, src, adobe))
 	})
 
 	t.Run("a nil cache only checks that the output exists", func(t *testing.T) {
 		_, src, out := setup(t)
 		var mc *MetaCache
-		assert.True(t, mc.OutputUpToDate(out, src))
-		assert.False(t, mc.OutputUpToDate(out+".missing", src))
+		assert.True(t, mc.OutputUpToDate(out, src, ""))
+		assert.False(t, mc.OutputUpToDate(out+".missing", src, ""))
 	})
 
 	t.Run("an adopted stamp survives a round trip", func(t *testing.T) {
 		mc, src, out := setup(t)
-		require.True(t, mc.OutputUpToDate(out, src))
+		require.True(t, mc.OutputUpToDate(out, src, ""))
 		require.NoError(t, mc.Save())
 
 		reloaded := LoadMetaCache(mc.path, nil)
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
-		assert.False(t, reloaded.OutputUpToDate(out, src), "a saved adoption must still catch a change")
+		assert.False(t, reloaded.OutputUpToDate(out, src, ""), "a saved adoption must still catch a change")
 	})
 }

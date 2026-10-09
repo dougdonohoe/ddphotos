@@ -11,6 +11,11 @@ import (
 // metaCacheVersion is the on-disk schema version. Bump it whenever the shape of
 // metaCacheEntry or PhotoMetadata changes, or what a read puts in it (3: DateTime is no
 // longer a date fallback); a mismatch discards the whole file.
+//
+// One addition did not bump it: PhotoMetadata.ColorProfile. A bump also discards every
+// derived stamp and video entry, which would redo every cover and hero and re-run ffprobe
+// on every video. Instead, a photo entry without a ColorProfile is treated as a miss (see
+// Metadata), so only stills get one header read each. Prefer a bump for anything else.
 const metaCacheVersion = 3
 
 // MetaCacheFileName is the cache file written under {OutputRoot}/.build/.
@@ -56,6 +61,17 @@ type derivedCacheEntry struct {
 	ModTimeNano int64  `json:"modTimeNano"`
 	Size        int64  `json:"size"`
 	Variant     string `json:"variant,omitempty"` // settings that affect the output, e.g. hero crop
+	// ColorVersion is the colorPipelineVersion the output was written with; 0 for outputs
+	// written or adopted before it existed. Kept apart from Variant, which is a user
+	// setting compared for equality: this is compared only when the source needs
+	// conversion, so a pipeline change redoes just the outputs it affects.
+	ColorVersion int `json:"colorVersion,omitempty"`
+}
+
+// colorCurrent reports whether an output stamped with e reflects the current color
+// pipeline for a source with this ColorProfile.
+func (e derivedCacheEntry) colorCurrent(colorProfile string) bool {
+	return !needsColorConversion(colorProfile) || e.ColorVersion >= colorPipelineVersion
 }
 
 // metaCacheEntry is one cached photo, stamped with the source file's modification
@@ -127,9 +143,11 @@ func LoadMetaCache(path string, warn *WarnCollector) *MetaCache {
 
 // DerivedUpToDate reports whether the fixed-name output at outputPath was already
 // generated from exactly this source file and these settings, and still exists on disk.
+// colorProfile is the source's ColorProfile: a stamp from before the color pipeline it
+// needs is out of date.
 // A false result means "regenerate it", which is also what a nil cache always says, so
 // caching off simply restores the unconditional regeneration this replaces.
-func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant string) bool {
+func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant, colorProfile string) bool {
 	if mc == nil {
 		return false
 	}
@@ -152,7 +170,8 @@ func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant string) boo
 		entry.Source == sourcePath &&
 		entry.ModTimeNano == stat.ModTime().UnixNano() &&
 		entry.Size == stat.Size() &&
-		entry.Variant == variant
+		entry.Variant == variant &&
+		entry.colorCurrent(colorProfile)
 }
 
 // OutputUpToDate reports whether an output named after its source (a photo's grid and full
@@ -170,7 +189,11 @@ func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant string) boo
 //     directory is reached through a different path (Docker mounts it elsewhere).
 //   - A nil cache, or a source that cannot be stat'd, falls back to "the output exists",
 //     the rule this replaces, rather than regenerating everything.
-func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath string) bool {
+//
+// colorProfile is the source's ColorProfile. An output of a source that needs conversion
+// to sRGB is out of date unless its stamp is from the current color pipeline, and is never
+// adopted, since an unstamped output predates the pipeline by definition.
+func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath, colorProfile string) bool {
 	if _, err := os.Stat(outputPath); err != nil {
 		return false // output missing (or unreadable): regenerate
 	}
@@ -186,6 +209,9 @@ func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath string) bool {
 	defer mc.mu.Unlock()
 	entry, ok := mc.derived[outputPath]
 	if !ok {
+		if needsColorConversion(colorProfile) {
+			return false
+		}
 		mc.derived[outputPath] = derivedCacheEntry{
 			Source:      sourcePath,
 			ModTimeNano: stat.ModTime().UnixNano(),
@@ -194,11 +220,37 @@ func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath string) bool {
 		mc.dirty = true
 		return true
 	}
-	return entry.ModTimeNano == stat.ModTime().UnixNano() && entry.Size == stat.Size()
+	return entry.ModTimeNano == stat.ModTime().UnixNano() && entry.Size == stat.Size() &&
+		entry.colorCurrent(colorProfile)
+}
+
+// NeedsColorUpdate reports whether OutputUpToDate would say no only because the output
+// predates the color pipeline its source needs. ResizePhotos uses it to say why it is
+// re-rendering photos nobody touched. It does not adopt anything.
+func (mc *MetaCache) NeedsColorUpdate(outputPath, sourcePath, colorProfile string) bool {
+	if mc == nil || !needsColorConversion(colorProfile) {
+		return false
+	}
+	if _, err := os.Stat(outputPath); err != nil {
+		return false
+	}
+	stat, err := os.Stat(sourcePath)
+	if err != nil {
+		return false
+	}
+
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	entry, ok := mc.derived[outputPath]
+	if !ok {
+		return true
+	}
+	return entry.ModTimeNano == stat.ModTime().UnixNano() && entry.Size == stat.Size() &&
+		!entry.colorCurrent(colorProfile)
 }
 
 // RecordDerived stamps a freshly written output with the source and settings that
-// produced it. Safe on a nil receiver.
+// produced it, and with the current color pipeline. Safe on a nil receiver.
 func (mc *MetaCache) RecordDerived(outputPath, sourcePath, variant string) {
 	if mc == nil {
 		return
@@ -211,10 +263,11 @@ func (mc *MetaCache) RecordDerived(outputPath, sourcePath, variant string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.derived[outputPath] = derivedCacheEntry{
-		Source:      sourcePath,
-		ModTimeNano: stat.ModTime().UnixNano(),
-		Size:        stat.Size(),
-		Variant:     variant,
+		Source:       sourcePath,
+		ModTimeNano:  stat.ModTime().UnixNano(),
+		Size:         stat.Size(),
+		Variant:      variant,
+		ColorVersion: colorPipelineVersion,
 	}
 	mc.dirty = true
 }
@@ -241,6 +294,10 @@ func (mc *MetaCache) Metadata(path string) (*PhotoMetadata, error) {
 			ok = false
 		}
 		mc.mu.Unlock()
+		// A still cached before ColorProfile existed is read again (see metaCacheVersion).
+		if ok && entry.Meta != nil && entry.Meta.ColorProfile == "" && !IsVideoFile(path) {
+			ok = false
+		}
 		if ok && entry.Meta != nil && entry.ModTimeNano == modNano && entry.Size == size {
 			// Copy so callers can never mutate cache state through the returned pointer.
 			meta := *entry.Meta

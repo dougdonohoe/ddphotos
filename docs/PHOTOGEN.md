@@ -100,8 +100,9 @@ need. To make that true, photogen keeps a cache at `<albums-dir>/.build/metadata
 
 It records two things, both keyed by the source file's modification time and size:
 
-- **Photo metadata** (dimensions, orientation, EXIF date). Without the cache every photo
-  is decoded on every run just to recover four values, even when nothing needs resizing.
+- **Photo metadata** (dimensions, orientation, EXIF date, color profile). Without the cache
+  every photo is decoded on every run just to recover a few values, even when nothing needs
+  resizing.
 - **Stamps for generated files.** "The output already exists" is not enough to skip one.
   Fixed-name outputs (`cover.jpg`, `hero.jpg`) can be pointed at a different source, and
   the grid/full WebPs and video MP4s keep their names when a source is replaced in place
@@ -109,6 +110,9 @@ It records two things, both keyed by the source file's modification time and siz
   settings produced the file, making the skip safe. A WebP or MP4 that exists but has no
   stamp yet, such as one written before the cache tracked them, is trusted and stamped
   rather than regenerated, so the first run after an upgrade does not redo the whole site.
+  The exception is a wide-gamut photo (Adobe RGB, Display P3) whose files were made before
+  photogen converted them to sRGB: those are redone once, with a `Re-rendering N photos for
+  color correction` line, and nothing else is.
 
 Anything that changes is picked up automatically: editing or replacing a source photo,
 pointing an album at a different `cover`, changing the hero `image` or `crop`, or deleting

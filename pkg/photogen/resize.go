@@ -63,7 +63,8 @@ func openImage(inputPath, outputPath, dryRunLabel string, force, dryRun bool) (*
 	return img, nil, nil
 }
 
-// prepareImage extends openImage with scale-down-to-fit and mkdir, ready for export.
+// prepareImage extends openImage with scale-down-to-fit, conversion to sRGB and mkdir,
+// ready for export.
 // Returns (img, nil, nil) when the image is ready to export,
 // (nil, result, nil) when short-circuited (skip or dry run), or (nil, nil, err) on error.
 // The caller is responsible for calling img.Close() when a non-nil image is returned.
@@ -88,6 +89,10 @@ func prepareImage(inputPath, outputPath string, maxDim int, dryRunLabel string, 
 			return nil, nil, fmt.Errorf("resize: %w", err)
 		}
 	}
+
+	// After the resize, so the conversion runs on the smaller image. Every export strips
+	// metadata, profile included, which is only right once the pixels are sRGB.
+	convertToSRGB(img, inputPath)
 
 	if err := os.MkdirAll(filepath.Dir(outputPath), dirPerms); err != nil {
 		img.Close()
@@ -225,6 +230,7 @@ func ResizeHeroJPEG(inputPath, outputPath, crop string, force, dryRun bool) (*Re
 	if err := img.ExtractArea(x, y, heroWidth, heroHeight); err != nil {
 		return nil, fmt.Errorf("%s: crop: %w", inputPath, err)
 	}
+	convertToSRGB(img, inputPath)
 
 	if err := os.MkdirAll(filepath.Dir(outputPath), dirPerms); err != nil {
 		return nil, fmt.Errorf("create output directory: %w", err)

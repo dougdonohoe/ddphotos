@@ -117,6 +117,7 @@ func TestReadPhotoMetadata(t *testing.T) {
 			assert.Equal(t, tc.width, meta.Width)
 			assert.Equal(t, tc.height, meta.Height)
 			assert.Equal(t, tc.wantOrient, meta.Orientation)
+			assert.Equal(t, colorProfileNone, meta.ColorProfile, "libvips writes no profile here")
 		})
 	}
 }
@@ -161,6 +162,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 		wantHeight int
 		wantOrient string
 		wantDate   string // expected date in "2006-01-02" format
+		wantColor  string // ColorProfile; see color.go for the forms
 	}{
 		{
 			name:       "landscape",
@@ -169,6 +171,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantHeight: 3317,
 			wantOrient: "landscape",
 			wantDate:   "2024-05-16", // from DateTimeDigitized (no DateTimeOriginal)
+			wantColor:  colorProfileSRGB,
 		},
 		{
 			name:       "portrait",
@@ -177,6 +180,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantHeight: 5712,
 			wantOrient: "portrait",
 			wantDate:   "2024-05-31", // from DateTimeDigitized (no DateTimeOriginal)
+			wantColor:  colorProfileSRGB,
 		},
 		{
 			// Its only date is DateTime (ModifyDate, 2005-01-13), which is the day the batch
@@ -187,6 +191,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantHeight: 2160,
 			wantOrient: "portrait",
 			wantDate:   "",
+			wantColor:  "ICC: Adobe RGB (1998)",
 		},
 		{
 			// PNG carries EXIF in an eXIf chunk rather than a JPEG APP1 marker, so this
@@ -199,6 +204,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantHeight: 1056,
 			wantOrient: "landscape",
 			wantDate:   "2024-05-16", // from DateTimeDigitized, same source as landscape-1.jpg
+			wantColor:  colorProfileSRGB,
 		},
 		{
 			// WebP keeps EXIF in a RIFF chunk, a third container shape after JPEG's APP1
@@ -209,6 +215,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantHeight: 1056,
 			wantOrient: "landscape",
 			wantDate:   "2024-05-16", // from DateTimeDigitized, same source as landscape-1.jpg
+			wantColor:  colorProfileSRGB,
 		},
 		{
 			name:       "heic",
@@ -217,6 +224,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantHeight: 3024,
 			wantOrient: "landscape",
 			wantDate:   "2023-04-21", // from DateTimeOriginal
+			wantColor:  "ICC: Display P3",
 		},
 		{
 			// Same source as landscape-1.heic, re-encoded to AV1 in the same HEIF
@@ -226,7 +234,19 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			wantWidth:  4032,
 			wantHeight: 3024,
 			wantOrient: "landscape",
-			wantDate:   "2023-04-21", // from DateTimeOriginal
+			wantDate:   "2023-04-21",      // from DateTimeOriginal
+			wantColor:  "ICC: Display P3", // an ICC colr box, which libvips reads itself
+		},
+		{
+			// Tagged only with an nclx colr box, which libvips ignores and photogen reads
+			// from the container (readNCLX). See nclxFixture in color_test.go.
+			name:       "avif with nclx only",
+			filename:   filepath.Join("color", "nclx-p3.avif"),
+			wantWidth:  64,
+			wantHeight: 48,
+			wantOrient: "landscape",
+			wantDate:   "",
+			wantColor:  colorNCLXP3,
 		},
 	}
 
@@ -240,6 +260,7 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			assert.Equal(t, tc.wantWidth, meta.Width)
 			assert.Equal(t, tc.wantHeight, meta.Height)
 			assert.Equal(t, tc.wantOrient, meta.Orientation)
+			assert.Equal(t, tc.wantColor, meta.ColorProfile)
 
 			if tc.wantDate == "" {
 				assert.True(t, meta.DateTaken.IsZero(), "expected no date, got %s", meta.DateTaken)
@@ -250,7 +271,8 @@ func TestReadPhotoMetadata_RealImages(t *testing.T) {
 			t.Logf("%s: date taken = %s", tc.filename, meta.DateTaken.Format("2006-01-02 15:04:05"))
 
 			// Dimensions here are post-AutoRotate canonical values, so a cache that lost
-			// the rotation would show up in the round trip.
+			// the rotation would show up in the round trip, as would one that lost
+			// ColorProfile, which decides whether existing outputs are redone.
 			assertCacheRoundTrip(t, path, meta)
 		})
 	}
@@ -277,6 +299,7 @@ func TestReadPhotoMetadata_TIFF(t *testing.T) {
 	assert.Equal(t, 1056, meta.Height)
 	assert.Equal(t, "landscape", meta.Orientation)
 	assert.True(t, meta.DateTaken.IsZero(), "libvips tiffload exposes no EXIF; see doc comment")
+	assert.Equal(t, colorProfileSRGB, meta.ColorProfile, "unlike EXIF, the ICC profile does come through")
 
 	assertCacheRoundTrip(t, path, meta)
 }
