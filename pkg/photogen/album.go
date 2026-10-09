@@ -892,8 +892,9 @@ func (ap *AlbumProcessor) WriteCoverJPEG() error {
 	// cover.jpg has a fixed output name, so "the file exists" is not enough to skip it:
 	// the album's cover can be pointed at a different photo. The cache stamps the output
 	// with the source that produced it, which makes the skip safe. Without a cache this
-	// falls through to the unconditional regeneration it replaces.
-	if !ap.Config.Force && ap.Config.MetaCache.DerivedUpToDate(outputPath, source, "") {
+	// falls through to the unconditional regeneration it replaces. A video's ColorProfile
+	// is "", which is right for its poster: ffmpeg writes it untagged.
+	if !ap.Config.Force && ap.Config.MetaCache.DerivedUpToDate(outputPath, source, "", cover.colorProfile()) {
 		fmt.Printf("  exists: %s (cover jpeg)\n", outputPath)
 		return nil
 	}

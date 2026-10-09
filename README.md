@@ -167,6 +167,8 @@ Backend features:
 - `ffmpeg` is downloaded on demand the first time a video is seen, and cached. Photo-only
   sites never download it and gain no new dependency.
 - EXIF metadata extraction (dimensions, date) stored in JSON.
+- Wide-gamut photos (Adobe RGB, Display P3, including AVIF/HEIC color tags) converted to sRGB,
+  so browsers show their true colors.
 - All image metadata stripped from WebP output (smaller files, no GPS leak).
 - Concurrent image resizing via goroutines (buffered channel, WaitGroup).
 - Dry-run mode by default (use `-doit` to write files).

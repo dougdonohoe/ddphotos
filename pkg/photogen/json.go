@@ -513,7 +513,7 @@ func (c *Config) WriteHeroJPEG() error {
 	// the configured hero image and its crop can both change. The cache stamps the
 	// output with the source and crop that produced it, which makes the skip safe.
 	// Without a cache this falls through to the unconditional regeneration it replaces.
-	if !c.Force && c.MetaCache.DerivedUpToDate(outputPath, c.Hero.ImagePath, c.Hero.Crop) {
+	if !c.Force && c.MetaCache.DerivedUpToDate(outputPath, c.Hero.ImagePath, c.Hero.Crop, c.heroColorProfile()) {
 		fmt.Printf("  exists: %s (hero jpeg)\n", outputPath)
 		return nil
 	}
@@ -527,6 +527,21 @@ func (c *Config) WriteHeroJPEG() error {
 	}
 	fmt.Println(result.Message)
 	return nil
+}
+
+// heroColorProfile returns the hero image's ColorProfile for the hero.jpg up-to-date check.
+// The hero need not be a photo in any album, so its metadata is read here rather than
+// borrowed; the cache makes that a lookup after the first run. Without a cache the check
+// regenerates anyway, so nothing is read.
+func (c *Config) heroColorProfile() string {
+	if c.MetaCache == nil {
+		return ""
+	}
+	meta, err := c.MetaCache.Metadata(c.Hero.ImagePath)
+	if err != nil {
+		return "" // the resize reports the real problem
+	}
+	return meta.ColorProfile
 }
 
 // WriteCSSFile copies the custom CSS file to the site output directory as custom.css.

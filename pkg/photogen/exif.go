@@ -35,12 +35,12 @@ func annotateImageLoadErr(err error) error {
 }
 
 func init() {
-	vips.LoggingSettings(nil, vips.LogLevelWarning)
+	vips.LoggingSettings(vipsLogHandler, vips.LogLevelWarning)
 	exit.PanicOnError(vips.Startup(nil))
 }
 
 // PhotoMetadata holds extracted media metadata. Despite the name it covers video too;
-// Duration is the only field that does not apply to a still image.
+// Duration applies only to video, and ColorProfile only to a still image.
 type PhotoMetadata struct {
 	Width       int       `json:"width"`
 	Height      int       `json:"height"`
@@ -51,6 +51,11 @@ type PhotoMetadata struct {
 	// the build log. Never serialized: sidecars are applied after the metadata cache, so the
 	// cache must not carry it, and the frontend has no use for it.
 	DateFromSidecar bool `json:"-"`
+	// ColorProfile is the color description the source carries, which decides whether its
+	// outputs are converted to sRGB (see color.go for the values). Never serialized to the
+	// frontend; the metadata cache keeps it so a re-run can tell which outputs predate the
+	// conversion without decoding anything.
+	ColorProfile string `json:"colorProfile,omitempty"`
 }
 
 // ReadMediaMetadata reads metadata for any supported source file, dispatching on extension.
@@ -84,7 +89,8 @@ func loadImage(path string) (*vips.ImageRef, error) {
 	return img, nil
 }
 
-// ReadPhotoMetadata extracts dimensions, orientation, and date taken from a still image.
+// ReadPhotoMetadata extracts dimensions, orientation, date taken and color profile from a
+// still image.
 // Uses govips for dimensions and libvips' EXIF fields for the date.
 func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 	img, err := loadImage(path)
@@ -104,11 +110,14 @@ func ReadPhotoMetadata(path string) (*PhotoMetadata, error) {
 	// Read date taken from EXIF (best effort - zero time if not available)
 	dateTaken := readDateTaken(img)
 
+	colorProfile, _ := detectColorProfile(img, path)
+
 	return &PhotoMetadata{
-		Width:       width,
-		Height:      height,
-		Orientation: deriveOrientation(width, height),
-		DateTaken:   dateTaken,
+		Width:        width,
+		Height:       height,
+		Orientation:  deriveOrientation(width, height),
+		DateTaken:    dateTaken,
+		ColorProfile: colorProfile,
 	}, nil
 }
 

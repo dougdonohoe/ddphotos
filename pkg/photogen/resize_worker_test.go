@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -502,4 +503,71 @@ func TestResizePhotos_StopsRemainingWorkersAfterError(t *testing.T) {
 	// whole queue is the regression (and took 11s of thrown-away work when measured).
 	assert.Less(t, written, 10, "workers must stop after the first error, not drain the queue (wrote %d of %d)",
 		written, good*len(AllSizes()))
+}
+
+// Sites built before the conversion to sRGB have outputs stamped (or adopted) at
+// ColorVersion 0. A re-run must redo exactly the photos whose source needs conversion,
+// with nobody passing -force, and leave every other photo alone.
+func TestResizePhotos_PreColorOutputsOfWideGamutSourcesAreRedone(t *testing.T) {
+	dir := t.TempDir()
+	adobe := filepath.Join(dir, "adobe.jpg")
+	srgb := filepath.Join(dir, "srgb.jpg")
+	writeFixtureAs(t, adobe, "no-create-date.jpg")
+	writeFixtureAs(t, srgb, "landscape-1.jpg")
+
+	photo := func(name, path string) *Photo {
+		meta, err := ReadPhotoMetadata(path)
+		require.NoError(t, err)
+		return &Photo{FileName: name, AbsolutePath: path, PhotoMetadata: meta}
+	}
+	ap := newTestProcessor(t, []*Photo{photo("adobe.jpg", adobe), photo("srgb.jpg", srgb)})
+	ap.Config.MetaCache = NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+	require.NoError(t, ap.ResizePhotos())
+
+	// Turn the run into one from before the pipeline, with old mtimes to tell a rewrite by.
+	past := time.Now().Add(-time.Hour).Truncate(time.Second)
+	outputs := append(photoOutputs(ap, "adobe.jpg"), photoOutputs(ap, "srgb.jpg")...)
+	for _, p := range outputs {
+		entry := ap.Config.MetaCache.derived[p]
+		entry.ColorVersion = 0
+		ap.Config.MetaCache.derived[p] = entry
+		require.NoError(t, os.Chtimes(p, past, past))
+	}
+
+	rewritten := func(paths ...string) []bool {
+		out := make([]bool, len(paths))
+		for i, p := range paths {
+			stat, err := os.Stat(p)
+			require.NoError(t, err)
+			out[i] = !stat.ModTime().Equal(past)
+		}
+		return out
+	}
+
+	rerun(t, ap)
+	assert.Equal(t, []bool{true, true}, rewritten(photoOutputs(ap, "adobe.jpg")...), "Adobe RGB outputs are redone")
+	assert.Equal(t, []bool{false, false}, rewritten(photoOutputs(ap, "srgb.jpg")...), "sRGB outputs are left alone")
+
+	for _, p := range outputs {
+		require.NoError(t, os.Chtimes(p, past, past))
+	}
+	rerun(t, ap)
+	assert.Equal(t, []bool{false, false, false, false}, rewritten(outputs...), "once redone, nothing more to do")
+}
+
+func TestResizePhotos_WarnsAboutUnconvertibleNCLX(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "hdr.jpg")
+	writeFixtureAs(t, src, "landscape-1.jpg")
+	hdr := &Photo{FileName: "hdr.jpg", AbsolutePath: src,
+		PhotoMetadata: &PhotoMetadata{ColorProfile: "other: nclx HDR 9/16/9"}}
+
+	ap := newTestProcessor(t, []*Photo{hdr})
+	ap.Config.MetaCache = NewMetaCache(filepath.Join(dir, MetaCacheFileName))
+	require.NoError(t, ap.ResizePhotos())
+	require.Len(t, ap.Config.Warn.warnings, 1, "one warning per photo, not per size")
+	assert.Contains(t, ap.Config.Warn.warnings[0], "hdr.jpg (nclx HDR 9/16/9)")
+
+	rerun(t, ap)
+	assert.Len(t, ap.Config.Warn.warnings, 1, "and only when it is written")
 }

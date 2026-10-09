@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -39,15 +41,17 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 	// dispatching a goroutine and printing a line for every up-to-date file, which is the
 	// bulk of the work on a re-run. Up to date means the output exists and was made from
 	// the source's current bytes (OutputUpToDate), so a source replaced under the same
-	// name is redone.
+	// name is redone, and with the color pipeline the source needs.
 	cache := ap.Config.MetaCache
-	upToDateFor := func(outPath, sourcePath string) bool {
-		return !ap.Config.Force && cache.OutputUpToDate(outPath, sourcePath)
+	upToDateFor := func(outPath string, photo *Photo) bool {
+		return !ap.Config.Force && cache.OutputUpToDate(outPath, photo.AbsolutePath, photo.colorProfile())
 	}
 	sizes := AllSizes()
 	items := make([]resizeWork, 0, len(ap.Photos)*len(sizes))
 	videos := make([]videoWork, 0)
 	upToDate := 0
+	colorFixes := map[*Photo]struct{}{}    // re-rendered only to convert them to sRGB
+	unconvertible := map[*Photo]struct{}{} // written with an nclx tag photogen cannot convert
 
 	for i, photo := range ap.Photos {
 		if photo.IsVideo {
@@ -62,14 +66,14 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			}
 			// Tracked whether they need writing, so -clean keeps existing files.
 			ap.Config.TrackFile(vw.videoPath)
-			vw.needVideo = !upToDateFor(vw.videoPath, photo.AbsolutePath)
+			vw.needVideo = !upToDateFor(vw.videoPath, photo)
 			for _, size := range sizes {
 				p := ap.OutputPath(string(size), ap.photoOutputName(photo, ".webp"))
 				ap.Config.TrackFile(p)
 				vw.posterPaths[size] = p
 				// Every poster is checked, not just until one is stale, so each one without
 				// a stamp gets adopted on this run.
-				if !upToDateFor(p, photo.AbsolutePath) {
+				if !upToDateFor(p, photo) {
 					vw.needPoster = true
 				}
 			}
@@ -85,9 +89,15 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			outPath := ap.OutputPath(string(size), ap.photoOutputName(photo, ".webp"))
 			// Tracked whether it needs writing, so -clean keeps existing files.
 			ap.Config.TrackFile(outPath)
-			if upToDateFor(outPath, photo.AbsolutePath) {
+			if upToDateFor(outPath, photo) {
 				upToDate++
 				continue
+			}
+			if !ap.Config.Force && cache.NeedsColorUpdate(outPath, photo.AbsolutePath, photo.colorProfile()) {
+				colorFixes[photo] = struct{}{}
+			}
+			if strings.HasPrefix(photo.colorProfile(), colorPrefixOther+"nclx") {
+				unconvertible[photo] = struct{}{}
 			}
 			items = append(items, resizeWork{
 				photo:      photo,
@@ -103,6 +113,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 	numWorkers := ap.Config.Workers()
 	fmt.Printf("  Resizing %d photos (%d items, %d videos, %d workers, %d up to date)...\n",
 		len(ap.Photos), len(items), len(videos), numWorkers, upToDate)
+	ap.reportColor(colorFixes, unconvertible)
 
 	if len(items) == 0 && len(videos) == 0 {
 		return nil
@@ -112,6 +123,42 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 		return err
 	}
 	return ap.runVideoWorkers(videos, numWorkers)
+}
+
+// reportColor explains color-driven work: photos re-rendered though nobody touched them,
+// because they were written before the conversion to sRGB, and photos whose nclx tag
+// photogen leaves alone. The second is warned once per write rather than once per read
+// of the metadata, which the cache would show only on the first run.
+func (ap *AlbumProcessor) reportColor(fixes, unconvertible map[*Photo]struct{}) {
+	if len(fixes) > 0 {
+		counts := map[string]int{}
+		for p := range fixes {
+			counts[strings.TrimPrefix(p.colorProfile(), colorPrefixICC)]++
+		}
+		names := make([]string, 0, len(counts))
+		for name := range counts {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		parts := make([]string, 0, len(names))
+		for _, name := range names {
+			parts = append(parts, fmt.Sprintf("%s x%d", name, counts[name]))
+		}
+		noun := "photos"
+		if len(fixes) == 1 {
+			noun = "photo"
+		}
+		fmt.Printf("  Re-rendering %d %s for color correction (%s)\n", len(fixes), noun, strings.Join(parts, ", "))
+	}
+
+	paths := make([]string, 0, len(unconvertible))
+	for p := range unconvertible {
+		paths = append(paths, fmt.Sprintf("%s (%s)", p.AbsolutePath, strings.TrimPrefix(p.colorProfile(), colorPrefixOther)))
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		ap.warnf("  WARN: %s: color tag photogen cannot convert to sRGB, colors may be off\n", p)
+	}
 }
 
 func (ap *AlbumProcessor) runResizeWorkers(items []resizeWork, numWorkers int) error {
