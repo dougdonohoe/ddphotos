@@ -54,14 +54,17 @@ type HeroEntry struct {
 
 // AlbumEntry is the YAML representation of a single album.
 type AlbumEntry struct {
-	Slug            string `yaml:"slug"`
-	Name            string `yaml:"name"`
-	Base            string `yaml:"base"`        // optional key into Bases map
-	Source          string `yaml:"source"`      // path joined to base, or absolute/configDir-relative
-	Cover           string `yaml:"cover"`       // optional cover photo source-relative path (e.g. "subfolder/photo.jpg")
-	Description     string `yaml:"description"` // optional inline description; takes precedence over descriptions file
-	ManualSortOrder bool   `yaml:"manual_sort_order"`
-	Recurse         bool   `yaml:"recurse"` // if true, collect photos from subdirectories recursively
+	Slug        string `yaml:"slug"`
+	Name        string `yaml:"name"`
+	Base        string `yaml:"base"`        // optional key into Bases map
+	Source      string `yaml:"source"`      // path joined to base, or absolute/configDir-relative
+	Cover       string `yaml:"cover"`       // optional cover photo source-relative path (e.g. "subfolder/photo.jpg")
+	Description string `yaml:"description"` // optional inline description; takes precedence over descriptions file
+	// LongDescriptionHTML is optional HTML shown on the album page between the header and
+	// the photo grid. Inline only: the descriptions file and sync have no equivalent.
+	LongDescriptionHTML string `yaml:"long_description_html"`
+	ManualSortOrder     bool   `yaml:"manual_sort_order"`
+	Recurse             bool   `yaml:"recurse"` // if true, collect photos from subdirectories recursively
 
 	// Sync, when set, makes this album's photos come from an upstream photo manager
 	// instead of a folder the user maintains. Source and Base are then derived and must
@@ -324,14 +327,15 @@ func (af *AlbumsFile) ToAlbumConfigs(configDir string, sync *SyncPaths) ([]*Albu
 			desc = descriptions[a.Slug]
 		}
 		configs = append(configs, &AlbumConfig{
-			Slug:            a.Slug,
-			Name:            a.Name,
-			Path:            path,
-			Cover:           a.Cover,
-			ManualSortOrder: a.ManualSortOrder,
-			Recurse:         a.Recurse,
-			Description:     desc,
-			Sync:            a.resolveSync(configDir),
+			Slug:                a.Slug,
+			Name:                a.Name,
+			Path:                path,
+			Cover:               a.Cover,
+			ManualSortOrder:     a.ManualSortOrder,
+			Recurse:             a.Recurse,
+			Description:         desc,
+			LongDescriptionHTML: a.LongDescriptionHTML,
+			Sync:                a.resolveSync(configDir),
 		})
 		delete(descriptions, a.Slug)
 	}

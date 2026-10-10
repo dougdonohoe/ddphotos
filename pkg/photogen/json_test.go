@@ -135,7 +135,8 @@ func TestWriteAlbumIndex(t *testing.T) {
 				Encrypt:    encrypt,
 				Warn:       &WarnCollector{},
 			},
-			AlbumConfig: &AlbumConfig{Slug: "myalbum", Name: "My Album", Description: "A test album."},
+			AlbumConfig: &AlbumConfig{Slug: "myalbum", Name: "My Album", Description: "A test album.",
+				LongDescriptionHTML: "<p>A longer story.</p>"},
 			Photos: []*Photo{
 				{ID: "photo1", FileName: "photo1.jpg", PhotoMetadata: &PhotoMetadata{Width: 100, Height: 200}},
 			},
@@ -155,8 +156,21 @@ func TestWriteAlbumIndex(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "myalbum", idx.Slug)
 		assert.Equal(t, "A test album.", idx.Description)
+		assert.Equal(t, "<p>A longer story.</p>", idx.LongDescriptionHTML)
 		assert.NotEmpty(t, idx.Cover, "cover should be set from first photo")
 		require.Len(t, idx.Photos, 1)
+	})
+
+	t.Run("no long description omits the field", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ap := makeAP(dir, nil)
+		ap.AlbumConfig.LongDescriptionHTML = ""
+		require.NoError(t, ap.WriteAlbumIndex())
+
+		data, err := os.ReadFile(filepath.Join(dir, "testsite", "myalbum", "index.json"))
+		require.NoError(t, err)
+		assert.NotContains(t, string(data), "longDescriptionHtml")
 	})
 
 	t.Run("encrypted writes index.enc.json with unreadable content", func(t *testing.T) {
@@ -173,6 +187,7 @@ func TestWriteAlbumIndex(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotContains(t, string(data), "myalbum", "encrypted file must not contain plaintext slug")
 		assert.NotContains(t, string(data), "A test album.", "encrypted file must not contain plaintext description")
+		assert.NotContains(t, string(data), "A longer story.", "encrypted file must not contain plaintext long description")
 	})
 
 	t.Run("switching to unencrypted removes stale index.enc.json", func(t *testing.T) {

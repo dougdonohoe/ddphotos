@@ -31,6 +31,25 @@ albums:
     base: sample
     source: theway
     cover: 2024-The-Way-14.jpg
+    long_description_html: |
+      <p>These are photos from a 37-day, 530-mile walk across northern Spain known as El Camino del Norte, one of
+      many routes to Santiago de Compostela. In English, this translates to “The Way of St. James,” commonly
+      known as “The Way.”</p>
+      <p>Pilgrims have walked these caminos for over a thousand years for a multitude of reasons. The
+      original purpose was to pay homage to the apostle St. James, who, according to Christian tradition,
+      is buried at the cathedral in Santiago de Compostela. For us, it was a journey of exploration
+      marking our recent retirement from the traditional working world.</p>
+      <p>We’d start early each morning, walking five to seven hours, averaging 14 miles a day. The path
+      crosses diverse terrains: dirt, gravel, mud, rock, asphalt, concrete, and sandy beach trails
+      through cities, towns, small villages, farms, and forests.</p>
+      <p>There is amazing coastal scenery of the Bay of Biscay, expansive views of rolling Spanish
+      hills, and a plethora of cows, donkeys, horses, roosters, chickens, cats, and dogs along the way.
+      Some days have long ascents followed by steep descents. Other days, the road is flat and winds
+      through acres of farmland. Occasionally, we walk on narrow shoulders of regional routes, hopping
+      from one side to the other to avoid blind curves.</p>
+      <p>All this walking for long periods allows the mind to wander, scrutinize the past, and wonder about the future.</p>
+      <p style="font-size: 90%;"><em>This description is an excerpt from Doug Donohoe’s article,
+      <a href="https://medium.com/engage/from-code-to-camino-a-software-engineers-530-mile-journey-8b623c8220fc?source=friends_link&amp;sk=bd8c8e9891baf03ca572e76c6a7ab1a9">From Code to Camino: A Software Engineer’s 530-Mile Journey</a>.</em></p>
 
   - slug: uganda
     name: Uganda
