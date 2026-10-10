@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { browser } from '$app/environment';
-import type { AlbumSummary, SiteHtmlContent, MaybeEncrypted, SiteData } from '$lib/types';
+import { browser } from '$app/env';
+import type { AlbumSummary, SiteHtmlContent, MaybeEncrypted, SiteData } from '#lib/types.ts';
 
 export async function load({ fetch, parent, url }) {
 	// browser guard prevents url.searchParams access during pre-rendering

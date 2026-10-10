@@ -1,5 +1,11 @@
 import { error } from '@sveltejs/kit';
-import type { AlbumIndex, AlbumSummary, AlbumData, MaybeEncrypted, SiteConfig } from '$lib/types';
+import type {
+	AlbumIndex,
+	AlbumSummary,
+	AlbumData,
+	MaybeEncrypted,
+	SiteConfig
+} from '#lib/types.ts';
 
 export async function load({ params, fetch }) {
 	// Consult config.json first to determine which files exist before fetching them.

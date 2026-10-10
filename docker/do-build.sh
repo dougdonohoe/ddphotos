@@ -22,7 +22,7 @@ cd /app/web
 # Ensure build dir exists
 mkdir -p /ddphotos/build
 
-# svelte.config.js (from /app/web) writes to ../build/$SITE_ID; redirect /app/build => /ddphotos/build
+# vite.config.ts (from /app/web) writes to ../build/$SITE_ID; redirect /app/build => /ddphotos/build
 ln -sfn /ddphotos/build /app/build
 
 echo "Building $DDPHOTOS_SITE_ID ..."

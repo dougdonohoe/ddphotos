@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { Pathname } from '$app/types';
+	import type { Path } from '$app/types';
 	import { resolve } from '$app/paths';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 
@@ -18,7 +18,7 @@
 		iconColor?: 'blue' | 'amber' | 'red' | 'gray';
 		title: string;
 		siteName: string;
-		backHref?: Pathname;
+		backHref?: Path;
 		children: Snippet;
 	} = $props();
 </script>

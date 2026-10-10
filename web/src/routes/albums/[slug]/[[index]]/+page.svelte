@@ -4,17 +4,17 @@
 <!--suppress CssUnusedSymbol -->
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { goto, replaceState, pushState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
 	import 'photoswipe/style.css';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
-	import BackToTop from '$lib/components/BackToTop.svelte';
-	import OpenGraph from '$lib/components/OpenGraph.svelte';
-	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
-	import type { AlbumIndex, Photo } from '$lib/types';
+	import BackToTop from '#lib/components/BackToTop.svelte';
+	import OpenGraph from '#lib/components/OpenGraph.svelte';
+	import PasswordPrompt from '#lib/components/PasswordPrompt.svelte';
+	import type { AlbumIndex, Photo } from '#lib/types.ts';
 	import type { ItemHolder } from 'photoswipe';
 	import {
 		siteKey,
@@ -24,20 +24,20 @@
 		storeAlbumCover,
 		syncSiteId,
 		tryDecrypt
-	} from '$lib/crypto';
-	import { footerReady } from '$lib/stores';
-	import { stripTags } from '$lib/html';
-	import { albumMetaText } from '$lib/counts';
-	import { albumFileUrl } from '$lib/albumUrl';
-	import { navigateCursor, type Direction } from '$lib/navigation';
-	import { applyVideoAudio, rememberVideoAudio } from '$lib/videoAudio';
+	} from '#lib/crypto.ts';
+	import { footerReady } from '#lib/stores.ts';
+	import { stripTags } from '#lib/html.ts';
+	import { albumMetaText } from '#lib/counts.ts';
+	import { albumFileUrl } from '#lib/albumUrl.ts';
+	import { navigateCursor, type Direction } from '#lib/navigation.ts';
+	import { applyVideoAudio, rememberVideoAudio } from '#lib/videoAudio.ts';
 	import {
 		SLIDESHOW_PRESETS,
 		getSlideshowDelay,
 		setSlideshowDelay,
 		nextSlideshowIndex
-	} from '$lib/slideshow';
-	import { getCaptionsHidden, setCaptionsHidden } from '$lib/captionToggle';
+	} from '#lib/slideshow.ts';
+	import { getCaptionsHidden, setCaptionsHidden } from '#lib/captionToggle.ts';
 
 	let { data } = $props();
 
@@ -582,7 +582,7 @@
 				if (pushedHistoryEntry) {
 					history.go(-1);
 				} else {
-					replaceState(resolve(`/albums/${slug}`), {});
+					replaceState(resolve(`albums/${slug}`), {});
 				}
 
 				const focusIdx = pendingFocusIndex;
@@ -947,14 +947,14 @@
 		//
 		// Skip for animate=false (permalink open): URL already has the photo index.
 		if (animate) {
-			pushState(resolve(`/albums/${slug}/${index + 1}`), {});
+			pushState(resolve(`albums/${slug}/${index + 1}`), {});
 			pushedHistoryEntry = true;
 		}
 		pswp.on('change', () => {
 			// SvelteKit's replaceState keeps the photo URL current as the user navigates.
 			// Uses replaceState (not pushState) so every photo doesn't add a history entry
 			// — back always jumps directly to the album rather than stepping photo-by-photo.
-			replaceState(resolve(`/albums/${slug}/${pswp.currIndex + 1}`), {});
+			replaceState(resolve(`albums/${slug}/${pswp.currIndex + 1}`), {});
 			// Store the target scroll so the current photo will be centered when the
 			// lightbox closes. Applied via afterNavigate (history.go(-1) case) or directly
 			// in the close handler (replaceState case) — both fire after SvelteKit's own
@@ -1311,7 +1311,7 @@
 				<p>
 					Sorry, there is no photo No. {invalidPhotoIndex} in this album. Maybe we lost the negative?
 				</p>
-				<a href={resolve(`/albums/${slug}`)} class="back-link"
+				<a href={resolve(`albums/${slug}`)} class="back-link"
 					><ArrowLeft size={16} aria-hidden="true" />Back to '{album.title}'</a
 				>
 			</div>

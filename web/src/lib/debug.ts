@@ -5,7 +5,7 @@
 // SSR context (load functions): console.log goes directly to the terminal.
 // Browser context: console.log goes to DevTools; sendBeacon relays to the terminal.
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 const enabled = import.meta.env.DEV && !!import.meta.env.VITE_DEBUG;
 

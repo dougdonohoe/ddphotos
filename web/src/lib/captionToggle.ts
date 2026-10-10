@@ -3,7 +3,7 @@
 // Deliberately a session choice, not a preference: kept in sessionStorage, so it carries
 // across albums and reloads in the same tab but every new tab starts with captions on.
 // clearStoredKeys only touches localStorage, so logout and build changes leave it alone.
-// Read lazily on first use (keeping this module free of $app/environment and testable
+// Read lazily on first use (keeping this module free of $app/env and testable
 // under plain Vitest), with a module-level copy for browsers where storage throws.
 export const CAPTIONS_HIDDEN_KEY = 'ddp_captions_hidden';
 

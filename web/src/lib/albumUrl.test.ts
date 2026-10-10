@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { albumFileUrl } from '$lib/albumUrl';
+import { albumFileUrl } from '#lib/albumUrl.ts';
 
 describe('albumFileUrl', () => {
 	it('appends the version as ?v=', () => {

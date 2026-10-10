@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 // The module caches the delay on first read, so each test imports a fresh copy.
 async function freshModule() {
 	vi.resetModules();
-	return import('$lib/slideshow');
+	return import('#lib/slideshow.ts');
 }
 
 describe('nextSlideshowIndex', () => {

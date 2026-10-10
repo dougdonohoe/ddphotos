@@ -20,8 +20,12 @@ What SvelteKit specifically does for this project:
 - **Component reactivity** — lightbox state, theme toggle, image loading effects
 - **Build pipeline** — Vite bundles everything; `adapter-static` pre-renders all routes to `.html` files.
   For encrypted builds, the SvelteKit crawler cannot discover album links hidden behind the password
-  prompt, so `svelte.config.js` uses an `albumEntries()` function to read album slugs from
-  `web/static/albums/` at build time and inject them into `prerender.entries` directly.
+  prompt, so `vite.config.ts` uses an `albumEntries()` function to read album slugs from
+  `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>/` at build time and inject them into `prerender.entries` directly.
+  Lines like `404 GET /albums/<slug>/grid/<photo>.webp` or `404 GET /albums/custom.css` under
+  "Prerendering" are expected: the crawler follows each album cover `<img>` (and other links such as
+  the custom CSS `<link>`), but everything under `/albums` is served at runtime (not part of the
+  build), so the request 404s. `handleHttpError` ignores `/albums/**`, so the build still succeeds.
 - **Client-side navigation** — clicking between albums swaps content without a full page reload
 
 The site is a hybrid of static and dynamic rendering:
@@ -114,7 +118,7 @@ VITE_DEBUG=1 make sample-npm-run-dev
 Usage examples:
 
 ```ts
-import { debug } from '$lib/debug';
+import { debug } from '#lib/debug.ts';
 
 // Simple message
 debug("I'm here")
