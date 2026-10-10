@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import SecondaryPage from '$lib/components/SecondaryPage.svelte';
+	import SecondaryPage from '#lib/components/SecondaryPage.svelte';
 	import FileQuestion from 'lucide-svelte/icons/file-question';
 	import AlertCircle from 'lucide-svelte/icons/alert-circle';
 

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 // The module caches the choice on first read, so each test imports a fresh copy.
 async function freshModule() {
 	vi.resetModules();
-	return import('$lib/captionToggle');
+	return import('#lib/captionToggle.ts');
 }
 
 describe('caption toggle', () => {

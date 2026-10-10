@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ErrorPage from '$lib/components/ErrorPage.svelte';
+	import ErrorPage from '#lib/components/ErrorPage.svelte';
 </script>
 
 <ErrorPage status={404} />

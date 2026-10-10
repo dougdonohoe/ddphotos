@@ -197,8 +197,9 @@ test('a manual step restarts the countdown', async ({ page }) => {
 
 	await page.clock.runFor(10_000);
 	await page.keyboard.press('ArrowRight');
+	// The URL updates asynchronously after the step, so wait for it rather than read it once.
+	await expect.poll(() => slideIndex(page)).not.toBe(start);
 	const landed = await slideIndex(page);
-	expect(landed).not.toBe(start);
 
 	// Another 10s: past the original countdown's 15s, inside the restarted one.
 	await page.clock.runFor(10_000);
@@ -343,8 +344,8 @@ test('Space starts the slideshow after clicking an arrow', async ({ page }) => {
 	const start = isVideo.indexOf(false);
 	await openLightboxAt(page, start);
 	await page.locator('.pswp__button--arrow--next').click();
+	await expect.poll(() => slideIndex(page)).not.toBe(start);
 	const landed = await slideIndex(page);
-	expect(landed).not.toBe(start);
 	test.skip(isVideo[landed], 'the arrow landed on a video slide');
 
 	await page.keyboard.press('Space');

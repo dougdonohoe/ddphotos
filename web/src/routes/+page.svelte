@@ -6,13 +6,13 @@
 
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { beforeNavigate, afterNavigate, disableScrollHandling } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import BackToTop from '$lib/components/BackToTop.svelte';
-	import OpenGraph from '$lib/components/OpenGraph.svelte';
-	import PasswordPrompt from '$lib/components/PasswordPrompt.svelte';
-	import type { AlbumSummary, SiteHtmlContent } from '$lib/types';
+	import BackToTop from '#lib/components/BackToTop.svelte';
+	import OpenGraph from '#lib/components/OpenGraph.svelte';
+	import PasswordPrompt from '#lib/components/PasswordPrompt.svelte';
+	import type { AlbumSummary, SiteHtmlContent } from '#lib/types.ts';
 	import {
 		siteKey,
 		getStoredPassword,
@@ -22,11 +22,11 @@
 		clearStoredKeys,
 		tryDecrypt,
 		tryStoredAlbumPasswords
-	} from '$lib/crypto';
-	import { footerReady } from '$lib/stores';
-	import { navigateCursor, type Direction } from '$lib/navigation';
-	import { albumMetaText } from '$lib/counts';
-	import { albumFileUrl } from '$lib/albumUrl';
+	} from '#lib/crypto.ts';
+	import { footerReady } from '#lib/stores.ts';
+	import { navigateCursor, type Direction } from '#lib/navigation.ts';
+	import { albumMetaText } from '#lib/counts.ts';
+	import { albumFileUrl } from '#lib/albumUrl.ts';
 	import Lock from 'lucide-svelte/icons/lock';
 	import Image from 'lucide-svelte/icons/image';
 	import CameraOff from 'lucide-svelte/icons/camera-off';
@@ -327,7 +327,7 @@
 		<div class="albums">
 			{#each albums as album (album.slug)}
 				<a
-					href={resolve(`/albums/${album.slug}`)}
+					href={resolve(`albums/${album.slug}`)}
 					class="album-card"
 					data-slug={album.slug}
 					onkeydown={handleCardKeydown}

@@ -9,11 +9,11 @@
 // during `npm run build` pre-rendering. In practice only JSON files are fetched here
 // (config.json, albums.json, index.json, etc.) — images are strings in the rendered
 // HTML, not server-side fetches, so the prerender crawler encounters them as 404s
-// (suppressed via handleError below and handleHttpError in svelte.config.js).
+// (ignored via handleHttpError in vite.config.ts; see docs/DEV.md).
 
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import type { Handle, HandleFetch, HandleServerError } from '@sveltejs/kit';
+import type { HandleFetch } from '@sveltejs/kit/hooks';
 
 // Resolve albums dir the same way vite.config.ts does (repo-root-relative default).
 function resolveAlbumsDir(): string {
@@ -52,17 +52,4 @@ export const handleFetch: HandleFetch = async ({ request, fetch }) => {
 		}
 	}
 	return fetch(request);
-};
-
-export const handle: Handle = async ({ event, resolve }) => resolve(event);
-
-// Suppress the noisy [404] log that SvelteKit's default handleError emits when the
-// prerender crawler follows <img src="/albums/..."> cover URLs on the home page.
-// Those assets are served at runtime (Apache/Docker) and are never pre-rendered;
-// the 404 is expected and already silenced in svelte.config.js handleHttpError.
-// For real errors, replicate the default: log status + path (+ stack for non-404).
-export const handleError: HandleServerError = ({ status, error, event }) => {
-	if (status === 404 && event.url.pathname.startsWith('/albums/')) return;
-	const line = `\n\x1b[1;31m[${status}] ${event.request.method} ${event.url.pathname}\x1b[0m`;
-	console.error(status === 404 ? line : `${line}\n${(error as Error)?.stack ?? error}`);
 };

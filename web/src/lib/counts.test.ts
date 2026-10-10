@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mediaCountText, albumMetaText } from '$lib/counts';
+import { mediaCountText, albumMetaText } from '#lib/counts.ts';
 
 describe('mediaCountText', () => {
 	// Every rule the meta line follows, including the singular/plural boundary on each

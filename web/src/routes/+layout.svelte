@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { theme } from '$lib/theme';
+	import { theme } from '#lib/theme.ts';
 	import { onMount } from 'svelte';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { footerReady } from '$lib/stores';
-	import { clearStoredKeys } from '$lib/crypto';
+	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
+	import { footerReady } from '#lib/stores.ts';
+	import { clearStoredKeys } from '#lib/crypto.ts';
 	import LogOut from 'lucide-svelte/icons/log-out';
 	import Info from 'lucide-svelte/icons/info';
 	import X from 'lucide-svelte/icons/x';

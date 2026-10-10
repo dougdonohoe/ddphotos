@@ -12,6 +12,7 @@ import {
 import { execSync } from 'child_process';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, createLogger } from 'vite';
 
@@ -95,6 +96,26 @@ const albumsDir = resolveAlbumsDir();
 // Build metadata written by photogen: albums/.build/<site-id>.json
 const buildMetaPath = join(dirname(albumsDir), '.build', `${siteId}.json`);
 
+/**
+ * Return /albums/<slug> prerender entries for every album directory found under
+ * DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID.
+ *
+ * This is necessary for encrypted builds: when all albums require a password the
+ * SvelteKit crawler never finds links to album pages, so without explicit entries
+ * those pages would not be pre-rendered.  Providing entries ensures each album gets
+ * its own <slug>.html with the correct page skeleton; after JS hydration the
+ * password prompt renders and the test (or user) can unlock the album normally.
+ */
+function albumEntries(): `/${string}`[] {
+	try {
+		return readdirSync(albumsDir, { withFileTypes: true })
+			.filter((d) => d.isDirectory())
+			.map((d) => `/albums/${d.name}` as const);
+	} catch {
+		return [];
+	}
+}
+
 // Set once per process. SvelteKit loads this config again for its server build, and a
 // second new Date() gave the client bundle (the About dialog) a different time from the
 // pre-rendered about.json, a minute apart whenever the two loads straddled one.
@@ -168,23 +189,51 @@ export default defineConfig({
 	},
 	plugins: [
 		...httpsPlugin,
-		sveltekit(),
+		// SvelteKit 3 takes its config here; svelte.config.js is no longer read.
+		sveltekit({
+			adapter: adapter({
+				pages: `../build/${siteId}`,
+				assets: `../build/${siteId}`,
+				fallback: '200.html',
+				precompress: false,
+				strict: true
+			}),
+			paths: {
+				relative: false
+			},
+			prerender: {
+				entries: ['*', ...albumEntries()],
+				handleHttpError: ({ path, message }) => {
+					// Album assets (/albums/**) are served at runtime, not pre-rendered.
+					// Ignore 404s the crawler encounters for images, JSON, etc.
+					if (path.startsWith('/albums/')) return;
+					throw new Error(message);
+				}
+			}
+		}),
 		{
 			name: 'static-root-files',
-			closeBundle() {
-				if (!existsSync(buildMetaPath)) return;
-				let meta: { configDir?: string };
-				try {
-					meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8'));
-				} catch {
-					return;
+			apply: 'build',
+			// SvelteKit 3 runs the adapter (which empties and rewrites the build dir) in its own
+			// post-ordered buildApp hook. Post hooks run in plugin order, and this plugin comes
+			// after sveltekit(), so copying here lands after the adapter instead of being wiped.
+			buildApp: {
+				order: 'post',
+				async handler() {
+					if (!existsSync(buildMetaPath)) return;
+					let meta: { configDir?: string };
+					try {
+						meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8'));
+					} catch {
+						return;
+					}
+					if (!meta.configDir) return;
+					const staticDir = join(meta.configDir, 'static');
+					if (!existsSync(staticDir)) return;
+					const buildDir = resolve(__dirname, '..', 'build', siteId);
+					copyDirRecursive(staticDir, buildDir);
+					console.log(`[static-root] copied ${staticDir} → ${buildDir}`);
 				}
-				if (!meta.configDir) return;
-				const staticDir = join(meta.configDir, 'static');
-				if (!existsSync(staticDir)) return;
-				const buildDir = resolve(__dirname, '..', 'build', siteId);
-				copyDirRecursive(staticDir, buildDir);
-				console.log(`[static-root] copied ${staticDir} → ${buildDir}`);
 			}
 		},
 		{

@@ -1,7 +1,7 @@
 export const prerender = true;
 
 import type { RequestHandler } from '@sveltejs/kit';
-import type { SiteConfig } from '$lib/types';
+import type { SiteConfig } from '#lib/types.ts';
 
 export const GET: RequestHandler = async ({ fetch }) => {
 	const res = await fetch('/albums/config.json');

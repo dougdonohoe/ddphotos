@@ -5,7 +5,7 @@ export const prerender = true;
 export const trailingSlash = 'ignore';
 
 import { error } from '@sveltejs/kit';
-import type { SiteConfig } from '$lib/types';
+import type { SiteConfig } from '#lib/types.ts';
 
 export async function load({ fetch }) {
 	const res = await fetch('/albums/config.json');

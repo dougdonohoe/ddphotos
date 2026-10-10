@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Shield from 'lucide-svelte/icons/shield';
 	import { resolve } from '$app/paths';
-	import SecondaryPage from '$lib/components/SecondaryPage.svelte';
+	import SecondaryPage from '#lib/components/SecondaryPage.svelte';
 
 	let { data } = $props();
 	const siteName = $derived(data.siteConfig?.siteName ?? 'DD Photos');

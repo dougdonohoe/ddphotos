@@ -4,7 +4,7 @@
 // mute choice: not scoped to siteId, kept by clearStoredKeys through logout and build
 // changes, and backed by a module-level copy for browsers where storage throws. Read
 // lazily on first use rather than at import, which keeps this module free of
-// $app/environment and so testable under plain Vitest.
+// $app/env and so testable under plain Vitest.
 export const SLIDESHOW_DELAY_KEY = 'ddp_slideshow_delay';
 
 // Seconds per photo offered in the lightbox's duration menu.

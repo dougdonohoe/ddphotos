@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripTags } from '$lib/html';
+import { stripTags } from '#lib/html.ts';
 
 describe('stripTags', () => {
 	it('removes tags', () => {

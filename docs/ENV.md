@@ -42,8 +42,7 @@ DDPHOTOS_SYNC_DIR=~/photos/sync go run ./cmd/photogen -sync-only
 These variables are consumed by:
 
 - `cmd/photogen` — writes processed photos and JSON to `<DDPHOTOS_ALBUMS_DIR>/<site-id>/` (site ID comes from the albums config YAML, not `DDPHOTOS_SITE_ID`), and downloads synced albums into `<DDPHOTOS_SYNC_DIR>/<site-id>/<provider>/<slug>/` to build them from there; nothing under the sync directory is deployed (see [Syncing](PHOTOGEN.md#syncing))
-- `web/vite.config.ts` — dev server middleware serves `/albums/**` from `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>/`
-- `web/svelte.config.js` — build output goes to `build/<DDPHOTOS_SITE_ID>/`; album slugs are read for pre-rendered entries
+- `web/vite.config.ts` — dev server middleware serves `/albums/**` from `<DDPHOTOS_ALBUMS_DIR>/<DDPHOTOS_SITE_ID>/`; SvelteKit config sends build output to `build/<DDPHOTOS_SITE_ID>/` and reads album slugs for pre-rendered entries
 - `web/src/hooks.server.ts` — intercepts fetch calls to `/albums/**` during `npm run build`
 - `web/setup-htdocs.sh` — symlinks `build/<DDPHOTOS_SITE_ID>/` into the web server document root at container startup (called by both `apache-entrypoint.sh` and `nginx-entrypoint.sh`)
 - `bin/deploy-photos.sh` — drives `npm run build`, Docker deployment, and S3/rsync sync

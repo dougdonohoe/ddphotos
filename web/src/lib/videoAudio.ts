@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 // The viewer's mute and volume choice for lightbox videos, carried from clip to clip.
 //
