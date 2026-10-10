@@ -137,18 +137,19 @@ make web-playwright-test-dev
 
 Tests are in `web/tests/` and cover:
 
-| File                  | What it tests                                                                                                                                                   |
-|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `smoke.spec.ts`       | Home page album listing, album page metadata, grid renders, Open Graph tags                                                                                     |
-| `captions.spec.ts`    | Lightbox caption rendering: grid click, permalink direct load, prev/next nav                                                                                    |
-| `url.spec.ts`         | URL updates on photo open/navigate/close; permalink URL preserved on load                                                                                       |
-| `navigation.spec.ts`  | Cross-album client-side navigation shows correct photos, title, description                                                                                     |
-| `back-nav.spec.ts`    | Browser back button behavior: closes lightbox, restores URL, handles reload                                                                                     |
-| `back-to-top.spec.ts` | Back-to-top button visibility and scroll behavior                                                                                                               |
-| `privacy.spec.ts`     | Privacy page content, back link, scroll restoration on return to home                                                                                           |
-| `password.spec.ts`    | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear`                                                                 |
-| `css.spec.ts`         | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius                                                                            |
-| `video.spec.ts`       | Play badge, lightbox `<video>`, space to play/pause, pause on swipe/close, caption hidden while playing, MP4 MIME + ranges, photo/video counts in the meta line |
+| File                       | What it tests                                                                                                                                                   |
+|----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `smoke.spec.ts`            | Home page album listing, album page metadata, grid renders, Open Graph tags                                                                                     |
+| `captions.spec.ts`         | Lightbox caption rendering: grid click, permalink direct load, prev/next nav                                                                                    |
+| `url.spec.ts`              | URL updates on photo open/navigate/close; permalink URL preserved on load                                                                                       |
+| `navigation.spec.ts`       | Cross-album client-side navigation shows correct photos, title, description                                                                                     |
+| `back-nav.spec.ts`         | Browser back button behavior: closes lightbox, restores URL, handles reload                                                                                     |
+| `back-to-top.spec.ts`      | Back-to-top button visibility and scroll behavior                                                                                                               |
+| `privacy.spec.ts`          | Privacy page content, back link, scroll restoration on return to home                                                                                           |
+| `password.spec.ts`         | Site/album prompts, wrong/correct passwords, remember on reload, hints, logout button, `?clear`                                                                 |
+| `css.spec.ts`              | Custom CSS `<link>` injection, `--text-color-2nd` override, album card border-radius                                                                            |
+| `long-description.spec.ts` | `the-way` album's long description: placement between header and grid, edges aligned with the grid, font size and color in both themes                          |
+| `video.spec.ts`            | Play badge, lightbox `<video>`, space to play/pause, pause on swipe/close, caption hidden while playing, MP4 MIME + ranges, photo/video counts in the meta line |
 
 Navigation tests are fully dynamic - they read album names from the page at runtime and
 work against any site without hardcoding album names.  Several tests require the presence of 

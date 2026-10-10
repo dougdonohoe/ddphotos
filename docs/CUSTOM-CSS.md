@@ -170,8 +170,9 @@ with no added class, and those you can override with a plain matching selector:
 | `:global(.pswp-caption)`  | `.pswp-caption`                 | the same selector — you come later  |
 
 A useful shortcut: everything belonging to the **lightbox** (`.pswp*`, `.pswp-caption`,
-`.pswp-video`) is global and easy to override. Everything in the **page** (`.album-card`,
-`.gallery`, `.photo`, `.photo-caption`, `.hero`) is scoped and needs help.
+`.pswp-video`) is global and easy to override, and so is an album's long description
+(`.long-description`). Everything else in the **page** (`.album-card`, `.gallery`,
+`.photo`, `.photo-caption`, `.hero`) is scoped and needs help.
 
 Two further wrinkles worth knowing:
 
@@ -282,6 +283,7 @@ point of specificity for free:
 | `.album-nav`          | Header nav (the `← Albums` link, or `album_nav`) | yes     |
 | `header .description` | Album description under the title                | yes     |
 | `header .meta`        | Photo count and date range under the title       | yes     |
+| `.long-description`   | `long_description_html`, between header and grid | no      |
 | `.gallery`            | The justified photo grid                         | yes     |
 | `.photo`              | One grid tile (a `<button>`)                     | yes     |
 | `.photo-caption`      | Caption overlay on a grid tile                   | yes     |
@@ -360,6 +362,25 @@ a scoped rule, so it needs `!important`:
 /* Rounder album cards */
 .album-card {
     border-radius: 16px !important;
+}
+```
+
+### Restyle the long description
+
+An album's `long_description_html` is global, so plain selectors win. Its paragraphs and
+lists are spaced in `lh` units, which follow the line height:
+
+```css
+/* Smaller, muted, with a bit more air between lines */
+.long-description {
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+/* Square bullets */
+.long-description ul {
+    list-style: square;
 }
 ```
 

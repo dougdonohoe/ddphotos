@@ -63,6 +63,8 @@
 	let albumTitle = $derived(album?.title ?? data.albumData.albumTitle);
 	let description = $derived(data.albumData.description || album?.description || '');
 	let plainDescription = $derived(stripTags(description));
+	// Only in the album index, never albums.json, so it is encrypted with the album.
+	let longDescription = $derived(album?.longDescriptionHtml ?? '');
 	let dateSpan = $derived(data.albumData.dateSpan || album?.dateSpan || '');
 	// Header navigation configured via customizations.album_nav; empty means the default
 	// "← Albums" link. Rides in config.json, so it is available before any decryption.
@@ -1317,6 +1319,11 @@
 			</div>
 		{/if}
 
+		{#if longDescription}
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml long_description_html, HTML is intentional -->
+			<div class="long-description">{@html longDescription}</div>
+		{/if}
+
 		<div
 			class="gallery"
 			bind:this={container}
@@ -1467,6 +1474,52 @@
 		text-align: right;
 		font-style: italic;
 		font-size: 0.85rem;
+	}
+
+	/* Global rather than scoped, so a plain .long-description selector in custom.css wins
+	   without a specificity fight (see docs/CUSTOM-CSS.md). The class name is unique to
+	   this element, so nothing else can match. 1lh margins put one blank line between
+	   blocks; they collapse, so a list gets one blank line before and after. */
+	:global(.long-description) {
+		margin: 0 0 1.5rem;
+		font-size: 1.1rem;
+		line-height: 1.35;
+		color: var(--text-color);
+	}
+
+	:global(.long-description :is(p, ul, ol)) {
+		margin: 1lh 0;
+	}
+
+	:global(.long-description > :first-child) {
+		margin-top: 0;
+	}
+
+	:global(.long-description > :last-child) {
+		margin-bottom: 0;
+	}
+
+	:global(.long-description ul) {
+		list-style: disc;
+		padding-left: 1.5em;
+	}
+
+	:global(.long-description ol) {
+		list-style: decimal;
+		padding-left: 1.5em;
+	}
+
+	:global(.long-description li) {
+		margin: 0;
+	}
+
+	:global(.long-description a) {
+		color: var(--link-color);
+		text-decoration: none;
+	}
+
+	:global(.long-description a:hover) {
+		text-decoration: underline;
 	}
 
 	.not-found {

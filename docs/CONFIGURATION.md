@@ -302,7 +302,7 @@ static JSON files that the browser fetches at runtime:
 | `config.json`                                   | Site ID, hero/CSS filenames, password hints, album nav, which albums file to load | Never — always plaintext (bootstrap file) |
 | `html.json` / `html.enc.json`                   | `site_title_html`, `site_subtitle_html`, `site_overview_html`                     | Site password is set                      |
 | `albums.json` / `albums.enc.json`               | Album list with names, slugs, descriptions, date ranges, cover photos             | Site password is set                      |
-| `<album>/index.json` / `<album>/index.enc.json` | Per-album photo list: filenames, dimensions, dates, captions                      | Album or site password is set             |
+| `<album>/index.json` / `<album>/index.enc.json` | Per-album photo list: filenames, dimensions, dates, captions; long description    | Album or site password is set             |
 | `sitemap.xml`                                   | Site root plus each album without a password, built from `site_url`               | Never                                     |
 | `hero.jpg`                                      | Cropped hero banner image                                                         | Never                                     |
 | `custom.css`                                    | Copied from the file named in `settings.css`                                      | Never                                     |
@@ -312,7 +312,8 @@ bootstrap the page. It tells the browser what site it is, whether albums are enc
 where to find the hero and CSS, and what hints to show before a password is entered.
 
 The three `*_html` fields are the only settings that are encrypted when a site password
-is set, since they may contain private links or contact details. All other settings
+is set, since they may contain private links or contact details. An album's
+[`long_description_html`](#long-descriptions) is encrypted along with its album. All other settings
 travel via `config.json` which is always plaintext — including
 [`album_nav`](#album_nav) from `customization.yaml`, so do not put a private URL in a nav
 link on a password-protected site.
@@ -595,6 +596,29 @@ the format.
 
 When both an inline `description:` and a `descriptions.txt` entry exist for the same
 album, the inline value takes precedence.
+
+### Long Descriptions
+
+An album can also have a longer piece of HTML, shown on its album page between the
+header and the photos:
+
+```yaml
+albums:
+  - slug: patagonia
+    name: Patagonia
+    source: /photos/patagonia
+    description: Two weeks hiking the Torres del Paine circuit.
+    long_description_html: |
+      <p>We flew into Punta Arenas and spent the first week on the W trek.</p>
+      <ul>
+        <li>Grey Glacier by kayak</li>
+        <li>Sunrise at the base of the towers</li>
+      </ul>
+```
+
+It is set inline only: `descriptions.txt` has no equivalent, and a synced album never
+gets one from upstream. It is not shown on the home page. To restyle it, see
+[Custom CSS](CUSTOM-CSS.md#element-reference).
 
 ---
 
