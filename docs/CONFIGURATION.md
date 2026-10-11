@@ -616,6 +616,9 @@ albums:
       </ul>
 ```
 
+It starts collapsed to two lines that fade out, with a **Show more** button to expand
+it. A description that fits in two lines is shown in full, with no button.
+
 It is set inline only: `descriptions.txt` has no equivalent, and a synced album never
 gets one from upstream. It is not shown on the home page. To restyle it, see
 [Custom CSS](CUSTOM-CSS.md#element-reference).

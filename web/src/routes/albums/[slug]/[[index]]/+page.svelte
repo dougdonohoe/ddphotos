@@ -65,6 +65,81 @@
 	let plainDescription = $derived(stripTags(description));
 	// Only in the album index, never albums.json, so it is encrypted with the album.
 	let longDescription = $derived(album?.longDescriptionHtml ?? '');
+	// Collapsed by default: two lines fading out, with a "Show more" toggle. The
+	// toggle only appears when the text runs past two lines, so a short one shows none.
+	let longExpanded = $state(false);
+	// Assume it overflows (the usual case) so the toggle is laid out from the first frame;
+	// measuring removes it for a short one. Starting false made the grid jump on load.
+	let longOverflowing = $state(true);
+	let longEl = $state<HTMLDivElement | undefined>(undefined);
+	// Collapse again whenever the description changes (navigating to another album).
+	$effect.pre(() => {
+		void longDescription;
+		longExpanded = false;
+	});
+	// Measure overflow while clamped; re-measure on resize (rewrapping) and content changes.
+	$effect(() => {
+		const el = longEl;
+		if (!el) return;
+		const measure = () => {
+			if (el.classList.contains('clamped')) {
+				const lines = parseFloat(getComputedStyle(el).getPropertyValue('--long-lines')) || 2;
+				const line = parseFloat(getComputedStyle(el).lineHeight);
+				longOverflowing = el.scrollHeight > lines * line + 1;
+			}
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(el);
+		const mo = new MutationObserver(measure);
+		mo.observe(el, { childList: true, subtree: true, characterData: true });
+		return () => {
+			ro.disconnect();
+			mo.disconnect();
+		};
+	});
+	// Animates max-height between the clamped height and the text's full height. CSS cannot
+	// transition to max-height: none, so the full height is measured and set inline for the
+	// duration, then cleared so the open text still rewraps on resize. The transitions only
+	// apply under .animating: otherwise the margin and fade would also animate when the
+	// first measurement adds .has-toggle on page load, sliding the grid up.
+	async function toggleLongDescription() {
+		const el = longEl;
+		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (!el || reduce) {
+			longExpanded = !longExpanded;
+			if (!longExpanded) el?.scrollIntoView({ block: 'nearest' });
+			return;
+		}
+		el.classList.add('animating');
+		const settle = () => {
+			el.removeEventListener('transitionend', done);
+			clearTimeout(fallback);
+			el.classList.remove('animating');
+			if (longExpanded) el.style.maxHeight = '';
+		};
+		const done = (e: TransitionEvent) => {
+			if (e.target === el && e.propertyName === 'max-height') settle();
+		};
+		// transitionend never fires if the height does not actually change
+		const fallback = setTimeout(settle, 1000);
+		el.addEventListener('transitionend', done);
+		if (!longExpanded) {
+			el.style.maxHeight = `${el.clientHeight}px`;
+			longExpanded = true;
+			await tick();
+			void el.offsetHeight; // commit the start height before changing it
+			el.style.maxHeight = `${el.scrollHeight}px`;
+		} else {
+			el.style.maxHeight = `${el.scrollHeight}px`;
+			void el.offsetHeight;
+			longExpanded = false;
+			await tick();
+			el.style.maxHeight = ''; // falls back to the clamped height, which transitions
+			// After collapsing a long text the reader may be far below it; bring it back into view.
+			el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		}
+	}
 	let dateSpan = $derived(data.albumData.dateSpan || album?.dateSpan || '');
 	// Header navigation configured via customizations.album_nav; empty means the default
 	// "← Albums" link. Rides in config.json, so it is available before any decryption.
@@ -1320,8 +1395,27 @@
 		{/if}
 
 		{#if longDescription}
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml long_description_html, HTML is intentional -->
-			<div class="long-description">{@html longDescription}</div>
+			<hr class="long-description-rule" />
+			<div
+				id="long-description"
+				class="long-description"
+				class:clamped={!longExpanded}
+				class:has-toggle={longOverflowing || longExpanded}
+				bind:this={longEl}
+			>
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml long_description_html, HTML is intentional -->
+				{@html longDescription}
+			</div>
+			{#if longOverflowing || longExpanded}
+				<button
+					type="button"
+					class="long-description-toggle"
+					aria-expanded={longExpanded}
+					aria-controls="long-description"
+					onclick={toggleLongDescription}
+					><span>{longExpanded ? 'Close' : 'Show more'}</span></button
+				>
+			{/if}
 		{/if}
 
 		<div
@@ -1485,6 +1579,128 @@
 		font-size: 1.1rem;
 		line-height: 1.35;
 		color: var(--text-color);
+	}
+
+	/* Matches the toggle's rule. The header's 1rem bottom margin is pulled in so the rule
+	   sits just under the photo count line. */
+	:global(.long-description-rule) {
+		margin: -0.7rem 0 0.75rem;
+		border: none;
+		border-top: 1px solid var(--long-accent);
+		opacity: 0.5;
+	}
+
+	/* Toggle accent: off-white in dark, mid gray in light. */
+	:global(:root) {
+		--long-accent: #e4e1da;
+	}
+
+	:global(:root[data-theme='light']) {
+		--long-accent: #7a7a7a;
+	}
+
+	/* Collapsed: --long-lines lines, fading into the background from the end of the first
+	   line down. The fade is an overlay in --bg-color rather than a mask so it can fade out
+	   while the text expands. Override --long-lines in custom.css to show more or fewer. */
+	:global(.long-description) {
+		--long-lines: 2;
+		position: relative;
+		overflow: hidden;
+	}
+
+	:global(.long-description.animating) {
+		transition:
+			max-height 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
+			margin-bottom 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+
+	:global(.long-description.clamped) {
+		max-height: calc(var(--long-lines) * 1lh);
+	}
+
+	/* Collapsed, the blocks run together as one paragraph, so a short first paragraph
+	   doesn't leave the gap before the next one as the visible second line. */
+	:global(.long-description.clamped :is(p, ul, ol, li)) {
+		display: inline;
+		margin: 0;
+		padding: 0;
+	}
+
+	:global(.long-description.clamped :is(p, ul, ol, li) + :is(p, ul, ol, li)::before) {
+		content: ' ';
+	}
+
+	:global(.long-description::after) {
+		content: '';
+		position: absolute;
+		inset: 1em 0 0;
+		background: linear-gradient(to bottom, transparent, var(--bg-color));
+		pointer-events: none;
+		opacity: 0;
+	}
+
+	:global(.long-description.animating::after) {
+		transition: opacity 0.3s;
+	}
+
+	:global(.long-description.clamped.has-toggle::after) {
+		opacity: 1;
+	}
+
+	/* With a toggle, the gap below the text moves below the toggle instead. */
+	:global(.long-description.has-toggle) {
+		margin-bottom: 0.5rem;
+	}
+
+	:global(.long-description.has-toggle:not(.clamped)) {
+		margin-bottom: 1.25rem;
+	}
+
+	/* A rule across the full width with the label in a pill in the middle. A tracked,
+	   uppercase serif sets it apart from the sans-serif text above. */
+	:global(.long-description-toggle) {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		width: 100%;
+		margin: 0 0 1.5rem;
+		padding: 0;
+		border: none;
+		background: none;
+		font-family: Georgia, 'Times New Roman', serif;
+		font-size: 0.6rem;
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		color: var(--long-accent);
+		cursor: pointer;
+	}
+
+	:global(.long-description-toggle::before),
+	:global(.long-description-toggle::after) {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: currentColor;
+		opacity: 0.5;
+	}
+
+	:global(.long-description-toggle span) {
+		padding: 0.4em 1.2em;
+		border: 1px solid currentColor;
+		border-radius: 999px;
+		transition:
+			background-color 0.2s,
+			color 0.2s;
+	}
+
+	:global(.long-description-toggle:hover span),
+	:global(.long-description-toggle:focus-visible span) {
+		background: var(--long-accent);
+		color: var(--bg-color);
+	}
+
+	:global(.long-description-toggle:focus-visible) {
+		outline: none;
 	}
 
 	:global(.long-description :is(p, ul, ol)) {

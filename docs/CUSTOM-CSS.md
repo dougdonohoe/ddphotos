@@ -124,6 +124,7 @@ one.
 | `--shadow-color`    | Box shadows                                                               |
 | `--link-color`      | Default link color site-wide                                              |
 | `--img-placeholder` | The block of color behind a photo before it fades in                      |
+| `--long-accent`     | The rules and Show more button around an album's long description         |
 
 Two more are worth knowing about:
 
@@ -278,16 +279,19 @@ point of specificity for free:
 
 **Album page:**
 
-| Selector              | Element                                          | Scoped? |
-|-----------------------|--------------------------------------------------|---------|
-| `.album-nav`          | Header nav (the `← Albums` link, or `album_nav`) | yes     |
-| `header .description` | Album description under the title                | yes     |
-| `header .meta`        | Photo count and date range under the title       | yes     |
-| `.long-description`   | `long_description_html`, between header and grid | no      |
-| `.gallery`            | The justified photo grid                         | yes     |
-| `.photo`              | One grid tile (a `<button>`)                     | yes     |
-| `.photo-caption`      | Caption overlay on a grid tile                   | yes     |
-| `.video-badge`        | Play badge and duration on a video tile          | yes     |
+| Selector                        | Element                                          | Scoped? |
+|---------------------------------|--------------------------------------------------|---------|
+| `.album-nav`                    | Header nav (the `← Albums` link, or `album_nav`) | yes     |
+| `header .description`           | Album description under the title                | yes     |
+| `header .meta`                  | Photo count and date range under the title       | yes     |
+| `.long-description`             | `long_description_html`, between header and grid | no      |
+| `.long-description-rule`        | Rule between the header and the long description | no      |
+| `.long-description-toggle`      | Show more / Close row under the long description | no      |
+| `.long-description-toggle span` | The pill holding the Show more / Close label     | no      |
+| `.gallery`                      | The justified photo grid                         | yes     |
+| `.photo`                        | One grid tile (a `<button>`)                     | yes     |
+| `.photo-caption`                | Caption overlay on a grid tile                   | yes     |
+| `.video-badge`                  | Play badge and duration on a video tile          | yes     |
 
 **Lightbox** (all global — a plain selector is enough):
 
@@ -381,6 +385,26 @@ lists are spaced in `lh` units, which follow the line height:
 /* Square bullets */
 .long-description ul {
     list-style: square;
+}
+```
+
+The long description starts collapsed to two lines that fade out, with its paragraphs
+run together, and a Show more button that expands it (Close collapses it again). The
+button only appears when the text does not fit. Set `--long-lines` to change how many lines
+show while collapsed, and `--long-accent` to recolor the rules and button. The accent has a
+value per theme, so set both:
+
+```css
+.long-description {
+    --long-lines: 3;
+}
+
+:root {
+    --long-accent: #2a9d8f;
+}
+
+:root[data-theme='light'] {
+    --long-accent: #1b6b62;
 }
 ```
 
