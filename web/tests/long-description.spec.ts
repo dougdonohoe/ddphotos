@@ -163,6 +163,26 @@ test('long description toggles instantly with reduced motion', async ({ page }) 
 	expect(await long.evaluate((el) => el.style.maxHeight)).toBe('');
 });
 
+test.describe('on a touch screen', () => {
+	test.use({ hasTouch: true, isMobile: true, viewport: MOBILE });
+
+	// A touch screen keeps :hover on the last element tapped; the pill used to stay filled.
+	test('tapping the toggle leaves the pill unfilled', async ({ page }) => {
+		test.skip(!hasAlbum, `${ALBUM} album not present`);
+		await openAlbum(page, ALBUM);
+
+		const toggle = page.locator('.long-description-toggle');
+		const fill = () =>
+			toggle.locator('span').evaluate((el) => getComputedStyle(el).backgroundColor);
+		await toggle.tap();
+		await settled(page);
+		expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+		await toggle.tap();
+		await settled(page);
+		expect(await fill()).toBe('rgba(0, 0, 0, 0)');
+	});
+});
+
 test('long description short enough to fit shows no toggle', async ({ page }) => {
 	test.skip(!hasAlbum, `${ALBUM} album not present`);
 	await openAlbum(page, ALBUM);

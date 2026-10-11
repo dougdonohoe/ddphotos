@@ -1693,7 +1693,15 @@
 			color 0.2s;
 	}
 
-	:global(.long-description-toggle:hover span),
+	/* Hover only where there is a real pointer: a touch screen keeps :hover on the last
+	   thing tapped, which left the pill filled after a tap until the next touch. */
+	@media (hover: hover) {
+		:global(.long-description-toggle:hover span) {
+			background: var(--long-accent);
+			color: var(--bg-color);
+		}
+	}
+
 	:global(.long-description-toggle:focus-visible span) {
 		background: var(--long-accent);
 		color: var(--bg-color);
