@@ -56,7 +56,7 @@ test('caption shows when loading a photo permalink directly (animate=false path)
 }) => {
 	test.skip(!hasAntarctica, 'antarctica album not present');
 	// Direct URL open: onMount calls openLightbox(..., false) before the router
-	// is fully initialised — exercises the `if (animate) replaceState(...)` fix.
+	// is fully initialised — exercises the `if (animate) goto(...)` guard.
 	//
 	// If the album is encrypted, unlock at the base URL first so the password is
 	// stored in localStorage. Then the permalink load triggers tryDecryptAlbum in

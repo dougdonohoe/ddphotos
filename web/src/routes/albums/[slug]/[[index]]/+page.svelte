@@ -5,7 +5,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/env';
-	import { goto, replaceState, pushState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import justifiedLayout from 'justified-layout';
 	import PhotoSwipe from 'photoswipe';
@@ -337,17 +337,17 @@
 
 		// Whether back-button navigation triggered this close (set by handlePopstate).
 		let closedByBackNav = false;
-		// Whether we pushed a native history entry when opening (animate=true case).
+		// Whether we pushed a history entry when opening (animate=true case).
 		// Determines how to restore the URL when the lightbox closes normally.
 		let pushedHistoryEntry = false;
 
 		// Listen for browser back/forward while the lightbox is open.
 		//
-		// We use a native popstate listener rather than SvelteKit's beforeNavigate because
-		// the history entry we push below is a *native* entry (no SvelteKit session key).
-		// SvelteKit's own popstate handler checks for its session key and returns early when
-		// it finds none, so it never fires beforeNavigate for our entry — leaving this
-		// listener as the sole handler for back-nav-while-lightbox-is-open.
+		// A native popstate listener rather than SvelteKit's beforeNavigate. SvelteKit does
+		// see the pop (the entry is its own shallow one) and fires its navigation hooks for
+		// it, but a hook can only be registered at component init, where it would also fire
+		// for every shallow goto below and have to tell those apart. This listener lives only
+		// as long as the lightbox, and sees only back/forward.
 		const handlePopstate = () => {
 			closedByBackNav = true;
 			pswpInstance = null; // null before close() so onMount cleanup skips destroy()
@@ -659,7 +659,7 @@
 				if (pushedHistoryEntry) {
 					history.go(-1);
 				} else {
-					replaceState(resolve(`albums/${slug}`), {});
+					goto(resolve(`albums/${slug}`), { shallow: true, replace: true });
 				}
 
 				const focusIdx = pendingFocusIndex;
@@ -743,7 +743,7 @@
 		});
 
 		// Add copy-link button to the PhotoSwipe top bar, just left of the close button (order 20).
-		// Copies window.location.href, kept current by the replaceState calls in the change handler.
+		// Copies window.location.href, kept current by the shallow goto in the change handler.
 		// Must use the uiRegister event: pswp.ui doesn't exist until inside pswp.init().
 		const linkSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 		const checkSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -1013,29 +1013,32 @@
 		pswpInstance = pswp;
 
 		// Push a history entry when opening so back returns to /albums/slug rather than
-		// to whatever page preceded the album.  Uses SvelteKit's pushState (not native
-		// history.pushState) to keep SvelteKit's router in sync and suppress the console
-		// warning it emits for direct history mutations.
+		// to whatever page preceded the album.  A shallow goto (not native
+		// history.pushState) changes the URL without re-running load(), keeps SvelteKit's
+		// router in sync and avoids the console warning it emits for direct history
+		// mutations. A shallow goto leaves scroll and focus alone (reset defaults to false).
+		// Neither this goto nor the ones below is awaited or caught: a shallow goto rejects
+		// only for a URL matching no route, and these all match this one.
 		//
 		// NOTE: SvelteKit's popstate handler ALSO fires for this entry (it recognizes its
-		// own session key), so both SvelteKit and our handlePopstate run on back-nav.
+		// own history metadata), so both SvelteKit and our handlePopstate run on back-nav.
 		// SvelteKit navigates to /albums/slug; handlePopstate closes the lightbox — the
 		// two are independent and don't conflict.
 		//
 		// Skip for animate=false (permalink open): URL already has the photo index.
 		if (animate) {
-			pushState(resolve(`albums/${slug}/${index + 1}`), {});
+			goto(resolve(`albums/${slug}/${index + 1}`), { shallow: true });
 			pushedHistoryEntry = true;
 		}
 		pswp.on('change', () => {
-			// SvelteKit's replaceState keeps the photo URL current as the user navigates.
-			// Uses replaceState (not pushState) so every photo doesn't add a history entry
-			// — back always jumps directly to the album rather than stepping photo-by-photo.
-			replaceState(resolve(`albums/${slug}/${pswp.currIndex + 1}`), {});
+			// A shallow goto keeps the photo URL current as the user navigates. It replaces
+			// rather than pushes so every photo doesn't add a history entry — back always
+			// jumps directly to the album rather than stepping photo-by-photo.
+			goto(resolve(`albums/${slug}/${pswp.currIndex + 1}`), { shallow: true, replace: true });
 			// Store the target scroll so the current photo will be centered when the
-			// lightbox closes. Applied via afterNavigate (history.go(-1) case) or directly
-			// in the close handler (replaceState case) — both fire after SvelteKit's own
-			// scroll restoration, ensuring we override it.
+			// lightbox closes. The close handler's guard loop applies it, in both the
+			// history.go(-1) and the replace case, and keeps re-applying it past SvelteKit's
+			// own scroll restoration so ours wins.
 			pendingFocusIndex = pswp.currIndex;
 			if (container) {
 				const box = layout().boxes[pswp.currIndex];
@@ -1308,8 +1311,15 @@
 			// Open lightbox at the photo specified in the route (e.g. /albums/antarctica/15).
 			// Skip the opening animation so it appears instantly rather than fading/zooming in.
 			// invalidPhotoIndex (derived) handles the out-of-range case in the template.
+			//
+			// Waits a tick so the gallery has re-rendered at the width updateWidth() just
+			// measured. Until then it still has the pre-rendered 1200px layout, which on a
+			// phone overflows the screen. The browser zooms out to fit it, and PhotoSwipe,
+			// measuring the viewport in init(), centers the photo in a viewport ~3x taller
+			// than the screen, i.e. below the bottom of it.
 			if (photoIndex !== null && invalidPhotoIndex === null) {
-				openLightbox(photoIndex, false);
+				const index = photoIndex;
+				tick().then(() => openLightbox(index, false));
 			}
 		}
 
