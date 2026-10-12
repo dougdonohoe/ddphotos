@@ -107,6 +107,12 @@ albums:
     cover: Patagonia-042.jpg      # Optional: source-relative path of cover photo (defaults to first)
     description: >-               # Optional short description shown on the home page
       Two weeks hiking the Torres del Paine circuit and kayaking among glaciers.
+    long_description_html: |      # Optional HTML shown on the album page, above the photos
+      <p>We flew into Punta Arenas and spent the first week on the W trek.</p>
+      <ul>
+        <li>Grey Glacier by kayak</li>
+        <li>Sunrise at the base of the towers</li>
+      </ul>
     manual_sort_order: true       # If true, order follows photogen.txt in the source directory
     recurse: false                # If true, collect photos from subfolders recursively (default: false)
 

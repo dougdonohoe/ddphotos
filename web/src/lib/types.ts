@@ -26,6 +26,7 @@ export interface AlbumIndex {
 	slug: string;
 	title: string;
 	description?: string;
+	longDescriptionHtml?: string; // shown between the album page header and the photo grid
 	dateSpan?: string;
 	cover?: string; // grid path of cover photo (e.g. "grid/foo.webp")
 	coverVersion?: string; // the cover photo's Photo.version

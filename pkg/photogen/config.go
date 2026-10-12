@@ -106,6 +106,9 @@ type AlbumConfig struct {
 	Recurse bool
 	// Description is an optional blurb shown on the album page.
 	Description string
+	// LongDescriptionHTML is optional HTML shown on the album page between the header and
+	// the photo grid. It rides in the album index, so it is encrypted with the album.
+	LongDescriptionHTML string
 	// Sync, when set, means Path is a folder the sync stage owns and fills from an
 	// upstream provider rather than a folder the user maintains. Nil for a local album.
 	Sync *AlbumSyncConfig

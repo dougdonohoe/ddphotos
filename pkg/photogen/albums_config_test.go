@@ -263,6 +263,26 @@ albums:
 		assert.Equal(t, "Inline description here.", configs[0].Description)
 	})
 
+	t.Run("long description carried through", func(t *testing.T) {
+		configDir := t.TempDir()
+		photoDir := t.TempDir()
+
+		af := parseYAML(t, configDir, fmt.Sprintf(`
+albums:
+  - slug: myalbum
+    name: My Album
+    source: %s
+    long_description_html: |
+      <p>First.</p>
+      <p>Second.</p>
+`, photoDir))
+
+		configs, err := af.ToAlbumConfigs(configDir, nil)
+		require.NoError(t, err)
+		assert.Equal(t, "<p>First.</p>\n<p>Second.</p>\n", configs[0].LongDescriptionHTML)
+		assert.Equal(t, "", configs[0].Description, "long description is not a fallback for description")
+	})
+
 	t.Run("inline description takes precedence over descriptions file", func(t *testing.T) {
 		configDir := t.TempDir()
 		photoDir := t.TempDir()

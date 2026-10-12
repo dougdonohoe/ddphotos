@@ -125,6 +125,8 @@ Website features:
   your choice of cover photo.
 - An album's page has a nicely justified photo grid layout with PhotoSwipe lightbox that
   adjusts well to any screen size.
+- Optional `HTML` long description per album, shown on the album page above the photos
+  (e.g., the story behind the trip).
 - Keyboard support: arrow keys navigate in lightbox, `c` toggles captions, space starts/stops
   slideshow or videos, ESC key exits lightbox and returns to home page from album page.
 - Optional per-photo/video descriptions via `photogen.txt`: used as image `alt` text, grid

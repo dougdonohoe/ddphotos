@@ -137,7 +137,7 @@ to_container_path() {
 # Print all registered mounts (no-op unless --show-mounts was passed).
 print_mounts() {
     $SHOW_MOUNTS || return 0
-    echo "DD Photos (using $DOCKER) is mounting:"
+    echo "DD Photos (using '$DOCKER' executable, '$IMAGE' image) is mounting:"
     local i=0
     while [ $i -lt ${#MOUNT_FROM[@]} ]; do
         local suffix=""

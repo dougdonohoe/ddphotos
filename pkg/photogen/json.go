@@ -42,13 +42,15 @@ func SaveAlbumSummaries(path string, summaries []AlbumSummary) error {
 
 // AlbumIndex is the structure for each album's index.json
 type AlbumIndex struct {
-	Slug         string       `json:"slug"`
-	Title        string       `json:"title"`
-	Description  string       `json:"description,omitempty"`
-	DateSpan     string       `json:"dateSpan,omitempty"`
-	Cover        string       `json:"cover,omitempty"`        // grid path of cover photo (e.g. "grid/foo.webp")
-	CoverVersion string       `json:"coverVersion,omitempty"` // the cover photo's PhotoIndex.Version
-	Photos       []PhotoIndex `json:"photos"`
+	Slug        string `json:"slug"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	// LongDescriptionHTML is shown between the album page header and the photo grid.
+	LongDescriptionHTML string       `json:"longDescriptionHtml,omitempty"`
+	DateSpan            string       `json:"dateSpan,omitempty"`
+	Cover               string       `json:"cover,omitempty"`        // grid path of cover photo (e.g. "grid/foo.webp")
+	CoverVersion        string       `json:"coverVersion,omitempty"` // the cover photo's PhotoIndex.Version
+	Photos              []PhotoIndex `json:"photos"`
 }
 
 // PhotoIndex represents a photo in the JSON output.
@@ -104,13 +106,14 @@ func (ap *AlbumProcessor) WriteAlbumIndex() error {
 		coverVersion = ap.photoVersion(cp)
 	}
 	index := AlbumIndex{
-		Slug:         ap.AlbumConfig.Slug,
-		Title:        ap.AlbumConfig.Name,
-		Description:  ap.AlbumConfig.Description,
-		DateSpan:     ap.computeDateSpan(),
-		Cover:        cover,
-		CoverVersion: coverVersion,
-		Photos:       make([]PhotoIndex, 0, len(ap.Photos)),
+		Slug:                ap.AlbumConfig.Slug,
+		Title:               ap.AlbumConfig.Name,
+		Description:         ap.AlbumConfig.Description,
+		LongDescriptionHTML: ap.AlbumConfig.LongDescriptionHTML,
+		DateSpan:            ap.computeDateSpan(),
+		Cover:               cover,
+		CoverVersion:        coverVersion,
+		Photos:              make([]PhotoIndex, 0, len(ap.Photos)),
 	}
 
 	for _, photo := range ap.Photos {
