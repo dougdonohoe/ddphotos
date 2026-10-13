@@ -127,6 +127,8 @@ Notes:
 
 - The cache is shared by every site ID under the same albums directory, since photo
   metadata does not depend on which site is being generated.
+- A direct run and a Docker run of the same albums directory share it too, so switching
+  between them does not redo any work.
 - It lives outside `<albums-dir>/<id>/`, so it is never deployed, never served, and never
   touched by `-clean`.
 - It is written in dry-run mode too. It is a local performance artifact rather than site

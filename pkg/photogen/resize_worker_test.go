@@ -528,9 +528,9 @@ func TestResizePhotos_PreColorOutputsOfWideGamutSourcesAreRedone(t *testing.T) {
 	past := time.Now().Add(-time.Hour).Truncate(time.Second)
 	outputs := append(photoOutputs(ap, "adobe.jpg"), photoOutputs(ap, "srgb.jpg")...)
 	for _, p := range outputs {
-		entry := ap.Config.MetaCache.derived[p]
+		entry := ap.Config.MetaCache.derived[ap.Config.MetaCache.derivedKey(p)]
 		entry.ColorVersion = 0
-		ap.Config.MetaCache.derived[p] = entry
+		ap.Config.MetaCache.derived[ap.Config.MetaCache.derivedKey(p)] = entry
 		require.NoError(t, os.Chtimes(p, past, past))
 	}
 
