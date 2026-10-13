@@ -304,7 +304,7 @@ point of specificity for free:
 | `.pswp__button--copy-link`       | Copy-permalink button                                     |
 | `.pswp__button--captions`        | Caption on/off toggle (albums with captions only)         |
 | `.pswp__slideshow`               | Slideshow controls; has `.playing` while running          |
-| `.pswp__button--slideshow`       | Slideshow play/pause button                               |
+| `.pswp__button--slideshow`       | Slideshow start/pause button                              |
 | `.pswp__button--slideshow-menu`  | Caret opening the seconds-per-photo menu                  |
 | `.pswp__slideshow-menu`          | The seconds-per-photo menu                                |
 | `.pswp__slideshow-countdown`     | Countdown circle beside the counter, shown while playing  |
