@@ -478,9 +478,9 @@ func TestMetaCache_Derived(t *testing.T) {
 	t.Run("a stamp from before the color pipeline invalidates only a source needing it", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
-		entry := mc.derived[out]
+		entry := mc.derived[mc.derivedKey(out)]
 		entry.ColorVersion = 0
-		mc.derived[out] = entry
+		mc.derived[mc.derivedKey(out)] = entry
 		assert.False(t, mc.DerivedUpToDate(out, src, "", "ICC: Adobe RGB (1998)"))
 		assert.True(t, mc.DerivedUpToDate(out, src, "", colorProfileSRGB))
 		assert.True(t, mc.DerivedUpToDate(out, src, "", ""))
@@ -529,7 +529,7 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 	t.Run("an unstamped output is adopted", func(t *testing.T) {
 		mc, src, out := setup(t)
 		assert.True(t, mc.OutputUpToDate(out, src, ""), "existing output must be trusted, not redone")
-		assert.Contains(t, mc.derived, out, "and stamped with the source it was trusted against")
+		assert.Contains(t, mc.derived, mc.derivedKey(out), "and stamped with the source it was trusted against")
 	})
 
 	t.Run("a stamped output is up to date", func(t *testing.T) {
@@ -569,7 +569,7 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 	t.Run("an unstamped output of a source needing conversion is not adopted", func(t *testing.T) {
 		mc, src, out := setup(t)
 		assert.False(t, mc.OutputUpToDate(out, src, "ICC: Adobe RGB (1998)"))
-		assert.NotContains(t, mc.derived, out)
+		assert.NotContains(t, mc.derived, mc.derivedKey(out))
 	})
 
 	t.Run("a stamp from before the color pipeline is stale only for a source needing it", func(t *testing.T) {
@@ -588,7 +588,7 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		adobe := "ICC: Adobe RGB (1998)"
 		assert.True(t, mc.NeedsColorUpdate(out, src, adobe), "unstamped")
 		assert.False(t, mc.NeedsColorUpdate(out, src, colorProfileSRGB))
-		assert.NotContains(t, mc.derived, out, "and it adopts nothing")
+		assert.NotContains(t, mc.derived, mc.derivedKey(out), "and it adopts nothing")
 
 		require.True(t, mc.OutputUpToDate(out, src, ""))
 		assert.True(t, mc.NeedsColorUpdate(out, src, adobe), "stamped at ColorVersion 0")
@@ -596,9 +596,9 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		mc.RecordDerived(out, src, "")
 		assert.False(t, mc.NeedsColorUpdate(out, src, adobe), "current stamp")
 
-		entry := mc.derived[out]
+		entry := mc.derived[mc.derivedKey(out)]
 		entry.ColorVersion = 0
-		mc.derived[out] = entry
+		mc.derived[mc.derivedKey(out)] = entry
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
 		assert.False(t, mc.NeedsColorUpdate(out, src, adobe), "a replaced source is the reason, not color")
 
@@ -625,4 +625,104 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
 		assert.False(t, reloaded.OutputUpToDate(out, src, ""), "a saved adoption must still catch a change")
 	})
+}
+
+// TestMetaCache_SharedAcrossEnvironments covers a host run and a Docker run sharing one
+// cache. Docker mounts the repo at /ddphotos, so the albums root and every source are
+// reached through different paths; moving the whole tree simulates that.
+func TestMetaCache_SharedAcrossEnvironments(t *testing.T) {
+	const adobe = "ICC: Adobe RGB (1998)"
+
+	t.Run("stamps written under one root are current under another", func(t *testing.T) {
+		host := filepath.Join(t.TempDir(), "host")
+		src := copyFixture(t, mkdirAll(t, filepath.Join(host, "source")), realFixture)
+		cover := filepath.Join(mkdirAll(t, filepath.Join(host, "albums", "site", "album")), "cover.jpg")
+		webp := filepath.Join(host, "albums", "site", "album", "landscape-1.webp")
+		require.NoError(t, os.WriteFile(cover, []byte("generated"), 0644))
+		require.NoError(t, os.WriteFile(webp, []byte("generated"), 0644))
+
+		mc := NewMetaCache(MetaCachePath(filepath.Join(host, "albums")))
+		mc.RecordDerived(cover, src, "")
+		mc.RecordDerived(webp, src, "")
+		require.NoError(t, mc.Save())
+
+		docker := filepath.Join(filepath.Dir(host), "docker")
+		require.NoError(t, os.Rename(host, docker))
+		rebase := func(p string) string { return filepath.Join(docker, p[len(host):]) }
+
+		reloaded := LoadMetaCache(MetaCachePath(filepath.Join(docker, "albums")), nil)
+		assert.True(t, reloaded.OutputUpToDate(rebase(webp), rebase(src), adobe),
+			"a color-converted output must not be re-rendered")
+		assert.True(t, reloaded.DerivedUpToDate(rebase(cover), rebase(src), "", adobe),
+			"nor a cover whose source is the same file under another path")
+	})
+
+	t.Run("save keeps entries recorded by the other environment", func(t *testing.T) {
+		dir := t.TempDir()
+		src := copyFixture(t, dir, realFixture)
+		foreign := "/ddphotos-no-such-mount/source/photo.jpg"
+		gone := filepath.Join(dir, "deleted.jpg")
+
+		mc := NewMetaCache(filepath.Join(dir, ".build", MetaCacheFileName))
+		_, err := mc.Metadata(src)
+		require.NoError(t, err)
+		mc.entries[foreign] = metaCacheEntry{Meta: &PhotoMetadata{Width: 1}}
+		mc.entries[gone] = metaCacheEntry{Meta: &PhotoMetadata{Width: 2}}
+		require.NoError(t, mc.Save())
+
+		reloaded := LoadMetaCache(mc.path, nil)
+		assert.Contains(t, reloaded.entries, src)
+		assert.Contains(t, reloaded.entries, foreign, "another environment's entry is kept")
+		assert.NotContains(t, reloaded.entries, gone, "a deleted local source is still pruned")
+	})
+
+	t.Run("an old file's keys are migrated", func(t *testing.T) {
+		wd := t.TempDir()
+		src := copyFixture(t, wd, realFixture)
+		t.Chdir(wd)
+		stat, err := os.Stat(src)
+		require.NoError(t, err)
+		webp := filepath.Join("albums", "site", "landscape-1.webp")
+		mkdirAll(t, filepath.Dir(webp))
+		require.NoError(t, os.WriteFile(webp, []byte("generated"), 0644))
+
+		stamp := derivedCacheEntry{
+			Source: src, ModTimeNano: stat.ModTime().UnixNano(), Size: stat.Size(),
+			ColorVersion: colorPipelineVersion,
+		}
+		path := MetaCachePath("albums")
+		mkdirAll(t, filepath.Dir(path))
+		body, err := json.Marshal(metaCacheFile{
+			Version: metaCacheVersion,
+			Derived: map[string]derivedCacheEntry{
+				webp: stamp, // relative to the working directory, as a host run wrote it
+				"/ddphotos-no-such-mount/albums/site/landscape-1.webp": {Source: "x"},
+			},
+		})
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, body, 0644))
+
+		mc := LoadMetaCache(path, nil)
+		assert.Equal(t, map[string]derivedCacheEntry{"site/landscape-1.webp": stamp}, mc.derived,
+			"the local key is rekeyed and the other environment's is dropped")
+		assert.True(t, mc.OutputUpToDate(webp, src, adobe))
+
+		require.NoError(t, mc.Save())
+		data, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), `"derivedKeys": "root-relative"`)
+	})
+}
+
+func TestForeignPath(t *testing.T) {
+	assert.True(t, foreignPath("/ddphotos-no-such-mount/a.jpg"))
+	assert.False(t, foreignPath(filepath.Join(t.TempDir(), "missing.jpg")), "top-level dir exists")
+	assert.False(t, foreignPath("relative/a.jpg"))
+}
+
+// mkdirAll creates dir and returns it.
+func mkdirAll(t *testing.T, dir string) string {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(dir, 0755))
+	return dir
 }

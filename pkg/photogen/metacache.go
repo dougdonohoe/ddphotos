@@ -2,9 +2,12 @@ package photogen
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -21,6 +24,11 @@ const metaCacheVersion = 3
 // MetaCacheFileName is the cache file written under {OutputRoot}/.build/.
 const MetaCacheFileName = "metadata-cache.json"
 
+// derivedKeysRootRelative marks a cache file whose derived keys are relative to the albums
+// root (see MetaCache.derivedKey). Older files keyed them by the output path as given,
+// which differs between a host run and a Docker run; LoadMetaCache migrates those.
+const derivedKeysRootRelative = "root-relative"
+
 // MetaCache caches PhotoMetadata keyed by absolute source path so that re-runs skip
 // the decode in ReadMediaMetadata for source files that have not changed. For video the
 // saving is far larger than for photos, since the alternative is an ffprobe subprocess.
@@ -32,11 +40,18 @@ const MetaCacheFileName = "metadata-cache.json"
 // Metadata depends only on the source file, so a single cache is shared by every
 // site ID under the same albums directory.
 //
+// The same cache is also shared by a host run and a Docker run, which see the albums
+// directory and the sources under different paths. Derived stamps are keyed relative to
+// the albums root so both find them, and Save keeps entries recorded by the other
+// environment rather than pruning them (see foreignPath). Without both, every switch
+// re-rendered each color-converted photo and re-read every header.
+//
 // A nil *MetaCache is valid and means "no caching": Metadata falls through to
 // ReadMediaMetadata and Save does nothing.
 type MetaCache struct {
 	mu      sync.Mutex
 	path    string
+	root    string // absolute albums root, the directory holding .build/
 	dirty   bool
 	refresh bool
 	entries map[string]metaCacheEntry
@@ -45,9 +60,10 @@ type MetaCache struct {
 
 // metaCacheFile is the on-disk representation of a MetaCache.
 type metaCacheFile struct {
-	Version int                          `json:"version"`
-	Entries map[string]metaCacheEntry    `json:"entries"`
-	Derived map[string]derivedCacheEntry `json:"derived"`
+	Version     int                          `json:"version"`
+	DerivedKeys string                       `json:"derivedKeys,omitempty"`
+	Entries     map[string]metaCacheEntry    `json:"entries"`
+	Derived     map[string]derivedCacheEntry `json:"derived"`
 }
 
 // derivedCacheEntry records which source file (and which settings) produced a derived
@@ -66,6 +82,16 @@ type derivedCacheEntry struct {
 	// setting compared for equality: this is compared only when the source needs
 	// conversion, so a pipeline change redoes just the outputs it affects.
 	ColorVersion int `json:"colorVersion,omitempty"`
+}
+
+// sameSource reports whether the stamp was written from sourcePath. A path recorded by
+// the other environment (a host path read in Docker, or the reverse) cannot match
+// exactly, so a differing path still matches when its file name does; the caller's mtime
+// and size checks are what actually tie the stamp to the file. Re-pointing a cover or
+// hero at a different photo with the same name, mtime and size is not a real case.
+func (e derivedCacheEntry) sameSource(sourcePath string) bool {
+	return e.Source == sourcePath ||
+		filepath.Base(filepath.FromSlash(e.Source)) == filepath.Base(sourcePath)
 }
 
 // colorCurrent reports whether an output stamped with e reflects the current color
@@ -89,13 +115,63 @@ func MetaCachePath(outputRoot string) string {
 	return filepath.Join(outputRoot, ".build", MetaCacheFileName)
 }
 
-// NewMetaCache returns an empty cache bound to path.
+// NewMetaCache returns an empty cache bound to path, which is {root}/.build/<file> (see
+// MetaCachePath); derived keys are relative to that root.
 func NewMetaCache(path string) *MetaCache {
+	root := filepath.Dir(filepath.Dir(path))
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
 	return &MetaCache{
 		path:    path,
+		root:    root,
 		entries: map[string]metaCacheEntry{},
 		derived: map[string]derivedCacheEntry{},
 	}
+}
+
+// derivedKey returns the key an output's stamp is stored under: its path relative to the
+// albums root, with forward slashes, so a host run (albums/...) and a Docker run
+// (/ddphotos/albums/...) share it. An output outside the root, which photogen never
+// writes, is keyed by its absolute path.
+func (mc *MetaCache) derivedKey(outputPath string) string {
+	abs, err := filepath.Abs(outputPath)
+	if err != nil {
+		return outputPath
+	}
+	rel, err := filepath.Rel(mc.root, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return abs
+	}
+	return filepath.ToSlash(rel)
+}
+
+// derivedPath is the inverse of derivedKey: the file a stamp's key names.
+func (mc *MetaCache) derivedPath(key string) string {
+	path := filepath.FromSlash(key)
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(mc.root, path)
+}
+
+// migrateDerivedKeys rekeys stamps from a file written before keys were root-relative.
+// Those were keyed by the output path as given, relative to the working directory or
+// absolute, and resolve here only if this environment wrote them. A key from the other
+// environment would never match again, so it is dropped rather than kept forever. When
+// both environments stamped the same output, the stamp from the newer color pipeline wins.
+func (mc *MetaCache) migrateDerivedKeys(old map[string]derivedCacheEntry) {
+	for path, entry := range old {
+		key := mc.derivedKey(path)
+		if filepath.IsAbs(filepath.FromSlash(key)) {
+			continue
+		}
+		if have, ok := mc.derived[key]; ok && have.ColorVersion >= entry.ColorVersion {
+			continue
+		}
+		mc.derived[key] = entry
+	}
+	mc.dirty = true
 }
 
 // SetRefresh makes Metadata ignore existing entries and re-decode every photo, while
@@ -135,8 +211,12 @@ func LoadMetaCache(path string, warn *WarnCollector) *MetaCache {
 	if f.Entries != nil {
 		mc.entries = f.Entries
 	}
-	if f.Derived != nil {
+	switch {
+	case f.Derived == nil:
+	case f.DerivedKeys == derivedKeysRootRelative:
 		mc.derived = f.Derived
+	default:
+		mc.migrateDerivedKeys(f.Derived)
 	}
 	return mc
 }
@@ -165,9 +245,9 @@ func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant, colorProfi
 	if mc.refresh {
 		return false
 	}
-	entry, ok := mc.derived[outputPath]
+	entry, ok := mc.derived[mc.derivedKey(outputPath)]
 	return ok &&
-		entry.Source == sourcePath &&
+		entry.sameSource(sourcePath) &&
 		entry.ModTimeNano == stat.ModTime().UnixNano() &&
 		entry.Size == stat.Size() &&
 		entry.Variant == variant &&
@@ -205,14 +285,15 @@ func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath, colorProfile string)
 		return true
 	}
 
+	key := mc.derivedKey(outputPath)
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	entry, ok := mc.derived[outputPath]
+	entry, ok := mc.derived[key]
 	if !ok {
 		if needsColorConversion(colorProfile) {
 			return false
 		}
-		mc.derived[outputPath] = derivedCacheEntry{
+		mc.derived[key] = derivedCacheEntry{
 			Source:      sourcePath,
 			ModTimeNano: stat.ModTime().UnixNano(),
 			Size:        stat.Size(),
@@ -241,7 +322,7 @@ func (mc *MetaCache) NeedsColorUpdate(outputPath, sourcePath, colorProfile strin
 
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	entry, ok := mc.derived[outputPath]
+	entry, ok := mc.derived[mc.derivedKey(outputPath)]
 	if !ok {
 		return true
 	}
@@ -260,9 +341,10 @@ func (mc *MetaCache) RecordDerived(outputPath, sourcePath, variant string) {
 		return // nothing worth recording if we cannot stamp it
 	}
 
+	key := mc.derivedKey(outputPath)
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mc.derived[outputPath] = derivedCacheEntry{
+	mc.derived[key] = derivedCacheEntry{
 		Source:       sourcePath,
 		ModTimeNano:  stat.ModTime().UnixNano(),
 		Size:         stat.Size(),
@@ -322,8 +404,10 @@ func (mc *MetaCache) Metadata(path string) (*PhotoMetadata, error) {
 }
 
 // Save writes the cache to disk, dropping entries whose source file no longer exists
-// so the file does not grow without bound as photos are renamed or deleted. It is a
-// no-op when nothing changed, and safe on a nil receiver.
+// so the file does not grow without bound as photos are renamed or deleted. An entry
+// recorded by the other environment cannot be stat'd here either, so it is kept (see
+// foreignPath); the next run there prunes it if it is really gone. It is a no-op when
+// nothing changed, and safe on a nil receiver.
 //
 // The cache is written even in dry-run mode: it is a local performance artifact under
 // .build/, never part of the generated site and never deployed, so writing it does not
@@ -340,17 +424,23 @@ func (mc *MetaCache) Save() error {
 	}
 
 	for path := range mc.entries {
-		if _, err := os.Stat(path); err != nil {
+		if _, err := os.Stat(path); err != nil && !foreignPath(path) {
 			delete(mc.entries, path)
 		}
 	}
-	for path := range mc.derived {
-		if _, err := os.Stat(path); err != nil {
-			delete(mc.derived, path)
+	for key := range mc.derived {
+		path := mc.derivedPath(key)
+		if _, err := os.Stat(path); err != nil && !foreignPath(path) {
+			delete(mc.derived, key)
 		}
 	}
 
-	contents := metaCacheFile{Version: metaCacheVersion, Entries: mc.entries, Derived: mc.derived}
+	contents := metaCacheFile{
+		Version:     metaCacheVersion,
+		DerivedKeys: derivedKeysRootRelative,
+		Entries:     mc.entries,
+		Derived:     mc.derived,
+	}
 	b, err := json.MarshalIndent(contents, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode metadata cache: %w", err)
@@ -389,6 +479,25 @@ func (mc *MetaCache) Save() error {
 
 	mc.dirty = false
 	return nil
+}
+
+// foreignPath reports whether path was recorded by another environment, which it takes
+// to mean its top-level directory does not exist here. Docker sees sources under /ddphotos
+// and its other mounts, which a host does not have, and a host's /Users or /home is not
+// mounted in the container. A path whose top-level directory exists is local, so a missing
+// file there really was renamed or deleted.
+func foreignPath(path string) bool {
+	vol := filepath.VolumeName(path)
+	rest := path[len(vol):]
+	if rest == "" || !os.IsPathSeparator(rest[0]) {
+		return false // relative: resolved against this environment
+	}
+	top, _, _ := strings.Cut(strings.TrimLeft(filepath.ToSlash(rest), "/"), "/")
+	if top == "" {
+		return false
+	}
+	_, err := os.Stat(vol + string(filepath.Separator) + top)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // Len returns the number of cached entries. Safe on a nil receiver.
