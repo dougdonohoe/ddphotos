@@ -319,6 +319,20 @@ open_url() {
     fi
 }
 
+# Echo stdin line by line and open the first https:// URL in it with open_url. Used by the
+# browser-based logins (wrangler, surge), whose container cannot open a browser itself.
+# Control characters end the match so an ANSI color code after the URL is not swallowed.
+open_login_url() {
+    local line opened=false
+    while IFS= read -r line; do
+        printf '%s\n' "$line"
+        if ! $opened && [[ "$line" =~ (https://[^[:space:][:cntrl:]]+) ]]; then
+            open_url "${BASH_REMATCH[1]}"
+            opened=true
+        fi
+    done
+}
+
 # Resolve a path to absolute. Relative paths are anchored to DDPHOTOS_DIR.
 abs_path() {
     local p="$1"
@@ -659,14 +673,7 @@ case "$cmd" in
                 "${PUBLISH_FLAGS[@]}" \
                 "${MOUNT_FLAGS[@]}" \
                 "${WRANGLER_ENV[@]}" \
-                "$IMAGE" wrangler "$@" 2>&1 | \
-            while IFS= read -r line; do
-                printf '%s\n' "$line"
-                # Auto-open the Cloudflare auth URL in the host browser (macOS/Linux/Windows).
-                if [[ "$line" =~ (https://[^[:space:]]+) ]]; then
-                    open_url "${BASH_REMATCH[1]}"
-                fi
-            done
+                "$IMAGE" wrangler "$@" 2>&1 | open_login_url
         else
             # All other wrangler subcommands (pages deploy, whoami, etc.) run normally.
             # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
@@ -695,13 +702,27 @@ case "$cmd" in
         [ -f "$HOME/.netrc" ] || { touch "$HOME/.netrc"; chmod 600 "$HOME/.netrc"; }
         add_mount "$HOME/.netrc" /root/.netrc
         print_mounts
-        # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
-        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${IT_FLAGS[@]}" \
-            -w /ddphotos \
-            -v ddphotos-npm-cache:/root/.npm \
-            "${MOUNT_FLAGS[@]}" \
-            "${SURGE_ENV[@]}" \
-            "$IMAGE" surge "$@"
+        if [[ "${1:-}" == "login" && " $* " == *" --browser "* ]]; then
+            # surge login --browser prints an auth.surge.sh URL and polls until the user signs
+            # in there (or it times out). Unlike wrangler there is no callback to localhost, so
+            # no port is published; we only open the URL on the host, as for wrangler.
+            # No -it: nothing is prompted for, and piping requires it off. 2>&1 so the URL line
+            # reaches open_login_url whichever stream surge writes it to.
+            "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
+                -w /ddphotos \
+                -v ddphotos-npm-cache:/root/.npm \
+                "${MOUNT_FLAGS[@]}" \
+                "${SURGE_ENV[@]}" \
+                "$IMAGE" surge "$@" 2>&1 | open_login_url
+        else
+            # Working dir is /ddphotos so relative paths like export/<site-id> resolve correctly.
+            "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${IT_FLAGS[@]}" \
+                -w /ddphotos \
+                -v ddphotos-npm-cache:/root/.npm \
+                "${MOUNT_FLAGS[@]}" \
+                "${SURGE_ENV[@]}" \
+                "$IMAGE" surge "$@"
+        fi
         ;;
 
     upgrade)
@@ -778,6 +799,7 @@ case "$cmd" in
         echo "  surge [args]        Run surge (static hosting CLI) via npx; working dir is set to --dir"
         echo "                        Paths like export/<site-id> resolve relative to --dir"
         echo "                        Credentials stored in ~/.netrc (mounted read-write into container)"
+        echo "                        'surge login --browser' opens the sign-in URL in your browser"
         echo "                        Set SURGE_LOGIN and SURGE_TOKEN to authenticate non-interactively"
         echo "                        Export must use --copy — Surge does not follow symlinks"
         echo "                        First run downloads surge; cached in Docker volume 'ddphotos-npm-cache'"

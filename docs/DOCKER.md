@@ -402,6 +402,7 @@ Docker-specific behavior:
 | Aspect          | Detail                                                                           |
 |-----------------|----------------------------------------------------------------------------------|
 | Credentials     | Prompted on first run and stored in `~/.netrc`, mounted read-write from the host |
+| Browser login   | `surge login --browser` opens the sign-in URL in your browser                    |
 | Non-interactive | Set `SURGE_LOGIN` and `SURGE_TOKEN`                                              |
 | First run       | Downloads surge into the `ddphotos-npm-cache` volume                             |
 
