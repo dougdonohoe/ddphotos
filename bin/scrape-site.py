@@ -344,6 +344,31 @@ def yaml_block(key: str, value: str, indent: str) -> list[str]:
     return lines
 
 
+def yaml_literal(key: str, value: str, indent: str) -> list[str]:
+    """Render a literal block scalar (| or |-), which keeps multi-line HTML exactly as written.
+
+    Unlike a folded scalar, a literal one preserves every newline, so the value round-trips
+    byte for byte. The chomping indicator matches the value's ending: | keeps the single
+    trailing newline the author's own `|` block would have produced, |- means there was none.
+    Values a literal block cannot represent fall back to a quoted scalar: a leading space on
+    the first line (it would be read as indentation), more than one trailing newline,
+    carriage returns, or whitespace-only lines (YAML reads those as empty).
+    """
+    if not value.strip():
+        return []
+    body = value[:-1] if value.endswith("\n") else value
+    lines = body.split("\n")
+    if (
+        body.endswith("\n")
+        or "\r" in value
+        or lines[0][:1] in (" ", "\t")
+        or any(line and not line.strip() for line in lines)
+    ):
+        return [f"{indent}{key}: {yaml_scalar(value)}"]
+    chomp = "|" if value.endswith("\n") else "|-"
+    return [f"{indent}{key}: {chomp}"] + [f"{indent}  {line}" if line else "" for line in lines]
+
+
 def render_albums_yaml(config: dict, html: dict, albums: list[dict], base_name: str) -> str:
     """Build albums.yaml text by hand so key order, comments, and block scalars are ours."""
     out: list[str] = [
@@ -416,6 +441,8 @@ def render_albums_yaml(config: dict, html: dict, albums: list[dict], base_name: 
             out.append("    recurse: true")
         if album.get("description"):
             out.extend(yaml_block("description", album["description"], "    "))
+        if album.get("long_description_html"):
+            out.extend(yaml_literal("long_description_html", album["long_description_html"], "    "))
 
     return "\n".join(out) + "\n"
 
@@ -538,6 +565,7 @@ def collect_album(base_url: str, summary: dict, limit: int | None, ext: str) -> 
         "slug": slug,
         "title": index.get("title") or summary.get("title", slug),
         "description": index.get("description") or summary.get("description", ""),
+        "long_description_html": index.get("longDescriptionHtml", ""),
         "cover": cover,
         "recurse": any(p["reldir"] for p in photos),
         "photos": photos,

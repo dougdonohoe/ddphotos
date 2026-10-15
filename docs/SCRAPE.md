@@ -98,6 +98,7 @@ Everything the site publishes, which is nearly all the configuration:
 | Custom CSS                                                  | `custom.css`                        |
 | Hero banner                                                 | `hero.jpg`                          |
 | Album slugs, names, descriptions, covers                    | `albums.json` and each `index.json` |
+| Album long descriptions                                     | each `index.json`                   |
 | Photo order, captions, subfolder structure                  | each `index.json`                   |
 | Photo dates                                                 | each `index.json` (see below)       |
 
@@ -130,6 +131,6 @@ through untouched and nothing is re-encoded.
 
 Rebuilding [the sample site↗](https://ddphotos.donohoe.info) from its deployed copy reproduces
 `albums.json` and `html.json` byte for byte, and every album's `index.json` matches on slug, title,
-description, `dateSpan`, cover, photo order, ids, captions, dates, and orientation — in all three
+description, long description, `dateSpan`, cover, photo order, ids, captions, dates, and orientation — in all three
 formats. The two fields that differ are `width`/`height`, which now describe the 1600px variant
 rather than the original, and `sourcePath`, which reflects the new local directory layout.
