@@ -504,6 +504,37 @@ Both are worth doing after an Immich upgrade, since the provider uses the **depr
 search shape** deliberately — it works on current and older servers, and is slated for removal
 in Immich v4.
 
+## The PhotoPrism Provider and Its Fixtures
+
+The `photoprism` provider is tested the same way, from `pkg/photogen/testdata/photoprism/`:
+
+```
+album.json            GET /api/v1/albums/{uid}
+albums.json           GET /api/v1/albums?type=album (for the DD Photos App)
+session.json          GET /api/v1/session — the app password's scope (for the DD Photos App)
+request-page1.json    the search query, and the X-Count header the page came back with
+search-page1.json     GET /api/v1/photos?s={uid}&merged=true — one page holding the whole album
+paged/                the same album at count 7
+```
+
+`paged/` matters more here than for Immich. A merged listing is paged by **file row**, not by
+photo: `count`, `offset` and `X-Count` all count files, so a photo whose files straddle a page
+boundary arrives in two halves. At count 7 the AVIF photo does exactly that — its JPEG ends
+page 3 and its original starts page 4 — so the merge is tested on a real response.
+
+To refresh them:
+
+```bash
+bin/photoprism-record -config-dir <config> <album-uid>                    # into pkg/photogen/testdata/photoprism
+bin/photoprism-record -config-dir <config> -size 7 -out <dir> <album-uid> # a multi-page set
+```
+
+Scrubbed before writing: each photo's location (`Lat`, `Lng`, `Altitude`, `CellID`, the
+`Place*` fields and `Country`), the **photo `Title`**, which PhotoPrism generates from the place
+("Santiago Kalea / Irun / 2024"), any `Email`, face `Markers`, and the session's tokens and
+`config`. A file containing the app password or a download token is refused, and a test fails
+if any committed fixture still holds a location.
+
 ## CI (GitHub Actions)
 
 The workflow in [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on every push or pull 

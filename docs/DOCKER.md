@@ -545,7 +545,10 @@ under it is deployed. The one file in there you may edit is `photogen.txt`; see
 
 ---
 
-## Syncing from Immich in Docker
+## Syncing from Immich or PhotoPrism in Docker
+
+This section covers PhotoPrism too: substitute `config/photoprism.env`, `PHOTOPRISM_APP_PASSWORD` and
+`PHOTOPRISM_SITE_URL` (port 2342) for the Immich names below.
 
 Put your credentials in `config/immich.env` as
 [Configuration](CONFIGURATION.md#immich-credentials-immichenv) describes. Nothing else is

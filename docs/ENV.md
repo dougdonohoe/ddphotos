@@ -49,6 +49,12 @@ These variables are consumed by:
 - `bin/search-cover.sh` — locates album data when searching for cover images
 - `bin/run-tests.sh` — sets both when starting the dev server, building, and running Docker test containers
 
+## Common Sync Variables
+
+| Variable              | Description                                                                                                                                                                                                                                                                           |
+|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DDPHOTOS_IN_DOCKER`  | Set to `1` by the Docker image, and not something to set by hand. It is what tells `photogen` to reach the host rather than the container when `IMMICH_INSTANCE_URL` or `PHOTOPRISM_SITE_URL` names `localhost` — see [Docker](DOCKER.md#syncing-from-immich-or-photoprism-in-docker) |
+
 ## Immich Sync Variables
 
 Read only by `photogen`, and only when an album has a `sync:` block whose provider is
@@ -56,8 +62,19 @@ Read only by `photogen`, and only when an album has a `sync:` block whose provid
 environment; see [Immich credentials](CONFIGURATION.md#immich-credentials-immichenv) for that
 file, where the key comes from, and which wins.
 
-| Variable              | Description                                                                                                                                                                                                                                    |
-|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `IMMICH_API_KEY`      | Immich API key. Needs `asset.read`, `asset.download` and `album.read`                                                                                                                                                                          |
-| `IMMICH_INSTANCE_URL` | Instance URL, e.g. `http://localhost:2283`. Accepted with or without a trailing `/api`                                                                                                                                                         |
-| `DDPHOTOS_IN_DOCKER`  | Set to `1` by the Docker image, and not something to set by hand. It is what tells `photogen` to reach the host rather than the container when `IMMICH_INSTANCE_URL` names `localhost` — see [Docker](DOCKER.md#syncing-from-immich-in-docker) |
+| Variable              | Description                                                                                                                                                                                                                                                                           |
+|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `IMMICH_API_KEY`      | Immich API key. Needs `asset.read`, `asset.download` and `album.read`                                                                                                                                                                                                                 |
+| `IMMICH_INSTANCE_URL` | Instance URL, e.g. `http://localhost:2283`. Accepted with or without a trailing `/api`                                                                                                                                                                                                |
+
+## PhotoPrism Sync Variables
+
+Read only by `photogen`, and only when an album has a `sync:` block whose provider is 
+`photoprism`. They normally live in `photoprism.env` beside `albums.yaml` rather than the
+environment; see [PhotoPrism credentials](CONFIGURATION.md#photoprism-credentials-photoprismenv) for that
+file, where the key comes from, and which wins.
+
+| Variable                  | Description                                                                                                  |
+|---------------------------|--------------------------------------------------------------------------------------------------------------|
+| `PHOTOPRISM_APP_PASSWORD` | App password from Settings → Account → Apps and Devices, with Full Access                                    |
+| `PHOTOPRISM_SITE_URL`     | Site URL, e.g. `http://localhost:2342`. Accepted with or without a trailing `/api/v1` or `/library`          |

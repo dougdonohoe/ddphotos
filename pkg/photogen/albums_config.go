@@ -75,7 +75,7 @@ type AlbumEntry struct {
 // SyncEntry configures where an album's photos are fetched from. It is the YAML shape of
 // the sync: block; the resolved, run-ready form is AlbumSyncConfig in config.go.
 type SyncEntry struct {
-	Provider string `yaml:"provider"` // registered provider name ("immich", "mock")
+	Provider string `yaml:"provider"` // registered provider name ("immich", "photoprism", "mock")
 	AlbumID  string `yaml:"album_id"` // provider-specific album identifier
 	// Captions controls whether photogen.txt is written and maintained from the upstream
 	// descriptions. A pointer because the default is true: a plain bool cannot tell
@@ -274,10 +274,11 @@ func (s *SyncEntry) validate(slug string) error {
 	// block: told the wrong provider, complaining that album_id is not a UUID would send
 	// the reader after the wrong mistake. What a valid id looks like is the provider's
 	// business, so this only knows to ask.
-	if s.Provider == immichProviderName {
-		if err := validateImmichAlbumID(slug, s.AlbumID); err != nil {
-			return err
-		}
+	switch s.Provider {
+	case immichProviderName:
+		return validateImmichAlbumID(slug, s.AlbumID)
+	case photoprismProviderName:
+		return validatePhotoPrismAlbumID(slug, s.AlbumID)
 	}
 	return nil
 }
@@ -438,11 +439,15 @@ func (a AlbumEntry) resolveSync(configDir string) *AlbumSyncConfig {
 			Fail:       m.Fail,
 		}
 	}
-	// Immich has no YAML block to key off, so this hangs off the provider name. Not stat'ed,
-	// for the same reason the mock paths are not: the provider reports its own missing file,
-	// and here the file is optional anyway because the environment may supply the credentials.
-	if a.Sync.Provider == immichProviderName {
+	// Immich and PhotoPrism have no YAML block to key off, so this hangs off the provider
+	// name. Not stat'ed, for the same reason the mock paths are not: the provider reports its
+	// own missing file, and here the file is optional anyway because the environment may
+	// supply the credentials.
+	switch a.Sync.Provider {
+	case immichProviderName:
 		cfg.Immich = &ImmichSyncConfig{EnvFile: filepath.Join(configDir, ImmichEnvFileName)}
+	case photoprismProviderName:
+		cfg.PhotoPrism = &PhotoPrismSyncConfig{EnvFile: filepath.Join(configDir, PhotoPrismEnvFileName)}
 	}
 	return cfg
 }

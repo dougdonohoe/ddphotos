@@ -116,7 +116,7 @@ type AlbumConfig struct {
 
 // AlbumSyncConfig is the resolved, run-ready form of an album's sync: block.
 type AlbumSyncConfig struct {
-	// Provider is the registered provider name ("immich", "mock").
+	// Provider is the registered provider name ("immich", "photoprism", "mock").
 	Provider string
 	// AlbumID identifies the album upstream.
 	AlbumID string
@@ -127,6 +127,9 @@ type AlbumSyncConfig struct {
 	Mock *MockSyncConfig
 	// Immich holds the immich provider's resolved settings. Nil for every other provider.
 	Immich *ImmichSyncConfig
+	// PhotoPrism holds the photoprism provider's resolved settings. Nil for every other
+	// provider.
+	PhotoPrism *PhotoPrismSyncConfig
 }
 
 // ImmichSyncConfig is the resolved form of an album whose provider is immich. There is no
@@ -136,6 +139,14 @@ type AlbumSyncConfig struct {
 type ImmichSyncConfig struct {
 	// EnvFile is <config-dir>/immich.env. A missing file is not an error: the real
 	// environment may supply everything, which is what CI and Docker runs do.
+	EnvFile string
+}
+
+// PhotoPrismSyncConfig is the resolved form of an album whose provider is photoprism. Like
+// ImmichSyncConfig, it exists only to hand the provider the path its credentials live at.
+type PhotoPrismSyncConfig struct {
+	// EnvFile is <config-dir>/photoprism.env. A missing file is not an error: the real
+	// environment may supply everything.
 	EnvFile string
 }
 
