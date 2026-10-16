@@ -8,11 +8,15 @@
 
 ## News
 
+**PhotoPrism support is here!** Starting with version 1.34.0, DD Photos can sync albums straight from
+[PhotoPrism↗](https://www.photoprism.app/), with no export needed. See [DD Photos and PhotoPrism↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/docs/PHOTOPRISM.md)
+for a walkthrough with screenshots of related support in the DD Photos App.
+
 **Immich support is here!** Starting with version 1.32.0, DD Photos can sync albums straight from
 [Immich↗](https://immich.app), with no export needed. See [DD Photos and Immich↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/docs/IMMICH.md)
-for a walkthrough with screenshots of related support in the DD Photos App or see
-[Syncing an Album](docs/CONFIGURATION.md#syncing-an-album-from-a-photo-manager) for the `ddphotos`
-details.
+for a walkthrough with screenshots of related support in the DD Photos App.
+
+See [Syncing an Album](docs/CONFIGURATION.md#syncing-an-album-from-a-photo-manager) for the `ddphotos` details.
 
 ## Overview
 
