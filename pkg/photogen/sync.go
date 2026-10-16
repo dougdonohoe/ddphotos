@@ -23,6 +23,9 @@ const (
 	// immichProviderName is the real upstream: see provider_immich.go. It is also what
 	// resolveSync keys the immich.env path off, since Immich has no YAML sub-block.
 	immichProviderName = "immich"
+	// photoprismProviderName is the second real upstream: see provider_photoprism.go. Like
+	// Immich, it has no YAML sub-block, so resolveSync keys photoprism.env off the name.
+	photoprismProviderName = "photoprism"
 
 	// maxAlbumPhotos caps how many assets one synced album may have. Over the limit is an
 	// error rather than a truncation: listing 1000 rows of metadata is cheap, downloading
@@ -84,7 +87,7 @@ type SyncAsset struct {
 
 // syncProviderNames returns the registered provider names, sorted, for error messages.
 func syncProviderNames() []string {
-	names := []string{immichProviderName, mockProviderName}
+	names := []string{immichProviderName, mockProviderName, photoprismProviderName}
 	sort.Strings(names)
 	return names
 }
@@ -107,6 +110,8 @@ func newSyncProvider(cfg *AlbumSyncConfig, warnf func(string, ...any)) (SyncProv
 		return newMockProvider(cfg.Mock)
 	case immichProviderName:
 		return newImmichProvider(cfg.Immich, warnf)
+	case photoprismProviderName:
+		return newPhotoPrismProvider(cfg.PhotoPrism, warnf)
 	default:
 		return nil, fmt.Errorf("unknown sync provider %q", cfg.Provider)
 	}

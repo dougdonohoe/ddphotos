@@ -859,6 +859,7 @@ func TestSyncEntryValidation(t *testing.T) {
 		// The message lists what would have worked.
 		assert.Contains(t, err.Error(), "immich")
 		assert.Contains(t, err.Error(), "mock")
+		assert.Contains(t, err.Error(), "photoprism")
 	})
 
 	t.Run("album_id is required", func(t *testing.T) {
@@ -931,6 +932,16 @@ func TestSyncEntryValidation(t *testing.T) {
 		s := &SyncEntry{Provider: "immich", AlbumID: "abc",
 			Mock: &MockSyncEntry{Assets: "a.json", MediaDir: "m"}}
 		require.ErrorContains(t, fileWith(AlbumEntry{Sync: s}).validate(), "only valid with provider")
+	})
+
+	// Each provider checks its own id's shape, and only its own.
+	t.Run("a photoprism album_id must be an album UID", func(t *testing.T) {
+		t.Parallel()
+		ok := &SyncEntry{Provider: "photoprism", AlbumID: "atmyuuj99diyoq1s"}
+		assert.NoError(t, fileWith(AlbumEntry{Sync: ok}).validate())
+
+		bad := &SyncEntry{Provider: "photoprism", AlbumID: "d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18"}
+		require.ErrorContains(t, fileWith(AlbumEntry{Sync: bad}).validate(), "not a PhotoPrism album UID")
 	})
 
 	t.Run("the mock block needs both its paths", func(t *testing.T) {
@@ -1036,6 +1047,30 @@ albums:
 		require.NotNil(t, configs[0].Sync.Immich)
 		assert.Equal(t, filepath.Join(configDir, ImmichEnvFileName), configs[0].Sync.Immich.EnvFile)
 		assert.Nil(t, configs[0].Sync.Mock)
+		assert.Nil(t, configs[0].Sync.PhotoPrism)
+	})
+
+	t.Run("the photoprism env file is resolved against the config dir", func(t *testing.T) {
+		t.Parallel()
+		configDir := t.TempDir()
+		root := t.TempDir()
+		af := parseYAML(t, configDir, strings.Replace(syncYAML, `      provider: mock
+      album_id: abc
+      mock:
+        assets: listing.json
+        media_dir: media
+`, `      provider: photoprism
+      album_id: atmyuuj99diyoq1s
+`, 1))
+		paths := &SyncPaths{Root: root, SiteID: "test"}
+		require.NoError(t, af.CreateSyncDirs(paths))
+
+		configs, err := af.ToAlbumConfigs(configDir, paths)
+		require.NoError(t, err)
+		require.NotNil(t, configs[0].Sync.PhotoPrism)
+		assert.Equal(t, filepath.Join(configDir, PhotoPrismEnvFileName), configs[0].Sync.PhotoPrism.EnvFile)
+		assert.Nil(t, configs[0].Sync.Immich)
+		assert.Equal(t, filepath.Join(root, "test", "photoprism", configs[0].Slug), configs[0].Path)
 	})
 
 	t.Run("a synced album with no sync paths names the flag that would fix it", func(t *testing.T) {

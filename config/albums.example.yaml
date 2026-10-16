@@ -160,6 +160,25 @@ albums:
       captions: true              # Write photogen.txt from each asset's description
 
   # ------------------------------------------------------------------
+  # Synced from PhotoPrism — the same as Immich, from another upstream
+  #
+  # Credentials live in photoprism.env in the same directory as this file:
+  #
+  #   PHOTOPRISM_APP_PASSWORD=your-app-password
+  #   PHOTOPRISM_SITE_URL=http://photoprism.example.com:2342
+  #
+  # Create the app password in PhotoPrism under Settings > Account > Apps
+  # and Devices > Add, with Full Access. Private and archived photos are
+  # skipped; a RAW photo publishes PhotoPrism's JPEG of it.
+  # ------------------------------------------------------------------
+  - slug: the-way
+    # cover: IMG_0042.jpg         # Optional: file name as uploaded to PhotoPrism
+    sync:
+      provider: photoprism
+      album_id: atmyuuj99diyoq1s  # PhotoPrism album UID, from the album's URL
+      captions: true              # Write photogen.txt from each photo's caption
+
+  # ------------------------------------------------------------------
   # Minimal example — only required fields
   # ------------------------------------------------------------------
   - slug: hiking

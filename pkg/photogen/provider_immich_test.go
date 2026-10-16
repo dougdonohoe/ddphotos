@@ -114,7 +114,7 @@ func (s *immichServer) provider(srv *httptest.Server) (*immichProvider, *[]strin
 	var warnings []string
 	var mu sync.Mutex
 	p := &immichProvider{
-		creds: immichCredentials{APIKey: "test-key", BaseURL: srv.URL},
+		http: newImmichHTTP(syncCredentials{Secret: "test-key", BaseURL: srv.URL}),
 		warnf: func(format string, args ...any) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -220,7 +220,7 @@ func TestNormalizeImmichURLInDocker(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "http://host.docker.internal:2283", creds.BaseURL)
 
-		p := &immichProvider{creds: creds}
+		p := &immichProvider{http: newImmichHTTP(creds)}
 		_, err = p.Album(context.Background(), "album")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "http://localhost:2283", "names what was configured")
@@ -250,7 +250,7 @@ func TestLoadImmichCredentials(t *testing.T) {
 		path := writeEnv(t, "IMMICH_API_KEY=file-key\nIMMICH_INSTANCE_URL=http://localhost:2283\n")
 		creds, err := loadImmichCredentials(path)
 		require.NoError(t, err)
-		assert.Equal(t, "file-key", creds.APIKey)
+		assert.Equal(t, "file-key", creds.Secret)
 		assert.Equal(t, "http://localhost:2283", creds.BaseURL)
 	})
 
@@ -262,7 +262,7 @@ func TestLoadImmichCredentials(t *testing.T) {
 		t.Setenv(immichURLEnv, "http://env:2283")
 		creds, err := loadImmichCredentials(path)
 		require.NoError(t, err)
-		assert.Equal(t, "env-key", creds.APIKey)
+		assert.Equal(t, "env-key", creds.Secret)
 		assert.Equal(t, "http://env:2283", creds.BaseURL)
 	})
 
@@ -271,7 +271,7 @@ func TestLoadImmichCredentials(t *testing.T) {
 		t.Setenv(immichURLEnv, "http://localhost:2283/api")
 		creds, err := loadImmichCredentials(filepath.Join(t.TempDir(), "absent.env"))
 		require.NoError(t, err)
-		assert.Equal(t, "env-key", creds.APIKey)
+		assert.Equal(t, "env-key", creds.Secret)
 		assert.Equal(t, "http://localhost:2283", creds.BaseURL)
 	})
 
@@ -280,7 +280,7 @@ func TestLoadImmichCredentials(t *testing.T) {
 		path := writeEnv(t, "IMMICH_API_KEY=\"quoted-key\"\nIMMICH_INSTANCE_URL='http://localhost:2283'\n")
 		creds, err := loadImmichCredentials(path)
 		require.NoError(t, err)
-		assert.Equal(t, "quoted-key", creds.APIKey)
+		assert.Equal(t, "quoted-key", creds.Secret)
 		assert.Equal(t, "http://localhost:2283", creds.BaseURL)
 	})
 
@@ -289,14 +289,14 @@ func TestLoadImmichCredentials(t *testing.T) {
 		path := writeEnv(t, "# a comment\n\nnot-an-assignment\nIMMICH_API_KEY = spaced-key \nIMMICH_INSTANCE_URL=http://localhost:2283\n")
 		creds, err := loadImmichCredentials(path)
 		require.NoError(t, err)
-		assert.Equal(t, "spaced-key", creds.APIKey)
+		assert.Equal(t, "spaced-key", creds.Secret)
 	})
 
 	t.Run("a missing key names the variable and the file", func(t *testing.T) {
 		clearEnv(t)
 		path := writeEnv(t, "IMMICH_INSTANCE_URL=http://localhost:2283\n")
 		_, err := loadImmichCredentials(path)
-		require.ErrorIs(t, err, errImmichNoCredentials)
+		require.ErrorIs(t, err, errNoSyncCredentials)
 		assert.Contains(t, err.Error(), immichAPIKeyEnv)
 		assert.Contains(t, err.Error(), path)
 	})
@@ -305,7 +305,7 @@ func TestLoadImmichCredentials(t *testing.T) {
 		clearEnv(t)
 		path := writeEnv(t, "IMMICH_API_KEY=file-key\n")
 		_, err := loadImmichCredentials(path)
-		require.ErrorIs(t, err, errImmichNoCredentials)
+		require.ErrorIs(t, err, errNoSyncCredentials)
 		assert.Contains(t, err.Error(), immichURLEnv)
 	})
 
@@ -688,12 +688,12 @@ func TestImmichProviderFetch(t *testing.T) {
 	})
 }
 
-// Not parallel: the retry tests shrink immichRetryBackoff so they do not spend three real
+// Not parallel: the retry tests shrink syncRetryBackoff so they do not spend three real
 // seconds waiting.
 func TestImmichProviderErrors(t *testing.T) {
-	restore := immichRetryBackoff
-	immichRetryBackoff = time.Millisecond
-	t.Cleanup(func() { immichRetryBackoff = restore })
+	restore := syncRetryBackoff
+	syncRetryBackoff = time.Millisecond
+	t.Cleanup(func() { syncRetryBackoff = restore })
 
 	t.Run("a 401 names where the key came from but never the key", func(t *testing.T) {
 		s := &immichServer{t: t, status: http.StatusUnauthorized, body: `{"message":"Invalid API key"}`}
@@ -751,7 +751,7 @@ func TestImmichProviderErrors(t *testing.T) {
 		album, err := p.Album(context.Background(), "album")
 		require.NoError(t, err)
 		assert.Equal(t, "Big Sky 2026", album.Name)
-		assert.Equal(t, immichAttempts, s.calls)
+		assert.Equal(t, syncHTTPAttempts, s.calls)
 	})
 
 	t.Run("a server that is always down gives up and says so", func(t *testing.T) {
@@ -760,7 +760,7 @@ func TestImmichProviderErrors(t *testing.T) {
 		_, err := p.Album(context.Background(), "album")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gave up after 3 attempts")
-		assert.Equal(t, immichAttempts, s.calls)
+		assert.Equal(t, syncHTTPAttempts, s.calls)
 	})
 
 	t.Run("a rate limit is retried", func(t *testing.T) {
@@ -768,7 +768,7 @@ func TestImmichProviderErrors(t *testing.T) {
 		p, _ := s.provider(s.start())
 		_, err := p.Album(context.Background(), "album")
 		require.Error(t, err)
-		assert.Equal(t, immichAttempts, s.calls)
+		assert.Equal(t, syncHTTPAttempts, s.calls)
 	})
 }
 
@@ -790,6 +790,6 @@ func TestNewImmichProvider(t *testing.T) {
 	t.Run("a missing key fails before anything is downloaded", func(t *testing.T) {
 		t.Setenv(immichAPIKeyEnv, "")
 		_, err := newImmichProvider(&ImmichSyncConfig{EnvFile: filepath.Join(t.TempDir(), "absent.env")}, nil)
-		require.ErrorIs(t, err, errImmichNoCredentials)
+		require.ErrorIs(t, err, errNoSyncCredentials)
 	})
 }

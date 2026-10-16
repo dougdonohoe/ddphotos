@@ -25,19 +25,20 @@ it moves — but `pkg/photogen/sync.go` (`SyncAlbumPath`),
 
 ## Docker host-reachability sync requirement
 
-Three files make an `IMMICH_INSTANCE_URL` of `localhost` work inside the container, and the
-feature is broken if any one of them changes alone:
+Three files make an `IMMICH_INSTANCE_URL` or `PHOTOPRISM_SITE_URL` of `localhost` work inside
+the container, and the feature is broken if any one of them changes alone:
 
 - `docker/Dockerfile` sets `DDPHOTOS_IN_DOCKER=1`, which is the only way photogen can tell
-- `normalizeImmichURL` (`pkg/photogen/provider_immich.go`) reads it and rewrites a loopback
-  host to `host.docker.internal`
+- `normalizeSyncURL` (`pkg/photogen/provider_http.go`, shared by every HTTP provider) reads it
+  and rewrites a loopback host to `host.docker.internal`
 - `docker/ddphotos` passes `--add-host=host.docker.internal:host-gateway` on the `photogen`
   run, which Docker Engine on Linux needs and Docker Desktop ignores
 
 `docs/DOCKER.md` and `docs/ENV.md` document the behavior. The same `docker/ddphotos` block
-also passes `IMMICH_API_KEY` / `IMMICH_INSTANCE_URL` through when they are set in the host
-environment, which is what makes "a real environment variable wins over `immich.env`" true in
-Docker mode too.
+also passes `IMMICH_API_KEY` / `IMMICH_INSTANCE_URL` and `PHOTOPRISM_APP_PASSWORD` /
+`PHOTOPRISM_SITE_URL` through when they are set in the host environment, which is what makes
+"a real environment variable wins over `immich.env`" true in Docker mode too. A new HTTP
+provider's two variables go in that list and in `bin/test-docker-env.sh`.
 
 ## Sync provider responsibilities
 
@@ -48,6 +49,10 @@ for every provider, in `filterSyncAssets`**. The second mirrors the build's
 provider that re-implements either one will double its warnings. A provider skipping an
 asset warns through the `warnf` it was constructed with, because `filterSyncAssets` only
 prints the `Warnings` of assets it is handed.
+
+Credentials, URL normalization, retries and the Docker connection-error explanation are shared
+by every HTTP provider in `pkg/photogen/provider_http.go`: a new provider declares an
+`httpUpstream` and supplies only its auth header and its own error-body reader.
 
 Provider names live in exactly one place, `syncProviderNames`; `isSyncProvider` gates
 validation and `newSyncProvider`'s switch gates construction, so adding a name to one without

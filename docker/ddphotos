@@ -532,7 +532,8 @@ case "$cmd" in
         print_mounts
         PHOTOGEN_ENV=(-e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID")
         [ -n "$DDPHOTOS_CONFIG_DIR" ] && PHOTOGEN_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
-        # Immich credentials normally come from config/immich.env, which is already inside
+        # Immich and PhotoPrism credentials normally come from config/immich.env and
+        # config/photoprism.env, which are already inside
         # the /ddphotos mount. These are for the other half of that rule: a real environment
         # variable wins over the file, so a key exported in the shell or set by CI has to
         # reach the container too. Unset vars are not passed, so the file still applies.
@@ -541,13 +542,13 @@ case "$cmd" in
         # reads the value from its own environment, which this script's exported variables
         # are, and the value stays out of docker's argv, where ps would show it to any local
         # user for as long as the container runs. bin/test-docker-env.sh checks every one.
-        for var in IMMICH_API_KEY IMMICH_INSTANCE_URL; do
+        for var in IMMICH_API_KEY IMMICH_INSTANCE_URL PHOTOPRISM_APP_PASSWORD PHOTOPRISM_SITE_URL; do
             [ -n "${!var}" ] && PHOTOGEN_ENV+=(-e "$var")
         done
         # --add-host makes host.docker.internal resolve on Docker Engine (Linux); Docker
         # Desktop provides the name natively and ignores the flag. photogen rewrites a
-        # localhost IMMICH_INSTANCE_URL to that name, so without this an Immich instance on
-        # the host is unreachable from the container on Linux.
+        # localhost IMMICH_INSTANCE_URL or PHOTOPRISM_SITE_URL to that name, so without this
+        # an instance on the host is unreachable from the container on Linux.
         # Mounting the ffmpeg volume costs nothing when it is empty. photogen downloads
         # into it the first time it actually meets a video, and never otherwise, so a
         # photo-only site never pays for video support. Same shape as the npm cache volume

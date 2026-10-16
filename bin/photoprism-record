@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Record a PhotoPrism album's API responses as test fixtures for pkg/photogen.
+#
+# Needs a reachable PhotoPrism instance and credentials, either exported or in
+# config/photoprism.env. Overwrites the fixtures in the output directory.
+#
+# Usage:
+#   bin/photoprism-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uid>
+#   bin/photoprism-record [-out <dir>] -rescrub    # re-apply scrub rules to existing fixtures
+set -eo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+RECORD="$REPO_ROOT/cmd/photoprism-record/photoprism-record.go"
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: bin/photoprism-record [-out <dir>] [-config-dir <dir>] [-size N] <album-uid>" >&2
+    exit 1
+fi
+
+go run "$RECORD" "$@"

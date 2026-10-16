@@ -155,8 +155,9 @@ RUN echo "$DDPHOTOS_IMAGE" > /docker/IMAGE \
 ENV VITE_DOCKER_IMAGE=$DDPHOTOS_IMAGE
 
 # DDPHOTOS_IN_DOCKER has no value beyond being set: photogen has no other way to know it is
-# containerized, and it needs to know because an IMMICH_INSTANCE_URL of localhost means the
-# container rather than the machine Immich runs on. See normalizeImmichURL.
+# containerized, and it needs to know because an IMMICH_INSTANCE_URL or PHOTOPRISM_SITE_URL of
+# localhost means the container rather than the machine the upstream runs on. See
+# normalizeSyncURL.
 ENV DDPHOTOS_ALBUMS_DIR=/ddphotos/albums \
     DDPHOTOS_SYNC_DIR=/ddphotos/sync \
     DDPHOTOS_IN_DOCKER=1 \

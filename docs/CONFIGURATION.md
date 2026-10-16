@@ -3,14 +3,15 @@
 A DD Photos site is driven by a handful of config files. Both Docker and developer modes
 use the same files — only the path conventions differ.
 
-| File                 | Required | Purpose                                                   |
-|----------------------|----------|-----------------------------------------------------------|
-| `albums.yaml`        | yes      | Albums, site settings, photo base paths                   |
-| `customization.yaml` | no       | Overrides to the site's chrome                            |
-| `passwords.yaml`     | no       | Password protection (name it via `settings.passwords`)    |
-| `custom.css`         | no       | Style overrides (name it via `settings.css`)              |
-| `site.env`           | no       | Deploy credentials                                        |
-| `immich.env`         | no       | Immich credentials (only for albums with a `sync:` block) |
+| File                 | Required | Purpose                                                       |
+|----------------------|----------|---------------------------------------------------------------|
+| `albums.yaml`        | yes      | Albums, site settings, photo base paths                       |
+| `customization.yaml` | no       | Overrides to the site's chrome                                |
+| `passwords.yaml`     | no       | Password protection (name it via `settings.passwords`)        |
+| `custom.css`         | no       | Style overrides (name it via `settings.css`)                  |
+| `site.env`           | no       | Deploy credentials                                            |
+| `immich.env`         | no       | Immich credentials (only for albums with a `sync:` block)     |
+| `photoprism.env`     | no       | PhotoPrism credentials (only for albums with a `sync:` block) |
 
 **Docker mode:** `ddphotos init` creates a `config/` directory holding all of the above,
 ready to edit directly — no copying needed. It also installs a `sample-photos/` folder
@@ -163,11 +164,11 @@ albums:
       captions: true              # write photogen.txt from each asset's description
 ```
 
-| Key        | Required | Default | Meaning                                             |
-|------------|----------|---------|-----------------------------------------------------|
-| `provider` | yes      | none    | `immich` or `mock` (see [TESTING.md](TESTING.md))   |
-| `album_id` | yes      | none    | Provider-specific album identifier (Immich: a UUID) |
-| `captions` | no       | `true`  | Write and maintain `photogen.txt` from descriptions |
+| Key        | Required | Default | Meaning                                                                |
+|------------|----------|---------|------------------------------------------------------------------------|
+| `provider` | yes      | none    | `immich`, `photoprism` or `mock` (see [TESTING.md](TESTING.md))        |
+| `album_id` | yes      | none    | Provider-specific album identifier (Immich: a UUID; PhotoPrism: a UID) |
+| `captions` | no       | `true`  | Write and maintain `photogen.txt` from descriptions                    |
 
 **Finding the `album_id`:** in Immich, open the album and copy the last path segment out of
 your browser's address bar.
@@ -175,6 +176,13 @@ your browser's address bar.
 ```
 http://localhost:2283/albums/d8052d5c-9ff1-4228-9f02-5cdd3d2e2d18
                              └──────────── album_id ────────────┘
+```
+
+In PhotoPrism, it is the segment after `/albums/`:
+
+```
+http://localhost:2342/library/albums/atmyuuj99diyoq1s/the-way
+                                     └─ album_id ───┘
 ```
 
 #### Immich credentials: `immich.env`
@@ -198,7 +206,24 @@ IMMICH_INSTANCE_URL=http://localhost:2283
   printed in an error, or written to `metadata.yaml`.
 
 In Docker, `http://localhost:2283` is still the right value to write — see
-[Docker](DOCKER.md#syncing-from-immich-in-docker).
+[Docker](DOCKER.md#syncing-from-immich-or-photoprism-in-docker).
+
+#### PhotoPrism credentials: `photoprism.env`
+
+The same arrangement as Immich's, with an app password in place of an API key:
+
+```bash
+# config/photoprism.env
+PHOTOPRISM_APP_PASSWORD=your-app-password
+PHOTOPRISM_SITE_URL=http://localhost:2342
+```
+
+- Create the app password in PhotoPrism under **Settings → Account → Apps and Devices → Add**,
+  with **Full Access** (a name such as "DD Photos" makes it easy to find and revoke later).
+- The URL is accepted with or without a trailing `/api/v1`, or the `/library` the browser
+  shows. An instance behind a reverse proxy at a path works too.
+- The environment wins over the file, exactly as for Immich, and `config/photoprism.env` and
+  `config/photoprism-*.env` are gitignored.
 
 #### What Immich publishes, and what it does not
 
@@ -215,6 +240,22 @@ A photo **edited in Immich** (cropped, rotated and so on) is published as edited
 edited copy has no EXIF date, so sync writes the date beside it in a
 [date sidecar](PHOTOGEN.md#date-sidecars). An edit made in Immich just before a sync may not
 be ready yet; the next sync picks it up.
+
+#### What PhotoPrism publishes, and what it does not
+
+PhotoPrism keeps every file of a photo together, so sync picks one:
+
+| Photo                    | What happens                                                                                                        |
+|--------------------------|---------------------------------------------------------------------------------------------------------------------|
+| JPEG, PNG, HEIC, AVIF, … | The original is published, under the name it was uploaded with, not PhotoPrism's renamed copy or its JPEG of a HEIC |
+| Video                    | The video is published, not the preview image PhotoPrism made of it                                                 |
+| Live Photo               | The still is published                                                                                              |
+| RAW                      | PhotoPrism's JPEG of it is published, as `<name>.jpg`, with its date in a [date sidecar](PHOTOGEN.md#date-sidecars) |
+| Private                  | Skipped: private is PhotoPrism's "do not share this"                                                                |
+| Archived or hidden       | Skipped. PhotoPrism does not show archived photos in albums either                                                  |
+
+The caption is the photo's **Caption**. Its **Title** is not used, because PhotoPrism generates
+one for every photo from where and when it was taken.
 
 #### Where synced media lives
 
@@ -251,8 +292,9 @@ sync writes the media and `metadata.yaml`, and deletes anything it does not reco
   upstream description. The upstream value slots below both existing sources, so
   "inline wins over the file" is unchanged.
 - `provider` must be a name `photogen` knows, and `album_id` must not be empty.
-- For the `immich` provider, `album_id` must look like a UUID, and no two albums may sync the
-  same one from the same provider. Both are checked as the config is read, before anything
+- For the `immich` provider, `album_id` must look like a UUID; for `photoprism`, like an album
+  UID (`a` and 15 lowercase letters or digits). No two albums may sync the same one from the
+  same provider. Both are checked as the config is read, before anything
   downloads.
 - Everything else about the album — slug rules, `cover:`, `manual_sort_order:`,
   `recurse:` — is unchanged.
