@@ -58,6 +58,10 @@ if [ -z "$DDPHOTOS_DIR" ]; then
     fi
 elif [ ! -d "$DDPHOTOS_DIR" ]; then
     echo "Error: --dir directory not found: $DDPHOTOS_DIR" >&2; exit 1
+else
+    # Normalize like CONFIG_HOST_DIR below, so the "inside DDPHOTOS_DIR" prefix checks compare
+    # like with like. Under Git Bash a Windows-form --dir (C:\Users\...) becomes /c/Users/...
+    DDPHOTOS_DIR="$(cd "$DDPHOTOS_DIR" && pwd)"
 fi
 
 # CONFIG_HOST_DIR: host path to config directory (normalized)
@@ -280,9 +284,11 @@ NAME_FLAGS=(); [ -n "${DDPHOTOS_CONTAINER_NAME:-}" ] && NAME_FLAGS=(--name "$DDP
 # Command prefix that disables Git Bash/MSYS automatic POSIX->Windows path conversion.
 # MSYS rewrites a bare container path argument such as `-w /ddphotos` into
 # `C:/Program Files/Git/ddphotos` (the MSYS install root + the path), which Docker then
-# rejects with "the working directory '...' is invalid". Use this prefix on docker runs
-# that pass container paths as standalone args (e.g. -w); the -v mounts are unaffected
-# because their host side is already a Windows path from cygpath. Empty on macOS/Linux.
+# rejects with "the working directory '...' is invalid". It does the same to the value of
+# `-e NAME=/path` (DDPHOTOS_CONFIG_DIR=/ddphotos-config became C:/Program Files/Git/...) and
+# to container-path arguments, so every `docker run` uses this prefix. The -v mounts are
+# unaffected because their host side is already a Windows path from cygpath. Empty on
+# macOS/Linux.
 DOCKER_NOPATHCONV=()
 case "$OSTYPE" in
     msys|cygwin) DOCKER_NOPATHCONV=(env MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*') ;;
@@ -334,8 +340,11 @@ open_login_url() {
 }
 
 # Resolve a path to absolute. Relative paths are anchored to DDPHOTOS_DIR.
+# Under Git Bash a Windows-form path (C:\Users\...) is converted to /c/Users/... first, or it
+# would look relative; cygpath -u leaves Unix-form and relative paths as they are.
 abs_path() {
     local p="$1"
+    case "$OSTYPE" in msys|cygwin) p="$(cygpath -u "$p")" ;; esac
     [[ "$p" != /* ]] && p="$DDPHOTOS_DIR/$p"
     echo "$(cd "$(dirname "$p")" 2>/dev/null && pwd)/$(basename "$p")"
 }
@@ -467,7 +476,7 @@ case "$cmd" in
         if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] && [[ " $* " != *" --windows "* ]]; then
             INIT_ARGS+=(--windows)
         fi
-        "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" init "${INIT_ARGS[@]}"
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" init "${INIT_ARGS[@]}"
         ;;
 
     decode)
@@ -512,7 +521,7 @@ case "$cmd" in
         fi
 
         print_mounts
-        "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$IMAGE" decode "${PW_ARGS[@]}" "$ENC_CONTAINER"
         ;;
 
     search-cover)
@@ -521,7 +530,7 @@ case "$cmd" in
             exit 1
         fi
         print_mounts
-        "$DOCKER" run --rm \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             "${MOUNT_FLAGS[@]}" \
             "$IMAGE" search-cover "$@"
@@ -553,7 +562,7 @@ case "$cmd" in
         # into it the first time it actually meets a video, and never otherwise, so a
         # photo-only site never pays for video support. Same shape as the npm cache volume
         # used by wrangler and surge below.
-        "$DOCKER" run --rm \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
             --add-host=host.docker.internal:host-gateway \
             "${FFMPEG_FLAGS[@]}" \
             "${MOUNT_FLAGS[@]}" \
@@ -566,14 +575,14 @@ case "$cmd" in
         # No -it: this only downloads and never prompts, and requesting a TTY makes it fail
         # outright when run from a script or a pipe.
         print_mounts
-        "$DOCKER" run --rm \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
             "${FFMPEG_FLAGS[@]}" \
             "$IMAGE" install-ffmpeg "$@"
         ;;
 
     build)
         print_mounts
-        "$DOCKER" run --rm \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             "${MOUNT_FLAGS[@]}" \
             "$IMAGE" build "$@"
@@ -582,7 +591,7 @@ case "$cmd" in
     serve)
         print_mounts
         publish_flags "$SERVE_PORT:80"
-        "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e SERVE_PORT="$SERVE_PORT" \
             "${MOUNT_FLAGS[@]}" \
@@ -598,7 +607,7 @@ case "$cmd" in
         # so the printed link would look right while refusing connections. (serve differs: apache
         # is always on 80 inside, hence "$SERVE_PORT:80" above.)
         publish_flags "$RUN_PORT:$RUN_PORT"
-        "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${IT_FLAGS[@]}" "${NAME_FLAGS[@]}" \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             -e RUN_PORT="$RUN_PORT" \
             "${MOUNT_FLAGS[@]}" \
@@ -608,7 +617,7 @@ case "$cmd" in
 
     export)
         print_mounts
-        "$DOCKER" run --rm \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
             -e DDPHOTOS_SITE_ID="$DDPHOTOS_SITE_ID" \
             "${MOUNT_FLAGS[@]}" \
             "$IMAGE" export "$@"
@@ -625,7 +634,7 @@ case "$cmd" in
         [ -n "$DDPHOTOS_CONFIG_DIR" ] && DEPLOY_ENV+=(-e "DDPHOTOS_CONFIG_DIR=$DDPHOTOS_CONFIG_DIR")
         [ -n "$DDPHOTOS_SITE_ENV" ]   && DEPLOY_ENV+=(-e "DDPHOTOS_SITE_ENV=$DDPHOTOS_SITE_ENV")
         print_mounts
-        "$DOCKER" run --rm \
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm \
             -e SITE_ID="$DDPHOTOS_SITE_ID" \
             "${MOUNT_FLAGS[@]}" \
             "${DEPLOY_ENV[@]}" \
@@ -742,7 +751,7 @@ case "$cmd" in
             "$DOCKER" image rm "$IMAGE"
         fi
         # update this script
-        "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$UPGRADE_IMAGE" upgrade
+        "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "${MOUNT_FLAGS[@]}" "$UPGRADE_IMAGE" upgrade
         ;;
 
     version)
@@ -750,7 +759,7 @@ case "$cmd" in
         echo "Script:         $SCRIPT_DIR/ddphotos"
         echo "Image:          $IMAGE"
         if [ "${1:-}" = "--image" ]; then
-            "$DOCKER" run --rm "$IMAGE" version | sed 's/^/                  /'
+            "${DOCKER_NOPATHCONV[@]}" "$DOCKER" run --rm "$IMAGE" version | sed 's/^/                  /'
         fi
         echo "DD Photos dir:  $DDPHOTOS_DIR"
         echo "Config dir:     $CONFIG_HOST_DIR"
