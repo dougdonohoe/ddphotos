@@ -245,18 +245,24 @@ build_config_bases_mounts() {
 }
 
 # Query Docker Hub for the latest versioned release tag and write upgrade.txt if newer.
+# Checks at most once a day, so regular commands don't hit Docker Hub every run. Pass
+# "force" to skip that throttle: 'upgrade' does, or a release published since the last
+# check would be missed and the user told there is nothing to upgrade to. A forced check
+# also waits longer for Docker Hub, since the user is waiting on the answer anyway.
 check_for_update() {
     [[ "$CURRENT_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 0
     command -v curl >/dev/null 2>&1 || return 0
 
-    local last_check="$STATE_DIR/last-check"
-    if [ -f "$last_check" ] && [ -z "$(find "$last_check" -mmin +1440 2>/dev/null)" ]; then
+    local last_check="$STATE_DIR/last-check" timeout=2
+    if [ "${1:-}" = "force" ]; then
+        timeout=15
+    elif [ -f "$last_check" ] && [ -z "$(find "$last_check" -mmin +1440 2>/dev/null)" ]; then
         return 0
     fi
 
     local repo latest newer
     repo="${IMAGE%%:*}"
-    latest=$(curl -sf --max-time 2 \
+    latest=$(curl -sf --max-time "$timeout" \
         "https://hub.docker.com/v2/repositories/${repo}/tags?page_size=50&ordering=last_updated" \
         | grep -oE '"name":"v[0-9]+\.[0-9]+\.[0-9]+"' \
         | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' \
@@ -455,7 +461,11 @@ if [ -f "$UPGRADE_FILE" ]; then
     fi
 fi
 
-check_for_update
+if [ "$cmd" = "upgrade" ]; then
+    check_for_update force
+else
+    check_for_update
+fi
 
 # Print update msg if not on dev image
 if [ -f "$UPGRADE_FILE" ] && [ "$CURRENT_VERSION" != "ddphotos" ] ; then
