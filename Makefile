@@ -425,13 +425,13 @@ docker-env-test:
 	bin/test-docker-env.sh
 
 .PHONY: ddphotos-install-dev
-## ddphotos-install-dev: install ddphotos script from local dev image into ~/.local/bin and ~/.config/ddphotos/bin (DD Photos app)
+## ddphotos-install-dev: install ddphotos script from local dev image into ~/.local/bin and ~/.config/ddphotos/bin (DD Photos App)
 ddphotos-install-dev:
 	docker run --rm -v ~/.local/bin:/ddphotos ddphotos init --script-only
 	docker run --rm -v ~/.config/ddphotos/bin:/ddphotos ddphotos init --script-only
 
 .PHONY: ddphotos-install-prod
-## ddphotos-install-prod: install ddphotos script from Docker Hub image into ~/.local/bin and ~/.config/ddphotos/bin (DD Photos app)
+## ddphotos-install-prod: install ddphotos script from Docker Hub image into ~/.local/bin and ~/.config/ddphotos/bin (DD Photos App)
 ddphotos-install-prod:
 	docker run --rm -v ~/.local/bin:/ddphotos dougdonohoe/ddphotos:latest init --script-only
 	docker run --rm -v ~/.config/ddphotos/bin:/ddphotos dougdonohoe/ddphotos:latest init --script-only
