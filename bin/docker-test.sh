@@ -190,6 +190,7 @@ TEST_DIR=$(mktempd)
 chmod 755 "$TEST_DIR"
 docker run --rm -v "$TEST_DIR":/ddphotos "$IMAGE" init --site-id "$SITE_ID"
 [ -x "$TEST_DIR/ddphotos" ]              || fail "ddphotos script not installed"
+[ -f "$TEST_DIR/AGENTS.md" ]             || fail "AGENTS.md not installed"
 [ -f "$TEST_DIR/config/albums.yaml" ]    || fail "config/albums.yaml not created"
 [ -f "$TEST_DIR/config/passwords.yaml" ] || fail "config/passwords.yaml not created"
 [ -f "$TEST_DIR/config/site.env" ]       || fail "config/site.env not created"

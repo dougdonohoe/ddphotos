@@ -30,6 +30,8 @@ include docs changes.
 - [docs/ENV.md](docs/ENV.md) — environment configuration
 - [docs/MAKEFILE.md](docs/MAKEFILE.md) — all Makefile targets
 - [docs/PHOTOGEN.md](docs/PHOTOGEN.md) — `photogen` CLI flags and configuration
+- [AGENTS.md](AGENTS.md) — files that must change together (routing, JSON types, media
+  types, versions). Written for AI coding agents, but just as useful to people
 
 ## Testing
 

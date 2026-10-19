@@ -108,7 +108,7 @@ RUN chmod +x /app/bin/search-cover.sh
 
 # The starter site, assembled here exactly as it should land on the user's disk, so
 # 'ddphotos init' is a single recursive copy of this tree (see docker/do-init.sh).
-# docker/init/ supplies config/ and sample-photos/README.md; the photos come from the
+# docker/init/ supplies AGENTS.md, config/ and sample-photos/README.md; the photos come from the
 # same sample albums the demo site uses.
 COPY docker/init/ /docker/init/
 COPY docker/hero.jpg /docker/init/sample-photos/hero.jpg

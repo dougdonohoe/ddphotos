@@ -74,7 +74,7 @@ if [ -f "$CONFIG/albums.yaml" ]; then
     exit 1
 fi
 
-# /docker/init holds the whole starter site (config/ and sample-photos/) laid out exactly
+# /docker/init holds the whole starter site (AGENTS.md, config/ and sample-photos/) laid out exactly
 # as it should appear on the user's disk, so installing it is one recursive copy. The
 # sample photos land next to config/ as ordinary files the user can see, edit and delete;
 # albums.yaml reaches them via the relative base 'sample-base'.

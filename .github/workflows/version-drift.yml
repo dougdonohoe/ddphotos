@@ -5,7 +5,7 @@ name: Version Drift
 # versions, the `go` job covers the Go toolchain directive and reachable vulnerabilities.
 # Each opens its own issue, so the two do not mix.
 #
-# web/.nvmrc and web/.npm-version hold exact versions deliberately (see CLAUDE.md): a
+# web/.nvmrc and web/.npm-version hold exact versions deliberately (see AGENTS.md): a
 # floating tag like `node:24` means the same commit builds a different image depending on
 # the day, and an upstream regression then arrives with no commit to bisect. The cost of
 # pinning exactly is losing the one thing a floating tag gave us for free -- finding out

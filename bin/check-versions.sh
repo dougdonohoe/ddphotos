@@ -2,7 +2,7 @@
 #
 # Reports when the Node or npm version this repo pins has fallen behind upstream.
 #
-# web/.nvmrc and web/.npm-version hold *exact* versions on purpose (see CLAUDE.md). A
+# web/.nvmrc and web/.npm-version hold *exact* versions on purpose (see AGENTS.md). A
 # floating tag like `node:24` means the same commit builds a different image depending on
 # the day you built it, and an upstream regression then arrives with no commit to bisect.
 # Node 24.2.0 broke recursive fs.cpSync onto Docker bind mounts exactly that way.

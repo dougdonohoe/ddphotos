@@ -39,7 +39,8 @@ docker run --rm -v $HOME/my-ddphotos:/ddphotos dougdonohoe/ddphotos init --windo
 
 This creates `config/` (`albums.yaml`, `custom.css`, `passwords.yaml`, `site.env`) and a
 `sample-photos/` folder beside it, along with the empty `albums/`, `build/` and `export/`
-output directories. See [Directory Layout](#directory-layout).
+output directories, plus an `AGENTS.md` for AI coding agents. See
+[Directory Layout](#directory-layout).
 
 ### 3. Generate, run, build, and serve the starter site
 
@@ -517,6 +518,7 @@ After `init`, your ddphotos directory looks like this:
 ```
 my-ddphotos/
   ddphotos           ← wrapper script
+  AGENTS.md          ← guidance for AI coding agents working on your site
   config/
     albums.yaml      ← album definitions, site settings, and descriptions
     custom.css       ← optional CSS overrides

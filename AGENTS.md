@@ -1,0 +1,176 @@
+# AGENTS.md
+
+This file guides AI coding agents working on the DD Photos code itself.
+See the [docs/](docs) directory for full developer documentation (architecture, data flow, env vars,
+Makefile targets, CLI flags, etc.).
+
+**Building a photo site with DD Photos, not changing it?** Nothing below applies. A site is
+its own directory holding `config/albums.yaml`, run through the `ddphotos` Docker wrapper,
+and this repo needs no edits. Start with the Docker Quick Start in [README.md](README.md), then
+[docs/DOCKER.md](docs/DOCKER.md) (commands and deploys), [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+(`albums.yaml`, captions, syncing from Immich or PhotoPrism), [docs/PHOTOGEN.md](docs/PHOTOGEN.md)
+and [docs/CUSTOM-CSS.md](docs/CUSTOM-CSS.md).
+
+`ddphotos init` gives each new site its own AGENTS.md, copied from `docker/init/AGENTS.md`.
+When the site layout, the wrapper's commands or those docs' paths change, update it too.
+
+## Directory structure sync requirement
+
+If the `albums/` or `build/` directory structure changes, keep these in sync
+(album dirs currently hold `grid/`, `full/`, `video/`, `cover.jpg` and `index.json`):
+
+- `bin/deploy-photos.sh` — rsync and S3 logic
+- `web/setup-htdocs.sh` — sets up the Apache htdocs directory
+- `bin/gen-deploy-tree.py` — generates the directory tree image used in docs
+- `## Syncing Logic` section in `docs/DEPLOY.md`
+
+There is a third root-level directory, `sync/` (`DDPHOTOS_SYNC_DIR`), holding albums
+photogen downloads from an upstream photo manager:
+`sync/{site-id}/{provider}/{slug}/`, each with `metadata.yaml`, `photogen.txt`, the
+media, and a `.photogen.json` date sidecar per photo edited upstream. **It is a source,
+not output.** Nothing under it is deployed, so the four files above need no change when
+it moves — but `pkg/photogen/sync.go` (`SyncAlbumPath`),
+`config/defaults.env`, `docker/Dockerfile`'s `ENV` block and the layout in
+`docs/CONFIGURATION.md` all name the shape and do.
+
+## Docker host-reachability sync requirement
+
+Three files make an `IMMICH_INSTANCE_URL` or `PHOTOPRISM_SITE_URL` of `localhost` work inside
+the container, and the feature is broken if any one of them changes alone:
+
+- `docker/Dockerfile` sets `DDPHOTOS_IN_DOCKER=1`, which is the only way photogen can tell
+- `normalizeSyncURL` (`pkg/photogen/provider_http.go`, shared by every HTTP provider) reads it
+  and rewrites a loopback host to `host.docker.internal`
+- `docker/ddphotos` passes `--add-host=host.docker.internal:host-gateway` on the `photogen`
+  run, which Docker Engine on Linux needs and Docker Desktop ignores
+
+`docs/DOCKER.md` and `docs/ENV.md` document the behavior. The same `docker/ddphotos` block
+also passes `IMMICH_API_KEY` / `IMMICH_INSTANCE_URL` and `PHOTOPRISM_APP_PASSWORD` /
+`PHOTOPRISM_SITE_URL` through when they are set in the host environment, which is what makes
+"a real environment variable wins over `immich.env`" true in Docker mode too. A new HTTP
+provider's two variables go in that list and in `bin/test-docker-env.sh`.
+
+## Sync provider responsibilities
+
+A `SyncProvider` (`pkg/photogen/sync.go`) decides only what needs its own upstream's fields.
+**Unsupported extensions (including RAW) and photo-wins base-name clashes are decided once,
+for every provider, in `filterSyncAssets`**. The second mirrors the build's
+`dropLivePhotoVideos` and only saves downloading a clip the build would skip anyway. A
+provider that re-implements either one will double its warnings. A provider skipping an
+asset warns through the `warnf` it was constructed with, because `filterSyncAssets` only
+prints the `Warnings` of assets it is handed.
+
+Credentials, URL normalization, retries and the Docker connection-error explanation are shared
+by every HTTP provider in `pkg/photogen/provider_http.go`: a new provider declares an
+`httpUpstream` and supplies only its auth header and its own error-body reader.
+
+Provider names live in exactly one place, `syncProviderNames`; `isSyncProvider` gates
+validation and `newSyncProvider`'s switch gates construction, so adding a name to one without
+the other is what the switch's `default` branch exists to catch.
+
+## Type sync requirement
+
+The Go structs in `pkg/photogen/json.go` (`AlbumIndex`, `AlbumSummary`, `PhotoIndex`, `PhotoSrcIndex`)
+define the JSON schema consumed by the frontend. Their TypeScript counterparts live in
+`web/src/lib/types.ts`. **When changing a JSON field in either place, update the other.**
+
+## Media type sync requirement
+
+`allowedPhotoExtensions` and `allowedVideoExtensions` (`pkg/photogen/album.go`,
+`pkg/photogen/video.go`) are consumed through `IsPhotoFile` / `IsVideoFile` / `IsMediaFile`
+in three semantically different places, and they are **not** interchangeable:
+
+- the source scan and `photogen.txt` caption keys accept **both** (`IsMediaFile`)
+- hero validation accepts **photos only** (`albums_config.go`) — a hero is a libvips crop
+- serving needs a MIME entry per extension in **both** `web/vite.config.ts` (dev, which
+  also needs HTTP Range for video) and `web/src/hooks.server.ts` (prerender), plus a cache
+  rule in `web/static/.htaccess` and `web/nginx.conf`
+
+The [ddphotos-app](https://github.com/dougdonohoe/ddphotos-app) repo has its own `IMAGE_EXTENSION`
+and `VIDEO_EXTENSION` regexes in `PathValidation.java`, which gate its photo chooser and caption
+editor. Keep them in step with the two Go sets.
+
+## Same-stem file sync requirement
+
+Files whose names differ only by extension (`IMG_1.jpg`, `IMG_1.png`) are separate photos.
+A `photogen.txt` entry with an extension names one file; a bare stem names every file with
+that stem; the full name wins. Four places implement that and must agree:
+
+- `disambiguateStems` (`pkg/photogen/album.go`) gives all but the first of a group its
+  full name as the output stem (`IMG_1.png.webp`), after `dropLivePhotoVideos` has removed
+  the video of a photo/video pair
+- `photoMatcher` (`album.go`) resolves `photogen.txt` entries for the build
+- `syncItemMatcher` (`pkg/photogen/sync_captions.go`) does the same for the sync caption merge
+- `PhotogenFile` and `PhotogenEditorPhase` in the ddphotos-app repo, whose caption editor
+  shows a row per file and writes full names
+
+## URL routing sync requirement
+
+The same routing rules are implemented once per hosting target, and a change to one is almost
+always a change to all four:
+
+| File                            | Target                                                            |
+|---------------------------------|-------------------------------------------------------------------|
+| `web/static/.htaccess`          | Apache (rsynced with every deploy)                                |
+| `web/nginx.conf`                | nginx (baked into the image; never deployed by the scripts)       |
+| `docker/cloudflare-worker.js`   | Cloudflare Pages (`_worker.js`, shipped by `export --cloudflare`) |
+| `docker/cloudfront-function.js` | S3 + CloudFront (viewer-request stage)                            |
+
+The rules: extensionless path to pre-rendered `.html`, `/albums/slug/N` photo permalinks to
+`/albums/slug.html`, trailing-slash redirects, and `404.html` for unknown paths. **Adding or
+changing a route means editing all four files, then teaching `bin/test-photos-server.sh` about
+it** — it has `--cloudflare`, `--s3` and `--surge` modes for the platforms that differ.
+
+`docker/cloudfront-function.js` is written for CloudFront's runtime, which has no module system;
+`bin/s3-edge-proxy.js` loads it through `vm` so the file stays deployable verbatim. **Do not add
+`module.exports` or `import`/`export` to it, and keep its redirect `Location` relative** — the S3
+test serves over `http://localhost`, where a hardcoded `https://` breaks.
+
+See `docs/DEPLOYMENT-SERVERS.md` for what each target's config does.
+
+## Node/npm version sync requirement
+
+`web/.nvmrc` and `web/.npm-version` hold **exact** versions and are the single sources of truth.
+The Makefile, `bin/docker-push.sh`, `bin/node-init.sh` and the three `setup-node` steps in
+`.github/workflows/ci.yml` all read them. **Do not hardcode either version anywhere else, and do
+not relax the pin to a major-only tag** — a floating `node:24` once shipped a regression with no
+commit to bisect (see `copyDirRecursive` in `web/vite.config.ts`). Bumping Node is a deliberate
+edit to `web/.nvmrc` that CI then tests.
+
+Four rules follow from that:
+
+- `docker/Dockerfile` takes `NODE_VERSION` and `NPM_VERSION` (and `GO_VERSION`, the major.minor
+  of go.mod's `go` directive) as **required** build args.
+  **Never give them defaults** — a bare `docker build -f docker/Dockerfile .` fails by design.
+- `bin/node-init.sh` is the shell-side counterpart to the Makefile's `NODE_INIT`. **Keep the two
+  in sync, and keep both comparing the full `node -v` output** — matching on the major alone lets
+  a distro node at the wrong version shadow the repo's.
+- `web/package.json`'s `engines.node` is a major range, updated by hand. **Bump it when
+  `web/.nvmrc` crosses into a new major.**
+- `bin/check-versions.sh` reads the base image variant off the Dockerfile's `FROM` line, so **the
+  Dockerfile stays the only place naming the base image.**
+
+Why the pins are exact, how `engine-strict` enforces them, and how the nightly drift check covers
+what Dependabot cannot: `docs/INSTALL.md` and `docs/TESTING.md`.
+
+## Commands
+
+```bash
+make build test vet              # Go build, unit tests, static analysis
+make sample-build                # build static site with sample data
+make web-unit-test               # Vitest unit tests for TypeScript helpers in web/src/lib
+make web-sanity-test             # Playwright e2e tests: Apache, no-passwords + all-passwords (quick comprehensive web check)
+make web-playwright-test-apache  # Playwright e2e tests, Apache, no-passwords only
+make docker-test                 # Test 'ddphotos' docker commands
+```
+
+System dependency required: `brew install vips pkg-config`
+
+## Testing Practices
+
+- **Pure TypeScript helpers** (`web/src/lib/*.ts`): unit-test them with Vitest as `src/lib/<name>.test.ts`
+  rather than reaching for a browser; `make web-unit-test` runs them, and `web-sanity-test` runs them first
+- **Reproducing frontend bugs**: write a failing Playwright test that demonstrates the bug before fixing it
+- **New UI features**: add a Playwright test covering the new behavior — tests live in `web/tests/`
+- After any UI changes, run `make web-sanity-test` (Apache, no-passwords + all-passwords) as the standard web check
+- Full coverage: `make web-playwright-test-all` (all password/CSS variants, dev + apache + nginx)
