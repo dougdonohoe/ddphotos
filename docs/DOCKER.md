@@ -193,7 +193,7 @@ ddphotos --dir ~/work/ddphotos --site-id sample build
 | [`surge`](#surge)               | Run the bundled Surge CLI (deploy to Surge).                      |
 | [`decode`](#decode)             | Decrypt an `.enc.json` file and print the plaintext JSON.         |
 | [`search-cover`](#search-cover) | Find the original filename for a photo given its URL.             |
-| [`upgrade`](#upgrade)           | Update the local `ddphotos` wrapper script to match the image.    |
+| [`upgrade`](#upgrade)           | Pull a newer image, if one is available, and update the script.   |
 | [`version`](#version)           | Print script location, image tag, and config paths.               |
 
 ### `init`
@@ -466,12 +466,22 @@ ddphotos --site-id other-site search-cover <url>
 
 ### `upgrade`
 
-Updates the local `ddphotos` wrapper script to match the image. Run this when an update
-notice appears to install the newer version, or to fix a script/image mismatch.
+Upgrades to the newer release named by an update notice, or fixes a script/image mismatch.
 
 ```bash
 ddphotos upgrade
 ```
+
+When an [update notice](#automatic-update-check) is pending, `upgrade`:
+
+1. Pulls the new image (e.g. `dougdonohoe/ddphotos:v1.3.0`) and points the `latest` tag at it
+2. Removes the old image, to reclaim its disk space
+3. Replaces the `ddphotos` wrapper script with the new image's copy, which is pinned to the new
+   version (plus `ddphotos.cmd` on Windows installs that have it)
+
+With no notice pending, or on a `dev` build, only step 3 runs, against the current image. That
+brings the script back in step with the image without changing versions, and reports
+"up to date" if they already match.
 
 ### `version`
 
@@ -590,11 +600,11 @@ stored in `~/.config/ddphotos/` (created automatically on first run).
 If a newer version is available, a notice prints to stderr on every subsequent run:
 
 ```
-Update available: v1.3.0 - run 'ddphotos upgrade' to update
+Update available from v1.2.0: v1.3.0 - run 'ddphotos upgrade' to update
 ```
 
-Run `ddphotos upgrade` to pull and install it. The notice is cleared automatically once
-the installed version matches the latest.
+Run [`ddphotos upgrade`](#upgrade) to pull the new image and install the matching script. The
+notice is cleared automatically once the installed version matches the latest.
 
 ### Script/image mismatch check
 
