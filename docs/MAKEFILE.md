@@ -13,6 +13,7 @@ as defined in `config/defaults.env`.
 | `build`                       | Compile all Go binaries                                                                                                       |
 | `test`                        | Run Go unit tests (with the race detector; `RACE=` to disable, as CI does on PRs)                                             |
 | `mod-tidy`                    | Run `go mod tidy` to clean up imports                                                                                         |
+| `go-upgrade`                  | Upgrade Go dependencies to their latest minor/patch versions, then run `go mod tidy`                                          |
 | `clean-cache`                 | Run `go clean -cache` (useful after a vips library upgrade)                                                                   |
 | `vet`                         | Run `go vet` static analysis                                                                                                  |
 | `check-versions`              | Report whether the Node/npm versions pinned in `web/` are behind upstream                                                     |
