@@ -109,6 +109,12 @@ vet:
 mod-tidy:
 	go mod tidy
 
+.PHONY: go-upgrade
+## go-upgrade: upgrade Go dependencies to their latest minor/patch versions, then `go mod tidy`
+go-upgrade:
+	go get -u $(GO_PKGS)
+	go mod tidy
+
 .PHONY: clean-cache
 ## clean-cache: run `go clean -cache` (useful after vips library upgrade)
 clean-cache:
