@@ -212,9 +212,22 @@ pass "ddphotos script and config created at $TEST_DIR"
 [ -w "$TEST_DIR/sample-photos/secret/photogen.txt" ]          || fail "sample-photos/secret/photogen.txt is not host-writable"
 pass "sample-photos installed at $TEST_DIR/sample-photos and host-writable"
 
-# Create static/llms.txt to verify build copies static files (below)
+# Create static/llms.txt to verify run serves and build copies static files (below)
 mkdir "$TEST_DIR/config/static"
 touch "$TEST_DIR/config/static/llms.txt"
+
+# Put a static logo in the site title. The prerender crawler follows the <img> before the
+# build copies config/static into the output, so this verifies the build tolerates that.
+/bin/cp "$REPO_ROOT/web/static/favicon-32.png" "$TEST_DIR/config/static/logo.png"
+python3 - "$TEST_DIR/config/albums.yaml" <<'EOF'
+import sys
+path = sys.argv[1]
+s = open(path).read()
+old = "  site_title_html: >-\n    My Photos\n"
+assert old in s, "site_title_html not found in init albums.yaml"
+open(path, "w").write(s.replace(old, '  site_title_html: >-\n    <img src="/logo.png" alt="My Photos">\n'))
+EOF
+grep -q 'src="/logo.png"' "$TEST_DIR/config/albums.yaml" || fail "site_title_html logo not written to config/albums.yaml"
 
 VALIDATE_SITE_ID=$(awk '/^settings:/{f=1} f && /[[:space:]]id:/{gsub(/.*id:[[:space:]]*/,""); print; exit}' "$TEST_DIR/config/albums.yaml")
 [ "$VALIDATE_SITE_ID" = "$SITE_ID" ] || fail "SITE_ID mismatch: expected '$SITE_ID', got '$VALIDATE_SITE_ID' in config/albums.yaml"
@@ -557,6 +570,12 @@ step "Run — Vite dev server on port $RUN_PORT"
 RUN_PORT="$RUN_PORT" "${DDPHOTOS[@]}" --non-interactive run &
 RUN_PID=$!
 wait_for_http "http://localhost:$RUN_PORT" "Vite dev server"
+status=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$RUN_PORT/llms.txt")
+[ "$status" = "200" ] || fail "run: config/static/llms.txt not served (HTTP $status)"
+pass "run: config/static/llms.txt served"
+status=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "http://localhost:$RUN_PORT/logo.png")
+[ "$status" = "200 image/png" ] || fail "run: config/static/logo.png not served as image/png (got '$status')"
+pass "run: config/static/logo.png served"
 run_playwright "http://localhost:$RUN_PORT" "$PASSWORDS_FILE"
 kill "$RUN_PID" 2>/dev/null || true; wait "$RUN_PID" 2>/dev/null || true; RUN_PID=""
 pass "run + Playwright OK"
@@ -584,6 +603,8 @@ pass "build/$SITE_ID created"
 pass "build/$SITE_ID/index.html created"
 [ -f "$TEST_DIR/build/$SITE_ID/llms.txt" ] || fail "build/$SITE_ID/llms.txt not created"
 pass "build/$SITE_ID/llms.txt created"
+[ -f "$TEST_DIR/build/$SITE_ID/logo.png" ] || fail "build/$SITE_ID/logo.png not created"
+pass "build/$SITE_ID/logo.png created (site title <img> survived pre-rendering)"
 
 # ── 12. Serve (Apache) + Playwright + test-photos-server.sh ───────────────────
 step "Serve — Apache on port $SERVE_PORT"
