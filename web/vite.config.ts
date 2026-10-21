@@ -10,6 +10,7 @@ import {
 	symlinkSync
 } from 'fs';
 import { execSync } from 'child_process';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import adapter from '@sveltejs/adapter-static';
@@ -55,6 +56,75 @@ const ALBUM_MIME_TYPES: Record<string, string> = {
 	css: 'text/css'
 };
 
+// Content types for config/static files served at the site root during dev. In a build they
+// are copied into the output and the web server picks the type.
+const ROOT_MIME_TYPES: Record<string, string> = {
+	...ALBUM_MIME_TYPES,
+	png: 'image/png',
+	gif: 'image/gif',
+	svg: 'image/svg+xml',
+	ico: 'image/x-icon',
+	txt: 'text/plain; charset=utf-8',
+	html: 'text/html; charset=utf-8',
+	js: 'text/javascript',
+	woff2: 'font/woff2'
+};
+
+// Serve the file at root + req.url, or call next() when there is no such file.
+//
+// Content-Type and Range handling are both required for video, and only here: Apache and
+// nginx do this for free, so a bug at this layer looks like a broken player rather than a
+// broken dev server. Without a Content-Type the browser will not treat the response as
+// media, and without Range support seeking does nothing and Safari refuses to play the file
+// at all.
+function serveFile(
+	root: string,
+	mimeTypes: Record<string, string>,
+	req: IncomingMessage,
+	res: ServerResponse,
+	next: () => void
+) {
+	// Drop the query string: images carry a ?v= version (see albumFileUrl).
+	const pathname = (req.url ?? '/').split('?')[0];
+	const filePath = join(root, decodeURIComponent(pathname));
+	let stat;
+	try {
+		stat = statSync(filePath);
+	} catch {
+		return next();
+	}
+	if (!stat.isFile()) return next();
+
+	const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+	const contentType = mimeTypes[ext];
+	if (contentType) res.setHeader('Content-Type', contentType);
+	res.setHeader('Accept-Ranges', 'bytes');
+
+	// "bytes=START-END", either end optional. Anything else is served whole.
+	const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+	if (match && (match[1] !== '' || match[2] !== '')) {
+		const size = stat.size;
+		let start = match[1] === '' ? size - Number(match[2]) : Number(match[1]);
+		let end = match[1] === '' || match[2] === '' ? size - 1 : Number(match[2]);
+		start = Math.max(0, start);
+		end = Math.min(end, size - 1);
+
+		if (start > end) {
+			res.statusCode = 416; // Range Not Satisfiable
+			res.setHeader('Content-Range', `bytes */${size}`);
+			return res.end();
+		}
+
+		res.statusCode = 206;
+		res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+		res.setHeader('Content-Length', String(end - start + 1));
+		return createReadStream(filePath, { start, end }).pipe(res);
+	}
+
+	res.setHeader('Content-Length', String(stat.size));
+	createReadStream(filePath).pipe(res);
+}
+
 // Parse a shell-style KEY=VALUE env file and apply entries to process.env.
 // Skips blank lines and comments. Strips optional surrounding quotes from values.
 // Existing env vars are never overwritten (first-write wins).
@@ -95,6 +165,21 @@ const albumsDir = resolveAlbumsDir();
 
 // Build metadata written by photogen: albums/.build/<site-id>.json
 const buildMetaPath = join(dirname(albumsDir), '.build', `${siteId}.json`);
+
+// The site's config/static directory, found through the configDir photogen records in the
+// build metadata. Undefined until photogen has run, or when the directory does not exist.
+function configStaticDir(): string | undefined {
+	if (!existsSync(buildMetaPath)) return undefined;
+	let meta: { configDir?: string };
+	try {
+		meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8'));
+	} catch {
+		return undefined;
+	}
+	if (!meta.configDir) return undefined;
+	const staticDir = join(meta.configDir, 'static');
+	return existsSync(staticDir) ? staticDir : undefined;
+}
 
 /**
  * Return /albums/<slug> prerender entries for every album directory found under
@@ -207,6 +292,10 @@ export default defineConfig({
 					// Album assets (/albums/**) are served at runtime, not pre-rendered.
 					// Ignore 404s the crawler encounters for images, JSON, etc.
 					if (path.startsWith('/albums/')) return;
+					// config/static files are copied into the output after pre-rendering
+					// (static-root-files below), so the crawler cannot fetch them yet.
+					const staticDir = configStaticDir();
+					if (staticDir && existsSync(join(staticDir, decodeURIComponent(path)))) return;
 					throw new Error(message);
 				}
 			}
@@ -220,16 +309,8 @@ export default defineConfig({
 			buildApp: {
 				order: 'post',
 				async handler() {
-					if (!existsSync(buildMetaPath)) return;
-					let meta: { configDir?: string };
-					try {
-						meta = JSON.parse(readFileSync(buildMetaPath, 'utf-8'));
-					} catch {
-						return;
-					}
-					if (!meta.configDir) return;
-					const staticDir = join(meta.configDir, 'static');
-					if (!existsSync(staticDir)) return;
+					const staticDir = configStaticDir();
+					if (!staticDir) return;
 					const buildDir = resolve(__dirname, '..', 'build', siteId);
 					copyDirRecursive(staticDir, buildDir);
 					console.log(`[static-root] copied ${staticDir} → ${buildDir}`);
@@ -268,59 +349,28 @@ export default defineConfig({
 					});
 				});
 
-				// Serve DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID at /albums/** during dev.
-				//
-				// Content-Type and Range handling are both required for video, and only
-				// here: Apache and nginx do this for free, so a bug at this layer looks
-				// like a broken player rather than a broken dev server. Without a
-				// Content-Type the browser will not treat the response as media, and
-				// without Range support seeking does nothing and Safari refuses to play
-				// the file at all.
-				server.middlewares.use('/albums', (req, res, next) => {
-					// Drop the query string: images carry a ?v= version (see albumFileUrl).
-					const pathname = (req.url ?? '/').split('?')[0];
-					const filePath = join(albumsDir, decodeURIComponent(pathname));
-					let stat;
-					try {
-						stat = statSync(filePath);
-					} catch {
-						return next();
-					}
-					if (!stat.isFile()) return next();
-
-					const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
-					const contentType = ALBUM_MIME_TYPES[ext];
-					if (contentType) res.setHeader('Content-Type', contentType);
-					res.setHeader('Accept-Ranges', 'bytes');
-
-					// "bytes=START-END", either end optional. Anything else is served whole.
-					const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
-					if (match && (match[1] !== '' || match[2] !== '')) {
-						const size = stat.size;
-						let start = match[1] === '' ? size - Number(match[2]) : Number(match[1]);
-						let end = match[1] === '' || match[2] === '' ? size - 1 : Number(match[2]);
-						start = Math.max(0, start);
-						end = Math.min(end, size - 1);
-
-						if (start > end) {
-							res.statusCode = 416; // Range Not Satisfiable
-							res.setHeader('Content-Range', `bytes */${size}`);
-							return res.end();
-						}
-
-						res.statusCode = 206;
-						res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
-						res.setHeader('Content-Length', String(end - start + 1));
-						return createReadStream(filePath, { start, end }).pipe(res);
-					}
-
-					res.setHeader('Content-Length', String(stat.size));
-					createReadStream(filePath).pipe(res);
+				// Serve config/static at the site root, as the build does by copying it into
+				// the output. Registered ahead of Vite and SvelteKit so these files win, the
+				// same precedence the copy gives them. Looked up per request so a photogen
+				// run made while the dev server is up is picked up.
+				server.middlewares.use((req, res, next) => {
+					const staticDir = configStaticDir();
+					if (!staticDir) return next();
+					serveFile(staticDir, ROOT_MIME_TYPES, req, res, next);
 				});
-				// Reload browser when album data changes.
-				server.watcher.add(albumsDir);
+
+				// Serve DDPHOTOS_ALBUMS_DIR/DDPHOTOS_SITE_ID at /albums/** during dev.
+				server.middlewares.use('/albums', (req, res, next) =>
+					serveFile(albumsDir, ALBUM_MIME_TYPES, req, res, next)
+				);
+
+				// Reload browser when album data or config/static changes.
+				const watched = [albumsDir];
+				const staticDir = configStaticDir();
+				if (staticDir) watched.push(staticDir);
+				server.watcher.add(watched);
 				server.watcher.on('change', (path) => {
-					if (path.startsWith(albumsDir)) {
+					if (watched.some((dir) => path.startsWith(dir))) {
 						server.ws.send({ type: 'full-reload' });
 					}
 				});

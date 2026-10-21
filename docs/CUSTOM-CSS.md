@@ -483,6 +483,45 @@ Note this only moves the crop window. To change the crop itself, use the `crop:`
 hero config, which takes `top`, `center` or `bottom`. See
 [Hero Image](CONFIGURATION.md#hero-image).
 
+### Center a logo over the hero
+
+`site_title_html` can be an image instead of text. Put the image in your config
+directory's `static` folder, which is served from the site root, and reference it from the
+title:
+
+```yaml
+settings:
+  site_title_html: >-
+    <img src="/logo.png" alt="My Photos" style="display: block; width: min(510px, 100%); height: auto; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.5));">
+```
+
+`display: block` lets the image center with auto margins, `min(510px, 100%)` caps its width
+while letting it shrink on a phone, and the drop shadow keeps it readable over a bright
+hero.
+
+The title sits at the bottom of the hero by default. To center it both ways:
+
+```css
+.hero .hero-overlay {
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2.25rem 2rem 0.75rem;
+}
+
+.hero .hero-overlay h1 img {
+    margin: 0 auto;
+}
+```
+
+The overlay is pinned to the bottom of the hero, so `top: 0` stretches it to the full height
+and the flex column centers the title vertically. The auto margins center the image
+horizontally. `.hero .hero-overlay` ties the built-in `.hero-overlay.svelte-HASH` at two
+classes and wins on source order, including over the built-in mobile padding. The uneven
+padding nudges the logo slightly below true center; a logo that is heavy at the top looks
+high when it is exactly centered, so adjust or even it out to suit yours.
+
 ### Fit an odd-shaped cover to its card
 
 Album cards force covers into a 3:2 box with `object-fit: cover`, which center-crops. That
