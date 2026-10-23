@@ -122,3 +122,8 @@ echo "  2. ./ddphotos export [--copy] [--cloudflare]"
 echo
 echo "Docs:  https://github.com/dougdonohoe/ddphotos/blob/main/docs/DOCKER.md"
 echo
+echo "NOTE:  We highly recommend using the free companion DD Photos App to edit your config files,"
+echo "       and to run the 'ddphotos' commands.  It is much easier and less error-prone."
+echo
+echo "       Get it at https://github.com/dougdonohoe/ddphotos-app"
+echo
