@@ -151,6 +151,51 @@ test('long description is collapsed by default and toggles open and closed', asy
 	await expect(long).toBeInViewport();
 });
 
+// Closing used to switch to the run-together clamped layout first, so the text reflowed and
+// the box jumped before it shrank, while a separate smooth scroll fought the transition.
+test('closing shrinks smoothly, keeping the open layout until the end', async ({ page }) => {
+	test.skip(!hasAlbum, `${ALBUM} album not present`);
+	await page.setViewportSize(MOBILE);
+	await openAlbum(page, ALBUM);
+
+	const long = page.locator('.long-description');
+	const toggle = page.locator('.long-description-toggle');
+	await toggle.click();
+	await settled(page);
+	// Scroll so the toggle sits near the bottom and the top of the text is out of view.
+	await toggle.evaluate((el) => el.scrollIntoView({ block: 'end' }));
+	expect((await long.boundingBox())!.y).toBeLessThan(0);
+
+	// Sample every frame from the click until the clamped layout lands.
+	const samples = await page.evaluate(
+		() =>
+			new Promise<{ height: number; display: string; clamped: boolean }[]>((done) => {
+				const el = document.querySelector<HTMLElement>('.long-description')!;
+				const p = el.querySelector('p')!;
+				const out: { height: number; display: string; clamped: boolean }[] = [];
+				const sample = () => {
+					const clamped = el.classList.contains('clamped');
+					out.push({
+						height: el.getBoundingClientRect().height,
+						display: getComputedStyle(p).display,
+						clamped
+					});
+					if (clamped) done(out);
+					else requestAnimationFrame(sample);
+				};
+				document.querySelector<HTMLElement>('.long-description-toggle')!.click();
+				requestAnimationFrame(sample);
+			})
+	);
+	expect(samples.length).toBeGreaterThan(5);
+	for (let i = 1; i < samples.length; i++) {
+		expect(samples[i].height).toBeLessThanOrEqual(samples[i - 1].height + 0.5);
+	}
+	for (const s of samples.filter((s) => !s.clamped)) expect(s.display).toBe('block');
+	await settled(page);
+	await expect(long).toBeInViewport();
+});
+
 test('long description toggles instantly with reduced motion', async ({ page }) => {
 	test.skip(!hasAlbum, `${ALBUM} album not present`);
 	await page.emulateMedia({ reducedMotion: 'reduce' });

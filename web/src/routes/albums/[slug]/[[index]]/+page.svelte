@@ -3,7 +3,7 @@
      (PhotoSwipe). IntelliJ's static CSS analyzer can't see runtime-injected classes. -->
 <!--suppress CssUnusedSymbol -->
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { browser } from '$app/env';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -72,11 +72,18 @@
 	// measuring removes it for a short one. Starting false made the grid jump on load.
 	let longOverflowing = $state(true);
 	let longEl = $state<HTMLDivElement | undefined>(undefined);
+	// True while closing: the text keeps its open layout until the height has shrunk.
+	let longCollapsing = $state(false);
+	// Ends a running close animation at its final state; null when none is running.
+	let finishCollapse: (() => void) | null = null;
 	// Collapse again whenever the description changes (navigating to another album).
 	$effect.pre(() => {
 		void longDescription;
+		finishCollapse?.();
 		longExpanded = false;
 	});
+	// A close animation still running must not scroll the page navigated to.
+	onDestroy(() => finishCollapse?.());
 	// Measure overflow while clamped; re-measure on resize (rewrapping) and content changes.
 	$effect(() => {
 		const el = longEl;
@@ -98,17 +105,22 @@
 			mo.disconnect();
 		};
 	});
-	// Animates max-height between the clamped height and the text's full height. CSS cannot
+	// Opening animates max-height from the clamped height to the text's full height. CSS cannot
 	// transition to max-height: none, so the full height is measured and set inline for the
 	// duration, then cleared so the open text still rewraps on resize. The transitions only
 	// apply under .animating: otherwise the margin and fade would also animate when the
 	// first measurement adds .has-toggle on page load, sliding the grid up.
 	async function toggleLongDescription() {
+		finishCollapse?.();
 		const el = longEl;
 		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (!el || reduce) {
 			longExpanded = !longExpanded;
 			if (!longExpanded) el?.scrollIntoView({ block: 'nearest' });
+			return;
+		}
+		if (longExpanded) {
+			collapseLongDescription(el);
 			return;
 		}
 		el.classList.add('animating');
@@ -124,21 +136,61 @@
 		// transitionend never fires if the height does not actually change
 		const fallback = setTimeout(settle, 1000);
 		el.addEventListener('transitionend', done);
-		if (!longExpanded) {
-			el.style.maxHeight = `${el.clientHeight}px`;
-			longExpanded = true;
-			await tick();
-			void el.offsetHeight; // commit the start height before changing it
-			el.style.maxHeight = `${el.scrollHeight}px`;
-		} else {
-			el.style.maxHeight = `${el.scrollHeight}px`;
-			void el.offsetHeight;
-			longExpanded = false;
-			await tick();
-			el.style.maxHeight = ''; // falls back to the clamped height, which transitions
-			// After collapsing a long text the reader may be far below it; bring it back into view.
-			el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-		}
+		el.style.maxHeight = `${el.clientHeight}px`;
+		longExpanded = true;
+		await tick();
+		void el.offsetHeight; // commit the start height before changing it
+		el.style.maxHeight = `${el.scrollHeight}px`;
+	}
+	// Closing runs frame by frame rather than as a CSS transition, so the height, the gap
+	// below and the scroll position move together in each frame. As separate animations
+	// (a transition plus a smooth scrollIntoView) they fought, which looked jerky and
+	// bounced on iOS. The text keeps its open layout until the end: switching to the
+	// clamped, run-together layout first made it reflow and jump before shrinking.
+	function collapseLongDescription(el: HTMLDivElement) {
+		// Scroll anchoring would also shift the page as the text shrinks (and as the end
+		// state is measured below), on top of the scrolling done here.
+		const root = document.documentElement;
+		root.style.overflowAnchor = 'none';
+		const startY = window.scrollY;
+		const { top, height: startHeight } = el.getBoundingClientRect();
+		const startMargin = parseFloat(getComputedStyle(el).marginBottom);
+		// Measure the end state by clamping and reading it back before anything paints.
+		el.classList.add('clamped');
+		const endHeight = el.getBoundingClientRect().height;
+		const endMargin = parseFloat(getComputedStyle(el).marginBottom);
+		el.classList.remove('clamped');
+		// After a long text the reader may be far below its top. Scroll up by as much as it
+		// takes to bring the top back into view, spread over the animation, and no more:
+		// the toggle then stays under the finger, rising only once the top is visible.
+		const shrink = startHeight - endHeight + startMargin - endMargin;
+		const scrollBy = Math.min(Math.max(0, 16 - top), shrink, startY);
+		el.classList.add('animating', 'collapsing');
+		el.style.maxHeight = `${startHeight}px`;
+		longCollapsing = true;
+		longExpanded = false;
+		const start = performance.now();
+		let frame = 0;
+		const finish = () => {
+			cancelAnimationFrame(frame);
+			finishCollapse = null;
+			el.classList.remove('animating', 'collapsing');
+			el.style.maxHeight = '';
+			el.style.marginBottom = '';
+			root.style.overflowAnchor = '';
+			longCollapsing = false;
+		};
+		const step = (now: number) => {
+			const t = Math.min(1, (now - start) / 450);
+			const p = 1 - (1 - t) ** 3; // ease out
+			el.style.maxHeight = `${startHeight + (endHeight - startHeight) * p}px`;
+			el.style.marginBottom = `${startMargin + (endMargin - startMargin) * p}px`;
+			if (scrollBy) window.scrollTo({ top: startY - scrollBy * p, behavior: 'instant' });
+			if (t < 1) frame = requestAnimationFrame(step);
+			else finish();
+		};
+		finishCollapse = finish;
+		frame = requestAnimationFrame(step);
 	}
 	let dateSpan = $derived(data.albumData.dateSpan || album?.dateSpan || '');
 	// Header navigation configured via customizations.album_nav; empty means the default
@@ -1410,7 +1462,7 @@
 			<div
 				id="long-description"
 				class="long-description"
-				class:clamped={!longExpanded}
+				class:clamped={!longExpanded && !longCollapsing}
 				class:has-toggle={longOverflowing || longExpanded}
 				bind:this={longEl}
 			>
@@ -1619,7 +1671,8 @@
 		overflow: hidden;
 	}
 
-	:global(.long-description.animating) {
+	/* Opening only: closing sets these frame by frame (collapseLongDescription). */
+	:global(.long-description.animating:not(.collapsing)) {
 		transition:
 			max-height 0.45s cubic-bezier(0.2, 0.7, 0.2, 1),
 			margin-bottom 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -1654,7 +1707,8 @@
 		transition: opacity 0.3s;
 	}
 
-	:global(.long-description.clamped.has-toggle::after) {
+	:global(.long-description.clamped.has-toggle::after),
+	:global(.long-description.collapsing::after) {
 		opacity: 1;
 	}
 
