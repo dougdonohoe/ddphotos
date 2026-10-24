@@ -72,8 +72,6 @@
 	// measuring removes it for a short one. Starting false made the grid jump on load.
 	let longOverflowing = $state(true);
 	let longEl = $state<HTMLDivElement | undefined>(undefined);
-	// True while closing: the text keeps its open layout until the height has shrunk.
-	let longCollapsing = $state(false);
 	// Ends a running close animation at its final state; null when none is running.
 	let finishCollapse: (() => void) | null = null;
 	// Collapse again whenever the description changes (navigating to another album).
@@ -145,8 +143,7 @@
 	// Closing runs frame by frame rather than as a CSS transition, so the height, the gap
 	// below and the scroll position move together in each frame. As separate animations
 	// (a transition plus a smooth scrollIntoView) they fought, which looked jerky and
-	// bounced on iOS. The text keeps its open layout until the end: switching to the
-	// clamped, run-together layout first made it reflow and jump before shrinking.
+	// bounced on iOS.
 	function collapseLongDescription(el: HTMLDivElement) {
 		// Scroll anchoring would also shift the page as the text shrinks (and as the end
 		// state is measured below), on top of the scrolling done here.
@@ -167,7 +164,7 @@
 		const scrollBy = Math.min(Math.max(0, 16 - top), shrink, startY);
 		el.classList.add('animating', 'collapsing');
 		el.style.maxHeight = `${startHeight}px`;
-		longCollapsing = true;
+		el.style.marginBottom = `${startMargin}px`;
 		longExpanded = false;
 		const start = performance.now();
 		let frame = 0;
@@ -178,7 +175,6 @@
 			el.style.maxHeight = '';
 			el.style.marginBottom = '';
 			root.style.overflowAnchor = '';
-			longCollapsing = false;
 		};
 		const step = (now: number) => {
 			const t = Math.min(1, (now - start) / 450);
@@ -1462,7 +1458,7 @@
 			<div
 				id="long-description"
 				class="long-description"
-				class:clamped={!longExpanded && !longCollapsing}
+				class:clamped={!longExpanded}
 				class:has-toggle={longOverflowing || longExpanded}
 				bind:this={longEl}
 			>
@@ -1682,18 +1678,6 @@
 		max-height: calc(var(--long-lines) * 1lh);
 	}
 
-	/* Collapsed, the blocks run together as one paragraph, so a short first paragraph
-	   doesn't leave the gap before the next one as the visible second line. */
-	:global(.long-description.clamped :is(p, ul, ol, li)) {
-		display: inline;
-		margin: 0;
-		padding: 0;
-	}
-
-	:global(.long-description.clamped :is(p, ul, ol, li) + :is(p, ul, ol, li)::before) {
-		content: ' ';
-	}
-
 	:global(.long-description::after) {
 		content: '';
 		position: absolute;
@@ -1707,8 +1691,7 @@
 		transition: opacity 0.3s;
 	}
 
-	:global(.long-description.clamped.has-toggle::after),
-	:global(.long-description.collapsing::after) {
+	:global(.long-description.clamped.has-toggle::after) {
 		opacity: 1;
 	}
 

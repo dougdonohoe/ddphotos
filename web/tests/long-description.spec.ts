@@ -120,17 +120,17 @@ test('long description is collapsed by default and toggles open and closed', asy
 	const display = () => firstP.evaluate((el) => getComputedStyle(el).display);
 	const fade = () => long.evaluate((el) => getComputedStyle(el, '::after').opacity);
 
-	// Collapsed: two lines, paragraphs run together, fading out, with "Show more"
+	// Collapsed: two lines of the same paragraphs, fading out, with "Show more"
 	await expect(long).toHaveClass(/\bclamped\b/);
 	await expect(toggle).toHaveText('Show more');
 	await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 	await expect(toggle).toHaveAttribute('aria-controls', 'long-description');
 	const collapsed = await height();
 	expect(collapsed).toBeLessThanOrEqual(lineHeight * 2 + 1);
-	expect(await display()).toBe('inline');
+	expect(await display()).toBe('block');
 	expect(await fade()).toBe('1');
 
-	// Expanded: full text in separate paragraphs, no fade, "Close" set apart below it
+	// Expanded: full text, no fade, "Close" set apart below it
 	await toggle.click();
 	await expect(long).not.toHaveClass(/\bclamped\b/);
 	await expect(toggle).toHaveText('Close');
@@ -151,9 +151,9 @@ test('long description is collapsed by default and toggles open and closed', asy
 	await expect(long).toBeInViewport();
 });
 
-// Closing used to switch to the run-together clamped layout first, so the text reflowed and
+// Closing used to switch the paragraphs to a run-together layout first, so the text reflowed and
 // the box jumped before it shrank, while a separate smooth scroll fought the transition.
-test('closing shrinks smoothly, keeping the open layout until the end', async ({ page }) => {
+test('closing shrinks smoothly, keeping the paragraph layout', async ({ page }) => {
 	test.skip(!hasAlbum, `${ALBUM} album not present`);
 	await page.setViewportSize(MOBILE);
 	await openAlbum(page, ALBUM);
@@ -166,21 +166,19 @@ test('closing shrinks smoothly, keeping the open layout until the end', async ({
 	await toggle.evaluate((el) => el.scrollIntoView({ block: 'end' }));
 	expect((await long.boundingBox())!.y).toBeLessThan(0);
 
-	// Sample every frame from the click until the clamped layout lands.
+	// Sample every frame from the click until the animation ends.
 	const samples = await page.evaluate(
 		() =>
-			new Promise<{ height: number; display: string; clamped: boolean }[]>((done) => {
+			new Promise<{ height: number; display: string }[]>((done) => {
 				const el = document.querySelector<HTMLElement>('.long-description')!;
 				const p = el.querySelector('p')!;
-				const out: { height: number; display: string; clamped: boolean }[] = [];
+				const out: { height: number; display: string }[] = [];
 				const sample = () => {
-					const clamped = el.classList.contains('clamped');
 					out.push({
 						height: el.getBoundingClientRect().height,
-						display: getComputedStyle(p).display,
-						clamped
+						display: getComputedStyle(p).display
 					});
-					if (clamped) done(out);
+					if (!el.classList.contains('animating')) done(out);
 					else requestAnimationFrame(sample);
 				};
 				document.querySelector<HTMLElement>('.long-description-toggle')!.click();
@@ -191,7 +189,7 @@ test('closing shrinks smoothly, keeping the open layout until the end', async ({
 	for (let i = 1; i < samples.length; i++) {
 		expect(samples[i].height).toBeLessThanOrEqual(samples[i - 1].height + 0.5);
 	}
-	for (const s of samples.filter((s) => !s.clamped)) expect(s.display).toBe('block');
+	for (const s of samples) expect(s.display).toBe('block');
 	await settled(page);
 	await expect(long).toBeInViewport();
 });
