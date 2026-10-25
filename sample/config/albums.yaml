@@ -8,7 +8,7 @@ settings:
   allow_crawling: true
   descriptions: descriptions.txt
   site_title_html: >-
-    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener">DD Photos</a>
+    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener" style="display: inline-block; vertical-align: top;"><img src="/ddphotos-logo.png" alt="DD Photos" style="display: block; width: clamp(72px, 18vw, 150px); height: auto; filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));"></a>
   site_subtitle_html: >-
     Self-host your memories. No subscriptions, no lock-in, yours forever.
   site_overview_html: >-
