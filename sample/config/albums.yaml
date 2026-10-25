@@ -8,19 +8,15 @@ settings:
   allow_crawling: true
   descriptions: descriptions.txt
   site_title_html: >-
-    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener" style="display: inline-block; vertical-align: top;"><img src="/ddphotos-logo.png" alt="DD Photos" style="display: block; width: clamp(72px, 18vw, 150px); height: auto; filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));"></a>
+    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener" style="display: inline-block; vertical-align: top; padding: calc(clamp(72px, 18vw, 150px) * 0.065) calc(clamp(72px, 18vw, 150px) * 0.095); background: rgba(255, 255, 255, 0.7); border-radius: 0; border: 1px solid rgba(0, 0, 0, 0.35); box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.35), 0 -1px 0 rgba(0, 0, 0, 0.5);"><img src="/ddphotos-logo.png" alt="DD Photos" style="display: block; width: clamp(72px, 18vw, 150px); height: auto; margin: calc(clamp(72px, 18vw, 150px) * -0.10) 0 calc(clamp(72px, 18vw, 150px) * -0.14);"></a>
   site_subtitle_html: >-
-    Self-host your memories. No subscriptions, no lock-in, yours forever.
+    DD Photos:  Self-host your memories. No subscriptions, no lock-in, yours forever.
   site_overview_html: >-
-    These albums are an example of what you can publish using 
-    <a href="https://github.com/dougdonohoe/ddphotos/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>, 
-    a free and open-source self-hosted static photo gallery.
-    Browse the photos/videos below, then <a href="https://github.com/dougdonohoe/ddphotos-app#installation">download</a> the 
-    companion DD Photos App to publish your own albums.
+    These albums are an example of what you can publish using  <a href="https://github.com/dougdonohoe/ddphotos/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>,  a free and open-source self-hosted static photo gallery. Browse the photos/videos below, then <a href="https://github.com/dougdonohoe/ddphotos-app#installation">download</a> the  companion DD Photos App to publish your own albums.
   hero:
-    image: theway/2024-The-Way-13.jpg
-    base: sample
+    image: /Volumes/T7/Photos/Sharing/2023-04-Portugal/Portugal-065.jpg
     crop: center
+  default_theme: dark
 
 bases:
   sample: sample/source
@@ -50,6 +46,8 @@ albums:
       <p>All this walking for long periods allows the mind to wander, scrutinize the past, and wonder about the future.</p>
       <p style="font-size: 90%;"><em>This description is an excerpt from Doug Donohoe’s article,
       <a href="https://medium.com/engage/from-code-to-camino-a-software-engineers-530-mile-journey-8b623c8220fc?source=friends_link&amp;sk=bd8c8e9891baf03ca572e76c6a7ab1a9">From Code to Camino: A Software Engineer’s 530-Mile Journey</a>.</em></p>
+    manual_sort_order: false
+    recurse: false
 
   - slug: uganda
     name: Uganda
@@ -59,8 +57,7 @@ albums:
     manual_sort_order: true
     recurse: true
     description: >-
-      Tracking mountain gorillas deep in the jungle and spotting tree-climbing lions, elephants, and hippos on safari
-      on our first visit to Africa.
+      Tracking mountain gorillas deep in the jungle and spotting tree-climbing lions, elephants, and hippos on safari on our first visit to Africa.
 
   - slug: antarctica
     name: Antarctica
@@ -68,3 +65,4 @@ albums:
     source: antarctica
     cover: neko_harbour_01.jpg
     manual_sort_order: true
+    recurse: false
