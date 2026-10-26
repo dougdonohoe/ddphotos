@@ -58,13 +58,14 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || {
 }
 
 # Build temp config dir.
+# Copy the whole sample config rather than a list of files, so a new file the sample
+# references (descriptions, custom CSS, static/) cannot break this test. site.env is
+# overwritten below.
+/bin/cp -R sample/config/. "$TEMP_CONFIG/"
 # Patch site_url so photogen writes http://localhost:$HTTP_PORT into config.json,
 # which deploy-photos.sh then uses as the base URL for post-deploy tests.
 awk '/site_url:/{print "  site_url: http://localhost:'"$HTTP_PORT"'"; next} {print}' \
     sample/config/albums.yaml > "$TEMP_CONFIG/albums.yaml"
-/bin/cp sample/config/descriptions.txt "$TEMP_CONFIG/descriptions.txt"
-/bin/cp sample/config/custom.css "$TEMP_CONFIG/custom.css"
-/bin/cp -r sample/config/static "$TEMP_CONFIG/static"
 cat > "$TEMP_CONFIG/site.env" <<EOF
 RSYNC_HOST=root@localhost
 RSYNC_DEST=$DOC_ROOT

@@ -190,12 +190,14 @@ wait_for "edge proxy" curl -s -o /dev/null "$SITE_URL/"
 
 # --- build temp config ---
 
+# Copy the whole sample config rather than a list of files, so a new file the sample
+# references (descriptions, custom CSS, static/) cannot break this test. site.env is
+# overwritten below.
+/bin/cp -R sample/config/. "$TEMP_CONFIG/"
 # Patch site_url so photogen writes a local URL into config.json, which deploy-photos.sh
 # then uses as the base URL for its post-deploy tests
 awk '/site_url:/{print "  site_url: '"$SITE_URL"'"; next} {print}' \
     sample/config/albums.yaml > "$TEMP_CONFIG/albums.yaml"
-/bin/cp sample/config/descriptions.txt "$TEMP_CONFIG/descriptions.txt"
-/bin/cp sample/config/custom.css "$TEMP_CONFIG/custom.css"
 cat > "$TEMP_CONFIG/site.env" <<EOF
 S3_BUCKET=$BUCKET
 EOF

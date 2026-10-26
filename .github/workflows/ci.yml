@@ -283,6 +283,27 @@ jobs:
       - name: Run Docker workflow tests
         run: make docker-test
 
+      # The sync demo (sample/config-sync) is covered by nothing else: the Go tests and
+      # docker-test.sh sync through their own fixtures. It runs natively, so this job needs
+      # the same system dependencies, ffmpeg and Go as 'test'. It goes last because it
+      # is the cheap one and the Docker tests are the point of this job.
+      - name: Install system dependencies for sync demo
+        run: bash bin/ci-apt-install.sh libvips-dev libheif-plugin-libde265 pkg-config
+
+      - name: Install ffmpeg for sync demo
+        run: |
+          export DDPHOTOS_FFMPEG_DIR="$RUNNER_TEMP/ffmpeg"
+          echo "DDPHOTOS_FFMPEG_DIR=$DDPHOTOS_FFMPEG_DIR" >> "$GITHUB_ENV"
+          bash docker/do-install-ffmpeg.sh
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Run sync demo test
+        run: make sample-sync-test
+
   # A red X on an overnight run that nobody is watching needs somewhere to land: GitHub only
   # emails the owner, and the run scrolls off the Actions tab. bin/ci-open-issue.sh files
   # it as an issue, or comments on the open one only if the set of failing jobs changed.

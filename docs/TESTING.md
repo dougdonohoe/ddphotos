@@ -460,6 +460,9 @@ both gitignored. It deliberately prints two warnings — a skipped RAW file and 
 half of a Live Photo pair — because those are the two filters most likely to surprise
 someone syncing from a real photo manager. A run that shows them is working.
 
+`make sample-sync-test` (`bin/sample-sync-test.sh`) runs the same build and fails if it errors, if either
+album is missing or if those two warnings stop appearing. CI runs it in the `test-docker` job.
+
 `sample/config/` itself stays sync-free: the sample site is what the screenshots and the
 published demo are built from, so `make sample-photogen` has to stay offline and
 independent of any of this.

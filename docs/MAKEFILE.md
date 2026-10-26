@@ -53,6 +53,7 @@ as defined in `config/defaults.env`.
 | `sample-demo-2`               | One-step demo #2: photogen (CSS + one album password) and run dev server                                                      |
 | `sample-photogen-sync`        | Run photogen against `sample/config-sync/` — syncs two albums from the `mock` provider                                        |
 | `sample-sync`                 | One-step sync demo: syncs from the `mock` provider, photogen's and runs dev server                                            |
+| `sample-sync-test`            | Check the sync demo builds and prints its two expected warnings (`bin/sample-sync-test.sh`)                                   |
 | `sample-build`                | Build the static site using sample config                                                                                     |
 | `sample-export`               | Create `export/<site-id>/` with symlinks for local serving (runs `bin/export.sh`)                                             |
 | `sample-npm-run-dev`          | Run the Vite dev server using sample config                                                                                   |

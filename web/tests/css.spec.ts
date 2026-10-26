@@ -26,19 +26,27 @@ test('custom CSS <link> is NOT present when CSS is not configured', async ({ pag
 	await expect(link).toHaveCount(0);
 });
 
-test('custom CSS overrides --text-color-2nd on home page', async ({ page }) => {
-	test.skip(!hasCustomCss, 'no custom CSS configured');
-	await page.goto('/');
-	// The custom.css sets --text-color-2nd to teal (#2a9d8f).
-	// Verify via a computed style on an element that uses this variable.
-	// The site title <h1> uses --text-color-2nd for its color.
-	const h1 = page.locator('h1');
-	await expect(h1).toBeVisible();
-	const color = await h1.evaluate((el) =>
-		getComputedStyle(el).getPropertyValue('--text-color-2nd').trim()
-	);
-	expect(color).toBe('#2a9d8f');
-});
+// custom-example.css sets --text-color-2nd to teal and darkens it for the light theme.
+// The theme is set explicitly rather than taken from the sample's default_theme, so this
+// keeps passing whichever theme the sample site opens in.
+for (const [theme, expected] of [
+	['dark', '#2a9d8f'],
+	['light', '#1b6b62']
+] as const) {
+	test(`custom CSS overrides --text-color-2nd on home page (${theme})`, async ({ page }) => {
+		test.skip(!hasCustomCss, 'no custom CSS configured');
+		await page.goto('/');
+		await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+		// Verify via a computed style on an element that uses this variable.
+		// The site title <h1> uses --text-color-2nd for its color.
+		const h1 = page.locator('h1');
+		await expect(h1).toBeVisible();
+		const color = await h1.evaluate((el) =>
+			getComputedStyle(el).getPropertyValue('--text-color-2nd').trim()
+		);
+		expect(color).toBe(expected);
+	});
+}
 
 test('custom CSS applies border-radius to album cards', async ({ page }) => {
 	test.skip(!hasCustomCss, 'no custom CSS configured');
