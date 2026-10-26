@@ -281,6 +281,7 @@ web-screenshots:
 	# run `make sample-photogen sample-build web-docker-run-apache` to start docker/apache for this script
 	$(NODE_INIT) cd web && node scripts/screenshots.mjs --album antarctica --photo 4
 	.venv/bin/python3 bin/generate-screenshot-composite.py
+	/bin/cp images/screenshots.png ../ddphotos-app/images/ddphotos/screenshots.png
 
 .PHONY: sample-photogen
 ## sample-photogen: run photogen using sample images
