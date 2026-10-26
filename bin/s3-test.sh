@@ -195,6 +195,7 @@ wait_for "edge proxy" curl -s -o /dev/null "$SITE_URL/"
 awk '/site_url:/{print "  site_url: '"$SITE_URL"'"; next} {print}' \
     sample/config/albums.yaml > "$TEMP_CONFIG/albums.yaml"
 /bin/cp sample/config/descriptions.txt "$TEMP_CONFIG/descriptions.txt"
+/bin/cp sample/config/custom.css "$TEMP_CONFIG/custom.css"
 cat > "$TEMP_CONFIG/site.env" <<EOF
 S3_BUCKET=$BUCKET
 EOF
