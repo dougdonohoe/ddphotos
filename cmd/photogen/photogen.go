@@ -58,6 +58,7 @@ var (
 	siteID          = flag.String("site-id", "", "override settings.id from albums YAML")
 	passwords       = flag.String("passwords", "", "path to passwords file; overrides settings.passwords in albums YAML")
 	css             = flag.String("css", "", "path to custom CSS file; overrides settings.css in albums YAML")
+	noCSS           = flag.Bool("no-css", false, "ignore settings.css in albums YAML, building the site with no custom CSS")
 	clean           = flag.Bool("clean", false, "remove stale output files not generated in this run")
 	heroOnly        = flag.Bool("hero-only", false, "regenerate hero image only, skipping all album and index processing")
 	customization   = flag.String("customization", "", "path to customization file; overrides the default <config-dir>/"+photogen.DefaultCustomizationFile)
@@ -118,6 +119,24 @@ func validateSyncFlags(noSync, syncOnly bool) error {
 			"stops before building, and -no-sync skips the sync, so together they do nothing.")
 	}
 	return nil
+}
+
+// resolveCSSPath picks the custom CSS file to copy: the -css flag, else settings.css, else
+// none. -no-css drops settings.css, which is how a site whose albums.yaml sets one can still
+// be built without it. Combined with -css it would be asking for a file and for none, so that
+// is rejected rather than quietly picking one.
+func resolveCSSPath(cssFlag string, noCSS bool, yamlPath string) (string, error) {
+	if noCSS {
+		if cssFlag != "" {
+			return "", errors.New("-css and -no-css cannot be combined: one names a CSS file and the other\n" +
+				"says to build with none.")
+		}
+		return "", nil
+	}
+	if cssFlag != "" {
+		return cssFlag, nil
+	}
+	return yamlPath, nil
 }
 
 // validateCleanFlags rejects flag combinations that would make -clean delete output the
@@ -238,9 +257,10 @@ func main() {
 		exit.Fatal("Error loading config", err)
 	}
 
-	resolvedCSSPath := settings.CustomCSSPath
-	if *css != "" {
-		resolvedCSSPath = *css
+	resolvedCSSPath, err := resolveCSSPath(*css, *noCSS, settings.CustomCSSPath)
+	if err != nil {
+		fmt.Printf("ERROR: %s\n", err)
+		exit.ExitWithStatus(err)
 	}
 
 	warn := &photogen.WarnCollector{}

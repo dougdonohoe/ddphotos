@@ -385,6 +385,11 @@ sample-rsync-test:
 sample-rsync-test-nginx:
 	bin/rsync-test.sh --server nginx
 
+.PHONY: sample-sync-test
+## sample-sync-test: check the sync demo (sample/config-sync) builds and prints its two expected warnings
+sample-sync-test:
+	bin/sample-sync-test.sh
+
 .PHONY: sample-s3-test
 ## sample-s3-test: test deploy-photos.sh S3 path against Garage; verifies file placement, Cache-Control headers and serving
 sample-s3-test:

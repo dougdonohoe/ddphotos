@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run Playwright tests against all sample site variants:
-#   1. No passwords (plain site)
+#   1. No passwords, no custom CSS (the plain site)
 #   2. passwords-all.yaml (entire site encrypted + Uganda per-album)
 #   3. config-extras: passwords-keyonly.yaml + custom CSS + album-nav customization
 #   4. passwords-uganda.yaml (Uganda album only)
@@ -28,7 +28,12 @@
 # separate runs did. Measured: the union of the three runs was 69 tests, the combined run
 # is 67, and the only two it drops are the negative assertions ("CSS link is NOT present
 # when not configured", "default back link when album_nav is not configured"), which still
-# run in every other variant. That took ~114s off each e2e job.
+# run in the plain variant. That took ~114s off each e2e job.
+#
+# "Plain" has to be told so for CSS: the sample's albums.yaml sets css: custom.css, so
+# without --no-css no variant would be CSS-free and the first negative assertion would
+# skip everywhere. The plain variant passes --no-css, so its site has no custom.css. The
+# other three therefore run with custom.css (or custom-example.css for config-extras).
 #
 # What it gives up: "css alone" and "album-nav alone" are no longer exercised. Plain covers
 # neither-configured and this covers both-configured, so only the exactly-one combinations
@@ -43,7 +48,7 @@
 # bin/run-tests.sh):
 #
 #   variant              the-way  uganda  antarctica   site ID
-#   no passwords          plain    plain    plain      sample
+#   no passwords, no css  plain    plain    plain      sample
 #   config-extras         plain    plain    plain      sample
 #   passwords-uganda      plain    HMAC     plain      sample     (runs last, see below)
 #   passwords-all         HMAC     HMAC     HMAC       sample-pw-all
@@ -59,7 +64,7 @@ usage() {
     echo "Usage: bin/test-all.sh [--mode dev|apache|nginx|all]"
     echo ""
     echo "Runs Playwright tests against all sample site variants:"
-    echo "  1. No passwords (plain site)"
+    echo "  1. No passwords, no custom CSS (plain site)"
     echo "  2. passwords-all.yaml (entire site + Uganda album encrypted)"
     echo "  3. config-extras (passwords-keyonly.yaml + custom CSS + album-nav customization)"
     echo "  4. passwords-uganda.yaml (Uganda album only)"
@@ -106,7 +111,7 @@ run_variant() {
 # plain site's (same sources, same encode settings, same filenames), so the video suite is
 # re-testing files it already tested. passwords-all skips it on its own, because a locked
 # site publishes no discoverable video. See web/tests/video.spec.ts.
-run_variant "no passwords"          --site-id sample
+run_variant "no passwords, no css"  --site-id sample --no-css
 run_variant "passwords-all.yaml"    --site-id sample-pw-all --passwords sample/config/passwords-all.yaml
 run_variant "config-extras"         --site-id sample --skip-video \
     --passwords sample/config/passwords-keyonly.yaml \

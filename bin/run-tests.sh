@@ -2,12 +2,14 @@
 # Run Playwright tests against one variant of the sample site.
 #
 # Usage:
-#   bin/run-tests.sh [--passwords <file>] [--css <file>] [--customization <file>] [--mode dev|apache|nginx|all] [--test <file>] [--site-id <id>]
+#   bin/run-tests.sh [--passwords <file>] [--css <file> | --no-css] [--customization <file>] [--mode dev|apache|nginx|all] [--test <file>] [--site-id <id>]
 #
 # --passwords  Path to a passwords file (e.g. sample/config/passwords-all.yaml).
 #              Omit for the no-password variant.
-# --css        Path to a custom CSS file (e.g. sample/config/custom-example.css).
-#              Omit for the no-CSS variant.
+# --css        Path to a custom CSS file (e.g. sample/config/custom-example.css), used
+#              instead of the sample's own settings.css.
+# --no-css     Build with no custom CSS at all (photogen -no-css). Omit both and the sample's
+#              settings.css (custom.css) applies. Cannot be combined with --css.
 # --customization
 #              Path to a customization file (e.g. sample/config/customization-album-nav.yaml).
 #              Omit for the no-customization variant.
@@ -32,6 +34,7 @@ set -eo pipefail
 
 PASSWORDS_FILE=""
 CSS_FILE=""
+NO_CSS=false
 CUSTOMIZATION_FILE=""
 MODE="all"
 SITE_ID_OVERRIDE=""
@@ -43,8 +46,10 @@ usage() {
     echo "Options:"
     echo "  --passwords <file>  Path to a passwords file (e.g. sample/config/passwords-all.yaml)."
     echo "                      Omit for the no-password variant."
-    echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom-example.css)."
-    echo "                      Omit for the no-CSS variant."
+    echo "  --css <file>        Path to a custom CSS file (e.g. sample/config/custom-example.css),"
+    echo "                      used instead of the sample's own settings.css."
+    echo "  --no-css            Build with no custom CSS at all. Omit both and the sample's own"
+    echo "                      settings.css (custom.css) applies. Cannot be combined with --css."
     echo "  --customization <file>"
     echo "                      Path to a customization file (e.g. sample/config/customization-album-nav.yaml)."
     echo "                      Omit for the no-customization variant."
@@ -65,6 +70,7 @@ while [[ $# -gt 0 ]]; do
         --passwords=*) PASSWORDS_FILE="${1#*=}"; shift ;;
         --css)         CSS_FILE="$2"; shift 2 ;;
         --css=*)       CSS_FILE="${1#*=}"; shift ;;
+        --no-css)      NO_CSS=true; shift ;;
         --customization)   CUSTOMIZATION_FILE="$2"; shift 2 ;;
         --customization=*) CUSTOMIZATION_FILE="${1#*=}"; shift ;;
         --mode)        MODE="$2"; shift 2 ;;
@@ -98,6 +104,8 @@ if [ -n "$CUSTOMIZATION_FILE" ]; then
     CUSTOMIZATION_FILE="$(cd "$(dirname "$CUSTOMIZATION_FILE")" && pwd)/$(basename "$CUSTOMIZATION_FILE")"
     [ -f "$CUSTOMIZATION_FILE" ] || { echo "Error: customization file not found: $CUSTOMIZATION_FILE" >&2; exit 1; }
 fi
+
+[ "$NO_CSS" = true ] && [ -n "$CSS_FILE" ] && { echo "Error: --css and --no-css cannot be combined" >&2; exit 1; }
 
 # Resolve CSS file to absolute path
 if [ -n "$CSS_FILE" ]; then
@@ -137,6 +145,9 @@ fi
 if [ -n "$CSS_FILE" ]; then
     SITE_ID="sample-css"
     PHOTOGEN_FLAGS+=(-css "$CSS_FILE")
+fi
+if [ "$NO_CSS" = true ]; then
+    PHOTOGEN_FLAGS+=(-no-css)
 fi
 if [ -n "$CUSTOMIZATION_FILE" ]; then
     BASENAME=$(basename "$CUSTOMIZATION_FILE" .yaml)  # e.g. "customization-album-nav"

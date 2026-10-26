@@ -1,0 +1,79 @@
+/* Hero height. The built-in rule is a fixed 250px that drops to 140px at 480px wide, which
+   makes the hero jump and, at narrow widths, crops the very wide hero image into a squat
+   box. Instead the height follows the viewport at the hero image's own 1600:250 ratio
+   (250 / 1600 = 15.6vw), so the whole image shows with no jump.
+     min  the shortest the hero gets, on narrow screens. Raise it for a taller hero.
+     vw   15.6vw keeps the 1600:250 ratio; raise it for a taller hero at every width.
+     max  the tallest the hero gets, on wide screens.
+   The logo's size is derived from this height (see .site-logo), so changing it here
+   resizes the logo with it. */
+:root .hero {
+  --hero-h: clamp(140px, 15.6vw, 250px);
+  height: var(--hero-h);
+}
+
+/* Centre the logo in the hero, both ways. The overlay is normally pinned to the
+   bottom; stretch it over the whole hero and centre its contents. */
+.hero .hero-overlay {
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: none;
+}
+
+/* The DD Photos logo as an etched, translucent white inset. The markup is the .site-logo
+   link in site_title_html (albums.yaml). Every dimension derives from --w, the width of
+   the logo image, so the proportions hold at any size.
+
+   TUNING
+
+   Size: --w is a share of the hero height (--hero-h, set on .hero above), so the logo
+   scales with the hero and always fits it. The panel is about 0.94 x --w tall, so
+   0.85 fills 80% of the hero height. Raise 0.85 for a bigger logo and lower it for a
+   smaller one; at about 1.0 the panel would touch the top and bottom of the hero. To
+   size the logo independently of the hero, replace the calc() with a fixed value or a
+   clamp(min, preferred, max).
+
+   Gap around the artwork: the PNG has transparent space above the camera (~7% of its
+   width) and below "PHOTOS" (~12%). The image's negative margins (.site-logo img) cancel
+   most of it, and the padding sets the gap that is left.
+     padding, 1st value  gap above and below. 0.09 leaves a gap of about 6.5% of --w;
+                         lower is tighter. Near ~0.03 the camera and "PHOTOS" touch the
+                         panel edge.
+     padding, 2nd value  gap left and right. 0.095 gives roughly even margins all round.
+   Change the image margins (-0.10 top, -0.14 bottom) only to tune the two sides
+   independently; the PNG's own space is what they are cancelling. */
+.site-logo {
+  --w: calc(var(--hero-h) * 0.85);
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+  padding: calc(var(--w) * 0.09) calc(var(--w) * 0.095);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 0;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.35),
+    0 -1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.site-logo img {
+  display: block;
+  width: var(--w);
+  height: auto;
+  margin: calc(var(--w) * -0.10) 0 calc(var(--w) * -0.14);
+}
+
+/* Hover: the built-in `.hero-overlay h1 a:hover { opacity: 0.85 }` (web/src/routes/+page.svelte)
+   would fade the whole logo. Cancel it and firm up the panel instead. The leading :root
+   only adds specificity, so this wins over that rule. Panel opacity is the last number
+   of the background; raise it toward 1 for a more solid hover. */
+:root .hero .hero-overlay h1 a.site-logo:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.92);
+}

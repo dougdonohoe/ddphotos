@@ -91,6 +91,44 @@ func TestValidateSyncFlags(t *testing.T) {
 	})
 }
 
+func TestResolveCSSPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("the flag wins over the YAML setting", func(t *testing.T) {
+		t.Parallel()
+		got, err := resolveCSSPath("flag.css", false, "yaml.css")
+		require.NoError(t, err)
+		assert.Equal(t, "flag.css", got)
+	})
+
+	t.Run("with no flag the YAML setting is used, and with neither there is none", func(t *testing.T) {
+		t.Parallel()
+		got, err := resolveCSSPath("", false, "yaml.css")
+		require.NoError(t, err)
+		assert.Equal(t, "yaml.css", got)
+
+		got, err = resolveCSSPath("", false, "")
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	// The reason the flag exists: a site whose albums.yaml sets css: still builds without it.
+	t.Run("-no-css drops the YAML setting", func(t *testing.T) {
+		t.Parallel()
+		got, err := resolveCSSPath("", true, "yaml.css")
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("-css with -no-css is rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := resolveCSSPath("flag.css", true, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "-css")
+		assert.Contains(t, err.Error(), "-no-css")
+	})
+}
+
 // -clean deletes anything under a processed album that the run did not track. All three
 // rules here exist because a flag combination leaves files untracked that are nonetheless
 // real output, so the delete would take work the user still wants.
