@@ -7,16 +7,16 @@ settings:
   copyright_year: 2001
   allow_crawling: true
   descriptions: descriptions.txt
+  css: custom.css
   site_title_html: >-
-    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener" style="display: inline-block; vertical-align: top; padding: calc(clamp(72px, 18vw, 150px) * 0.065) calc(clamp(72px, 18vw, 150px) * 0.095); background: rgba(255, 255, 255, 0.7); border-radius: 0; border: 1px solid rgba(0, 0, 0, 0.35); box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.35), 0 -1px 0 rgba(0, 0, 0, 0.5);"><img src="/ddphotos-logo.png" alt="DD Photos" style="display: block; width: clamp(72px, 18vw, 150px); height: auto; margin: calc(clamp(72px, 18vw, 150px) * -0.10) 0 calc(clamp(72px, 18vw, 150px) * -0.14);"></a>
-  site_subtitle_html: >-
-    DD Photos:  Self-host your memories. No subscriptions, no lock-in, yours forever.
+    <a href="https://github.com/dougdonohoe/ddphotos" target="_blank" rel="noopener" style="display: block; width: fit-content; margin: 0 auto; padding: calc(clamp(72px, 18vw, 150px) * 0.065) calc(clamp(72px, 18vw, 150px) * 0.095); background: rgba(255, 255, 255, 0.7); border-radius: 0; border: 1px solid rgba(0, 0, 0, 0.35); box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 255, 255, 0.35), 0 -1px 0 rgba(0, 0, 0, 0.5);"><img src="/ddphotos-logo.png" alt="DD Photos" style="display: block; width: clamp(72px, 18vw, 150px); height: auto; margin: calc(clamp(72px, 18vw, 150px) * -0.10) 0 calc(clamp(72px, 18vw, 150px) * -0.14);"></a>
   site_overview_html: >-
     These albums are an example of what you can publish using  <a href="https://github.com/dougdonohoe/ddphotos/blob/main/README.md" target="_blank" rel="noopener">DD Photos</a>,  a free and open-source self-hosted static photo gallery. Browse the photos/videos below, then <a href="https://github.com/dougdonohoe/ddphotos-app#installation">download</a> the  companion DD Photos App to publish your own albums.
   hero:
-    image: /Volumes/T7/Photos/Sharing/2023-04-Portugal/Portugal-065.jpg
-    crop: center
-  default_theme: dark
+    image: hero.jpg
+    crop: top
+    base: sample
+  default_theme: light
 
 bases:
   sample: sample/source

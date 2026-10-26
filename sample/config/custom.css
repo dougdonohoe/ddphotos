@@ -1,0 +1,11 @@
+/* Centre the logo in the hero, both ways. The overlay is normally pinned to the
+   bottom; stretch it over the whole hero and centre its contents. */
+.hero .hero-overlay {
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: none;
+}
