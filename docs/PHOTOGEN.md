@@ -42,6 +42,7 @@ bin/photogen -resize -index -clean -doit  # developer mode
 | `-site-id`          | *(from YAML)* | Override `settings.id`; useful for generating multiple output sites from one config                                                                  |
 | `-passwords`        | *(from YAML)* | Path to passwords file; overrides `settings.passwords` (see [Password Protection](CONFIGURATION.md#password-protection))                             |
 | `-css`              | *(from YAML)* | Path to custom CSS file; overrides `settings.css` (see [Custom CSS](CONFIGURATION.md#custom-css))                                                    |
+| `-no-css`           | `false`       | Ignore `settings.css`, building the site with no custom CSS (cannot be combined with `-css`)                                                         |
 | `-customization`    | *(auto)*      | Path to a customization file; overrides the default `<config-dir>/customization.yaml` (see [customization.yaml](CONFIGURATION.md#customizationyaml)) |
 | `-no-customization` | `false`       | Ignore `customization.yaml` even when present                                                                                                        |
 | `-clean`            | `false`       | Remove stale files from processed album directories after a run (requires `-resize` and `-index`; cannot be combined with `-limit`)                  |

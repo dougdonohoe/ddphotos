@@ -172,7 +172,7 @@ the appropriate site variant:
 | `PLAYWRIGHT_SKIP_VIDEO`     | `bin/run-tests.sh --skip-video` | Skips `video.spec.ts`; see below               |
 
 Use `bin/run-tests.sh` or `bin/test-all.sh` to run tests across all variants automatically.
-`bin/test-all.sh` runs four variants: no passwords, `passwords-all.yaml`, `config-extras`
+`bin/test-all.sh` runs four variants: no passwords and no CSS, `passwords-all.yaml`, `config-extras`
 (`passwords-keyonly.yaml`, which declares no effective password, plus
 `sample/config/custom-example.css` and `sample/config/customization-album-nav.yaml`), and
 `passwords-uganda.yaml`.
@@ -192,7 +192,7 @@ identically named, byte-identical media.
 
 | Variant                  | the-way | uganda | antarctica | Site ID         |
 |--------------------------|---------|--------|------------|-----------------|
-| no passwords             | plain   | plain  | plain      | `sample`        |
+| no passwords, no css     | plain   | plain  | plain      | `sample`        |
 | `config-extras`          | plain   | plain  | plain      | `sample`        |
 | `passwords-uganda.yaml`  | plain   | HMAC   | plain      | `sample`        |
 | `passwords-all.yaml`     | HMAC    | HMAC   | HMAC       | `sample-pw-all` |
@@ -232,10 +232,15 @@ genuinely different sites:
 The three fields are orthogonal, so one run with all three set covers what the three runs
 did. Measured: the union of the three was 69 tests, the combined run is 67, and the only two
 it drops are the negative assertions ("CSS link is NOT present when not configured",
-"default back link when `album_nav` is not configured"), which still run in every other
+"default back link when `album_nav` is not configured"), which still run in the plain
 variant. What it gives up is "css alone" and "album-nav alone": plain covers
 neither-configured and `config-extras` covers both-configured, so only the exactly-one
 combinations are untested. Split it back out if that ever matters.
+
+The sample's `albums.yaml` sets `css: custom.css`, so "plain" has to opt out: the plain
+variant runs `bin/run-tests.sh --no-css` (photogen's `-no-css`), which is what keeps the
+"CSS link is NOT present" test from skipping in every variant. Every other variant builds
+with a CSS file, `custom.css` or, for `config-extras`, `custom-example.css`.
 
 #### Skipping `video.spec.ts` where it is redundant
 
@@ -291,6 +296,9 @@ bin/run-tests.sh --passwords sample/config/passwords-all.yaml --mode apache
 
 # Run custom CSS variant against dev server
 bin/run-tests.sh --css sample/config/custom-example.css --mode dev
+
+# Run with no custom CSS at all (the sample's own settings.css is ignored)
+bin/run-tests.sh --no-css --mode dev
 
 # Run album-nav variant against dev server
 bin/run-tests.sh --customization sample/config/customization-album-nav.yaml --mode dev
