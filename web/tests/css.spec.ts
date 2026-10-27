@@ -28,15 +28,19 @@ test('custom CSS <link> is NOT present when CSS is not configured', async ({ pag
 
 // custom-example.css sets --text-color-2nd to teal and darkens it for the light theme.
 // The theme is set explicitly rather than taken from the sample's default_theme, so this
-// keeps passing whichever theme the sample site opens in.
+// keeps passing whichever theme the sample site opens in. It is seeded as the saved
+// preference before the page loads, not set on <html> afterwards: goto() returns at the
+// load event, and hydration can finish later, when the layout's onMount re-applies the
+// stored theme over whatever the test set.
 for (const [theme, expected] of [
 	['dark', '#2a9d8f'],
 	['light', '#1b6b62']
 ] as const) {
 	test(`custom CSS overrides --text-color-2nd on home page (${theme})`, async ({ page }) => {
 		test.skip(!hasCustomCss, 'no custom CSS configured');
+		await page.addInitScript((t) => localStorage.setItem('ddp_theme', t), theme);
 		await page.goto('/');
-		await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 		// Verify via a computed style on an element that uses this variable.
 		// The site title <h1> uses --text-color-2nd for its color.
 		const h1 = page.locator('h1');
