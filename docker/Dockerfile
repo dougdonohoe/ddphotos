@@ -58,7 +58,9 @@ FROM debian:bookworm-slim
 # for, and shipping its GPL libx264 would make this image a redistributor of it. Video
 # support instead downloads a static build on first use, into a mounted volume --
 # see docker/do-install-ffmpeg.sh. xz-utils is here because that tarball is .tar.xz.
+# libatomic1 is for the node binary copied from node-builder below (needed as of Node 26).
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    libatomic1 \
     libvips \
     libheif1 \
     ca-certificates \
