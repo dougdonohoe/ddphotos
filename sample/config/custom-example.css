@@ -24,3 +24,33 @@
 .album-card {
     border-radius: 16px !important;
 }
+
+/* Replace the logo image in site_title_html (albums.yaml) with plain text. The logo's
+   styling lives in custom.css, which this file replaces, so the bare image would show
+   unstyled. The link keeps the built-in site title look. */
+.site-logo img {
+    display: none;
+}
+
+.site-logo::after {
+    content: 'DD Photos Demo';
+}
+
+/* A subtitle under the title. albums.yaml sets no site_subtitle_html, so there is no
+   .site-subtitle element; this adds one after the <h1>, matching the built-in subtitle
+   style (web/src/routes/+page.svelte). */
+.hero-overlay::after {
+    content: 'This demo changes passwords and/or css settings.';
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 1.15rem;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.88);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 480px) {
+    .hero-overlay::after {
+        font-size: 0.95rem;
+    }
+}
