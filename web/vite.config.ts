@@ -249,7 +249,7 @@ const httpsPlugin = process.env.VITE_HTTPS
 // Network URL, which is useful for phone/LAN access.
 function makeLogger() {
 	if (!process.env.DDPHOTOS_HIDE_NETWORK_URL) return undefined;
-	const logger = createLogger();
+	const logger = createLogger('info', { allowClearScreen: false });
 	const origInfo = logger.info.bind(logger);
 	logger.info = (msg, options) => {
 		// eslint-disable-next-line no-control-regex
@@ -260,6 +260,10 @@ function makeLogger() {
 }
 
 export default defineConfig({
+	// Vite clears the terminal when a log line repeats (to show "(x2)"), and SvelteKit
+	// logs every dev request, so a double "GET /" on first load wiped the server URLs.
+	// The custom logger above sets allowClearScreen itself, since Vite uses it as-is.
+	clearScreen: false,
 	customLogger: makeLogger(),
 	server: {
 		host: true // Listen on all interfaces (allows phone access via IP)
