@@ -4,27 +4,6 @@
 # Linux and macOS on the same shell.
 SHELL := /bin/bash
 
-# Migration check: album data moved from web/albums/ to albums/ in the decouple refactor.
-ifneq ($(wildcard web/albums),)
-$(warning MIGRATION REQUIRED: web/albums/ exists but album data now lives in albums/ )
-$(warning run: 'mv web/albums albums')
-$(error ERROR)
-endif
-
-# Migration check: web/static/albums symlink is no longer used after the decouple refactor.
-ifneq ($(wildcard web/static/albums),)
-$(warning MIGRATION REQUIRED: web/static/albums symlink is no longer used)
-$(warning run: 'rm web/static/albums')
-$(error ERROR)
-endif
-
-# Migration check: web/static/sitemap.xml is no longer generated into web/static/ after the decouple refactor.
-ifneq ($(wildcard web/static/sitemap.xml),)
-$(warning MIGRATION REQUIRED: web/static/sitemap.xml is stale and should be removed)
-$(warning run: 'rm web/static/sitemap.xml')
-$(error ERROR)
-endif
-
 # Albums directory and site ID — defaults read from config/defaults.env.
 # ?= means env vars and command-line assignments take precedence over the file defaults.
 # Override on the command line, e.g.: make sample-build DDPHOTOS_SITE_ID=sample-css
