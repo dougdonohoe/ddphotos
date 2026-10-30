@@ -87,15 +87,19 @@ curl -fsSL --retry 3 --retry-delay 2 --max-time 60 -o "$DIST" \
 
 # Newest release on the pinned major's line, with its release date. index.json happens to
 # arrive newest-first, but sort numerically rather than depend on that: a string sort puts
-# 24.9.0 above 24.20.0.
-read -r NODE_NEWEST NODE_NEWEST_DATE <<<"$(jq -r --argjson major "$NODE_MAJOR" '
+# 24.9.0 above 24.20.0. Only plain x.y.z counts: the index also lists pre-releases such as
+# v27.0.0-alpha.0.0.0, which are neither comparable this way nor something to pin. Assign
+# before the read, because a failure inside a here-string never reaches the `|| fail`.
+NODE_NEWEST_LINE=$(jq -r --argjson major "$NODE_MAJOR" '
     [ .[]
       | { version: (.version | ltrimstr("v")), date: .date }
+      | select(.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
       | . + { parts: (.version | split(".") | map(tonumber)) }
       | select(.parts[0] == $major) ]
     | sort_by(.parts) | last
-    | if . == null then "" else "\(.version) \(.date)" end' "$DIST")" \
+    | if . == null then "" else "\(.version) \(.date)" end' "$DIST") \
     || fail "could not parse the Node release index"
+read -r NODE_NEWEST NODE_NEWEST_DATE <<<"$NODE_NEWEST_LINE"
 [ -n "$NODE_NEWEST" ] || fail "no Node $NODE_MAJOR.x releases found in the release index"
 
 # Highest major that carries an LTS codename, so a new LTS line does not go unnoticed.
