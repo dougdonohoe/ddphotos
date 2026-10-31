@@ -36,10 +36,10 @@
 		"js-yaml": "^5.5.0",
 		"prettier": "^3.9.10",
 		"prettier-plugin-svelte": "^4.1.1",
-		"svelte": "^5.57.2",
+		"svelte": "^5.57.3",
 		"svelte-check": "^4.7.7",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "^8.72.0",
+		"typescript-eslint": "^8.72.1",
 		"vite": "^8.3.5",
 		"vitest": "^5.0.5"
 	},
