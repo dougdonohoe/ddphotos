@@ -509,7 +509,7 @@
 	}
 
 	main {
-		max-width: 1200px;
+		max-width: 2500px;
 		margin: 0 auto;
 		padding: 1.5rem 2rem 1.33rem;
 	}

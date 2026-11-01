@@ -1563,7 +1563,7 @@
 
 <style>
 	main {
-		max-width: 2000px;
+		max-width: 2500px;
 		margin: 0 auto;
 		padding: 1rem;
 	}
