@@ -528,7 +528,8 @@
 		margin: 0 auto;
 	}
 
-	/* auto-fit collapses unused tracks, so the cards always fill the block's width. */
+	/* auto-fit collapses unused tracks, so the cards always fill the block's width.
+	   350px is the minimum card width; min(…, 100%) lets it shrink on phones narrower than that. */
 	.albums {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(350px, 100%), 1fr));
