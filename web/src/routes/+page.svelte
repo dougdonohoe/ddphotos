@@ -326,60 +326,60 @@
 				<div class="site-overview">{@html siteOverviewHtml}</div>
 			{/if}
 			<div class="albums">
-			{#each albums as album (album.slug)}
-				<a
-					href={resolve(`albums/${album.slug}`)}
-					class="album-card"
-					data-slug={album.slug}
-					onkeydown={handleCardKeydown}
-				>
-					{#if album.cover}
-						<img src={albumFileUrl(album.cover, album.coverVersion)} alt={album.title} />
-					{:else}
-						<!-- For per-album encrypted albums the cover URL lives in localStorage.
+				{#each albums as album (album.slug)}
+					<a
+						href={resolve(`albums/${album.slug}`)}
+						class="album-card"
+						data-slug={album.slug}
+						onkeydown={handleCardKeydown}
+					>
+						{#if album.cover}
+							<img src={albumFileUrl(album.cover, album.coverVersion)} alt={album.title} />
+						{:else}
+							<!-- For per-album encrypted albums the cover URL lives in localStorage.
 						     The inline <head> script sets --ddp-cover-SLUG on <html> before first
 						     paint, so this div already shows the cover on SSR. After hydration,
 						     albumCovers[slug] is set and the explicit url() replaces the var().
 						     Using background-image (not <img>) avoids any DOM swap flash. -->
-						<div
-							class="album-cover-placeholder"
-							role={albumCovers[album.slug] ? 'img' : undefined}
-							aria-label={albumCovers[album.slug] ? album.title : undefined}
-							style:background-image={albumCovers[album.slug]
-								? `url('${albumCovers[album.slug]}')`
-								: `var(--ddp-cover-${album.slug}, none)`}
-							style:background-size="cover"
-							style:background-position="center"
-							style:--lock-vis={albumCovers[album.slug]
-								? 'hidden'
-								: `var(--ddp-icon-vis-${album.slug}, visible)`}
-						>
-							{#if album.count === 0}
-								<CameraOff size={48} strokeWidth={1.5} aria-hidden="true" />
-							{:else if album.encrypted}
-								<!-- Always in SSR HTML; --lock-vis hides it when a cached cover shows instead -->
-								<Lock class="ddp-lock-icon" size={72} strokeWidth={1.5} aria-hidden="true" />
-							{:else if coversLoaded}
-								<Image size={36} strokeWidth={1.5} aria-hidden="true" />
-							{/if}
-						</div>
-					{/if}
-					<div class="album-info">
-						<h2>{album.title}</h2>
-						{#if album.description}
-							<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml description, HTML is intentional -->
-							<p class="description">{@html album.description}</p>
+							<div
+								class="album-cover-placeholder"
+								role={albumCovers[album.slug] ? 'img' : undefined}
+								aria-label={albumCovers[album.slug] ? album.title : undefined}
+								style:background-image={albumCovers[album.slug]
+									? `url('${albumCovers[album.slug]}')`
+									: `var(--ddp-cover-${album.slug}, none)`}
+								style:background-size="cover"
+								style:background-position="center"
+								style:--lock-vis={albumCovers[album.slug]
+									? 'hidden'
+									: `var(--ddp-icon-vis-${album.slug}, visible)`}
+							>
+								{#if album.count === 0}
+									<CameraOff size={48} strokeWidth={1.5} aria-hidden="true" />
+								{:else if album.encrypted}
+									<!-- Always in SSR HTML; --lock-vis hides it when a cached cover shows instead -->
+									<Lock class="ddp-lock-icon" size={72} strokeWidth={1.5} aria-hidden="true" />
+								{:else if coversLoaded}
+									<Image size={36} strokeWidth={1.5} aria-hidden="true" />
+								{/if}
+							</div>
 						{/if}
-						<p class="meta">
-							{albumMetaText(
-								album.count - (album.videoCount ?? 0),
-								album.videoCount ?? 0,
-								album.dateSpan
-							)}
-						</p>
-					</div>
-				</a>
-			{/each}
+						<div class="album-info">
+							<h2>{album.title}</h2>
+							{#if album.description}
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml description, HTML is intentional -->
+								<p class="description">{@html album.description}</p>
+							{/if}
+							<p class="meta">
+								{albumMetaText(
+									album.count - (album.videoCount ?? 0),
+									album.videoCount ?? 0,
+									album.dateSpan
+								)}
+							</p>
+						</div>
+					</a>
+				{/each}
 			</div>
 		</div>
 
