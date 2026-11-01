@@ -320,11 +320,12 @@
 
 {#if albums}
 	<main>
-		{#if siteOverviewHtml}
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
-			<div class="site-overview">{@html siteOverviewHtml}</div>
-		{/if}
-		<div class="albums">
+		<div class="albums-block" style:--album-count={albums.length}>
+			{#if siteOverviewHtml}
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -- site-owner config, HTML is intentional -->
+				<div class="site-overview">{@html siteOverviewHtml}</div>
+			{/if}
+			<div class="albums">
 			{#each albums as album (album.slug)}
 				<a
 					href={resolve(`albums/${album.slug}`)}
@@ -379,6 +380,7 @@
 					</div>
 				</a>
 			{/each}
+			</div>
 		</div>
 
 		<BackToTop mobileOnly={true} />
@@ -518,9 +520,18 @@
 		min-height: 80vh;
 	}
 
+	/* Holds the intro and the grid so they share one width. It never grows past N cards of
+	   400px (N = number of albums), so a few albums sit centered instead of stretching.
+	   With many albums the cap is huge and the block simply fills <main>. */
+	.albums-block {
+		max-width: calc(var(--album-count) * 400px + (var(--album-count) - 1) * 1.5rem);
+		margin: 0 auto;
+	}
+
+	/* auto-fit collapses unused tracks, so the cards always fill the block's width. */
 	.albums {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 		gap: 1.5rem;
 	}
 
