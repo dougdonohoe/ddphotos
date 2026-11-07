@@ -45,7 +45,7 @@
 	},
 	"dependencies": {
 		"@sveltejs/adapter-static": "^4.0.1",
-		"entities": "^8.1.0",
+		"entities": "^9.0.0",
 		"justified-layout": "^4.1.0",
 		"lucide-svelte": "^1.0.1",
 		"photoswipe": "^5.4.4"
