@@ -66,6 +66,10 @@
   display: block;
   width: var(--w);
   height: auto;
+  /* Reserve the image's box before it decodes. Without this the height is 0 until the PNG
+     is ready (even from cache, e.g. returning from an album), so the panel pops in late.
+     Match the PNG's own ratio (this logo is square, 512 x 512). */
+  aspect-ratio: 1 / 1;
   margin: calc(var(--w) * -0.10) 0 calc(var(--w) * -0.14);
 }
 
