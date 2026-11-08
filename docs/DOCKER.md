@@ -261,7 +261,7 @@ ddphotos install-ffmpeg --force   # reinstall over an existing copy
 | Aspect       | Detail                                                                                  |
 |--------------|-----------------------------------------------------------------------------------------|
 | Cache        | Docker volume `ddphotos-ffmpeg`, mounted at `/opt/ddphotos/ffmpeg`                      |
-| Download     | A static build of the ffmpeg 8.1 branch, SHA-256 verified, roughly 120 MB               |
+| Download     | A static build of the latest ffmpeg branch, SHA-256 verified, roughly 120 MB               |
 | Image impact | None: ffmpeg is deliberately not baked into the image (see [Video](PHOTOGEN.md#ffmpeg)) |
 
 To reclaim the space, `docker volume rm ddphotos-ffmpeg`. It is re-downloaded on the next
