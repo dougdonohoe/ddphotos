@@ -21,7 +21,7 @@ set -euo pipefail
 # The rolling "latest" release rather than a dated autobuild tag. BtbN prunes autobuilds to
 # the last 14 dailies plus one snapshot per month for two years, so a dated tag 404s about two
 # weeks after it is set, which is exactly how this broke once already. "latest" is the only
-# URL BtbN guarantees stays live. The n8.1 assets under it track the 8.1 release branch, so we
+# URL BtbN guarantees stays live. The n9.0 assets under it track the 9.0 release branch, so we
 # pick up bugfixes without jumping a major version.
 #
 # BtbN over the smaller johnvansickle builds because its assets are GitHub-hosted and it
@@ -32,10 +32,10 @@ FFMPEG_BASE="https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_TA
 # GPL builds: the LGPL variants omit libx264, which is exactly what we need to encode H.264.
 case "$(uname -m)" in
     x86_64|amd64)
-        FFMPEG_FILE="ffmpeg-n8.1-latest-linux64-gpl-8.1.tar.xz"
+        FFMPEG_FILE="ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz"
         ;;
     aarch64|arm64)
-        FFMPEG_FILE="ffmpeg-n8.1-latest-linuxarm64-gpl-8.1.tar.xz"
+        FFMPEG_FILE="ffmpeg-n9.0-latest-linuxarm64-gpl-9.0.tar.xz"
         ;;
     *)
         echo "Error: no ffmpeg build published for architecture $(uname -m)." >&2
@@ -65,13 +65,13 @@ echo "  source: $FFMPEG_BASE/$FFMPEG_FILE"
 echo "  target: $DEST"
 echo
 
-curl -fSL --progress-bar -o "$TMP/ffmpeg.tar.xz" "$FFMPEG_BASE/$FFMPEG_FILE"
+curl -fSL --retry 3 --retry-all-errors --progress-bar -o "$TMP/ffmpeg.tar.xz" "$FFMPEG_BASE/$FFMPEG_FILE"
 
 # The assets under "latest" are rebuilt in place, so a hardcoded checksum would go stale the
 # same way a dated tag does. Verify against the sidecar BtbN publishes next to them instead:
 # that catches a truncated or corrupted download, though it no longer pins one exact build.
 echo "Verifying checksum ..."
-curl -fsSL -o "$TMP/checksums.sha256" "$FFMPEG_BASE/checksums.sha256"
+curl -fsSL --retry 3 --retry-all-errors -o "$TMP/checksums.sha256" "$FFMPEG_BASE/checksums.sha256"
 FFMPEG_SHA256=$(awk -v f="$FFMPEG_FILE" '$2 == f { print $1 }' "$TMP/checksums.sha256")
 if [ -z "$FFMPEG_SHA256" ]; then
     echo "Error: $FFMPEG_FILE is not listed in checksums.sha256. Refusing to install." >&2
