@@ -1,12 +1,16 @@
 # DD Photos - Static Photo Album Site Generator
 
 [![Demo](https://img.shields.io/badge/Demo-ddphotos.donohoe.info-blue)](https://ddphotos.donohoe.info)
+[![YouTube](https://img.shields.io/badge/YouTube-Tutorial-red?logo=youtube)](https://www.youtube.com/watch?v=vCta2m40SDs)
 [![Docker Image Version](https://img.shields.io/docker/v/dougdonohoe/ddphotos?logo=docker&label=Docker%20Hub)](https://hub.docker.com/r/dougdonohoe/ddphotos)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dougdonohoe/ddphotos?logo=docker&label=Docker%20Pulls)](https://hub.docker.com/r/dougdonohoe/ddphotos)
 [![CI](https://github.com/dougdonohoe/ddphotos/actions/workflows/ci.yml/badge.svg)](https://github.com/dougdonohoe/ddphotos/actions)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 ## News
+
+**Video tutorial is here!** Watch [the DD Photos tutorial on YouTube↗](https://www.youtube.com/watch?v=vCta2m40SDs)
+to see the DD Photos App installed, a site published, and a tour of a site's features.
 
 **PhotoPrism support is here!** Starting with version 1.34.0, DD Photos can sync albums straight from
 [PhotoPrism↗](https://www.photoprism.app/), with no export needed. See [DD Photos and PhotoPrism↗](https://github.com/dougdonohoe/ddphotos-app/blob/main/docs/PHOTOPRISM.md)
@@ -39,6 +43,10 @@ The easiest way to run DD Photos is via the open-source companion [DD Photos des
 It requires the least technical jujitsu!  We highly recommend starting there.
 
 ![config.png](images/ddphotos-app/config.png)
+
+Watch the video tutorial to see the app installed, a site published, and a tour of a site's features:
+
+[![DD Photos video tutorial](images/youtube-tutorial.png)](https://www.youtube.com/watch?v=vCta2m40SDs)
 
 ## Docker Quick Start
 
