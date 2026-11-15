@@ -70,3 +70,23 @@ test('arrow keys move focus between album cards', async ({ page }) => {
 	await page.keyboard.press('ArrowLeft');
 	await expect(links.nth(0)).toBeFocused();
 });
+
+test('a keyboard-focused card gets the browser focus-ring color, not the text color', async ({
+	page
+}) => {
+	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
+	await waitForHydration(page);
+	const card = page.locator('.album-card').first();
+	// Tab until the first card's title link has focus (keyboard focus, so :focus-visible applies)
+	await expect(async () => {
+		await page.keyboard.press('Tab');
+		await expect(card.locator('.album-link')).toBeFocused({ timeout: 200 });
+	}).toPass();
+	const style = await card.evaluate((el) => {
+		const s = getComputedStyle(el);
+		return { outline: s.outlineStyle, ring: s.outlineColor, text: s.color };
+	});
+	expect(style.outline).toBe('auto');
+	expect(style.ring).not.toBe(style.text);
+});

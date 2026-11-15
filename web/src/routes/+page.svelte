@@ -562,9 +562,12 @@
 		box-shadow: 0 4px 16px var(--shadow-color);
 	}
 
-	/* The browser's focus ring goes on the card, as it did when the card was the link */
+	/* The browser's focus ring goes on the card, as it did when the card was the link. The
+	   card itself is not focused, so Chrome and Safari would draw an auto ring in currentColor
+	   (black): name their focus-ring color. Firefox drops that declaration and keeps the first. */
 	.album-card:has(.album-link:focus-visible) {
 		outline: auto;
+		outline: auto 1px -webkit-focus-ring-color;
 	}
 
 	.album-link {
