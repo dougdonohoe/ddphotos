@@ -97,8 +97,10 @@
 				document.documentElement.style.visibility = '';
 				if (y > 0) window.scrollTo(0, y);
 				if (slug) {
-					const card = document.querySelector<HTMLElement>(`.album-card[data-slug="${slug}"]`);
-					card?.focus({ preventScroll: true });
+					const link = document.querySelector<HTMLElement>(
+						`.album-card[data-slug="${slug}"] .album-link`
+					);
+					link?.focus({ preventScroll: true });
 				}
 			});
 		}
@@ -256,7 +258,7 @@
 		}));
 		const targetIndex = navigateCursor(rects, currentIndex, direction);
 		if (targetIndex !== null) {
-			allCards[targetIndex].focus();
+			allCards[targetIndex].querySelector<HTMLElement>('.album-link')?.focus();
 			allCards[targetIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 		}
 	}
@@ -273,7 +275,8 @@
 		if (!e.key.startsWith('Arrow')) return;
 		e.preventDefault();
 		const allCards = Array.from(document.querySelectorAll<HTMLElement>('.album-card'));
-		const currentIndex = allCards.indexOf(e.currentTarget as HTMLElement);
+		const card = (e.currentTarget as HTMLElement).closest<HTMLElement>('.album-card');
+		const currentIndex = card ? allCards.indexOf(card) : -1;
 		if (currentIndex !== -1) {
 			navigateCardCursor(
 				currentIndex,
@@ -327,12 +330,11 @@
 			{/if}
 			<div class="albums">
 				{#each albums as album (album.slug)}
-					<a
-						href={resolve(`albums/${album.slug}`)}
-						class="album-card"
-						data-slug={album.slug}
-						onkeydown={handleCardKeydown}
-					>
+					<!-- The card is a <div>, not an <a>: descriptions may hold links, and an <a> inside
+					     an <a> makes the HTML parser split the pre-rendered card in two (cover in one
+					     grid cell, text in the next) until hydration repairs it. The title link's
+					     ::after stretches over the whole card to keep all of it clickable. -->
+					<div class="album-card" data-slug={album.slug}>
 						{#if album.cover}
 							<img src={albumFileUrl(album.cover, album.coverVersion)} alt={album.title} />
 						{:else}
@@ -365,7 +367,13 @@
 							</div>
 						{/if}
 						<div class="album-info">
-							<h2>{album.title}</h2>
+							<h2>
+								<a
+									href={resolve(`albums/${album.slug}`)}
+									class="album-link"
+									onkeydown={handleCardKeydown}>{album.title}</a
+								>
+							</h2>
 							{#if album.description}
 								<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml description, HTML is intentional -->
 								<p class="description">{@html album.description}</p>
@@ -378,7 +386,7 @@
 								)}
 							</p>
 						</div>
-					</a>
+					</div>
 				{/each}
 			</div>
 		</div>
@@ -537,8 +545,7 @@
 	}
 
 	.album-card {
-		text-decoration: none;
-		color: inherit;
+		position: relative;
 		border-radius: 8px;
 		overflow: hidden;
 		background: var(--bg-secondary);
@@ -553,6 +560,24 @@
 	.album-card:hover {
 		transform: translateY(-4px);
 		box-shadow: 0 4px 16px var(--shadow-color);
+	}
+
+	/* The browser's focus ring goes on the card, as it did when the card was the link */
+	.album-card:has(.album-link:focus-visible) {
+		outline: auto;
+	}
+
+	.album-link {
+		text-decoration: none;
+		color: inherit;
+		outline: none;
+	}
+
+	/* Stretched link: covers the whole card, so a click anywhere opens the album */
+	.album-link::after {
+		content: '';
+		position: absolute;
+		inset: 0;
 	}
 
 	.album-card img {
@@ -610,6 +635,12 @@
 		font-size: 0.95rem;
 		color: var(--text-color-2nd);
 		opacity: 0.8;
+	}
+
+	/* Description links sit above the stretched title link so they stay clickable */
+	.album-info .description :global(a) {
+		position: relative;
+		z-index: 1;
 	}
 
 	/* Full-screen overlay covering header/footer when site is locked */

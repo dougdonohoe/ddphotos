@@ -274,6 +274,7 @@ point of specificity for free:
 | `.albums`                   | The album card grid                            | yes     |
 | `.album-card`               | One album card                                 | yes     |
 | `.album-info`               | Title/description/meta block inside a card     | yes     |
+| `.album-link`               | Album title link; it covers the whole card     | yes     |
 | `.album-info .description`  | Album description on a card                    | yes     |
 | `.album-info .meta`         | Photo count and date range on a card           | yes     |
 
