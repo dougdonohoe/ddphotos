@@ -205,10 +205,10 @@ export async function hasAtLeastNAlbums(request: APIRequestContext, n: number): 
 }
 
 /**
- * Extract the album slug from a card locator's href attribute.
+ * Extract the album slug from the href of a card's title link.
  */
 export async function slugFromCard(card: Locator): Promise<string> {
-	const href = (await card.getAttribute('href')) ?? '';
+	const href = (await card.locator('.album-link').getAttribute('href')) ?? '';
 	return href.replace('/albums/', '');
 }
 

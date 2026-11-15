@@ -113,7 +113,7 @@ test('album cover appears on home page after unlocking album', async ({ page }) 
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
 	// The album card's cover placeholder should now show a background image
-	const card = page.locator(`.album-card[href="/albums/${firstAlbumSlug}"]`);
+	const card = page.locator(`.album-card[data-slug="${firstAlbumSlug}"]`);
 	const placeholder = card.locator('.album-cover-placeholder');
 	await expect(placeholder).toHaveCSS('background-image', /url\(/);
 });
@@ -234,7 +234,7 @@ test('per-album encrypted album shows lock icon not cover before unlock', async 
 	// Only meaningful when the home page is NOT site-encrypted (so we can see cards)
 	test.skip(!!pw.all, 'home page requires site password; skip for pw-all variant');
 	await page.goto('/');
-	const card = page.locator(`.album-card[href="/albums/${firstAlbumSlug}"]`);
+	const card = page.locator(`.album-card[data-slug="${firstAlbumSlug}"]`);
 	// Lock icon should be visible (cover is not included in index for per-album encrypted albums)
 	await expect(card.locator('.ddp-lock-icon')).toBeVisible();
 	// Placeholder should NOT have a background image pointing to a photo

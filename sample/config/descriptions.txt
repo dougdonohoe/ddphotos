@@ -2,5 +2,5 @@
 # Format: slug<whitespace>description
 # Blank lines and lines starting with # are ignored.
 
-the-way      A life-changing 530 miles and 37 days to walk El Camino del Norte, the rugged coastal route of El Camino de Santiago.
+the-way      A life-changing 530 miles and 37 days to walk El Camino del Norte, the rugged coastal route of <a href="https://en.wikipedia.org/wiki/Camino_de_Santiago" target="_blank" rel="noopener">El Camino de Santiago</a>.
 antarctica   Surviving the Drake Passage to reach the bottom of the world: a cruise through Antarctica and the Falkland Islands with epic encounters with penguins, icebergs, albatross, and whales.
