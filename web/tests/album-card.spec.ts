@@ -45,7 +45,11 @@ test('clicking a card outside its title opens the album', async ({ page }) => {
 	const href = await card.locator('.album-link').getAttribute('href');
 	// Click by position: the stretched title link covers .meta, so an element click on .meta
 	// would fail Playwright's hit-test, which is the point of the stretched link.
-	const box = (await card.locator('.meta').boundingBox())!;
+	// mouse.click takes viewport coordinates and does not scroll, so bring .meta into view
+	// first: with Linux font metrics the first card's .meta can sit below the fold.
+	const meta = card.locator('.meta');
+	await meta.scrollIntoViewIfNeeded();
+	const box = (await meta.boundingBox())!;
 	await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 	await expect(page).toHaveURL(new RegExp(`${href}$`));
 });
@@ -56,9 +60,13 @@ test('arrow keys move focus between album cards', async ({ page }) => {
 	await waitForHydration(page);
 	const links = page.locator('.album-card .album-link');
 	test.skip((await links.count()) < 2, 'needs two albums');
-	await links.nth(0).focus();
-	await page.keyboard.press('ArrowRight');
-	await expect(links.nth(1)).toBeFocused();
+	// On the Vite dev server the card's onkeydown can attach after waitForHydration returns
+	// (it has no home-page readiness flag), so the first press may go unheard: retry it.
+	await expect(async () => {
+		await links.nth(0).focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(links.nth(1)).toBeFocused({ timeout: 500 });
+	}).toPass();
 	await page.keyboard.press('ArrowLeft');
 	await expect(links.nth(0)).toBeFocused();
 });
