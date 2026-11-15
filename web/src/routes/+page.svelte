@@ -649,8 +649,10 @@
 		font-size: 0.85rem;
 	}
 
+	/* Slanted to match the italic meta text beside it (italic fonts lean roughly 10-14deg) */
 	.album-info .meta :global(.long-description-icon) {
 		flex-shrink: 0;
+		transform: skewX(-12deg);
 	}
 
 	.album-info .description {
