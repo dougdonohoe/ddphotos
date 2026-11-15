@@ -689,6 +689,19 @@ func TestGetAlbumSummary(t *testing.T) {
 		assert.Equal(t, 1, s.VideoCount)
 	})
 
+	t.Run("hasLongDescription follows long_description_html and is omitted when unset", func(t *testing.T) {
+		t.Parallel()
+		plain := makeAP("myalbum", nil).GetAlbumSummary()
+		assert.False(t, plain.HasLongDescription)
+		b, err := json.Marshal(plain)
+		require.NoError(t, err)
+		assert.NotContains(t, string(b), "hasLongDescription")
+
+		ap := makeAP("myalbum", nil)
+		ap.AlbumConfig.LongDescriptionHTML = "<p>Story</p>"
+		assert.True(t, ap.GetAlbumSummary().HasLongDescription)
+	})
+
 	t.Run("an album with no video omits videoCount from the JSON", func(t *testing.T) {
 		t.Parallel()
 		s := makeAP("myalbum", nil).GetAlbumSummary()

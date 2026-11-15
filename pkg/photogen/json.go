@@ -96,6 +96,9 @@ type AlbumSummary struct {
 	DateSpan     string `json:"dateSpan"`               // e.g., "Apr 2024" or "Apr - May 2024"
 	Description  string `json:"description,omitempty"`  // optional blurb shown on album page
 	Encrypted    bool   `json:"encrypted,omitempty"`    // true if album index is encrypted
+	// HasLongDescription marks the album card on the home page; the HTML itself stays in
+	// the album's index.json so albums.json does not grow with it.
+	HasLongDescription bool `json:"hasLongDescription,omitempty"`
 }
 
 // WriteAlbumIndex writes the index.json (or index.enc.json if encrypted) for this album.
@@ -263,6 +266,7 @@ func (ap *AlbumProcessor) GetAlbumSummary() AlbumSummary {
 	}
 
 	summary.Description = ap.AlbumConfig.Description
+	summary.HasLongDescription = ap.AlbumConfig.LongDescriptionHTML != ""
 	return summary
 }
 
