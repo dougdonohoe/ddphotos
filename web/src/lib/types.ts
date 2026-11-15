@@ -44,6 +44,7 @@ export interface AlbumSummary {
 	dateSpan: string;
 	description?: string;
 	encrypted?: boolean;
+	hasLongDescription?: boolean; // album has a longDescriptionHtml (in its index.json)
 }
 
 // Mirrors Go's NavLink in pkg/photogen/albums_config.go.

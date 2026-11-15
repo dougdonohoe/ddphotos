@@ -30,6 +30,7 @@
 	import Lock from 'lucide-svelte/icons/lock';
 	import Image from 'lucide-svelte/icons/image';
 	import CameraOff from 'lucide-svelte/icons/camera-off';
+	import ScrollText from 'lucide-svelte/icons/scroll-text';
 
 	let { data } = $props();
 
@@ -379,11 +380,22 @@
 								<p class="description">{@html album.description}</p>
 							{/if}
 							<p class="meta">
-								{albumMetaText(
-									album.count - (album.videoCount ?? 0),
-									album.videoCount ?? 0,
-									album.dateSpan
-								)}
+								<span
+									>{albumMetaText(
+										album.count - (album.videoCount ?? 0),
+										album.videoCount ?? 0,
+										album.dateSpan
+									)}</span
+								>
+								{#if album.hasLongDescription}
+									<ScrollText
+										class="long-description-icon"
+										size={16}
+										strokeWidth={1.75}
+										role="img"
+										aria-label="Has a long description"
+									/>
+								{/if}
 							</p>
 						</div>
 					</div>
@@ -628,9 +640,19 @@
 	.album-info .meta {
 		margin-top: auto;
 		padding-top: 0.4rem;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 0.4rem;
 		text-align: right;
 		font-style: italic;
 		font-size: 0.85rem;
+	}
+
+	/* Slanted to match the italic meta text beside it (italic fonts lean roughly 10-14deg) */
+	.album-info .meta :global(.long-description-icon) {
+		flex-shrink: 0;
+		transform: skewX(-12deg);
 	}
 
 	.album-info .description {

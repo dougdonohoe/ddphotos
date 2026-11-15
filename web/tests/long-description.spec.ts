@@ -283,3 +283,23 @@ test('album without a long description renders none', async ({ page }) => {
 	await expect(page.locator('.long-description')).toHaveCount(0);
 	await expect(page.locator('.long-description-rule')).toHaveCount(0);
 });
+
+test('home page card shows the long-description icon only for albums that have one', async ({
+	page
+}) => {
+	test.skip(!hasAlbum || !hasPlainAlbum, `${ALBUM} or ${PLAIN_ALBUM} album not present`);
+	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
+	await waitForHydration(page);
+
+	const icon = (slug: string) =>
+		page.locator(`.album-card[data-slug="${slug}"] .meta .long-description-icon`);
+	await expect(icon(ALBUM)).toBeVisible();
+	await expect(icon(PLAIN_ALBUM)).toHaveCount(0);
+
+	// Sits on the meta line, after the counts/date text
+	const meta = page.locator(`.album-card[data-slug="${ALBUM}"] .meta`);
+	const textBox = (await meta.locator('span').boundingBox())!;
+	const iconBox = (await icon(ALBUM).boundingBox())!;
+	expect(iconBox.x).toBeGreaterThanOrEqual(textBox.x + textBox.width);
+});
