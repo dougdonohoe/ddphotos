@@ -54,6 +54,38 @@ test('clicking a card outside its title opens the album', async ({ page }) => {
 	await expect(page).toHaveURL(new RegExp(`${href}$`));
 });
 
+test('every point of a card is a link: the album, or a link in its description', async ({
+	page
+}) => {
+	await page.goto('/');
+	await unlockSiteIfNeeded(page, pw);
+	await waitForHydration(page);
+	// Hit-test a grid of points over each card's description and meta line. Anything that
+	// makes its own stacking context there (opacity, transform) paints over the title link's
+	// stretched ::after and takes the click unless it lets pointer events through.
+	const misses = await page.evaluate(() => {
+		const out: string[] = [];
+		for (const card of document.querySelectorAll<HTMLElement>('.album-card')) {
+			for (const part of card.querySelectorAll<HTMLElement>('.description, .meta')) {
+				part.scrollIntoView({ block: 'center' });
+				const r = part.getBoundingClientRect();
+				for (let fx = 0.05; fx < 1; fx += 0.1) {
+					for (let fy = 0.1; fy < 1; fy += 0.2) {
+						const x = r.left + r.width * fx;
+						const y = r.top + r.height * fy;
+						const hit = document.elementFromPoint(x, y);
+						if (!hit?.closest('a')) {
+							out.push(`${card.dataset.slug} .${part.className.split(' ')[0]}: ${hit?.tagName}`);
+						}
+					}
+				}
+			}
+		}
+		return out;
+	});
+	expect(misses).toEqual([]);
+});
+
 test('arrow keys move focus between album cards', async ({ page }) => {
 	await page.goto('/');
 	await unlockSiteIfNeeded(page, pw);
