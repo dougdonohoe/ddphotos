@@ -523,19 +523,19 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 	t.Run("a missing output is not up to date", func(t *testing.T) {
 		mc, src, out := setup(t)
 		require.NoError(t, os.Remove(out))
-		assert.False(t, mc.OutputUpToDate(out, src, ""))
+		assert.False(t, mc.OutputUpToDate(out, src, "", ""))
 	})
 
 	t.Run("an unstamped output is adopted", func(t *testing.T) {
 		mc, src, out := setup(t)
-		assert.True(t, mc.OutputUpToDate(out, src, ""), "existing output must be trusted, not redone")
+		assert.True(t, mc.OutputUpToDate(out, src, "", ""), "existing output must be trusted, not redone")
 		assert.Contains(t, mc.derived, mc.derivedKey(out), "and stamped with the source it was trusted against")
 	})
 
 	t.Run("a stamped output is up to date", func(t *testing.T) {
 		mc, src, out := setup(t)
 		mc.RecordDerived(out, src, "")
-		assert.True(t, mc.OutputUpToDate(out, src, ""))
+		assert.True(t, mc.OutputUpToDate(out, src, "", ""))
 	})
 
 	t.Run("a source replaced with different bytes invalidates", func(t *testing.T) {
@@ -544,14 +544,14 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		other, err := os.ReadFile(filepath.Join("testdata", "portrait-1.jpg"))
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(src, other, 0644))
-		assert.False(t, mc.OutputUpToDate(out, src, ""))
+		assert.False(t, mc.OutputUpToDate(out, src, "", ""))
 	})
 
 	t.Run("an adopted output catches a later replacement", func(t *testing.T) {
 		mc, src, out := setup(t)
-		require.True(t, mc.OutputUpToDate(out, src, ""))
+		require.True(t, mc.OutputUpToDate(out, src, "", ""))
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
-		assert.False(t, mc.OutputUpToDate(out, src, ""))
+		assert.False(t, mc.OutputUpToDate(out, src, "", ""))
 	})
 
 	// Docker mounts the source directory somewhere else, so the same file is reached
@@ -563,24 +563,35 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		require.NoError(t, err)
 		moved := copyFixture(t, t.TempDir(), realFixture)
 		require.NoError(t, os.Chtimes(moved, stat.ModTime(), stat.ModTime()))
-		assert.True(t, mc.OutputUpToDate(out, moved, ""))
+		assert.True(t, mc.OutputUpToDate(out, moved, "", ""))
 	})
 
 	t.Run("an unstamped output of a source needing conversion is not adopted", func(t *testing.T) {
 		mc, src, out := setup(t)
-		assert.False(t, mc.OutputUpToDate(out, src, "ICC: Adobe RGB (1998)"))
+		assert.False(t, mc.OutputUpToDate(out, src, "", "ICC: Adobe RGB (1998)"))
 		assert.NotContains(t, mc.derived, mc.derivedKey(out))
 	})
 
 	t.Run("a stamp from before the color pipeline is stale only for a source needing it", func(t *testing.T) {
 		mc, src, out := setup(t)
-		require.True(t, mc.OutputUpToDate(out, src, colorProfileSRGB)) // adopted at ColorVersion 0
-		assert.True(t, mc.OutputUpToDate(out, src, colorProfileSRGB))
-		assert.True(t, mc.OutputUpToDate(out, src, colorProfileNone))
-		assert.False(t, mc.OutputUpToDate(out, src, colorNCLXP3))
+		require.True(t, mc.OutputUpToDate(out, src, "", colorProfileSRGB)) // adopted at ColorVersion 0
+		assert.True(t, mc.OutputUpToDate(out, src, "", colorProfileSRGB))
+		assert.True(t, mc.OutputUpToDate(out, src, "", colorProfileNone))
+		assert.False(t, mc.OutputUpToDate(out, src, "", colorNCLXP3))
 
 		mc.RecordDerived(out, src, "")
-		assert.True(t, mc.OutputUpToDate(out, src, colorNCLXP3), "a rewrite brings it up to date")
+		assert.True(t, mc.OutputUpToDate(out, src, "", colorNCLXP3), "a rewrite brings it up to date")
+	})
+
+	t.Run("a variant must match, and an unstamped output is adopted only for the default", func(t *testing.T) {
+		mc, src, out := setup(t)
+		assert.False(t, mc.OutputUpToDate(out, src, "offset=0.5", ""), "unstamped output was made with the defaults")
+		assert.NotContains(t, mc.derived, mc.derivedKey(out), "and it is not adopted")
+
+		mc.RecordDerived(out, src, "offset=0.5")
+		assert.True(t, mc.OutputUpToDate(out, src, "offset=0.5", ""))
+		assert.False(t, mc.OutputUpToDate(out, src, "offset=2", ""), "a changed setting redoes it")
+		assert.False(t, mc.OutputUpToDate(out, src, "", ""), "and so does removing it")
 	})
 
 	t.Run("NeedsColorUpdate is true only when color is the sole reason", func(t *testing.T) {
@@ -590,7 +601,7 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 		assert.False(t, mc.NeedsColorUpdate(out, src, colorProfileSRGB))
 		assert.NotContains(t, mc.derived, mc.derivedKey(out), "and it adopts nothing")
 
-		require.True(t, mc.OutputUpToDate(out, src, ""))
+		require.True(t, mc.OutputUpToDate(out, src, "", ""))
 		assert.True(t, mc.NeedsColorUpdate(out, src, adobe), "stamped at ColorVersion 0")
 
 		mc.RecordDerived(out, src, "")
@@ -612,18 +623,18 @@ func TestMetaCache_OutputUpToDate(t *testing.T) {
 	t.Run("a nil cache only checks that the output exists", func(t *testing.T) {
 		_, src, out := setup(t)
 		var mc *MetaCache
-		assert.True(t, mc.OutputUpToDate(out, src, ""))
-		assert.False(t, mc.OutputUpToDate(out+".missing", src, ""))
+		assert.True(t, mc.OutputUpToDate(out, src, "", ""))
+		assert.False(t, mc.OutputUpToDate(out+".missing", src, "", ""))
 	})
 
 	t.Run("an adopted stamp survives a round trip", func(t *testing.T) {
 		mc, src, out := setup(t)
-		require.True(t, mc.OutputUpToDate(out, src, ""))
+		require.True(t, mc.OutputUpToDate(out, src, "", ""))
 		require.NoError(t, mc.Save())
 
 		reloaded := LoadMetaCache(mc.path, nil)
 		require.NoError(t, os.Chtimes(src, time.Now(), time.Now().Add(time.Hour)))
-		assert.False(t, reloaded.OutputUpToDate(out, src, ""), "a saved adoption must still catch a change")
+		assert.False(t, reloaded.OutputUpToDate(out, src, "", ""), "a saved adoption must still catch a change")
 	})
 }
 
@@ -651,7 +662,7 @@ func TestMetaCache_SharedAcrossEnvironments(t *testing.T) {
 		rebase := func(p string) string { return filepath.Join(docker, p[len(host):]) }
 
 		reloaded := LoadMetaCache(MetaCachePath(filepath.Join(docker, "albums")), nil)
-		assert.True(t, reloaded.OutputUpToDate(rebase(webp), rebase(src), adobe),
+		assert.True(t, reloaded.OutputUpToDate(rebase(webp), rebase(src), "", adobe),
 			"a color-converted output must not be re-rendered")
 		assert.True(t, reloaded.DerivedUpToDate(rebase(cover), rebase(src), "", adobe),
 			"nor a cover whose source is the same file under another path")
@@ -705,7 +716,7 @@ func TestMetaCache_SharedAcrossEnvironments(t *testing.T) {
 		mc := LoadMetaCache(path, nil)
 		assert.Equal(t, map[string]derivedCacheEntry{"site/landscape-1.webp": stamp}, mc.derived,
 			"the local key is rekeyed and the other environment's is dropped")
-		assert.True(t, mc.OutputUpToDate(webp, src, adobe))
+		assert.True(t, mc.OutputUpToDate(webp, src, "", adobe))
 
 		require.NoError(t, mc.Save())
 		data, err := os.ReadFile(path)

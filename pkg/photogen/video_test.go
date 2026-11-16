@@ -1,6 +1,7 @@
 package photogen
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -249,7 +250,7 @@ func TestExtractPoster(t *testing.T) {
 		// ffmpeg applies the display matrix on decode, so no rotation belongs in
 		// ExtractPoster. Pinned so nobody adds one.
 		out := filepath.Join(t.TempDir(), "poster.jpg")
-		require.NoError(t, ExtractPoster(filepath.Join("testdata", "portrait-rotated.mov"), out, 1.0))
+		require.NoError(t, ExtractPoster(filepath.Join("testdata", "portrait-rotated.mov"), out, 0.5))
 
 		meta, err := ReadPhotoMetadata(out)
 		require.NoError(t, err)
@@ -260,7 +261,7 @@ func TestExtractPoster(t *testing.T) {
 
 	t.Run("poster is a real decodable image", func(t *testing.T) {
 		out := filepath.Join(t.TempDir(), "poster.jpg")
-		require.NoError(t, ExtractPoster(filepath.Join("testdata", "landscape.mov"), out, 1.0))
+		require.NoError(t, ExtractPoster(filepath.Join("testdata", "landscape.mov"), out, 0.5))
 
 		meta, err := ReadPhotoMetadata(out)
 		require.NoError(t, err)
@@ -283,11 +284,37 @@ func TestPosterOffset(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := PosterOffset(tc.duration)
+			got := PosterOffset(tc.duration, nil)
 			assert.Equal(t, tc.want, got)
 			if tc.duration > 0 {
 				assert.Less(t, got, tc.duration, "offset must land inside the clip")
 			}
+		})
+	}
+}
+
+func TestPosterOffset_Requested(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	tests := []struct {
+		name      string
+		duration  float64
+		requested float64
+		want      float64
+	}{
+		{"inside the clip is used as is", 30, 2.1, 2.1},
+		{"zero is the first frame", 30, 0, 0},
+		{"overrides the short-clip midpoint", 1.0, 0.2, 0.2},
+		{"negative is clamped to zero", 30, -3, 0},
+		{"past the end is capped before it", 10, 99, 10 - posterEndMargin},
+		{"exactly the end is capped before it", 10, 10, 10 - posterEndMargin},
+		{"a clip shorter than the margin uses its first frame", 0.05, 1, 0},
+		{"unknown duration keeps the lower bound only", 0, 2.5, 2.5},
+		{"NaN is treated as unset", 30, math.NaN(), posterMaxOffset},
+		{"+Inf is capped", 10, math.Inf(1), 10 - posterEndMargin},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.InDelta(t, tc.want, PosterOffset(tc.duration, f(tc.requested)), 1e-9)
 		})
 	}
 }

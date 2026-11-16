@@ -122,12 +122,22 @@ func mergeSyncCaptions(dir string, items []syncItem, warnf func(string, ...any))
 		if !present {
 			localDesc = base
 		}
+		// A video's {N} poster offset is local-only: upstream never has one, so it is set
+		// aside for the comparison and put back in front of whichever caption wins.
+		// Only a real line is cut: the baseline stand-in above is upstream text.
+		prefix := ""
+		if present && IsVideoFile(it.file) {
+			_, prefix, localDesc = cutPosterOffset(localDesc)
+		}
 		desc, conflict := mergeCaption(localDesc, base, it.caption)
 		if conflict {
 			warnf("WARN: caption for %s changed both locally and upstream; "+
 				"the upstream text wins (use captions: false to keep local captions)\n", it.file)
 		}
-		return desc
+		if prefix == "" {
+			return desc
+		}
+		return strings.TrimRight(prefix+desc, " \t") // "{2} " with no caption writes "{2}"
 	}
 
 	var b strings.Builder

@@ -227,6 +227,37 @@ func TestMergeSyncCaptions(t *testing.T) {
 		assert.Contains(t, warnings[0], "captions: false")
 	})
 
+	// A {N} poster offset is local-only, so it must not read as a local edit, and it must
+	// survive whichever caption wins.
+	t.Run("a video's poster offset is kept and does not count as a local edit", func(t *testing.T) {
+		t.Parallel()
+		got, warnings := run(t, "clip.mov {0.5}Upstream text\n",
+			syncItemsFor([2]string{"clip.mov", "New upstream"}),
+			metaFor([2]string{"clip.mov", "Upstream text"}))
+		assert.Equal(t, "clip.mov {0.5}New upstream\n", got)
+		assert.Empty(t, warnings, "only upstream changed")
+
+		got, _ = run(t, "clip.mov {2} \n",
+			syncItemsFor([2]string{"clip.mov", ""}),
+			metaFor([2]string{"clip.mov", ""}))
+		assert.Equal(t, "clip.mov {2}\n", got, "an offset with no caption")
+
+		got, warnings = run(t, "clip.mov {1.5} Mine\n",
+			syncItemsFor([2]string{"clip.mov", "Theirs"}),
+			metaFor([2]string{"clip.mov", "Before"}))
+		assert.Equal(t, "clip.mov {1.5} Theirs\n", got, "a conflict still keeps the offset")
+		assert.Len(t, warnings, 1)
+	})
+
+	t.Run("a photo's leading braces are caption text", func(t *testing.T) {
+		t.Parallel()
+		got, warnings := run(t, "a.jpg {3} friends\n",
+			syncItemsFor([2]string{"a.jpg", "Three friends"}),
+			metaFor([2]string{"a.jpg", "Three friends"}))
+		assert.Equal(t, "a.jpg {3} friends\n", got, "a local edit, kept as written")
+		assert.Empty(t, warnings)
+	})
+
 	t.Run("a name with a space is quoted so parsePhotogenLine reads it back whole", func(t *testing.T) {
 		t.Parallel()
 		got, _ := run(t, "", syncItemsFor([2]string{"Sue and Bob.jpg", "A caption"}), &SyncMetadata{})

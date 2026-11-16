@@ -1001,3 +1001,73 @@ func TestCoverWarningIgnoresLimit(t *testing.T) {
 		assert.Empty(t, coverWarnings(setup(t, "", 1)))
 	})
 }
+
+func TestCutPosterOffset(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		desc, prefix, caption string
+		want                  float64 // only when prefix != ""
+	}{
+		{"{0.5}Sunset", "{0.5}", "Sunset", 0.5},
+		{"{2.1} Sunset", "{2.1} ", "Sunset", 2.1},
+		{"{ 3 }", "{ 3 }", "", 3},
+		{"{.25}x", "{.25}", "x", 0.25},
+		{"{4.}x", "{4.}", "x", 4},
+		{"{-1}x", "{-1}", "x", -1}, // clamped later, by PosterOffset
+		{"Sunset", "", "Sunset", 0},
+		{"Sunset {0.5}", "", "Sunset {0.5}", 0},
+		{"{abc}Sunset", "", "{abc}Sunset", 0},
+		{"{}Sunset", "", "{}Sunset", 0},
+		{"{1.2.3}x", "", "{1.2.3}x", 0},
+		{"", "", "", 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			offset, prefix, caption := cutPosterOffset(tc.desc)
+			assert.Equal(t, tc.prefix, prefix)
+			assert.Equal(t, tc.caption, caption)
+			if tc.prefix == "" {
+				assert.Nil(t, offset)
+			} else {
+				require.NotNil(t, offset)
+				assert.InDelta(t, tc.want, *offset, 1e-9)
+			}
+		})
+	}
+}
+
+func TestApplyCaptions_PosterOffset(t *testing.T) {
+	t.Parallel()
+	apply := func(lines map[string]string, order []string) map[string]*Photo {
+		photos := []*Photo{
+			{FileName: "clip.mov", AbsolutePath: "/a/clip.mov", IsVideo: true},
+			{FileName: "clip.mp4", AbsolutePath: "/a/clip.mp4", IsVideo: true},
+			{FileName: "a.jpg", AbsolutePath: "/a/a.jpg"},
+		}
+		newPhotoMatcher(photos).applyCaptions(&photoDescriptions{descriptions: lines, order: order})
+		byName := map[string]*Photo{}
+		for _, p := range photos {
+			byName[p.FileName] = p
+		}
+		return byName
+	}
+
+	t.Run("a video's prefix becomes its offset and leaves the caption", func(t *testing.T) {
+		t.Parallel()
+		got := apply(map[string]string{"clip.mov": "{0.5}Waves", "a.jpg": "{3} friends"}, []string{"clip.mov", "a.jpg"})
+		require.NotNil(t, got["clip.mov"].PosterOffset)
+		assert.InDelta(t, 0.5, *got["clip.mov"].PosterOffset, 1e-9)
+		assert.Equal(t, "Waves", got["clip.mov"].Description)
+		assert.Nil(t, got["a.jpg"].PosterOffset, "a photo ignores it")
+		assert.Equal(t, "{3} friends", got["a.jpg"].Description, "and keeps it as caption text")
+	})
+
+	t.Run("a full-name line wins over the stem line, offset included", func(t *testing.T) {
+		t.Parallel()
+		got := apply(map[string]string{"clip": "{2}Both", "clip.mp4": "Just the mp4"}, []string{"clip.mp4", "clip"})
+		require.NotNil(t, got["clip.mov"].PosterOffset)
+		assert.InDelta(t, 2, *got["clip.mov"].PosterOffset, 1e-9)
+		assert.Nil(t, got["clip.mp4"].PosterOffset)
+		assert.Equal(t, "Just the mp4", got["clip.mp4"].Description)
+	})
+}
