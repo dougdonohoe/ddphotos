@@ -48,6 +48,11 @@ const videoSizeWarnBytes = 25 * 1024 * 1024
 // midpoint instead, so a 0.5s video does not try to seek past its own end.
 const posterMaxOffset = 1.0
 
+// posterEndMargin is how far before the end of a clip a configured poster offset is capped.
+// Seeking to exactly the reported duration decodes no frame and ffmpeg fails with "Nothing
+// was written"; 0.1s is a frame or more at any rate a phone records.
+const posterEndMargin = 0.1
+
 // ErrVideoToolsMissing is wrapped by every error caused by ffmpeg being unavailable.
 // Callers pair it with VideoToolsHint to tell the user what to install. Docker users do
 // not see it: ensureVideoTools runs DDPHOTOS_FFMPEG_INSTALLER and re-resolves in-process,
@@ -402,7 +407,9 @@ func VideoOversizeWarning(outputPath string) string {
 // rotated source needs no special handling here. The JPEG is a temporary: callers hand it
 // to ResizeImage so the poster goes through exactly the same WebP ladder, quality settings
 // and metadata stripping as every other image in the album.
-func ExtractPoster(inputPath, outputPath string, duration float64) error {
+//
+// offset is the timestamp in seconds, normally from PosterOffset.
+func ExtractPoster(inputPath, outputPath string, offset float64) error {
 	tools, err := ensureVideoTools()
 	if err != nil {
 		return fmt.Errorf("%w\n    %s", err, VideoToolsHint())
@@ -411,7 +418,6 @@ func ExtractPoster(inputPath, outputPath string, duration float64) error {
 		return fmt.Errorf("create output directory: %w", err)
 	}
 
-	offset := PosterOffset(duration)
 	// -ss before -i seeks by keyframe, which is both far faster and, for the first
 	// second of a clip, accurate enough for a thumbnail.
 	err = runCommand(tools.ffmpeg,
@@ -429,10 +435,24 @@ func ExtractPoster(inputPath, outputPath string, duration float64) error {
 	return nil
 }
 
-// PosterOffset returns the timestamp to grab the poster frame from. It favors one second
-// in, which skips the fade-in and autofocus hunting most clips open with, but falls back to
-// the midpoint of anything shorter than two seconds so the seek stays inside the clip.
-func PosterOffset(duration float64) float64 {
+// PosterOffset returns the timestamp to grab the poster frame from.
+//
+// requested is the video's {N} photogen.txt prefix (Photo.PosterOffset), nil when unset.
+// It is forgiving rather than validated: a negative value becomes 0, NaN (which cannot be
+// clamped) is treated as unset, and one past the end is capped posterEndMargin before it.
+// With an unknown duration only the lower bound applies.
+//
+// Unset, it favors one second in, which skips the fade-in and autofocus hunting most clips
+// open with, but falls back to the midpoint of anything shorter than two seconds so the
+// seek stays inside the clip.
+func PosterOffset(duration float64, requested *float64) float64 {
+	if requested != nil && !math.IsNaN(*requested) {
+		offset := max(*requested, 0)
+		if duration > 0 {
+			offset = min(offset, max(duration-posterEndMargin, 0))
+		}
+		return offset
+	}
 	if duration <= 0 {
 		return 0
 	}

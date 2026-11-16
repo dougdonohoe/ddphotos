@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -43,8 +44,8 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 	// the source's current bytes (OutputUpToDate), so a source replaced under the same
 	// name is redone, and with the color pipeline the source needs.
 	cache := ap.Config.MetaCache
-	upToDateFor := func(outPath string, photo *Photo) bool {
-		return !ap.Config.Force && cache.OutputUpToDate(outPath, photo.AbsolutePath, photo.colorProfile())
+	upToDateFor := func(outPath string, photo *Photo, variant string) bool {
+		return !ap.Config.Force && cache.OutputUpToDate(outPath, photo.AbsolutePath, variant, photo.colorProfile())
 	}
 	sizes := AllSizes()
 	items := make([]resizeWork, 0, len(ap.Photos)*len(sizes))
@@ -66,14 +67,15 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			}
 			// Tracked whether they need writing, so -clean keeps existing files.
 			ap.Config.TrackFile(vw.videoPath)
-			vw.needVideo = !upToDateFor(vw.videoPath, photo)
+			vw.needVideo = !upToDateFor(vw.videoPath, photo, "")
 			for _, size := range sizes {
 				p := ap.OutputPath(string(size), ap.photoOutputName(photo, ".webp"))
 				ap.Config.TrackFile(p)
 				vw.posterPaths[size] = p
 				// Every poster is checked, not just until one is stale, so each one without
-				// a stamp gets adopted on this run.
-				if !upToDateFor(p, photo) {
+				// a stamp gets adopted on this run. The variant redoes the posters when
+				// the photogen.txt offset changes, which the source's stamp cannot see.
+				if !upToDateFor(p, photo, posterVariant(photo)) {
 					vw.needPoster = true
 				}
 			}
@@ -89,7 +91,7 @@ func (ap *AlbumProcessor) ResizePhotos() error {
 			outPath := ap.OutputPath(string(size), ap.photoOutputName(photo, ".webp"))
 			// Tracked whether it needs writing, so -clean keeps existing files.
 			ap.Config.TrackFile(outPath)
-			if upToDateFor(outPath, photo) {
+			if upToDateFor(outPath, photo, "") {
 				upToDate++
 				continue
 			}
@@ -198,6 +200,18 @@ func (ap *AlbumProcessor) runVideoWorkers(videos []videoWork, numWorkers int) er
 	return runPool(videos, max(numWorkers/2, 1), ap.processVideo)
 }
 
+// posterVariant is the cache variant a video poster is stamped with: empty for the default
+// frame, so posters written before poster offsets existed stay up to date, and the
+// photogen.txt offset otherwise. It is the value as written rather than as clamped to the
+// clip, which at worst redoes a poster whose frame did not actually move.
+func posterVariant(photo *Photo) string {
+	o := photo.PosterOffset
+	if o == nil {
+		return ""
+	}
+	return "offset=" + strconv.FormatFloat(*o, 'f', -1, 64)
+}
+
 // processVideo produces the MP4 and the poster stills for one source video.
 func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 	source := item.photo.AbsolutePath
@@ -248,9 +262,11 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		duration = item.photo.Duration
 	}
 	posterJPEG := filepath.Join(tmpDir, "poster.jpg")
-	fmt.Printf("    [v%d] %d/%d extracting poster: %s...\n", workerID, item.photoIndex, item.totalCount, source)
+	offset := PosterOffset(duration, item.photo.PosterOffset)
+	fmt.Printf("    [v%d] %d/%d extracting poster at %.3fs: %s...\n",
+		workerID, item.photoIndex, item.totalCount, offset, source)
 	start := time.Now()
-	if err := ExtractPoster(source, posterJPEG, duration); err != nil {
+	if err := ExtractPoster(source, posterJPEG, offset); err != nil {
 		return err
 	}
 	fmt.Printf("    [v%d] %d/%d extracted poster: %s in %s\n",
@@ -268,7 +284,7 @@ func (ap *AlbumProcessor) processVideo(workerID int, item videoWork) error {
 		// Stamped with the video, not the temporary JPEG: the video is what a later run
 		// compares against.
 		if res.Written {
-			ap.Config.MetaCache.RecordDerived(outPath, source, "")
+			ap.Config.MetaCache.RecordDerived(outPath, source, posterVariant(item.photo))
 		}
 		ap.printDone("v", workerID, item.photoIndex, item.totalCount, res, start)
 	}

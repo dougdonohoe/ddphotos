@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -56,6 +58,9 @@ type Photo struct {
 	SourcePath   string `json:"sourcePath"` // relative path from album source base directory to the original source file
 	Description  string `json:"description,omitempty"`
 	IsVideo      bool   `json:"-"` // true when the source is a video container rather than a still
+	// PosterOffset is the time in seconds of a video's poster frame, from a {N} prefix on
+	// its photogen.txt caption; nil uses the default. See cutPosterOffset and PosterOffset.
+	PosterOffset *float64 `json:"-"`
 	// OutputStem, when set, replaces FileName's stem in output names: "IMG_1.png" makes
 	// IMG_1.png.webp. disambiguateStems sets it on every photo of a same-stem group but the
 	// first, which is the only way two sources can avoid writing one IMG_1.webp.
@@ -642,6 +647,29 @@ func parsePhotogenLine(line string) (name, desc string) {
 	return name, strings.TrimSpace(desc)
 }
 
+// posterOffsetPrefix matches the {N} a video's photogen.txt caption may open with, naming
+// the time in seconds of its poster frame: "clip.mov {2.1}Sunset at the pier".
+var posterOffsetPrefix = regexp.MustCompile(`^\{\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*}\s*`)
+
+// cutPosterOffset splits a {N} poster offset off the front of a video's caption. prefix
+// is the text removed, exactly as written, so the sync caption merge can put it back in
+// front of a caption it rewrites. Without a prefix, offset is nil and caption is desc.
+//
+// Only videos are passed through it: a photo's caption that happens to open with {3} is
+// left as written. A malformed prefix such as {abc} is not one, and stays in the caption.
+// The value is not range-checked here; PosterOffset clamps it to the clip.
+func cutPosterOffset(desc string) (offset *float64, prefix, caption string) {
+	m := posterOffsetPrefix.FindStringSubmatch(desc)
+	if m == nil {
+		return nil, "", desc
+	}
+	v, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		return nil, "", desc
+	}
+	return &v, m[0], desc[len(m[0]):]
+}
+
 // photogenFileName is the per-directory captions and manual-order file. It sits in an
 // album's source folder, is written by hand or by the DD Photos App, and is the one file
 // in a synced album's folder that sync will not overwrite wholesale.
@@ -718,7 +746,12 @@ func (m *photoMatcher) applyCaptions(pd *photoDescriptions) {
 				continue
 			}
 			for _, p := range m.photos(entry) {
-				p.Description = pd.descriptions[entry]
+				desc := pd.descriptions[entry]
+				p.PosterOffset = nil
+				if p.IsVideo {
+					p.PosterOffset, _, desc = cutPosterOffset(desc)
+				}
+				p.Description = desc
 			}
 		}
 	}

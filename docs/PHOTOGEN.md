@@ -282,7 +282,8 @@ original filename, so nothing leaks the source name and the clip and its posters
 line up.
 
 The poster is taken one second in, or at the midpoint of anything shorter than two
-seconds, which skips the fade-in and autofocus hunting most clips open with.
+seconds, which skips the fade-in and autofocus hunting most clips open with. To pick a
+different moment for one clip, see [Choosing the poster frame](#choosing-the-poster-frame).
 
 Videos appear in `index.json` with `kind`, `duration` and an extra `src` entry; a still
 carries none of the three:
@@ -310,6 +311,24 @@ than EXIF.
 
 A video **can** be an album cover (its poster is used for `cover.jpg`), but it **cannot**
 be the site hero image, which must be a still.
+
+### Choosing the poster frame
+
+*Advanced.* A video's poster is its still in the grid, and the album cover when the cover
+is a video. To take it from a different moment than the default, start the clip's
+`photogen.txt` caption with the time in seconds, in braces:
+
+```
+ocean.mov {0.5}Waves at the lighthouse
+sunset.mov {12}
+```
+
+The braces are not part of the caption, and a clip with only an offset has no caption. Any
+number is accepted: a negative value means the first frame, and one past the end of the
+clip means its last moments. Changing it regenerates that clip's poster on the next run.
+
+The braces only mean this on a video. A photo caption that starts with `{3}` is shown as
+written. In a synced album, sync keeps a clip's offset when it rewrites the caption.
 
 ### Live Photos and other same-name pairs
 

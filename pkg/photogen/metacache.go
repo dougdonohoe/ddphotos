@@ -270,10 +270,14 @@ func (mc *MetaCache) DerivedUpToDate(outputPath, sourcePath, variant, colorProfi
 //   - A nil cache, or a source that cannot be stat'd, falls back to "the output exists",
 //     the rule this replaces, rather than regenerating everything.
 //
+// variant is the settings the output is made with, compared for equality as in
+// DerivedUpToDate; "" means the defaults. An unstamped output was made with the defaults,
+// so it is adopted only for "".
+//
 // colorProfile is the source's ColorProfile. An output of a source that needs conversion
 // to sRGB is out of date unless its stamp is from the current color pipeline, and is never
 // adopted, since an unstamped output predates the pipeline by definition.
-func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath, colorProfile string) bool {
+func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath, variant, colorProfile string) bool {
 	if _, err := os.Stat(outputPath); err != nil {
 		return false // output missing (or unreadable): regenerate
 	}
@@ -290,7 +294,7 @@ func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath, colorProfile string)
 	defer mc.mu.Unlock()
 	entry, ok := mc.derived[key]
 	if !ok {
-		if needsColorConversion(colorProfile) {
+		if variant != "" || needsColorConversion(colorProfile) {
 			return false
 		}
 		mc.derived[key] = derivedCacheEntry{
@@ -302,7 +306,7 @@ func (mc *MetaCache) OutputUpToDate(outputPath, sourcePath, colorProfile string)
 		return true
 	}
 	return entry.ModTimeNano == stat.ModTime().UnixNano() && entry.Size == stat.Size() &&
-		entry.colorCurrent(colorProfile)
+		entry.Variant == variant && entry.colorCurrent(colorProfile)
 }
 
 // NeedsColorUpdate reports whether OutputUpToDate would say no only because the output
