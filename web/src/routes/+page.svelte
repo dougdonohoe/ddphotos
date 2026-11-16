@@ -619,11 +619,19 @@
 		visibility: var(--lock-vis, visible);
 	}
 
+	/* Clicks fall through to the title link's stretched ::after. Without this, anything here
+	   that makes its own stacking context (the description's opacity, the icon's transform)
+	   paints over the ::after and swallows the click. Links turn pointer events back on. */
 	.album-info {
 		padding: 1rem 1rem 0.5rem;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
+		pointer-events: none;
+	}
+
+	.album-info :global(a) {
+		pointer-events: auto;
 	}
 
 	.album-info h2 {
