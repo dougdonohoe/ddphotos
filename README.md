@@ -9,7 +9,7 @@
 
 ## News
 
-**Video tutorial is here!** Watch [the DD Photos tutorial on YouTube↗](https://www.youtube.com/watch?v=vCta2m40SDs)
+**Video tutorial is here!** Watch the [DD Photos tutorial on YouTube↗](https://www.youtube.com/watch?v=vCta2m40SDs)
 to see the DD Photos App installed, a site published, and a tour of a site's features.
 
 **PhotoPrism support is here!** Starting with version 1.34.0, DD Photos can sync albums straight from
