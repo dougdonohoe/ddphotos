@@ -45,10 +45,16 @@
                          panel edge.
      padding, 2nd value  gap left and right. 0.095 gives roughly even margins all round.
    Change the image margins (-0.10 top, -0.14 bottom) only to tune the two sides
-   independently; the PNG's own space is what they are cancelling. */
+   independently; the PNG's own space is what they are cancelling.
+
+   Those margins let the image's transparent edges overhang the panel (a little at the
+   top, more at the bottom). Chrome's focus ring wraps overflowing children, so it bulged
+   around the overhang when tabbing. overflow: hidden clips it, nothing visible is lost,
+   and the ring stays a rectangle. */
 .site-logo {
   --w: calc(var(--hero-h) * 0.85);
   display: block;
+  overflow: hidden;
   width: fit-content;
   margin: 0 auto;
   padding: calc(var(--w) * 0.09) calc(var(--w) * 0.095);
