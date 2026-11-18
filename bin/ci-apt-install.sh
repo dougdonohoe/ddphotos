@@ -13,10 +13,21 @@
 # Observed here: this step normally takes ~20s, but has taken 312s, and once 3943s (66
 # minutes) before the job hit its timeout-minutes and was killed.
 #
-# So: bound the wait, retry a few times, and if the Azure mirror is still unusable, fall
-# back to archive.ubuntu.com. The fallback is deliberately *only* a fallback. The Azure
-# mirror is much faster than archive.ubuntu.com from inside Azure when it is healthy, so
+# So: bound the wait, retry a few times, and if the runner's mirror is still unusable, fall
+# back to archive.ubuntu.com. The fallback is deliberately *only* a fallback. The cloud
+# mirror is much faster than archive.ubuntu.com from inside its cloud when it is healthy, so
 # switching unconditionally would slow down every green run to fix the rare red one.
+#
+# The mirror is not always Azure. Since 11/2026 some runners come up with
+# us-east-2.ec2.archive.ubuntu.com instead, and every CI failure in this step on 11/18 was
+# one of those: the fallback only knew to remove Azure, so the retry went back to the same
+# stalled EC2 mirror and timed out a second time. The fallback now replaces whatever mirror
+# the runner was given.
+#
+# --no-install-recommends roughly halves the download. libvips-dev's Recommends pull in
+# libvips-doc (and with it mkdocs, numpy, nltk), libvips-tools, ghostscript and the AVIF
+# encoder plugin, none of which a cgo build of photogen uses. Fewer bytes over a degraded
+# mirror means fewer runs that hit the timeout at all.
 #
 # The `timeout` wrapper is the part that actually catches the common case, and it is not
 # redundant with Acquire::*::Timeout. A degraded Azure mirror does not fail, it *trickles*:
@@ -37,12 +48,18 @@ if [[ $# -eq 0 ]]; then
 fi
 
 # GitHub's runner images do not name the mirror host in ubuntu.sources at all. They point
-# it at `mirror+file:/etc/apt/apt-mirrors.txt`, a priority-ordered list with Azure first
-# and archive.ubuntu.com already present below it. That fallback is useless to us on its
-# own: apt's mirror method only advances down the list on a hard failure, never on
-# slowness, which is the mode that actually bites here. So the Azure line has to be
-# removed outright rather than merely deprioritised.
+# it at `mirror+file:/etc/apt/apt-mirrors.txt`, a priority-ordered list with the cloud
+# mirror first and archive.ubuntu.com already present below it. That fallback is useless to
+# us on its own: apt's mirror method only advances down the list on a hard failure, never
+# on slowness, which is the mode that actually bites here. So the list is rewritten to
+# archive.ubuntu.com alone rather than merely reordered.
 MIRRORLIST=/etc/apt/apt-mirrors.txt
+FALLBACK_MIRROR=http://archive.ubuntu.com/ubuntu/
+
+# Any regional or cloud-specific mirror: azure.archive.ubuntu.com,
+# us-east-2.ec2.archive.ubuntu.com, us.archive.ubuntu.com and so on. Never matches the bare
+# archive.ubuntu.com, which is the fallback itself.
+MIRROR_HOST_RE='[a-z0-9.-]+\.archive\.ubuntu\.com'
 
 # Older images (and anything not using a mirrorlist) do name the host directly.
 SOURCES_FILES=(/etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list)
@@ -67,35 +84,36 @@ APT_TIMEOUT="${APT_TIMEOUT:-120}"
 
 apt_install() {
     sudo timeout "$APT_TIMEOUT" apt-get update
-    sudo timeout "$APT_TIMEOUT" apt-get install -y "$@"
+    sudo timeout "$APT_TIMEOUT" apt-get install -y --no-install-recommends "$@"
 }
+
+# For the warning only: which mirror the runner was given.
+PRIMARY_MIRROR=$(grep -ohE "$MIRROR_HOST_RE" "$MIRRORLIST" "${SOURCES_FILES[@]}" 2>/dev/null | head -1 || true)
 
 if apt_install "$@"; then
     exit 0
 fi
 
-echo "::warning::apt failed or exceeded ${APT_TIMEOUT}s against azure.archive.ubuntu.com; retrying via archive.ubuntu.com"
+echo "::warning::apt failed or exceeded ${APT_TIMEOUT}s against ${PRIMARY_MIRROR:-the default mirror}; retrying via archive.ubuntu.com"
 
 # A timeout can land mid-unpack, which leaves dpkg wedged and makes the retry fail with
 # "dpkg was interrupted" before it ever reaches the network. Cheap to run, no-op otherwise.
 sudo dpkg --configure -a || true
 
-if [[ -f "$MIRRORLIST" ]] && grep -q 'azure\.archive\.ubuntu\.com' "$MIRRORLIST"; then
+if [[ -f "$MIRRORLIST" ]]; then
     echo "--- $MIRRORLIST before ---"
     cat "$MIRRORLIST"
-    # Only drop the Azure entry if the list still has somewhere else to fetch from.
-    if grep -v 'azure\.archive\.ubuntu\.com' "$MIRRORLIST" | grep -q '://'; then
-        sudo sed -i '/azure\.archive\.ubuntu\.com/d' "$MIRRORLIST"
-    else
-        echo 'http://archive.ubuntu.com/ubuntu/' | sudo tee "$MIRRORLIST" >/dev/null
-    fi
+    # Replaced wholesale rather than filtered. Other entries in the list (security.ubuntu.com,
+    # say) would still be tried first if they sat above archive.ubuntu.com, and the point is
+    # one known-good mirror. security.ubuntu.com is its own sources entry, unaffected.
+    echo "$FALLBACK_MIRROR" | sudo tee "$MIRRORLIST" >/dev/null
     echo "--- $MIRRORLIST after ---"
     cat "$MIRRORLIST"
 fi
 
 for f in "${SOURCES_FILES[@]}"; do
     if [[ -f "$f" ]]; then
-        sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' "$f"
+        sudo sed -i -E "s#${MIRROR_HOST_RE}#archive.ubuntu.com#g" "$f"
     fi
 done
 
