@@ -372,21 +372,23 @@
 								<a
 									href={resolve(`albums/${album.slug}`)}
 									class="album-link"
-									onkeydown={handleCardKeydown}>{album.title}</a
+									onkeydown={handleCardKeydown}
 								>
+									{album.title}
+								</a>
 							</h2>
 							{#if album.description}
 								<!-- eslint-disable-next-line svelte/no-at-html-tags -- albums.yaml description, HTML is intentional -->
 								<p class="description">{@html album.description}</p>
 							{/if}
 							<p class="meta">
-								<span
-									>{albumMetaText(
+								<span>
+									{albumMetaText(
 										album.count - (album.videoCount ?? 0),
 										album.videoCount ?? 0,
 										album.dateSpan
-									)}</span
-								>
+									)}
+								</span>
 								{#if album.hasLongDescription}
 									<ScrollText
 										class="long-description-icon"
