@@ -103,16 +103,18 @@
 			{/if}
 		</div>
 		<div class="built-with">
-			<button class="about-btn" onclick={openAbout} aria-label="About this site"
-				><Info size={16} aria-hidden="true" /></button
-			>
+			<button class="about-btn" onclick={openAbout} aria-label="About this site">
+				<Info size={16} aria-hidden="true" />
+			</button>
 			Built with joy by
 			<a
 				class="footer-link"
 				href="https://github.com/dougdonohoe/ddphotos"
 				target="_blank"
-				rel="noopener">DD Photos</a
+				rel="noopener"
 			>
+				DD Photos
+			</a>
 			· <a class="footer-link" href={resolve('/privacy')}>Privacy</a>
 		</div>
 	</footer>
@@ -122,9 +124,9 @@
 			<div class="modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
 				<div class="modal-header">
 					<span id="about-title"><Info size={25} aria-hidden="true" /> About DD Photos</span>
-					<button class="modal-close" onclick={closeAbout} aria-label="Close"
-						><X size={20} aria-hidden="true" /></button
-					>
+					<button class="modal-close" onclick={closeAbout} aria-label="Close">
+						<X size={20} aria-hidden="true" />
+					</button>
 				</div>
 				<dl class="modal-body">
 					<dt>Built</dt>

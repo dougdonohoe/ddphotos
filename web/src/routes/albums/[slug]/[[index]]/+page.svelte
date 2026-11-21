@@ -1418,8 +1418,10 @@
 					href={link.href}
 					id={link.id || undefined}
 					target={link.newTab ? '_blank' : undefined}
-					rel={link.newTab ? 'noopener' : undefined}>{link.label}</a
+					rel={link.newTab ? 'noopener' : undefined}
 				>
+					{link.label}
+				</a>
 			{/each}
 			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</nav>
@@ -1447,9 +1449,9 @@
 				<p>
 					Sorry, there is no photo No. {invalidPhotoIndex} in this album. Maybe we lost the negative?
 				</p>
-				<a href={resolve(`albums/${slug}`)} class="back-link"
-					><ArrowLeft size={16} aria-hidden="true" />Back to '{album.title}'</a
-				>
+				<a href={resolve(`albums/${slug}`)} class="back-link">
+					<ArrowLeft size={16} aria-hidden="true" />Back to '{album.title}'
+				</a>
 			</div>
 		{/if}
 
@@ -1472,8 +1474,9 @@
 					aria-expanded={longExpanded}
 					aria-controls="long-description"
 					onclick={toggleLongDescription}
-					><span>{longExpanded ? 'Close' : 'Show more'}</span></button
 				>
+					<span>{longExpanded ? 'Close' : 'Show more'}</span>
+				</button>
 			{/if}
 		{/if}
 
