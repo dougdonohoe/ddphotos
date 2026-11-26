@@ -45,7 +45,7 @@ bin/photogen -resize -index -clean -doit  # developer mode
 | `-no-css`           | `false`       | Ignore `settings.css`, building the site with no custom CSS (cannot be combined with `-css`)                                                         |
 | `-customization`    | *(auto)*      | Path to a customization file; overrides the default `<config-dir>/customization.yaml` (see [customization.yaml](CONFIGURATION.md#customizationyaml)) |
 | `-no-customization` | `false`       | Ignore `customization.yaml` even when present                                                                                                        |
-| `-clean`            | `false`       | Remove stale files from processed album directories after a run (requires `-resize` and `-index`; cannot be combined with `-limit`)                  |
+| `-clean`            | `false`       | Remove stale output after a run, including album directories no longer in `albums.yaml` (requires `-resize` and `-index`; not with `-limit`)         |
 | `-hero-only`        | `false`       | Regenerate the hero image only; skips all album processing and index/JSON generation (see [Hero Image](CONFIGURATION.md#hero-image))                 |
 | `-sync-dir`         | *(from env)*  | Sync directory override (overrides `DDPHOTOS_SYNC_DIR`)                                                                                              |
 | `-sync-only`        | `false`       | Sync albums from their providers, then exit without resizing or indexing (see [Syncing](#syncing))                                                   |
