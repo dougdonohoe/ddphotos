@@ -404,6 +404,14 @@ func main() {
 		fmt.Println()
 	}
 
+	// Every slug in albums.yaml, taken before -album narrows the list: -clean removes
+	// album directories that match none of them, and a filtered run must not mistake the
+	// albums it skipped for ones that were renamed or removed.
+	configuredSlugs := make([]string, 0, len(albums))
+	for _, a := range albums {
+		configuredSlugs = append(configuredSlugs, a.Slug)
+	}
+
 	// Filter albums if -album flag is set
 	if *albumFlag != "" {
 		slugs := make(map[string]bool)
@@ -511,7 +519,7 @@ func main() {
 			for _, a := range albums {
 				slugs = append(slugs, a.Slug)
 			}
-			if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, cfg.ExpectedFiles(), cfg.DryRun, warn); err != nil {
+			if err := photogen.CleanOutputDir(cfg.SiteOutputPath(), slugs, configuredSlugs, cfg.ExpectedFiles(), cfg.DryRun, warn); err != nil {
 				fmt.Printf("Error cleaning output dir: %s\n", err)
 				exit.SetExitRequestedWithError(err)
 			}
